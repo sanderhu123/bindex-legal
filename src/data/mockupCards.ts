@@ -43,13 +43,13 @@ export const mockCards: Card[] = [
   },
   {
     id: 'base1-58',
-    name: 'Machop',
+    name: 'Pikachu',
     number: '058/102',
     set: 'Base Set',
     rarity: 'Common',
     artist: 'Ken Sugimori',
     imageUrl: 'https://images.pokemontcg.io/base1/58.png',
-    pokedexNumber: 66, // Kanto
+    pokedexNumber: 25, // Kanto
   },
   {
     id: 'jungle-1',
@@ -93,24 +93,91 @@ export const mockCards: Card[] = [
   },
   {
     id: 'sv1-1',
-    name: 'Sprigatito',
+    name: 'Pineco',
     number: '001/198',
     set: 'Scarlet & Violet',
     rarity: 'Common',
     artist: 'Souichirou Gunjima',
     imageUrl: 'https://images.pokemontcg.io/sv1/1.png',
+    pokedexNumber: 204, // Johto
+  },
+  {
+    id: 'sv1-13',
+    name: 'Sprigatito',
+    number: '013/198',
+    set: 'Scarlet & Violet',
+    rarity: 'Common',
+    artist: 'Souichirou Gunjima',
+    imageUrl: 'https://images.pokemontcg.io/sv1/13.png',
     pokedexNumber: 906, // Paldea
   },
   {
     id: 'sv1-15',
-    name: 'Pikachu',
+    name: 'Meowscarada',
     number: '015/198',
     set: 'Scarlet & Violet',
-    rarity: 'Common',
+    rarity: 'Rare Holo',
     artist: 'Mitsuhiro Arita',
     imageUrl: 'https://images.pokemontcg.io/sv1/15.png',
-    pokedexNumber: 25, // Kanto
+    pokedexNumber: 908, // Paldea
   },
+  // Variant cards for testing variant placement
+  {
+    id: 'base1-4-reverse-holo',
+    name: 'Charizard',
+    number: '004/102',
+    set: 'Base Set',
+    rarity: 'Rare Holo',
+    artist: 'Mitsuhiro Arita',
+    imageUrl: 'https://images.pokemontcg.io/base1/4.png',
+    pokedexNumber: 6, // Kanto
+    variant: 'reverse-holo',
+  },
+  {
+    id: 'base1-58-reverse-holo',
+    name: 'Pikachu',
+    number: '058/102',
+    set: 'Base Set',
+    rarity: 'Common',
+    artist: 'Ken Sugimori',
+    imageUrl: 'https://images.pokemontcg.io/base1/58.png',
+    pokedexNumber: 25, // Kanto
+    variant: 'reverse-holo',
+  },
+  {
+    id: 'base1-58-poke-ball',
+    name: 'Pikachu',
+    number: '058/102',
+    set: 'Base Set',
+    rarity: 'Common',
+    artist: 'Ken Sugimori',
+    imageUrl: 'https://images.pokemontcg.io/base1/58.png',
+    pokedexNumber: 25, // Kanto
+    variant: 'poke-ball',
+  },
+  {
+    id: 'sv1-13-reverse-holo',
+    name: 'Sprigatito',
+    number: '013/198',
+    set: 'Scarlet & Violet',
+    rarity: 'Common',
+    artist: 'Souichirou Gunjima',
+    imageUrl: 'https://images.pokemontcg.io/sv1/13.png',
+    pokedexNumber: 906, // Paldea
+    variant: 'reverse-holo',
+  },
+  {
+    id: 'sv1-13-master-ball',
+    name: 'Sprigatito',
+    number: '013/198',
+    set: 'Scarlet & Violet',
+    rarity: 'Common',
+    artist: 'Souichirou Gunjima',
+    imageUrl: 'https://images.pokemontcg.io/sv1/13.png',
+    pokedexNumber: 906, // Paldea
+    variant: 'master-ball',
+  },
+  
 ];
 
 

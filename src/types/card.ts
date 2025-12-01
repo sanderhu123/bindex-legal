@@ -1,4 +1,9 @@
 /**
+ * Card variant types
+ */
+export type CardVariant = 'base' | 'reverse-holo' | 'poke-ball' | 'master-ball';
+
+/**
  * Card interface representing a Pokémon TCG card
  */
 export interface Card {
@@ -10,5 +15,6 @@ export interface Card {
   artist: string;
   imageUrl: string;
   pokedexNumber?: number; // For region mode
+  variant?: CardVariant; // Card variant (defaults to 'base' if not specified)
 }
 

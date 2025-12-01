@@ -1,0 +1,311 @@
+# Project Rules - Pokémon TCG Binder Tracker
+
+## Technology Stack
+
+### Frontend Framework
+- **React Native** with **Expo** (SDK 50+)
+- **TypeScript** for type safety
+- **React Navigation** for navigation
+- **React Native Paper** or **NativeBase** for UI components (minimal design)
+
+### Backend & Database
+- **Supabase** (recommended) or **Firebase** for:
+  - Authentication (email/password, social login)
+  - PostgreSQL (Supabase) or Firestore (Firebase) for data storage
+  - Real-time sync
+  - Offline persistence
+  
+**Why Supabase?**
+- Better free tier for beginners
+- PostgreSQL (SQL) is more intuitive for relational data
+- Better for complex queries (filtering, searching)
+- Open source and modern developer experience
+- Excellent TypeScript support
+
+### State Management
+- **React Context API** or **Zustand** for global state
+- **React Query/TanStack Query** for server state and caching
+
+### Data Fetching
+- **Pokémon TCG API** for card data
+  - API Key: `4fff0075-cf2c-4871-aed2-53afa1cfc65a` (stored in environment variables)
+  - Base URL: `https://api.pokemontcg.io/v2/`
+- **Mockup data** for testing/development
+- Use **React Query** for API calls and caching
+
+### Image Handling
+- **expo-image** or **react-native-fast-image** for optimized image loading
+- Cache card images locally for offline access
+- Show placeholder while images load
+
+### Storage
+- **AsyncStorage** or **Expo SecureStore** for local storage
+- **Supabase PostgreSQL** (recommended) or **Firebase Firestore** for cloud storage
+- Implement offline-first approach
+
+### NFC Integration
+- **react-native-nfc-manager** or **expo-nfc** for NFC tag reading
+- Handle NFC intents for app launch
+- Read NFC tag ID on app launch
+- Link NFC tag ID to binder (1:1 relationship)
+- Validate tag ownership (check userId)
+
+## Project Structure
+
+```
+TrackerApp/
+├── src/
+│   ├── components/          # Reusable UI components
+│   │   ├── Card/
+│   │   ├── Binder/
+│   │   ├── Grid/
+│   │   └── List/
+│   ├── screens/             # Screen components
+│   │   ├── Home/
+│   │   ├── BinderList/
+│   │   ├── BinderDetail/
+│   │   ├── CardDetail/
+│   │   └── CreateBinder/
+│   ├── navigation/          # Navigation setup
+│   ├── services/            # API calls, Firebase, etc.
+│   │   ├── api/
+│   │   ├── auth/
+│   │   └── storage/
+│   ├── hooks/               # Custom React hooks
+│   ├── context/             # React Context providers
+│   ├── types/               # TypeScript type definitions
+│   ├── utils/               # Helper functions
+│   └── constants/           # App constants
+├── assets/                  # Images, fonts, etc.
+├── app.json                 # Expo configuration
+├── package.json
+└── tsconfig.json
+```
+
+## Code Standards
+
+### TypeScript
+- **Always use TypeScript** - no `.js` files
+- Define types/interfaces for all data structures
+- Use strict mode in `tsconfig.json`
+- Avoid `any` type - use proper types or `unknown`
+
+### Component Structure
+```typescript
+// Component file structure
+import React from 'react';
+import { View, Text } from 'react-native';
+import { styles } from './ComponentName.styles';
+import { ComponentNameProps } from './ComponentName.types';
+
+export const ComponentName: React.FC<ComponentNameProps> = ({ prop1, prop2 }) => {
+  // Component logic
+  
+  return (
+    <View style={styles.container}>
+      {/* JSX */}
+    </View>
+  );
+};
+```
+
+### Naming Conventions
+- **Components**: PascalCase (`CardGrid`, `BinderCard`)
+- **Files**: PascalCase for components (`CardGrid.tsx`), camelCase for utilities (`formatCardNumber.ts`)
+- **Variables/Functions**: camelCase (`getCardData`, `userBinders`)
+- **Constants**: UPPER_SNAKE_CASE (`MAX_BINDERS`, `API_BASE_URL`)
+- **Types/Interfaces**: PascalCase (`Card`, `Binder`, `CollectionMode`)
+
+### File Organization
+- One component per file
+- Co-locate related files (`.tsx`, `.types.ts`, `.styles.ts`, `.test.tsx`)
+- Keep components small and focused
+- Extract reusable logic into custom hooks
+
+### Styling
+- Use **StyleSheet** from React Native
+- Separate styles into `.styles.ts` files
+- Use consistent spacing (multiples of 4 or 8)
+- Follow minimal design principles
+- Support dark mode (use theme system)
+
+### Error Handling
+- Always handle API errors gracefully
+- Show user-friendly error messages
+- Log errors for debugging
+- Provide fallback UI for error states
+
+### Performance
+- Use `React.memo` for expensive components
+- Implement virtualized lists for large card collections
+- Lazy load images
+- Cache API responses
+- Optimize re-renders
+
+## Data Models
+
+### Card
+```typescript
+interface Card {
+  id: string;
+  name: string;
+  number: string;        // Set number (e.g., "001/150")
+  set: string;           // Set name
+  rarity: string;        // Rarity (Common, Uncommon, Rare, etc.)
+  artist: string;
+  imageUrl: string;
+  pokedexNumber?: number; // For region mode
+}
+```
+
+### Binder
+```typescript
+interface Binder {
+  id: string;
+  userId: string;
+  name: string;
+  collectionMode: 'master-set' | 'region' | 'custom';
+  set?: string;          // For master-set mode
+  region?: string;       // For region mode
+  variantsToTrack?: string[];  // ['base', 'reverse-holo', 'poke-ball', 'master-ball']
+  variantPlacement?: 'grouped' | 'end';  // How to display variants
+  layoutPreference?: 'auto' | '3x3' | '4x3';  // Grid layout preference
+  nfcTagId?: string;     // NFC tag ID (1:1 relationship, optional for manual binders)
+  cardIds: string[];    // IDs of owned cards
+  createdAt: Date;
+  updatedAt: Date;
+}
+```
+
+### User
+```typescript
+interface User {
+  id: string;
+  email: string;
+  displayName?: string;
+  binders: string[];     // Binder IDs
+}
+```
+
+## Collection Modes
+
+### Master Set Mode
+- One set per binder
+- **All sets supported**, organized by era
+- Sets ordered: Newest to oldest within each era
+- Cards ordered by set number (default)
+- Filter by rarity, artist
+- Show set completion percentage
+
+### Region Mode
+- One Pokédex region per binder
+- **All regions supported**: Kanto, Johto, Hoenn, Sinnoh, Unova, Kalos, Alola, Galar, Paldea
+- Regions ordered: Oldest to newest (Kanto → Paldea)
+- Cards ordered by Pokédex number (default)
+- Filter by rarity, artist
+- Show region completion percentage
+
+### Custom Mode
+- Any cards from any set/region
+- User-defined ordering/filtering
+- Default ordering: Newest first
+- Show total cards owned
+
+## UI/UX Guidelines
+
+### Grid View
+- Default: 3x3 grid
+- Option to switch to 4x3 grid
+- Responsive layout
+- Card images with overlay for missing cards (transparency)
+
+### List View
+- Compact list for faster searching
+- Show key info: name, number, set, rarity
+- Quick actions (add/remove)
+
+### Missing Cards
+- Show card with reduced opacity (e.g., 0.5)
+- Visual indicator that card is missing
+- Still clickable to view details
+
+### Progress Tracking
+- Show completion percentage prominently
+- Format: "45/100 cards (45%)"
+- Visual progress bar
+
+### Search & Filter
+- Search within current binder
+- Global search across all binders
+- Filters based on collection mode
+- Persistent filter preferences
+
+## API Integration
+
+### Pokémon TCG API
+- Use official Pokémon TCG API
+- Cache responses locally
+- Handle rate limiting
+- Fallback to mockup data if API fails
+
+### Mockup Data
+- Create comprehensive mockup data for testing
+- Include various sets, rarities, artists
+- Match real API response structure
+
+## Testing Strategy
+
+### Development Testing
+- Use mockup data during development
+- Test all collection modes
+- Test offline functionality
+- Test sync between devices
+
+### User Testing
+- Test with real API before release
+- Verify image loading performance
+- Test on both iOS and Android
+
+## Security & Privacy
+
+- Secure authentication (Supabase Auth recommended, or Firebase Auth)
+  - Email/Password authentication
+  - Social login: Google, Apple (iOS)
+- Row Level Security (RLS) policies in Supabase for data access control
+- Encrypt sensitive data
+- User data privacy compliance
+- Secure API key storage (environment variables)
+- Never commit API keys to Git
+
+## Deployment
+
+### Development
+- Use Expo Go for testing
+- Test on physical devices
+
+### Production
+- Build with EAS Build (Expo Application Services)
+- Deploy to App Store and Google Play Store
+- Use environment variables for API keys
+
+## Dependencies Management
+
+- Keep dependencies up to date
+- Use exact versions for critical packages
+- Document why each major dependency is needed
+- Regular security audits
+
+## Git & Version Control
+
+- Use meaningful commit messages
+- Create branches for features
+- Keep main branch stable
+- Document breaking changes
+
+## Documentation
+
+- Comment complex logic
+- Document API endpoints
+- Keep README updated
+- Document setup instructions
+

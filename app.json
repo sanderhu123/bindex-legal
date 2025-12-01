@@ -1,0 +1,25 @@
+{
+  "expo": {
+    "name": "trackerapp",
+    "slug": "trackerapp",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.trackerapp"
+    },
+    "android": {
+      "package": "com.trackerapp"
+    },
+    "web": {},
+    "extra": {
+      "eas": {
+        "projectId": "cf1e564f-825d-49a4-8d35-2c596b286813"
+      }
+    }
+  }
+}

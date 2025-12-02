@@ -1,0 +1,287 @@
+import React, { useState, useEffect } from 'react';
+import { View, StyleSheet, Text, ScrollView, ActivityIndicator, Dimensions, TouchableOpacity } from 'react-native';
+import { getCardById } from '../../services/api/pokemonApi';
+import { getBinderById } from '../../services/supabase/binders';
+import { addCardToBinder, removeCardFromBinder } from '../../services/supabase/cards';
+import CardImage from '../../components/Card/CardImage';
+import CardDetails from '../../components/Card/CardDetails';
+import type { Card, Binder } from '../../types';
+
+interface CardDetailScreenProps {
+  navigation: any;
+  route: any;
+}
+
+/**
+ * Card Detail Screen
+ * Displays full details of a single card
+ */
+export default function CardDetailScreen({ navigation, route }: CardDetailScreenProps) {
+  const { cardId, binderId } = route.params || {};
+  const [card, setCard] = useState<Card | null>(null);
+  const [binder, setBinder] = useState<Binder | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [isOwned, setIsOwned] = useState(false);
+  const [isUpdating, setIsUpdating] = useState(false);
+
+  // Fetch card and binder data
+  useEffect(() => {
+    async function fetchData() {
+      if (!cardId || !binderId) {
+        setError('Missing card ID or binder ID');
+        setLoading(false);
+        return;
+      }
+
+      try {
+        setLoading(true);
+        setError(null);
+
+        // Fetch card and binder in parallel
+        const [cardData, binderData] = await Promise.all([
+          getCardById(cardId),
+          getBinderById(binderId),
+        ]);
+
+        if (!cardData) {
+          setError('Card not found');
+          setLoading(false);
+          return;
+        }
+
+        if (!binderData) {
+          setError('Binder not found');
+          setLoading(false);
+          return;
+        }
+
+        setCard(cardData);
+        setBinder(binderData);
+        // Set initial ownership status
+        setIsOwned(binderData.cardIds.includes(cardData.id));
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to load card details');
+        console.error('Error fetching card detail:', err);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchData();
+  }, [cardId, binderId]);
+
+  // Update header title when card loads
+  useEffect(() => {
+    if (card) {
+      navigation.setOptions({ title: card.name });
+    }
+  }, [card, navigation]);
+
+  // Loading state
+  if (loading) {
+    return (
+      <View style={styles.centerContainer}>
+        <ActivityIndicator size="large" color="#007AFF" />
+        <Text style={styles.loadingText}>Loading card...</Text>
+      </View>
+    );
+  }
+
+  // Error state
+  if (error || !card || !binder) {
+    return (
+      <View style={styles.centerContainer}>
+        <Text style={styles.errorText}>
+          {error || 'Card or binder not found'}
+        </Text>
+      </View>
+    );
+  }
+
+  // Handle ownership toggle
+  const handleToggleOwnership = async () => {
+    if (!binder || !card || isUpdating) return;
+
+    // Store previous state for rollback
+    const previousIsOwned = isOwned;
+    const previousBinder = { ...binder };
+
+    // Optimistic update
+    const newIsOwned = !isOwned;
+    setIsOwned(newIsOwned);
+    setIsUpdating(true);
+
+    // Update binder state optimistically
+    const updatedCardIds = newIsOwned
+      ? [...binder.cardIds, card.id]
+      : binder.cardIds.filter((id) => id !== card.id);
+    setBinder({ ...binder, cardIds: updatedCardIds });
+
+    // Sync with database
+    try {
+      if (newIsOwned) {
+        await addCardToBinder(binder.id, card.id, card.variant);
+      } else {
+        await removeCardFromBinder(binder.id, card.id, card.variant);
+      }
+    } catch (err) {
+      // Rollback on error
+      setIsOwned(previousIsOwned);
+      setBinder(previousBinder);
+      setError(err instanceof Error ? err.message : 'Failed to update card ownership');
+      console.error('Failed to update card ownership:', err);
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  // Calculate image size to fit on screen without scrolling
+  const screenDimensions = Dimensions.get('window');
+  const screenWidth = screenDimensions.width;
+  const screenHeight = screenDimensions.height;
+  
+  // Estimate space needed for other elements:
+  // - Header: ~60px
+  // - Padding top/bottom: 24px (12px * 2)
+  // - Card details: ~110px (name, number, set, rarity, artist with reduced spacing)
+  // - Button: ~48px
+  // - Spacing between elements: ~24px (8px * 3)
+  const estimatedOtherContentHeight = 60 + 24 + 110 + 48 + 24; // ~266px
+  const availableHeight = screenHeight - estimatedOtherContentHeight;
+  
+  // Card aspect ratio is 0.7 (height/width), so height = width * 0.7
+  // We need: width * 0.7 <= availableHeight
+  // Therefore: width <= availableHeight / 0.7
+  const maxWidthFromHeight = availableHeight / 0.7;
+  
+  // Use the smaller of: screen width minus padding, max from height, or 250px (reduced from 280px)
+  const imageWidth = Math.min(
+    screenWidth - 24, // Screen width minus padding (12px * 2)
+    maxWidthFromHeight,
+    250 // Absolute max (reduced to ensure fit)
+  );
+
+  return (
+    <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
+      {/* Card Image - Smaller size */}
+      <View style={styles.imageContainer}>
+        <CardImage
+          source={card.imageUrl}
+          isMissing={!isOwned}
+          aspectRatio={0.7}
+          style={[styles.cardImage, { width: imageWidth }]}
+        />
+      </View>
+
+      {/* Card Information */}
+      <View style={styles.detailsContainer}>
+        <CardDetails
+          card={card}
+          variant="full"
+          showSet={true}
+          showRarity={true}
+          showArtist={true}
+          showVariantBadge={true}
+          showPokedex={false}
+        />
+      </View>
+
+      {/* Ownership Toggle Button */}
+      <View style={styles.buttonContainer}>
+        <TouchableOpacity
+          style={[
+            styles.toggleButton,
+            isOwned ? styles.toggleButtonOwned : styles.toggleButtonMissing,
+            isUpdating && styles.toggleButtonDisabled,
+          ]}
+          onPress={handleToggleOwnership}
+          disabled={isUpdating}
+          activeOpacity={0.7}
+        >
+          {isUpdating ? (
+            <ActivityIndicator size="small" color="#fff" />
+          ) : (
+            <Text style={styles.toggleButtonText}>
+              {isOwned ? 'Mark as Missing' : 'Mark as Owned'}
+            </Text>
+          )}
+        </TouchableOpacity>
+      </View>
+    </ScrollView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#fff',
+  },
+  contentContainer: {
+    padding: 12,
+    alignItems: 'center',
+    flexGrow: 1,
+  },
+  centerContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+    backgroundColor: '#fff',
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 16,
+    color: '#666',
+  },
+  errorText: {
+    fontSize: 16,
+    color: '#d32f2f',
+    textAlign: 'center',
+  },
+  imageContainer: {
+    width: '100%',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  cardImage: {
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  detailsContainer: {
+    width: '100%',
+    paddingHorizontal: 4,
+    marginBottom: 8,
+  },
+  buttonContainer: {
+    width: '100%',
+    marginTop: 0,
+  },
+  toggleButton: {
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 48,
+  },
+  toggleButtonOwned: {
+    backgroundColor: '#4CAF50',
+  },
+  toggleButtonMissing: {
+    backgroundColor: '#007AFF',
+  },
+  toggleButtonDisabled: {
+    opacity: 0.6,
+  },
+  toggleButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+});
+

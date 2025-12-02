@@ -9,6 +9,7 @@ interface LoginScreenProps {
 export default function LoginScreen({ navigation }: LoginScreenProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [stayLoggedIn, setStayLoggedIn] = useState(true);
   const [loading, setLoading] = useState(false);
   const [socialLoading, setSocialLoading] = useState<'google' | 'apple' | null>(null);
 
@@ -87,6 +88,17 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
         onChangeText={setPassword}
         secureTextEntry
       />
+      
+      <TouchableOpacity
+        style={styles.checkboxContainer}
+        onPress={() => setStayLoggedIn(!stayLoggedIn)}
+        activeOpacity={0.7}
+      >
+        <View style={[styles.checkbox, stayLoggedIn && styles.checkboxChecked]}>
+          {stayLoggedIn && <Text style={styles.checkmark}>✓</Text>}
+        </View>
+        <Text style={styles.checkboxLabel}>Stay logged in</Text>
+      </TouchableOpacity>
       
       <TouchableOpacity
         style={[styles.button, (loading || socialLoading !== null) && styles.buttonDisabled]}
@@ -199,6 +211,36 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 20,
     fontSize: 14,
+  },
+  checkboxContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+    marginTop: 4,
+  },
+  checkbox: {
+    width: 20,
+    height: 20,
+    borderWidth: 2,
+    borderColor: '#ddd',
+    borderRadius: 4,
+    marginRight: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#fff',
+  },
+  checkboxChecked: {
+    backgroundColor: '#007AFF',
+    borderColor: '#007AFF',
+  },
+  checkmark: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  checkboxLabel: {
+    fontSize: 14,
+    color: '#333',
   },
 });
 

@@ -14,9 +14,9 @@ export async function calculateBinderProgress(binder: Binder): Promise<number> {
       // Get all cards in the set
       const setCards = await getCardsBySet(binder.set);
       
-      // Calculate total expected cards based on variants to track
-      const variantsToTrack = binder.variantsToTrack || ['base'];
-      totalExpectedCards = setCards.length * variantsToTrack.length;
+      // For now, we only track unique cards (not variants separately)
+      // TODO: When variant tracking is implemented, multiply by variantsToTrack.length
+      totalExpectedCards = setCards.length;
     } else if (binder.collectionMode === 'region' && binder.region) {
       // Get all cards in the region
       const regionCards = await getCardsByRegion(binder.region as Region);

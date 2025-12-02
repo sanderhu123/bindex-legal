@@ -1,5 +1,6 @@
 import type { Card } from '../../types';
 import { mockCards, mockSets, type MockSet } from '../../data/mockupCards';
+import { getPokemonByRegion } from '../../data/pokemonRegions';
 
 export type PokemonSet = MockSet;
 
@@ -33,40 +34,24 @@ export async function getCardsBySet(setName: string): Promise<Card[]> {
 }
 
 /**
- * Get cards for a Pokédex region using simple number ranges.
- * This is enough for testing Region mode.
+ * Get cards for a Pokédex region using hardcoded Pokémon list.
+ * Returns Card objects with Pokémon names and Pokédex numbers, but no card images.
  */
 export async function getCardsByRegion(region: Region): Promise<Card[]> {
-  const byRegion = (card: Card) => {
-    if (!card.pokedexNumber) return false;
-
-    const n = card.pokedexNumber;
-
-    switch (region) {
-      case 'Kanto':
-        return n >= 1 && n <= 151;
-      case 'Johto':
-        return n >= 152 && n <= 251;
-      case 'Hoenn':
-        return n >= 252 && n <= 386;
-      case 'Sinnoh':
-        return n >= 387 && n <= 493;
-      case 'Unova':
-        return n >= 494 && n <= 649;
-      case 'Kalos':
-        return n >= 650 && n <= 721;
-      case 'Alola':
-        return n >= 722 && n <= 809;
-      case 'Galar':
-        return n >= 810 && n <= 898;
-      case 'Paldea':
-        return n >= 906; // Simple check; good enough for testing
-      default:
-        return false;
-    }
-  };
-
-  return mockCards.filter(byRegion);
+  const pokemonList = getPokemonByRegion(region);
+  
+  // Convert Pokémon entries to Card objects
+  return pokemonList.map((pokemon) => ({
+    id: `region-${region}-${pokemon.number}`, // Unique ID for each Pokémon in region
+    name: pokemon.name,
+    number: `#${pokemon.number.toString().padStart(3, '0')}`, // Format as #001, #002, etc.
+    set: `${region} Region`, // Use region name as "set"
+    rarity: '', // No rarity for Region mode
+    artist: '', // No artist for Region mode
+    imageUrl: undefined, // No card images for Region mode
+    pokedexNumber: pokemon.number,
+    variant: 'base' as const, // Always base for Region mode
+  }));
 }
 
 /**
@@ -76,5 +61,6 @@ export async function getCardById(id: string): Promise<Card | null> {
   const card = mockCards.find((c) => c.id === id);
   return card || null;
 }
+
 
 

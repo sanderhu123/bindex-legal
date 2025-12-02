@@ -5,6 +5,7 @@ import OnboardingScreen from '../screens/Onboarding/OnboardingScreen';
 import BinderListScreen from '../screens/BinderList/BinderListScreen';
 import BinderDetailScreen from '../screens/BinderDetail/BinderDetailScreen';
 import CardListScreen from '../screens/CardList/CardListScreen';
+import CardDetailScreen from '../screens/CardDetail/CardDetailScreen';
 
 export type MainStackParamList = {
   NfcHandler: { tagId?: string } | undefined;
@@ -12,6 +13,7 @@ export type MainStackParamList = {
   BinderList: undefined;
   BinderDetail: { binderId: string };
   CardList: undefined;
+  CardDetail: { cardId: string; binderId: string };
 };
 
 const Stack = createStackNavigator<MainStackParamList>();
@@ -49,6 +51,11 @@ export default function AppNavigator() {
         name="CardList"
         component={CardListScreen}
         options={{ title: 'Cards' }}
+      />
+      <Stack.Screen
+        name="CardDetail"
+        component={CardDetailScreen}
+        options={{ title: 'Card Details' }}
       />
     </Stack.Navigator>
   );

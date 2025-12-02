@@ -1,12 +1,12 @@
-import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, Text, ActivityIndicator, ScrollView, TouchableOpacity, Dimensions } from 'react-native';
-import { Image } from 'expo-image';
+import React, { useState, useEffect, useMemo } from 'react';
+import { View, StyleSheet, Text, ActivityIndicator, ScrollView, TouchableOpacity, Dimensions, TextInput } from 'react-native';
 import { getBinderById } from '../../services/supabase/binders';
 import { addCardToBinder, removeCardFromBinder } from '../../services/supabase/cards';
 import { getCardsBySet, getCardsByRegion, type Region } from '../../services/api/pokemonApi';
 import type { Binder, Card } from '../../types';
+import CardGrid from '../../components/Card/CardGrid';
+import CardList from '../../components/Card/CardList';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CONTAINER_PADDING = 20; // Padding from container style
 const CARD_MARGIN = 2; // Margin between cards (margin: 2 means 2px on all sides, 4px gap between cards)
 
@@ -18,8 +18,8 @@ const CARD_MARGIN = 2; // Margin between cards (margin: 2 means 2px on all sides
  * For N cards: N * (cardWidth + CARD_MARGIN * 2) = grid width
  * Therefore: cardWidth = (grid width / N) - (CARD_MARGIN * 2)
  */
-function calculateCardWidth(columns: number): number {
-  const gridWidth = SCREEN_WIDTH - ((CONTAINER_PADDING - CARD_MARGIN) * 2);
+function calculateCardWidth(screenWidth: number, columns: number): number {
+  const gridWidth = screenWidth - ((CONTAINER_PADDING - CARD_MARGIN) * 2);
   return (gridWidth / columns) - (CARD_MARGIN * 2);
 }
 
@@ -41,6 +41,17 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedRarities, setSelectedRarities] = useState<Set<string>>(new Set());
+  const [screenWidth, setScreenWidth] = useState(Dimensions.get('window').width);
+
+  // Update screen width on dimension changes
+  useEffect(() => {
+    const subscription = Dimensions.addEventListener('change', ({ window }) => {
+      setScreenWidth(window.width);
+    });
+    return () => subscription?.remove();
+  }, []);
 
   useEffect(() => {
     async function fetchBinder() {
@@ -259,6 +270,45 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
     }
   }, [binder, navigation]);
 
+  // Get all unique rarities from cards (must be before conditional returns)
+  const availableRarities = useMemo(() => {
+    const rarities = new Set<string>();
+    cards.forEach((card) => {
+      if (card.rarity) {
+        rarities.add(card.rarity);
+      }
+    });
+    return Array.from(rarities).sort();
+  }, [cards]);
+
+  // Filter cards based on search query and rarity (must be before conditional returns)
+  const filteredCards = useMemo(() => {
+    let filtered = cards;
+    
+    // Apply search filter
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase().trim();
+      filtered = filtered.filter((card) => {
+        // Search by name (case-insensitive)
+        const nameMatch = card.name.toLowerCase().includes(query);
+        // Search by number (e.g., "001/150" or "#001" or just "1")
+        const numberMatch = card.number.toLowerCase().includes(query);
+        // Search by Pokédex number (for Region mode)
+        const pokedexMatch = card.pokedexNumber 
+          ? card.pokedexNumber.toString().includes(query.replace('#', '').replace(/\D/g, ''))
+          : false;
+        return nameMatch || numberMatch || pokedexMatch;
+      });
+    }
+    
+    // Apply rarity filter
+    if (selectedRarities.size > 0) {
+      filtered = filtered.filter((card) => selectedRarities.has(card.rarity));
+    }
+    
+    return filtered;
+  }, [cards, searchQuery, selectedRarities]);
+
   if (loading && !binder) {
     return (
       <View style={styles.centerContainer}>
@@ -290,24 +340,14 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
     binder.collectionMode === 'region' ? 'Region' :
     'Custom';
 
+  // Progress is always calculated from all cards (not filtered)
   const ownedCount = cards.filter(c => c.isOwned).length;
   const totalCount = cards.length;
   const progressPercentage = totalCount > 0 ? Math.round((ownedCount / totalCount) * 100) : 0;
 
   // Determine grid columns based on layout preference (default to 3)
   const gridColumns = binder.layoutPreference === '4x3' ? 4 : 3;
-  const cardWidth = calculateCardWidth(gridColumns);
-
-  // Helper function to get variant badge info
-  const getVariantBadge = (variant?: string) => {
-    if (!variant || variant === 'base') return null;
-    const badges: Record<string, { label: string; color: string }> = {
-      'reverse-holo': { label: 'RH', color: '#FFD700' }, // Gold
-      'poke-ball': { label: 'PB', color: '#FF6B6B' }, // Red
-      'master-ball': { label: 'MB', color: '#4ECDC4' }, // Teal
-    };
-    return badges[variant] || null;
-  };
+  const cardWidth = Math.max(50, calculateCardWidth(screenWidth, gridColumns)); // Ensure minimum width of 50
 
   return (
     <ScrollView style={styles.container}>
@@ -353,85 +393,78 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
             </TouchableOpacity>
           </View>
         </View>
+        
+        {/* Search Input */}
+        <View style={styles.searchContainer}>
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search by name or number..."
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            autoCapitalize="none"
+            autoCorrect={false}
+          />
+        </View>
+        
+        {/* Rarity Filter */}
+        {availableRarities.length > 0 && (
+          <View style={styles.filterContainer}>
+            <Text style={styles.filterLabel}>Filter by Rarity:</Text>
+            <View style={styles.filterButtons}>
+              {availableRarities.map((rarity) => {
+                const isSelected = selectedRarities.has(rarity);
+                return (
+                  <TouchableOpacity
+                    key={rarity}
+                    style={[styles.filterButton, isSelected && styles.filterButtonActive]}
+                    onPress={() => {
+                      const newSelected = new Set(selectedRarities);
+                      if (isSelected) {
+                        newSelected.delete(rarity);
+                      } else {
+                        newSelected.add(rarity);
+                      }
+                      setSelectedRarities(newSelected);
+                    }}
+                  >
+                    <Text style={[styles.filterButtonText, isSelected && styles.filterButtonTextActive]}>
+                      {rarity}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+              {selectedRarities.size > 0 && (
+                <TouchableOpacity
+                  style={styles.clearFilterButton}
+                  onPress={() => setSelectedRarities(new Set())}
+                >
+                  <Text style={styles.clearFilterButtonText}>Clear</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          </View>
+        )}
+        
         <Text style={styles.helpText}>Tap a card to mark it as owned/unowned</Text>
         {loading ? (
           <ActivityIndicator size="small" color="#007AFF" style={styles.cardsLoading} />
-        ) : cards.length === 0 ? (
-          <Text style={styles.emptyText}>No cards found for this binder.</Text>
+        ) : filteredCards.length === 0 ? (
+          <Text style={styles.emptyText}>
+            {searchQuery.trim() ? 'No cards match your search.' : 'No cards found for this binder.'}
+          </Text>
         ) : viewMode === 'grid' ? (
-          <View style={styles.grid}>
-            {cards.map((card) => (
-              <TouchableOpacity
-                key={card.id}
-                style={[styles.cardItem, { width: cardWidth }]}
-                onPress={() => handleToggleCard(card)}
-                activeOpacity={0.7}
-              >
-                <View style={[styles.cardImageContainer, !card.isOwned && styles.missingCard]}>
-                  <Image
-                    source={{ uri: card.imageUrl }}
-                    style={styles.cardImage}
-                    contentFit="contain"
-                    transition={200}
-                  />
-                  <View style={styles.checkboxOverlay}>
-                    <Text style={styles.checkbox}>
-                      {card.isOwned ? '☑' : '☐'}
-                    </Text>
-                  </View>
-                  {getVariantBadge(card.variant) && (
-                    <View style={[styles.variantBadge, { backgroundColor: getVariantBadge(card.variant)!.color }]}>
-                      <Text style={styles.variantBadgeText}>
-                        {getVariantBadge(card.variant)!.label}
-                      </Text>
-                    </View>
-                  )}
-                </View>
-                <Text style={styles.cardName} numberOfLines={1}>
-                  {card.name}
-                </Text>
-                <Text style={styles.cardNumber}>{card.number}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
+          <CardGrid
+            cards={filteredCards}
+            onCardPress={handleToggleCard}
+            binderId={binder.id}
+            cardWidth={cardWidth}
+          />
         ) : (
-          <View style={styles.list}>
-            {cards.map((card) => (
-              <TouchableOpacity
-                key={card.id}
-                style={[styles.listItem, !card.isOwned && styles.missingListItem]}
-                onPress={() => handleToggleCard(card)}
-                activeOpacity={0.7}
-              >
-                <View style={[styles.listImageContainer, !card.isOwned && styles.missingCard]}>
-                  <Image
-                    source={{ uri: card.imageUrl }}
-                    style={styles.listImage}
-                    contentFit="contain"
-                    transition={200}
-                  />
-                  {getVariantBadge(card.variant) && (
-                    <View style={[styles.listVariantBadge, { backgroundColor: getVariantBadge(card.variant)!.color }]}>
-                      <Text style={styles.listVariantBadgeText}>
-                        {getVariantBadge(card.variant)!.label}
-                      </Text>
-                    </View>
-                  )}
-                </View>
-                <View style={styles.listInfo}>
-                  <Text style={styles.listCardName}>{card.name}</Text>
-                  <Text style={styles.listCardNumber}>{card.number}</Text>
-                  <Text style={styles.listCardSet}>{card.set}</Text>
-                  <Text style={styles.listCardRarity}>{card.rarity}</Text>
-                </View>
-                <View style={styles.listCheckbox}>
-                  <Text style={styles.checkbox}>
-                    {card.isOwned ? '☑' : '☐'}
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            ))}
-          </View>
+          <CardList
+            cards={filteredCards}
+            onCardPress={handleToggleCard}
+            binderId={binder.id}
+          />
         )}
       </View>
     </ScrollView>
@@ -512,6 +545,66 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     fontStyle: 'italic',
   },
+  searchContainer: {
+    marginBottom: 12,
+  },
+  searchInput: {
+    backgroundColor: '#f5f5f5',
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    fontSize: 16,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+  },
+  filterContainer: {
+    marginBottom: 12,
+  },
+  filterLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 8,
+  },
+  filterButtons: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  filterButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+    backgroundColor: '#f0f0f0',
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+    marginRight: 8,
+    marginBottom: 8,
+  },
+  filterButtonActive: {
+    backgroundColor: '#007AFF',
+    borderColor: '#007AFF',
+  },
+  filterButtonText: {
+    fontSize: 14,
+    color: '#666',
+    fontWeight: '500',
+  },
+  filterButtonTextActive: {
+    color: '#fff',
+  },
+  clearFilterButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+    backgroundColor: '#ff6b6b',
+    marginRight: 8,
+    marginBottom: 8,
+  },
+  clearFilterButtonText: {
+    fontSize: 14,
+    color: '#fff',
+    fontWeight: '500',
+  },
   cardsContainer: {
     marginTop: 24,
   },
@@ -556,154 +649,6 @@ const styles = StyleSheet.create({
     color: '#999',
     fontStyle: 'italic',
     marginTop: 12,
-  },
-  grid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginHorizontal: -CARD_MARGIN,
-  },
-  cardItem: {
-    margin: CARD_MARGIN,
-    marginBottom: 8,
-    alignItems: 'center',
-  },
-  cardImageContainer: {
-    width: '100%',
-    aspectRatio: 0.7, // Card aspect ratio (height/width)
-    backgroundColor: '#f5f5f5',
-    borderRadius: 8,
-    overflow: 'hidden',
-    position: 'relative',
-    borderWidth: 1,
-    borderColor: '#ddd',
-  },
-  cardImage: {
-    width: '100%',
-    height: '100%',
-  },
-  checkboxOverlay: {
-    position: 'absolute',
-    top: 4,
-    right: 4,
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
-    borderRadius: 4,
-    padding: 2,
-  },
-  checkbox: {
-    fontSize: 16,
-  },
-  cardName: {
-    fontSize: 12,
-    color: '#333',
-    fontWeight: '500',
-    marginTop: 4,
-    textAlign: 'center',
-  },
-  cardNumber: {
-    fontSize: 10,
-    color: '#666',
-    textAlign: 'center',
-    marginTop: 2,
-  },
-  missingCard: {
-    opacity: 0.5,
-  },
-  variantBadge: {
-    position: 'absolute',
-    bottom: 4,
-    left: 4,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-    minWidth: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  variantBadgeText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#fff',
-    textShadowColor: 'rgba(0, 0, 0, 0.3)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
-    includeFontPadding: false,
-  },
-  // List view styles
-  list: {
-    marginTop: 8,
-  },
-  listItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 8,
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
-  },
-  missingListItem: {
-    opacity: 0.6,
-  },
-  listImageContainer: {
-    width: 60,
-    height: 84, // 60 * 0.7 aspect ratio
-    backgroundColor: '#f5f5f5',
-    borderRadius: 6,
-    overflow: 'hidden',
-    marginRight: 12,
-    borderWidth: 1,
-    borderColor: '#ddd',
-  },
-  listImage: {
-    width: '100%',
-    height: '100%',
-  },
-  listInfo: {
-    flex: 1,
-  },
-  listCardName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 4,
-  },
-  listCardNumber: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 2,
-  },
-  listCardSet: {
-    fontSize: 12,
-    color: '#999',
-    marginBottom: 2,
-  },
-  listCardRarity: {
-    fontSize: 12,
-    color: '#999',
-  },
-  listCheckbox: {
-    marginLeft: 8,
-  },
-  listVariantBadge: {
-    position: 'absolute',
-    bottom: 2,
-    left: 2,
-    paddingHorizontal: 4,
-    paddingVertical: 2,
-    borderRadius: 3,
-    minWidth: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  listVariantBadgeText: {
-    fontSize: 9,
-    fontWeight: '700',
-    color: '#fff',
-    textShadowColor: 'rgba(0, 0, 0, 0.3)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
-    includeFontPadding: false,
   },
 });
 

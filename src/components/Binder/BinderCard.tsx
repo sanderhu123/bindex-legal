@@ -1,15 +1,17 @@
 import React from 'react';
 import { View, StyleSheet, Text, TouchableOpacity } from 'react-native';
 import type { Binder } from '../../types';
+import ProgressBar from '../Progress/ProgressBar';
 
 interface BinderCardProps {
   binder: Binder;
   completionPercentage: number;
+  totalCards: number;
   onPress: () => void;
   onDelete?: () => void;
 }
 
-export default function BinderCard({ binder, completionPercentage, onPress, onDelete }: BinderCardProps) {
+export default function BinderCard({ binder, completionPercentage, totalCards, onPress, onDelete }: BinderCardProps) {
   // Format collection mode for display
   const getCollectionModeLabel = (mode: string): string => {
     switch (mode) {
@@ -68,16 +70,12 @@ export default function BinderCard({ binder, completionPercentage, onPress, onDe
           {getSubtitle() && ` • ${getSubtitle()}`}
         </Text>
 
-        <View style={styles.progressContainer}>
-          <View style={styles.progressBarBackground}>
-            <View
-              style={[styles.progressBarFill, { width: `${completionPercentage}%` }]}
-            />
-          </View>
-          <Text style={styles.progressText}>
-            {binder.cardIds.length} cards • {Math.round(completionPercentage)}%
-          </Text>
-        </View>
+        <ProgressBar
+          current={binder.cardIds.length}
+          total={totalCards}
+          percentage={completionPercentage}
+          format="ratio"
+        />
       </View>
     </TouchableOpacity>
   );
@@ -145,25 +143,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666',
     marginBottom: 12,
-  },
-  progressContainer: {
-    marginTop: 4,
-  },
-  progressBarBackground: {
-    height: 8,
-    backgroundColor: '#e0e0e0',
-    borderRadius: 4,
-    marginBottom: 6,
-    overflow: 'hidden',
-  },
-  progressBarFill: {
-    height: '100%',
-    backgroundColor: '#007AFF',
-    borderRadius: 4,
-  },
-  progressText: {
-    fontSize: 12,
-    color: '#666',
   },
 });
 

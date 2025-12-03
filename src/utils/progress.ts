@@ -2,6 +2,29 @@ import type { Binder } from '../types';
 import { getCardsBySet, getCardsByRegion, type Region } from '../services/api/pokemonApi';
 
 /**
+ * Get total number of cards expected for a binder
+ * Returns the total count of cards based on collection mode
+ */
+export async function getBinderTotalCards(binder: Binder): Promise<number> {
+  try {
+    if (binder.collectionMode === 'master-set' && binder.set) {
+      const setCards = await getCardsBySet(binder.set);
+      return setCards.length;
+    } else if (binder.collectionMode === 'region' && binder.region) {
+      const regionCards = await getCardsByRegion(binder.region as Region);
+      return regionCards.length;
+    } else if (binder.collectionMode === 'custom') {
+      // For custom binders, we can't know the total without a target
+      return 0;
+    }
+    return 0;
+  } catch (error) {
+    console.error('Error getting binder total cards:', error);
+    return 0;
+  }
+}
+
+/**
  * Calculate completion percentage for a binder
  * Returns a percentage (0-100)
  */
@@ -36,7 +59,7 @@ export async function calculateBinderProgress(binder: Binder): Promise<number> {
     }
 
     const percentage = (ownedCards / totalExpectedCards) * 100;
-    return Math.min(100, Math.max(0, percentage)); // Clamp between 0-100
+    return Math.min(100, Math.max(0, Math.round(percentage))); // Clamp between 0-100 and round to whole number
   } catch (error) {
     console.error('Error calculating binder progress:', error);
     // Return 0 on error to avoid breaking the UI

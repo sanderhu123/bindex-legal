@@ -1,3 +1,3 @@
 // Helper functions exports
-export { calculateBinderProgress } from './progress';
+export { calculateBinderProgress, getBinderTotalCards } from './progress';
 

@@ -1,11 +1,16 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { View, StyleSheet, Text, ActivityIndicator, ScrollView, TouchableOpacity, Dimensions, TextInput } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, StyleSheet, Text, ActivityIndicator, ScrollView, TouchableOpacity, Dimensions } from 'react-native';
 import { getBinderById } from '../../services/supabase/binders';
 import { addCardToBinder, removeCardFromBinder } from '../../services/supabase/cards';
 import { getCardsBySet, getCardsByRegion, type Region } from '../../services/api/pokemonApi';
 import type { Binder, Card } from '../../types';
 import CardGrid from '../../components/Card/CardGrid';
 import CardList from '../../components/Card/CardList';
+import { useCardSearch } from '../../hooks/useCardSearch';
+import { useCardFilter, useAvailableRarities, type OwnershipFilter } from '../../hooks/useCardFilter';
+import SearchBar from '../../components/Search/SearchBar';
+import FilterPanel from '../../components/Filter/FilterPanel';
+import ProgressBar from '../../components/Progress/ProgressBar';
 
 const CONTAINER_PADDING = 20; // Padding from container style
 const CARD_MARGIN = 2; // Margin between cards (margin: 2 means 2px on all sides, 4px gap between cards)
@@ -43,6 +48,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedRarities, setSelectedRarities] = useState<Set<string>>(new Set());
+  const [ownershipFilter, setOwnershipFilter] = useState<OwnershipFilter>('all');
   const [screenWidth, setScreenWidth] = useState(Dimensions.get('window').width);
 
   // Update screen width on dimension changes
@@ -270,44 +276,17 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
     }
   }, [binder, navigation]);
 
-  // Get all unique rarities from cards (must be before conditional returns)
-  const availableRarities = useMemo(() => {
-    const rarities = new Set<string>();
-    cards.forEach((card) => {
-      if (card.rarity) {
-        rarities.add(card.rarity);
-      }
-    });
-    return Array.from(rarities).sort();
-  }, [cards]);
+  // Get all unique rarities from cards
+  const availableRarities = useAvailableRarities(cards);
 
-  // Filter cards based on search query and rarity (must be before conditional returns)
-  const filteredCards = useMemo(() => {
-    let filtered = cards;
-    
-    // Apply search filter
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase().trim();
-      filtered = filtered.filter((card) => {
-        // Search by name (case-insensitive)
-        const nameMatch = card.name.toLowerCase().includes(query);
-        // Search by number (e.g., "001/150" or "#001" or just "1")
-        const numberMatch = card.number.toLowerCase().includes(query);
-        // Search by Pokédex number (for Region mode)
-        const pokedexMatch = card.pokedexNumber 
-          ? card.pokedexNumber.toString().includes(query.replace('#', '').replace(/\D/g, ''))
-          : false;
-        return nameMatch || numberMatch || pokedexMatch;
-      });
-    }
-    
-    // Apply rarity filter
-    if (selectedRarities.size > 0) {
-      filtered = filtered.filter((card) => selectedRarities.has(card.rarity));
-    }
-    
-    return filtered;
-  }, [cards, searchQuery, selectedRarities]);
+  // Apply search filter
+  const searchedCards = useCardSearch(cards, searchQuery);
+
+  // Apply filter (ownership + rarity)
+  const filteredCards = useCardFilter(searchedCards, {
+    selectedRarities,
+    ownershipFilter,
+  });
 
   if (loading && !binder) {
     return (
@@ -358,12 +337,13 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
       
       {/* Progress Summary */}
       <View style={styles.progressContainer}>
-        <Text style={styles.progressText}>
-          {ownedCount} / {totalCount} cards ({progressPercentage}%)
-        </Text>
-        <View style={styles.progressBarContainer}>
-          <View style={[styles.progressBar, { width: `${progressPercentage}%` }]} />
-        </View>
+        <ProgressBar
+          current={ownedCount}
+          total={totalCount}
+          percentage={progressPercentage}
+          format="full"
+          textSize="large"
+        />
       </View>
       {__DEV__ && binder && (
         <Text style={styles.debugText}>
@@ -395,55 +375,29 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
         </View>
         
         {/* Search Input */}
-        <View style={styles.searchContainer}>
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Search by name or number..."
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            autoCapitalize="none"
-            autoCorrect={false}
-          />
-        </View>
+        <SearchBar
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          placeholder="Search by name or number..."
+        />
         
-        {/* Rarity Filter */}
-        {availableRarities.length > 0 && (
-          <View style={styles.filterContainer}>
-            <Text style={styles.filterLabel}>Filter by Rarity:</Text>
-            <View style={styles.filterButtons}>
-              {availableRarities.map((rarity) => {
-                const isSelected = selectedRarities.has(rarity);
-                return (
-                  <TouchableOpacity
-                    key={rarity}
-                    style={[styles.filterButton, isSelected && styles.filterButtonActive]}
-                    onPress={() => {
-                      const newSelected = new Set(selectedRarities);
-                      if (isSelected) {
-                        newSelected.delete(rarity);
-                      } else {
-                        newSelected.add(rarity);
-                      }
-                      setSelectedRarities(newSelected);
-                    }}
-                  >
-                    <Text style={[styles.filterButtonText, isSelected && styles.filterButtonTextActive]}>
-                      {rarity}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-              {selectedRarities.size > 0 && (
-                <TouchableOpacity
-                  style={styles.clearFilterButton}
-                  onPress={() => setSelectedRarities(new Set())}
-                >
-                  <Text style={styles.clearFilterButtonText}>Clear</Text>
-                </TouchableOpacity>
-              )}
-            </View>
-          </View>
-        )}
+        {/* Filter Panel */}
+        <FilterPanel
+          availableRarities={availableRarities}
+          selectedRarities={selectedRarities}
+          onRarityToggle={(rarity) => {
+            const newSelected = new Set(selectedRarities);
+            if (newSelected.has(rarity)) {
+              newSelected.delete(rarity);
+            } else {
+              newSelected.add(rarity);
+            }
+            setSelectedRarities(newSelected);
+          }}
+          onClearRarities={() => setSelectedRarities(new Set())}
+          ownershipFilter={ownershipFilter}
+          onOwnershipFilterChange={setOwnershipFilter}
+        />
         
         <Text style={styles.helpText}>Tap a card to mark it as owned/unowned</Text>
         {loading ? (
@@ -505,24 +459,6 @@ const styles = StyleSheet.create({
     marginTop: 16,
     marginBottom: 16,
   },
-  progressText: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 8,
-  },
-  progressBarContainer: {
-    width: '100%',
-    height: 8,
-    backgroundColor: '#e0e0e0',
-    borderRadius: 4,
-    overflow: 'hidden',
-  },
-  progressBar: {
-    height: '100%',
-    backgroundColor: '#007AFF',
-    borderRadius: 4,
-  },
   debugText: {
     fontSize: 12,
     color: '#999',
@@ -544,66 +480,6 @@ const styles = StyleSheet.create({
     color: '#666',
     marginBottom: 12,
     fontStyle: 'italic',
-  },
-  searchContainer: {
-    marginBottom: 12,
-  },
-  searchInput: {
-    backgroundColor: '#f5f5f5',
-    borderRadius: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    fontSize: 16,
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
-  },
-  filterContainer: {
-    marginBottom: 12,
-  },
-  filterLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 8,
-  },
-  filterButtons: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-  },
-  filterButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 6,
-    backgroundColor: '#f0f0f0',
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
-    marginRight: 8,
-    marginBottom: 8,
-  },
-  filterButtonActive: {
-    backgroundColor: '#007AFF',
-    borderColor: '#007AFF',
-  },
-  filterButtonText: {
-    fontSize: 14,
-    color: '#666',
-    fontWeight: '500',
-  },
-  filterButtonTextActive: {
-    color: '#fff',
-  },
-  clearFilterButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 6,
-    backgroundColor: '#ff6b6b',
-    marginRight: 8,
-    marginBottom: 8,
-  },
-  clearFilterButtonText: {
-    fontSize: 14,
-    color: '#fff',
-    fontWeight: '500',
   },
   cardsContainer: {
     marginTop: 24,

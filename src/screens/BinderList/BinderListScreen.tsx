@@ -15,13 +15,14 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { signOut } from '../../services/supabase/auth';
 import { getBinders, deleteBinder } from '../../services/supabase/binders';
 import type { Binder } from '../../types';
-import { calculateBinderProgress } from '../../utils/progress';
+import { calculateBinderProgress, getBinderTotalCards } from '../../utils/progress';
 import BinderCard from '../../components/Binder/BinderCard';
 
 type NavigationProp = NativeStackNavigationProp<MainStackParamList, 'BinderList'>;
 
 interface BinderWithProgress extends Binder {
   progress: number;
+  totalCards: number;
 }
 
 export default function BinderListScreen() {
@@ -34,11 +35,14 @@ export default function BinderListScreen() {
     try {
       const fetchedBinders = await getBinders();
       
-      // Calculate progress for each binder
+      // Calculate progress and total cards for each binder
       const bindersWithProgress = await Promise.all(
         fetchedBinders.map(async (binder) => {
-          const progress = await calculateBinderProgress(binder);
-          return { ...binder, progress };
+          const [progress, totalCards] = await Promise.all([
+            calculateBinderProgress(binder),
+            getBinderTotalCards(binder),
+          ]);
+          return { ...binder, progress, totalCards };
         })
       );
 
@@ -126,6 +130,7 @@ export default function BinderListScreen() {
     <BinderCard
       binder={item}
       completionPercentage={item.progress}
+      totalCards={item.totalCards}
       onPress={() => handleBinderPress(item.id)}
       onDelete={() => handleDeleteBinder(item)}
     />

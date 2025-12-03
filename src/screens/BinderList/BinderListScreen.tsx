@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
   FlatList,
   Alert,
-  ActivityIndicator,
   RefreshControl,
 } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
@@ -17,6 +16,9 @@ import { getBinders, deleteBinder } from '../../services/supabase/binders';
 import type { Binder } from '../../types';
 import { calculateBinderProgress, getBinderTotalCards } from '../../utils/progress';
 import BinderCard from '../../components/Binder/BinderCard';
+import LoadingScreen from '../../components/Loading/LoadingScreen';
+import EmptyState from '../../components/EmptyState/EmptyState';
+import { colors, spacing, typography, borderRadius, screenPadding } from '../../constants/theme';
 
 type NavigationProp = NativeStackNavigationProp<MainStackParamList, 'BinderList'>;
 
@@ -137,15 +139,12 @@ export default function BinderListScreen() {
   );
 
   const renderEmptyState = () => (
-    <View style={styles.emptyContainer}>
-      <Text style={styles.emptyTitle}>No Binders Yet</Text>
-      <Text style={styles.emptyText}>
-        Create your first binder to start tracking your Pokémon card collection!
-      </Text>
-      <TouchableOpacity style={styles.emptyButton} onPress={handleCreateBinder}>
-        <Text style={styles.emptyButtonText}>Create Binder</Text>
-      </TouchableOpacity>
-    </View>
+    <EmptyState
+      title="No Binders Yet"
+      message="Create your first binder to start tracking your Pokémon card collection!"
+      actionLabel="Create Binder"
+      onAction={handleCreateBinder}
+    />
   );
 
   if (loading) {
@@ -157,10 +156,7 @@ export default function BinderListScreen() {
             <Text style={styles.logoutText}>Logout</Text>
           </TouchableOpacity>
         </View>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#007AFF" />
-          <Text style={styles.loadingText}>Loading binders...</Text>
-        </View>
+        <LoadingScreen message="Loading binders..." fullScreen={false} />
       </View>
     );
   }
@@ -197,94 +193,55 @@ export default function BinderListScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: colors.backgroundLight,
   },
   headerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 16,
-    backgroundColor: '#fff',
+    paddingHorizontal: screenPadding,
+    paddingTop: screenPadding,
+    paddingBottom: spacing.md,
+    backgroundColor: colors.background,
     borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
+    borderBottomColor: colors.border,
   },
   title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#000',
+    fontSize: typography['3xl'],
+    fontWeight: typography.bold,
+    color: colors.text,
   },
   logoutButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
   },
   logoutText: {
-    color: '#007AFF',
-    fontSize: 14,
-    fontWeight: '600',
+    color: colors.primary,
+    fontSize: typography.sm,
+    fontWeight: typography.semibold,
   },
   listContainer: {
-    padding: 20,
+    padding: screenPadding,
   },
   emptyListContainer: {
     flex: 1,
   },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 40,
-  },
-  emptyTitle: {
-    fontSize: 24,
-    fontWeight: '600',
-    color: '#000',
-    marginBottom: 12,
-  },
-  emptyText: {
-    fontSize: 16,
-    color: '#666',
-    textAlign: 'center',
-    marginBottom: 24,
-  },
-  emptyButton: {
-    backgroundColor: '#007AFF',
-    borderRadius: 8,
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-  },
-  emptyButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    marginTop: 12,
-    fontSize: 16,
-    color: '#666',
-  },
   footer: {
-    padding: 20,
-    backgroundColor: '#fff',
+    padding: screenPadding,
+    backgroundColor: colors.background,
     borderTopWidth: 1,
-    borderTopColor: '#e0e0e0',
+    borderTopColor: colors.border,
   },
   createButton: {
-    backgroundColor: '#007AFF',
-    borderRadius: 8,
-    padding: 16,
+    backgroundColor: colors.primary,
+    borderRadius: borderRadius.md,
+    padding: spacing.md,
     alignItems: 'center',
   },
   createButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
+    color: colors.background,
+    fontSize: typography.base,
+    fontWeight: typography.semibold,
   },
 });
 

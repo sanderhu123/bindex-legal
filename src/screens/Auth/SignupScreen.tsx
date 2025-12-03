@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, StyleSheet, Text, TextInput, TouchableOpacity, Alert } from 'react-native';
 import { signUp } from '../../services/supabase/auth';
+import { colors, spacing, typography, borderRadius, screenPadding } from '../../constants/theme';
 
 interface SignupScreenProps {
   navigation: any;
@@ -114,53 +115,54 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     justifyContent: 'center',
-    padding: 20,
-    backgroundColor: '#fff',
+    padding: screenPadding,
+    backgroundColor: colors.background,
   },
   title: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    marginBottom: 30,
+    fontSize: typography['4xl'],
+    fontWeight: typography.bold,
+    marginBottom: spacing.xl + 6,
     textAlign: 'center',
+    color: colors.text,
   },
   inputContainer: {
-    marginBottom: 16,
+    marginBottom: spacing.md,
   },
   label: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 8,
+    fontSize: typography.sm,
+    fontWeight: typography.semibold,
+    color: colors.textSecondary,
+    marginBottom: spacing.sm,
   },
   input: {
     borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-    backgroundColor: '#fff',
-    color: '#000',
+    borderColor: colors.border,
+    borderRadius: borderRadius.md,
+    padding: spacing.md,
+    fontSize: typography.base,
+    backgroundColor: colors.background,
+    color: colors.text,
   },
   button: {
-    backgroundColor: '#007AFF',
-    borderRadius: 8,
-    padding: 16,
+    backgroundColor: colors.primary,
+    borderRadius: borderRadius.md,
+    padding: spacing.md,
     alignItems: 'center',
-    marginTop: 8,
+    marginTop: spacing.sm,
   },
   buttonDisabled: {
     opacity: 0.5,
   },
   buttonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
+    color: colors.background,
+    fontSize: typography.base,
+    fontWeight: typography.semibold,
   },
   linkText: {
-    color: '#007AFF',
+    color: colors.primary,
     textAlign: 'center',
-    marginTop: 20,
-    fontSize: 14,
+    marginTop: spacing.lg,
+    fontSize: typography.sm,
   },
 });
 

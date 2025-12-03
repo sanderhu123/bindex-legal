@@ -1,10 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, Text, ScrollView, ActivityIndicator, Dimensions, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, Text, ScrollView, Dimensions, TouchableOpacity } from 'react-native';
 import { getCardById } from '../../services/api/pokemonApi';
 import { getBinderById } from '../../services/supabase/binders';
 import { addCardToBinder, removeCardFromBinder } from '../../services/supabase/cards';
 import CardImage from '../../components/Card/CardImage';
 import CardDetails from '../../components/Card/CardDetails';
+import LoadingScreen from '../../components/Loading/LoadingScreen';
+import ErrorScreen from '../../components/Error/ErrorScreen';
+import { colors, spacing, typography, borderRadius, screenPadding, shadows } from '../../constants/theme';
 import type { Card, Binder } from '../../types';
 
 interface CardDetailScreenProps {
@@ -80,22 +83,16 @@ export default function CardDetailScreen({ navigation, route }: CardDetailScreen
 
   // Loading state
   if (loading) {
-    return (
-      <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color="#007AFF" />
-        <Text style={styles.loadingText}>Loading card...</Text>
-      </View>
-    );
+    return <LoadingScreen message="Loading card..." />;
   }
 
   // Error state
   if (error || !card || !binder) {
     return (
-      <View style={styles.centerContainer}>
-        <Text style={styles.errorText}>
-          {error || 'Card or binder not found'}
-        </Text>
-      </View>
+      <ErrorScreen
+        message={error || 'Card or binder not found'}
+        onGoBack={() => navigation.goBack()}
+      />
     );
   }
 
@@ -200,7 +197,7 @@ export default function CardDetailScreen({ navigation, route }: CardDetailScreen
           activeOpacity={0.7}
         >
           {isUpdating ? (
-            <ActivityIndicator size="small" color="#fff" />
+            <Text style={styles.toggleButtonText}>Updating...</Text>
           ) : (
             <Text style={styles.toggleButtonText}>
               {isOwned ? 'Mark as Missing' : 'Mark as Owned'}
@@ -215,73 +212,52 @@ export default function CardDetailScreen({ navigation, route }: CardDetailScreen
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: colors.background,
   },
   contentContainer: {
-    padding: 12,
+    padding: spacing.md,
     alignItems: 'center',
     flexGrow: 1,
-  },
-  centerContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-    backgroundColor: '#fff',
-  },
-  loadingText: {
-    marginTop: 12,
-    fontSize: 16,
-    color: '#666',
-  },
-  errorText: {
-    fontSize: 16,
-    color: '#d32f2f',
-    textAlign: 'center',
   },
   imageContainer: {
     width: '100%',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: spacing.sm,
   },
   cardImage: {
-    borderRadius: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
+    borderRadius: borderRadius.lg,
+    ...shadows.lg,
   },
   detailsContainer: {
     width: '100%',
-    paddingHorizontal: 4,
-    marginBottom: 8,
+    paddingHorizontal: spacing.xs,
+    marginBottom: spacing.sm,
   },
   buttonContainer: {
     width: '100%',
     marginTop: 0,
   },
   toggleButton: {
-    paddingVertical: 14,
-    paddingHorizontal: 24,
-    borderRadius: 8,
+    paddingVertical: spacing.md - 2,
+    paddingHorizontal: spacing.lg,
+    borderRadius: borderRadius.md,
     alignItems: 'center',
     justifyContent: 'center',
     minHeight: 48,
   },
   toggleButtonOwned: {
-    backgroundColor: '#4CAF50',
+    backgroundColor: colors.success,
   },
   toggleButtonMissing: {
-    backgroundColor: '#007AFF',
+    backgroundColor: colors.primary,
   },
   toggleButtonDisabled: {
     opacity: 0.6,
   },
   toggleButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
+    color: colors.background,
+    fontSize: typography.base,
+    fontWeight: typography.semibold,
   },
 });
 

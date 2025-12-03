@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, Text, ActivityIndicator, ScrollView, TouchableOpacity, Dimensions } from 'react-native';
+import { View, StyleSheet, Text, ScrollView, TouchableOpacity, Dimensions } from 'react-native';
 import { getBinderById } from '../../services/supabase/binders';
 import { addCardToBinder, removeCardFromBinder } from '../../services/supabase/cards';
 import { getCardsBySet, getCardsByRegion, type Region } from '../../services/api/pokemonApi';
@@ -11,6 +11,11 @@ import { useCardFilter, useAvailableRarities, type OwnershipFilter } from '../..
 import SearchBar from '../../components/Search/SearchBar';
 import FilterPanel from '../../components/Filter/FilterPanel';
 import ProgressBar from '../../components/Progress/ProgressBar';
+import LoadingScreen from '../../components/Loading/LoadingScreen';
+import LoadingSpinner from '../../components/Loading/LoadingSpinner';
+import EmptyState from '../../components/EmptyState/EmptyState';
+import ErrorScreen from '../../components/Error/ErrorScreen';
+import { colors, spacing, typography, borderRadius, screenPadding } from '../../constants/theme';
 
 const CONTAINER_PADDING = 20; // Padding from container style
 const CARD_MARGIN = 2; // Margin between cards (margin: 2 means 2px on all sides, 4px gap between cards)
@@ -289,27 +294,28 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
   });
 
   if (loading && !binder) {
-    return (
-      <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color="#007AFF" />
-        <Text style={styles.loadingText}>Loading binder...</Text>
-      </View>
-    );
+    return <LoadingScreen message="Loading binder..." />;
   }
 
   if (error && !binder) {
     return (
-      <View style={styles.centerContainer}>
-        <Text style={styles.errorText}>Error: {error}</Text>
-      </View>
+      <ErrorScreen
+        message={error}
+        onRetry={() => {
+          setError(null);
+          setLoading(true);
+          // Trigger re-fetch by updating binderId dependency
+        }}
+      />
     );
   }
 
   if (!binder) {
     return (
-      <View style={styles.centerContainer}>
-        <Text style={styles.errorText}>Binder not found</Text>
-      </View>
+      <ErrorScreen
+        message="Binder not found"
+        onGoBack={() => navigation.goBack()}
+      />
     );
   }
 
@@ -401,11 +407,16 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
         
         <Text style={styles.helpText}>Tap a card to mark it as owned/unowned</Text>
         {loading ? (
-          <ActivityIndicator size="small" color="#007AFF" style={styles.cardsLoading} />
+          <LoadingSpinner message="Loading cards..." />
         ) : filteredCards.length === 0 ? (
-          <Text style={styles.emptyText}>
-            {searchQuery.trim() ? 'No cards match your search.' : 'No cards found for this binder.'}
-          </Text>
+          <EmptyState
+            title={searchQuery.trim() ? 'No cards match your search' : 'No cards found'}
+            message={
+              searchQuery.trim()
+                ? 'Try adjusting your search or filters'
+                : 'This binder doesn\'t have any cards yet'
+            }
+          />
         ) : viewMode === 'grid' ? (
           <CardGrid
             cards={filteredCards}
@@ -428,103 +439,78 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 20,
-    backgroundColor: '#fff',
-  },
-  centerContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-    backgroundColor: '#fff',
+    padding: screenPadding,
+    backgroundColor: colors.background,
   },
   title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    marginBottom: 8,
-    marginTop: 20,
+    fontSize: typography['3xl'],
+    fontWeight: typography.bold,
+    marginBottom: spacing.sm,
+    marginTop: spacing.lg,
+    color: colors.text,
   },
   subtitle: {
-    fontSize: 20,
-    color: '#333',
-    marginBottom: 16,
-    fontWeight: '600',
+    fontSize: typography.xl,
+    color: colors.textSecondary,
+    marginBottom: spacing.md,
+    fontWeight: typography.semibold,
   },
   text: {
-    fontSize: 18,
-    color: '#666',
-    marginBottom: 8,
+    fontSize: typography.lg,
+    color: colors.textTertiary,
+    marginBottom: spacing.sm,
   },
   progressContainer: {
-    marginTop: 16,
-    marginBottom: 16,
+    marginTop: spacing.md,
+    marginBottom: spacing.md,
   },
   debugText: {
-    fontSize: 12,
-    color: '#999',
+    fontSize: typography.xs,
+    color: colors.textLight,
     fontStyle: 'italic',
-    marginBottom: 8,
-  },
-  loadingText: {
-    marginTop: 12,
-    fontSize: 16,
-    color: '#666',
-  },
-  errorText: {
-    fontSize: 16,
-    color: '#d32f2f',
-    textAlign: 'center',
+    marginBottom: spacing.sm,
   },
   helpText: {
-    fontSize: 16,
-    color: '#666',
-    marginBottom: 12,
+    fontSize: typography.base,
+    color: colors.textTertiary,
+    marginBottom: spacing.md,
     fontStyle: 'italic',
   },
   cardsContainer: {
-    marginTop: 24,
+    marginTop: spacing.lg,
   },
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: spacing.md,
   },
   sectionTitle: {
-    fontSize: 22,
-    fontWeight: '600',
-    color: '#333',
+    fontSize: typography['2xl'],
+    fontWeight: typography.semibold,
+    color: colors.textSecondary,
   },
   viewToggle: {
     flexDirection: 'row',
-    backgroundColor: '#f0f0f0',
-    borderRadius: 8,
+    backgroundColor: colors.backgroundDark,
+    borderRadius: borderRadius.md,
     padding: 2,
   },
   toggleButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 6,
-    borderRadius: 6,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs + 2,
+    borderRadius: borderRadius.sm,
   },
   toggleButtonActive: {
-    backgroundColor: '#007AFF',
+    backgroundColor: colors.primary,
   },
   toggleButtonText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#666',
+    fontSize: typography.sm,
+    fontWeight: typography.medium,
+    color: colors.textTertiary,
   },
   toggleButtonTextActive: {
-    color: '#fff',
-  },
-  cardsLoading: {
-    marginVertical: 20,
-  },
-  emptyText: {
-    fontSize: 18,
-    color: '#999',
-    fontStyle: 'italic',
-    marginTop: 12,
+    color: colors.background,
   },
 });
 

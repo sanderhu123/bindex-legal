@@ -17,7 +17,7 @@ import EmptyState from '../../components/EmptyState/EmptyState';
 import ErrorScreen from '../../components/Error/ErrorScreen';
 import { colors, spacing, typography, borderRadius, screenPadding } from '../../constants/theme';
 
-const CONTAINER_PADDING = 20; // Padding from container style
+const CONTAINER_PADDING = screenPadding; // Padding from container style (24px)
 const CARD_MARGIN = 2; // Margin between cards (margin: 2 means 2px on all sides, 4px gap between cards)
 
 /**

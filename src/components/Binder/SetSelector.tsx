@@ -24,34 +24,36 @@ function SetItem({ item, isSelected, onSelect }: { item: PokemonSet; isSelected:
       onPress={() => onSelect(item.name)}
     >
       <View style={styles.itemContent}>
-        {hasImage && !imageError ? (
-          <View style={styles.logoContainer}>
-            {imageLoading && (
-              <View style={styles.logoPlaceholder}>
-                <ActivityIndicator size="small" color="#007AFF" />
-              </View>
-            )}
-            <Image
-              source={{ 
-                uri: imageUrl,
-                cache: 'force-cache', // Cache images aggressively
-              }}
-              style={[styles.setLogo, imageLoading && styles.hiddenImage]}
-              resizeMode="contain"
-              onLoadStart={() => setImageLoading(true)}
-              onLoadEnd={() => setImageLoading(false)}
-              onError={() => {
-                setImageLoading(false);
-                setImageError(true);
-              }}
-            />
-          </View>
-        ) : (
-          // Fallback placeholder when no logo/symbol or error
-          <View style={styles.logoPlaceholder}>
-            <Text style={styles.logoPlaceholderText}>🎴</Text>
-          </View>
-        )}
+        <View style={styles.logoContainer}>
+          {hasImage && !imageError ? (
+            <>
+              {imageLoading && (
+                <View style={styles.logoPlaceholder}>
+                  <ActivityIndicator size="small" color="#007AFF" />
+                </View>
+              )}
+              <Image
+                source={{ 
+                  uri: imageUrl,
+                  cache: 'force-cache', // Cache images aggressively
+                }}
+                style={[styles.setLogo, imageLoading && styles.hiddenImage]}
+                resizeMode="contain"
+                onLoadStart={() => setImageLoading(true)}
+                onLoadEnd={() => setImageLoading(false)}
+                onError={() => {
+                  setImageLoading(false);
+                  setImageError(true);
+                }}
+              />
+            </>
+          ) : (
+            // Fallback placeholder when no logo/symbol or error
+            <View style={styles.logoPlaceholder}>
+              <Text style={styles.logoPlaceholderText}>🎴</Text>
+            </View>
+          )}
+        </View>
         <View style={styles.itemText}>
           <Text style={styles.itemTitle}>{item.name}</Text>
           <Text style={styles.itemSubtitle}>

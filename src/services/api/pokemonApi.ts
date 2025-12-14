@@ -298,7 +298,7 @@ export async function getSets(): Promise<PokemonSet[]> {
 /**
  * Transform TCGDEX SDK card response to our Card type
  */
-function transformTcgdexCardToCard(tcgdexCard: any): Card {
+async function transformTcgdexCardToCard(tcgdexCard: any): Promise<Card> {
   // Log the raw card data to debug field extraction
   console.log('[24C] Transforming card - raw data:', {
     id: tcgdexCard.id,
@@ -319,8 +319,28 @@ function transformTcgdexCardToCard(tcgdexCard: any): Card {
   const setName = tcgdexCard.set?.name || '';
   const rarity = tcgdexCard.rarity || '';
   
-  // Artist field - TCGDEX might use "illustrator" instead of "artist"
-  const artist = tcgdexCard.artist || tcgdexCard.illustrator || '';
+  // Artist field - TCGDEX uses "illustrator" (not "artist")
+  // The illustrator might be a string or a SimpleEndpoint object that needs to be called
+  let artist = '';
+  
+  if (typeof tcgdexCard.illustrator === 'string') {
+    // Direct string value
+    artist = tcgdexCard.illustrator;
+  } else if (tcgdexCard.illustrator && typeof tcgdexCard.illustrator === 'object') {
+    // SimpleEndpoint object - try to get the value
+    // It might have a name property or need to be called as a function
+    if (tcgdexCard.illustrator.name) {
+      artist = tcgdexCard.illustrator.name;
+    } else if (typeof tcgdexCard.getIllustrator === 'function') {
+      // Try to call getIllustrator() method if it exists
+      try {
+        const illustratorData = await tcgdexCard.getIllustrator();
+        artist = illustratorData?.name || illustratorData || '';
+      } catch (error) {
+        console.warn('[24C] Failed to fetch illustrator:', error);
+      }
+    }
+  }
   
   console.log('[24C] Extracted fields:', {
     cardId,
@@ -329,7 +349,8 @@ function transformTcgdexCardToCard(tcgdexCard: any): Card {
     setName,
     rarity,
     artist,
-    artistSource: tcgdexCard.artist ? 'artist' : tcgdexCard.illustrator ? 'illustrator' : 'none',
+    illustratorType: typeof tcgdexCard.illustrator,
+    illustratorRaw: tcgdexCard.illustrator,
   });
   
   // Image URL - TCGDEX provides image in different ways:
@@ -476,7 +497,7 @@ export async function getCardsBySet(setIdentifier: string): Promise<Card[]> {
     });
     
     // Step 3: Transform cards to our Card type
-    const transformedCards = cards.map(transformTcgdexCardToCard);
+    const transformedCards = await Promise.all(cards.map(transformTcgdexCardToCard));
     
     console.log('[24C] Cards transformed:', {
       transformedCount: transformedCards.length,
@@ -569,7 +590,7 @@ export async function getCardById(id: string): Promise<Card | null> {
     });
     
     // Transform TCGDEX card to our Card type
-    const transformedCard = transformTcgdexCardToCard(tcgdexCard);
+    const transformedCard = await transformTcgdexCardToCard(tcgdexCard);
     
     console.log('[24D] Card transformed:', {
       transformedId: transformedCard.id,

@@ -13,7 +13,8 @@ export interface Card {
   set: string; // Set name (or region name for Region mode)
   rarity: string; // Rarity (Common, Uncommon, Rare, etc.) - empty for Region mode
   artist: string; // Artist name - empty for Region mode
-  imageUrl?: string; // Optional - Region mode doesn't have card images
+  imageUrl?: string; // Low-res image for grid view - Optional for Region mode
+  imageUrlHiRes?: string; // High-res image for detail view - Optional
   pokedexNumber?: number; // For region mode
   variant?: CardVariant; // Card variant (defaults to 'base' if not specified)
 }

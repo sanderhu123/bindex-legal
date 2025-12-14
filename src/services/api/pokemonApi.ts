@@ -322,38 +322,59 @@ function transformTcgdexCardToCard(tcgdexCard: any): Card {
   // Quality options: high, low, small
   // Format options: webp, png, jpg
   // We use 'low' quality for grid view (better performance)
+  // We use 'high' quality for detail view (better quality)
   // We use PNG for better compatibility (WebP not supported everywhere)
-  let imageUrl = '';
+  let imageUrl = ''; // Low-res for grid
+  let imageUrlHiRes = ''; // High-res for detail view
+  
+  const baseImageUrl = typeof tcgdexCard.image === 'string' 
+    ? tcgdexCard.image 
+    : '';
   
   if (typeof tcgdexCard.image === 'string') {
     // Direct URL string - add quality and format
-    // Use 'low' resolution and PNG format for grid view
-    imageUrl = `${tcgdexCard.image}/low.png`;
+    imageUrl = `${tcgdexCard.image}/low.png`; // Low-res for grid
+    imageUrlHiRes = `${tcgdexCard.image}/high.png`; // High-res for detail
   } else if (tcgdexCard.image && typeof tcgdexCard.image === 'object') {
     // Image object with resolutions
-    imageUrl = tcgdexCard.image.low || tcgdexCard.image.small || tcgdexCard.image.high || '';
+    const lowUrl = tcgdexCard.image.low || tcgdexCard.image.small || '';
+    const highUrl = tcgdexCard.image.high || '';
     
-    // If object URLs don't have extensions, add them
-    if (imageUrl && !imageUrl.match(/\.(png|jpg|jpeg|webp)$/i)) {
-      imageUrl = `${imageUrl}/low.png`;
+    // Process low-res URL
+    if (lowUrl && !lowUrl.match(/\.(png|jpg|jpeg|webp)$/i)) {
+      imageUrl = `${lowUrl}/low.png`;
+    } else {
+      imageUrl = lowUrl;
+    }
+    
+    // Process high-res URL
+    if (highUrl && !highUrl.match(/\.(png|jpg|jpeg|webp)$/i)) {
+      imageUrlHiRes = `${highUrl}/high.png`;
+    } else {
+      imageUrlHiRes = highUrl;
+    }
+    
+    // Fallback: if no high-res, use low-res
+    if (!imageUrlHiRes && imageUrl) {
+      imageUrlHiRes = imageUrl.replace('/low.png', '/high.png');
     }
   }
   
   // If still no image, try to construct it manually from TCGDEX assets
   // Format: https://assets.tcgdex.net/[lang]/[set-id]/[card-id]/[quality].[format]
   if (!imageUrl && cardId) {
-    // Try to construct the image URL
-    // Use 'low' resolution for grid view performance
     const setId = tcgdexCard.set?.id || '';
     if (setId && cardNumber) {
       imageUrl = `https://assets.tcgdex.net/en/${setId}/${cardNumber}/low.png`;
+      imageUrlHiRes = `https://assets.tcgdex.net/en/${setId}/${cardNumber}/high.png`;
     }
   }
   
-  console.log('[24C] Image URL extracted:', {
+  console.log('[24C] Image URLs extracted:', {
     cardId,
     cardName,
     imageUrl,
+    imageUrlHiRes,
     hasImage: !!imageUrl,
   });
   
@@ -365,7 +386,8 @@ function transformTcgdexCardToCard(tcgdexCard: any): Card {
     set: setName,
     rarity: rarity,
     artist: artist,
-    imageUrl: imageUrl,
+    imageUrl: imageUrl, // Low-res for grid view
+    imageUrlHiRes: imageUrlHiRes, // High-res for detail view
     variant: 'base' as const, // Default to base variant for now (Step 24F will handle variants)
   };
 }

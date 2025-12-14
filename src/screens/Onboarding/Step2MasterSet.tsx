@@ -15,7 +15,7 @@ interface EraItem {
   logo?: string;
 }
 
-// Individual era item component with loading state for logo
+// Individual era item component (simple text-only version, no logos)
 function EraItemComponent({ 
   item, 
   onSelect 
@@ -23,50 +23,13 @@ function EraItemComponent({
   item: EraItem; 
   onSelect: (name: string) => void;
 }) {
-  const [imageLoading, setImageLoading] = useState(true);
-  const [imageError, setImageError] = useState(false);
-  
-  const hasLogo = !!item.logo;
-
   return (
     <TouchableOpacity
       style={styles.eraOption}
       onPress={() => onSelect(item.name)}
     >
-      <View style={styles.eraContent}>
-        {hasLogo && !imageError ? (
-          <View style={styles.eraLogoContainer}>
-            {imageLoading && (
-              <View style={styles.eraLogoPlaceholder}>
-                <ActivityIndicator size="small" color="#007AFF" />
-              </View>
-            )}
-            <Image
-              source={{ 
-                uri: item.logo,
-                cache: 'force-cache',
-              }}
-              style={[styles.eraLogo, imageLoading && styles.hiddenImage]}
-              resizeMode="contain"
-              onLoadStart={() => setImageLoading(true)}
-              onLoadEnd={() => setImageLoading(false)}
-              onError={() => {
-                setImageLoading(false);
-                setImageError(true);
-              }}
-            />
-          </View>
-        ) : (
-          // Fallback placeholder when no logo or error
-          <View style={styles.eraLogoPlaceholder}>
-            <Text style={styles.eraLogoPlaceholderText}>🎴</Text>
-          </View>
-        )}
-        <View style={styles.eraTextContainer}>
-          <Text style={styles.eraLabel}>{item.name}</Text>
-          <Text style={styles.eraSubtext}>Tap to view sets</Text>
-        </View>
-      </View>
+      <Text style={styles.eraLabel}>{item.name}</Text>
+      <Text style={styles.eraSubtext}>Tap to view sets</Text>
     </TouchableOpacity>
   );
 }
@@ -93,9 +56,6 @@ export default function Step2MasterSet({
       // Get eras from hard-coded data (newest first)
       const fetchedSeries = getErasList();
       setSeries(fetchedSeries);
-      
-      // Preload era logos
-      preloadEraLogos(fetchedSeries);
       
       console.log('[Step2MasterSet] Initial data loaded from hard-coded data:', {
         seriesCount: fetchedSeries.length,
@@ -152,19 +112,6 @@ export default function Step2MasterSet({
       }
     });
     console.log('[Step2MasterSet] Preloading', sets.length, 'set logos...');
-  };
-
-  // Preload era logo images to cache them
-  const preloadEraLogos = (eras: EraItem[]) => {
-    eras.forEach((era) => {
-      if (era.logo) {
-        // Start loading the image in the background
-        Image.prefetch(era.logo).catch((error) => {
-          console.warn(`Failed to preload logo for ${era.name}:`, error);
-        });
-      }
-    });
-    console.log('[Step2MasterSet] Preloading', eras.length, 'era logos...');
   };
 
   // Get set count for each era (we don't know this from minimal data, so we'll show "?" or fetch on demand)
@@ -280,40 +227,6 @@ const styles = StyleSheet.create({
     borderColor: '#ddd',
     marginBottom: 12,
     backgroundColor: '#fff',
-  },
-  eraContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  eraLogoContainer: {
-    width: 60,
-    height: 40,
-    marginRight: 12,
-    position: 'relative',
-  },
-  eraLogo: {
-    width: 60,
-    height: 40,
-  },
-  hiddenImage: {
-    opacity: 0,
-  },
-  eraLogoPlaceholder: {
-    width: 60,
-    height: 40,
-    backgroundColor: '#f0f0f0',
-    borderRadius: 4,
-    justifyContent: 'center',
-    alignItems: 'center',
-    position: 'absolute',
-    top: 0,
-    left: 0,
-  },
-  eraLogoPlaceholderText: {
-    fontSize: 24,
-  },
-  eraTextContainer: {
-    flex: 1,
   },
   eraLabel: {
     fontSize: 16,

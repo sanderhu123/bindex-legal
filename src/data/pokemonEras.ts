@@ -105,7 +105,7 @@ export const POKEMON_ERAS: EraDefinition[] = [
   {
     id: 'mega-evolution',
     name: 'Mega Evolution',
-    logo: 'https://assets.tcgdex.net/en/me/logo.png',
+    // Note: TCGDEX doesn't have era logos, only set logos
     sets: [
       { id: 'me02', name: 'Phantasmal Flames', releaseDate: '2025-11-14' },
       { id: 'me01', name: 'Mega Evolution', releaseDate: '2025-09-26' },
@@ -116,7 +116,6 @@ export const POKEMON_ERAS: EraDefinition[] = [
   {
     id: 'scarlet-violet',
     name: 'Scarlet & Violet',
-    logo: 'https://assets.tcgdex.net/en/sv/logo.png',
     sets: [
       { id: 'sv10.5b', name: 'Black Bolt', releaseDate: '2025-07-18' },
       { id: 'sv10.5w', name: 'White Flare', releaseDate: '2025-07-18' },
@@ -141,7 +140,6 @@ export const POKEMON_ERAS: EraDefinition[] = [
   {
     id: 'sword-shield',
     name: 'Sword & Shield',
-    logo: 'https://assets.tcgdex.net/en/swsh/logo.png',
     sets: [
       { id: 'swsh12.5', name: 'Crown Zenith', releaseDate: '2023-01-20' },
       { id: 'swsh12', name: 'Silver Tempest', releaseDate: '2022-11-11' },
@@ -167,7 +165,6 @@ export const POKEMON_ERAS: EraDefinition[] = [
   {
     id: 'sun-moon',
     name: 'Sun & Moon',
-    logo: 'https://assets.tcgdex.net/en/sm/logo.png',
     sets: [
       { id: 'sm12', name: 'Cosmic Eclipse', releaseDate: '2019-11-01' },
       { id: 'sm115', name: 'Hidden Fates', releaseDate: '2019-08-23' },
@@ -192,7 +189,6 @@ export const POKEMON_ERAS: EraDefinition[] = [
   {
     id: 'xy',
     name: 'XY',
-    logo: 'https://assets.tcgdex.net/en/xy/logo.png',
     sets: [
       { id: 'xy12', name: 'Evolutions', releaseDate: '2016-11-02' },
       { id: 'xy11', name: 'Steam Siege', releaseDate: '2016-08-03' },
@@ -216,7 +212,6 @@ export const POKEMON_ERAS: EraDefinition[] = [
   {
     id: 'black-white',
     name: 'Black & White',
-    logo: 'https://assets.tcgdex.net/en/bw/logo.png',
     sets: [
       { id: 'bw11', name: 'Legendary Treasures', releaseDate: '2013-11-08' },
       { id: 'rc', name: 'Radiant Collection', releaseDate: '2013-11-08' },
@@ -238,7 +233,6 @@ export const POKEMON_ERAS: EraDefinition[] = [
   {
     id: 'heartgold-soulsilver',
     name: 'HeartGold & SoulSilver',
-    logo: 'https://assets.tcgdex.net/en/hgss/logo.png',
     sets: [
       { id: 'col1', name: 'Call of Legends', releaseDate: '2011-02-09' },
       { id: 'hgss4', name: 'Triumphant', releaseDate: '2010-11-03' },
@@ -252,7 +246,6 @@ export const POKEMON_ERAS: EraDefinition[] = [
   {
     id: 'platinum',
     name: 'Platinum',
-    logo: 'https://assets.tcgdex.net/en/pl/logo.png',
     sets: [
       { id: 'pl4', name: 'Arceus', releaseDate: '2009-11-04' },
       { id: 'pl3', name: 'Supreme Victors', releaseDate: '2009-08-19' },
@@ -265,7 +258,6 @@ export const POKEMON_ERAS: EraDefinition[] = [
   {
     id: 'diamond-pearl',
     name: 'Diamond & Pearl',
-    logo: 'https://assets.tcgdex.net/en/dp/logo.png',
     sets: [
       { id: 'dp7', name: 'Stormfront', releaseDate: '2008-11-05' },
       { id: 'dp6', name: 'Legends Awakened', releaseDate: '2008-08-20' },
@@ -281,7 +273,6 @@ export const POKEMON_ERAS: EraDefinition[] = [
   {
     id: 'ex',
     name: 'EX',
-    logo: 'https://assets.tcgdex.net/en/ex/logo.png',
     sets: [
       { id: 'ex16', name: 'Power Keepers', releaseDate: '2007-02-14' },
       { id: 'ex15', name: 'Dragon Frontiers', releaseDate: '2006-11-08' },
@@ -306,7 +297,6 @@ export const POKEMON_ERAS: EraDefinition[] = [
   {
     id: 'ecard',
     name: 'E-Card',
-    logo: 'https://assets.tcgdex.net/en/ecard/logo.png',
     sets: [
       { id: 'ecard3', name: 'Skyridge', releaseDate: '2003-05-12' },
       { id: 'ecard2', name: 'Aquapolis', releaseDate: '2003-01-15' },
@@ -318,7 +308,6 @@ export const POKEMON_ERAS: EraDefinition[] = [
   {
     id: 'legendary-collection',
     name: 'Legendary Collection',
-    logo: 'https://assets.tcgdex.net/en/base/lc/logo.png',
     sets: [
       { id: 'lc', name: 'Legendary Collection', releaseDate: '2002-05-24' },
     ],
@@ -328,7 +317,6 @@ export const POKEMON_ERAS: EraDefinition[] = [
   {
     id: 'neo',
     name: 'Neo',
-    logo: 'https://assets.tcgdex.net/en/neo/logo.png',
     sets: [
       { id: 'neo4', name: 'Neo Destiny', releaseDate: '2002-02-28' },
       { id: 'neo3', name: 'Neo Revelation', releaseDate: '2001-09-21' },
@@ -341,7 +329,6 @@ export const POKEMON_ERAS: EraDefinition[] = [
   {
     id: 'southern-islands',
     name: 'Southern Islands',
-    logo: 'https://assets.tcgdex.net/en/base/si1/logo.png',
     sets: [
       { id: 'si1', name: 'Southern Islands', releaseDate: '2001-07-31' },
     ],
@@ -351,7 +338,6 @@ export const POKEMON_ERAS: EraDefinition[] = [
   {
     id: 'gym',
     name: 'Gym',
-    logo: 'https://assets.tcgdex.net/en/gym/logo.png',
     sets: [
       { id: 'gym2', name: 'Gym Challenge', releaseDate: '2000-10-16' },
       { id: 'gym1', name: 'Gym Heroes', releaseDate: '2000-08-14' },
@@ -362,7 +348,6 @@ export const POKEMON_ERAS: EraDefinition[] = [
   {
     id: 'base',
     name: 'Base',
-    logo: 'https://assets.tcgdex.net/en/base/logo.png',
     sets: [
       { id: 'base4', name: 'Base Set 2', releaseDate: '2000-02-24' },
       { id: 'base5', name: 'Team Rocket', releaseDate: '2000-04-24' },
@@ -376,7 +361,6 @@ export const POKEMON_ERAS: EraDefinition[] = [
   {
     id: 'pop',
     name: 'POP Series',
-    logo: 'https://assets.tcgdex.net/en/pop/logo.png',
     sets: [
       { id: 'pop9', name: 'POP Series 9', releaseDate: '2008-03-01' },
       { id: 'pop8', name: 'POP Series 8', releaseDate: '2007-09-01' },

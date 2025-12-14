@@ -318,20 +318,24 @@ function transformTcgdexCardToCard(tcgdexCard: any): Card {
   // Image URL - TCGDEX provides image in different ways:
   // 1. As a string URL directly (base URL without quality/format)
   // 2. As an object with different resolutions
-  // TCGDEX images need format appended: /high.webp or /high.png
+  // TCGDEX images format: [base-url]/[quality].[format]
+  // Quality options: high, low, small
+  // Format options: webp, png, jpg
+  // We use 'low' quality for grid view (better performance)
+  // We use PNG for better compatibility (WebP not supported everywhere)
   let imageUrl = '';
   
   if (typeof tcgdexCard.image === 'string') {
     // Direct URL string - add quality and format
-    // TCGDEX format: https://assets.tcgdex.net/[lang]/[series]/[set-id]/[card-id]/[quality].[format]
-    imageUrl = `${tcgdexCard.image}/high.webp`;
+    // Use 'low' resolution and PNG format for grid view
+    imageUrl = `${tcgdexCard.image}/low.png`;
   } else if (tcgdexCard.image && typeof tcgdexCard.image === 'object') {
     // Image object with resolutions
-    imageUrl = tcgdexCard.image.high || tcgdexCard.image.low || tcgdexCard.image.small || '';
+    imageUrl = tcgdexCard.image.low || tcgdexCard.image.small || tcgdexCard.image.high || '';
     
     // If object URLs don't have extensions, add them
     if (imageUrl && !imageUrl.match(/\.(png|jpg|jpeg|webp)$/i)) {
-      imageUrl = `${imageUrl}/high.webp`;
+      imageUrl = `${imageUrl}/low.png`;
     }
   }
   
@@ -339,10 +343,10 @@ function transformTcgdexCardToCard(tcgdexCard: any): Card {
   // Format: https://assets.tcgdex.net/[lang]/[set-id]/[card-id]/[quality].[format]
   if (!imageUrl && cardId) {
     // Try to construct the image URL
-    // TCGDEX format is typically: https://assets.tcgdex.net/en/[set-id]/[local-id]/high.webp
+    // Use 'low' resolution for grid view performance
     const setId = tcgdexCard.set?.id || '';
     if (setId && cardNumber) {
-      imageUrl = `https://assets.tcgdex.net/en/${setId}/${cardNumber}/high.webp`;
+      imageUrl = `https://assets.tcgdex.net/en/${setId}/${cardNumber}/low.png`;
     }
   }
   

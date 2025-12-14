@@ -316,27 +316,33 @@ function transformTcgdexCardToCard(tcgdexCard: any): Card {
   const artist = tcgdexCard.artist || '';
   
   // Image URL - TCGDEX provides image in different ways:
-  // 1. As a string URL directly
+  // 1. As a string URL directly (base URL without quality/format)
   // 2. As an object with different resolutions
-  // 3. Via a method to get the image
+  // TCGDEX images need format appended: /high.webp or /high.png
   let imageUrl = '';
   
   if (typeof tcgdexCard.image === 'string') {
-    // Direct URL string
-    imageUrl = tcgdexCard.image;
+    // Direct URL string - add quality and format
+    // TCGDEX format: https://assets.tcgdex.net/[lang]/[series]/[set-id]/[card-id]/[quality].[format]
+    imageUrl = `${tcgdexCard.image}/high.webp`;
   } else if (tcgdexCard.image && typeof tcgdexCard.image === 'object') {
     // Image object with resolutions
     imageUrl = tcgdexCard.image.high || tcgdexCard.image.low || tcgdexCard.image.small || '';
+    
+    // If object URLs don't have extensions, add them
+    if (imageUrl && !imageUrl.match(/\.(png|jpg|jpeg|webp)$/i)) {
+      imageUrl = `${imageUrl}/high.webp`;
+    }
   }
   
   // If still no image, try to construct it manually from TCGDEX assets
-  // Format: https://assets.tcgdex.net/[lang]/[set-id]/[card-id]
+  // Format: https://assets.tcgdex.net/[lang]/[set-id]/[card-id]/[quality].[format]
   if (!imageUrl && cardId) {
     // Try to construct the image URL
-    // TCGDEX format is typically: https://assets.tcgdex.net/en/[set-id]/[local-id]
+    // TCGDEX format is typically: https://assets.tcgdex.net/en/[set-id]/[local-id]/high.webp
     const setId = tcgdexCard.set?.id || '';
     if (setId && cardNumber) {
-      imageUrl = `https://assets.tcgdex.net/en/${setId}/${cardNumber}`;
+      imageUrl = `https://assets.tcgdex.net/en/${setId}/${cardNumber}/high.webp`;
     }
   }
   

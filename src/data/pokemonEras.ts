@@ -79,6 +79,7 @@ export const POKEMON_ERAS: EraDefinition[] = [
       { id: 'swsh10', name: 'Astral Radiance', releaseDate: '2022-05-27' },
       { id: 'swsh9', name: 'Brilliant Stars', releaseDate: '2022-02-25' },
       { id: 'swsh8', name: 'Fusion Strike', releaseDate: '2021-11-12' },
+      { id: 'cel25', name: 'Celebrations', releaseDate: '2021-10-08' },
       { id: 'swsh7', name: 'Evolving Skies', releaseDate: '2021-08-27' },
       { id: 'swsh6', name: 'Chilling Reign', releaseDate: '2021-06-18' },
       { id: 'swsh5', name: 'Battle Styles', releaseDate: '2021-03-19' },
@@ -100,6 +101,7 @@ export const POKEMON_ERAS: EraDefinition[] = [
       { id: 'sm115', name: 'Hidden Fates', releaseDate: '2019-08-23' },
       { id: 'sm11', name: 'Unified Minds', releaseDate: '2019-08-02' },
       { id: 'sm10', name: 'Unbroken Bonds', releaseDate: '2019-05-03' },
+      { id: 'det1', name: 'Detective Pikachu', releaseDate: '2019-04-05' },
       { id: 'sm9', name: 'Team Up', releaseDate: '2019-02-01' },
       { id: 'sm8', name: 'Lost Thunder', releaseDate: '2018-11-02' },
       { id: 'sm7.5', name: 'Dragon Majesty', releaseDate: '2018-09-07' },
@@ -133,6 +135,7 @@ export const POKEMON_ERAS: EraDefinition[] = [
       { id: 'xy3', name: 'Furious Fists', releaseDate: '2014-08-13' },
       { id: 'xy2', name: 'Flashfire', releaseDate: '2014-05-07' },
       { id: 'xy1', name: 'XY', releaseDate: '2014-02-05' },
+      { id: 'xy0', name: 'Kalos Starter Set', releaseDate: '2013-11-08' },
     ],
   },
   
@@ -142,9 +145,11 @@ export const POKEMON_ERAS: EraDefinition[] = [
     name: 'Black & White',
     sets: [
       { id: 'bw11', name: 'Legendary Treasures', releaseDate: '2013-11-08' },
+      { id: 'rc', name: 'Radiant Collection', releaseDate: '2013-11-08' },
       { id: 'bw10', name: 'Plasma Blast', releaseDate: '2013-08-14' },
       { id: 'bw9', name: 'Plasma Freeze', releaseDate: '2013-05-08' },
       { id: 'bw8', name: 'Plasma Storm', releaseDate: '2013-02-06' },
+      { id: 'dv1', name: 'Dragon Vault', releaseDate: '2012-10-05' },
       { id: 'bw7', name: 'Boundaries Crossed', releaseDate: '2012-11-07' },
       { id: 'bw6', name: 'Dragons Exalted', releaseDate: '2012-08-15' },
       { id: 'bw5', name: 'Dark Explorers', releaseDate: '2012-05-09' },
@@ -160,6 +165,7 @@ export const POKEMON_ERAS: EraDefinition[] = [
     id: 'heartgold-soulsilver',
     name: 'HeartGold & SoulSilver',
     sets: [
+      { id: 'col1', name: 'Call of Legends', releaseDate: '2011-02-09' },
       { id: 'hgss4', name: 'Triumphant', releaseDate: '2010-11-03' },
       { id: 'hgss3', name: 'Undaunted', releaseDate: '2010-08-18' },
       { id: 'hgss2', name: 'Unleashed', releaseDate: '2010-05-12' },
@@ -218,6 +224,26 @@ export const POKEMON_ERAS: EraDefinition[] = [
     ],
   },
   
+  // E-Card Era (2002-2003)
+  {
+    id: 'ecard',
+    name: 'E-Card',
+    sets: [
+      { id: 'ecard3', name: 'Skyridge', releaseDate: '2003-05-12' },
+      { id: 'ecard2', name: 'Aquapolis', releaseDate: '2003-01-15' },
+      { id: 'ecard1', name: 'Expedition Base Set', releaseDate: '2002-09-15' },
+    ],
+  },
+  
+  // Legendary Collection Era (2002)
+  {
+    id: 'legendary-collection',
+    name: 'Legendary Collection',
+    sets: [
+      { id: 'lc', name: 'Legendary Collection', releaseDate: '2002-05-24' },
+    ],
+  },
+  
   // Neo Era (2000-2002)
   {
     id: 'neo',
@@ -227,6 +253,25 @@ export const POKEMON_ERAS: EraDefinition[] = [
       { id: 'neo3', name: 'Neo Revelation', releaseDate: '2001-09-21' },
       { id: 'neo2', name: 'Neo Discovery', releaseDate: '2001-06-16' },
       { id: 'neo1', name: 'Neo Genesis', releaseDate: '2000-12-16' },
+    ],
+  },
+  
+  // Southern Islands (2001)
+  {
+    id: 'southern-islands',
+    name: 'Southern Islands',
+    sets: [
+      { id: 'si1', name: 'Southern Islands', releaseDate: '2001-07-31' },
+    ],
+  },
+  
+  // Gym Era (2000)
+  {
+    id: 'gym',
+    name: 'Gym',
+    sets: [
+      { id: 'gym2', name: 'Gym Challenge', releaseDate: '2000-10-16' },
+      { id: 'gym1', name: 'Gym Heroes', releaseDate: '2000-08-14' },
     ],
   },
   
@@ -240,6 +285,58 @@ export const POKEMON_ERAS: EraDefinition[] = [
       { id: 'base3', name: 'Fossil', releaseDate: '1999-10-10' },
       { id: 'base2', name: 'Jungle', releaseDate: '1999-06-16' },
       { id: 'base1', name: 'Base Set', releaseDate: '1999-01-09' },
+    ],
+  },
+  
+  // POP Series (2004-2008)
+  {
+    id: 'pop',
+    name: 'POP Series',
+    sets: [
+      { id: 'pop9', name: 'POP Series 9', releaseDate: '2008-03-01' },
+      { id: 'pop8', name: 'POP Series 8', releaseDate: '2007-09-01' },
+      { id: 'pop7', name: 'POP Series 7', releaseDate: '2007-03-01' },
+      { id: 'pop6', name: 'POP Series 6', releaseDate: '2006-09-01' },
+      { id: 'pop5', name: 'POP Series 5', releaseDate: '2006-03-01' },
+      { id: 'pop4', name: 'POP Series 4', releaseDate: '2005-08-01' },
+      { id: 'pop3', name: 'POP Series 3', releaseDate: '2005-04-01' },
+      { id: 'pop2', name: 'POP Series 2', releaseDate: '2004-09-01' },
+      { id: 'pop1', name: 'POP Series 1', releaseDate: '2004-03-01' },
+    ],
+  },
+  
+  // Promotional Sets (Various Years)
+  {
+    id: 'promos',
+    name: 'Promotional Sets',
+    sets: [
+      { id: 'mep', name: 'MEP Black Star Promos', releaseDate: '2025-09-26' },
+      { id: 'svp', name: 'SVP Black Star Promos', releaseDate: '2023-03-31' },
+      { id: '2021swsh', name: "Macdonald's Collection 2021", releaseDate: '2021-01-01' },
+      { id: 'fut2020', name: 'Pokémon Futsal 2020', releaseDate: '2020-01-01' },
+      { id: 'swshp', name: 'SWSH Black Star Promos', releaseDate: '2020-02-07' },
+      { id: '2019sm', name: "Macdonald's Collection 2019", releaseDate: '2019-01-01' },
+      { id: 'sma', name: 'Yellow A Alternate', releaseDate: '2018-01-01' },
+      { id: '2018sm', name: "Macdonald's Collection 2018", releaseDate: '2018-01-01' },
+      { id: '2017sm', name: "Macdonald's Collection 2017", releaseDate: '2017-01-01' },
+      { id: 'smp', name: 'SM Black Star Promos', releaseDate: '2017-02-03' },
+      { id: '2016xy', name: "Macdonald's Collection 2016", releaseDate: '2016-01-01' },
+      { id: '2015xy', name: "Macdonald's Collection 2015", releaseDate: '2015-01-01' },
+      { id: '2014xy', name: "Macdonald's Collection 2014", releaseDate: '2014-01-01' },
+      { id: 'xyp', name: 'XY Black Star Promos', releaseDate: '2014-02-05' },
+      { id: 'xya', name: 'Yello A Alternate', releaseDate: '2014-01-01' },
+      { id: '2012bw', name: "Macdonald's Collection 2012", releaseDate: '2012-01-01' },
+      { id: '2011bw', name: "Macdonald's Collection 2011", releaseDate: '2011-01-01' },
+      { id: 'ru1', name: 'Pokémon Rumble', releaseDate: '2009-12-16' },
+      { id: 'bwp', name: 'BW Black Star Promos', releaseDate: '2011-04-25' },
+      { id: 'hgssp', name: 'HGSS Black Star Promos', releaseDate: '2010-02-10' },
+      { id: 'dpp', name: 'DP Black Star Promos', releaseDate: '2007-05-23' },
+      { id: 'bog', name: 'Best of Game', releaseDate: '2002-09-15' },
+      { id: 'np', name: 'Nintendo Black Star Promos', releaseDate: '2003-06-18' },
+      { id: 'basep', name: 'Wizards Black Star Promos', releaseDate: '1999-01-09' },
+      { id: 'wp', name: 'W Promotional', releaseDate: '1999-01-01' },
+      { id: 'sp', name: 'Sample', releaseDate: '2002-09-15' },
+      { id: 'jumbo', name: 'Jumbo cards', releaseDate: '1999-01-01' },
     ],
   },
 ];

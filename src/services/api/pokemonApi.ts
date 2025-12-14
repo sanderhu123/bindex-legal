@@ -296,12 +296,132 @@ export async function getSets(): Promise<PokemonSet[]> {
 }
 
 /**
- * Get cards for a specific set.
- * For mock data, we match by set name.
+ * Transform TCGDEX SDK card response to our Card type
  */
-export async function getCardsBySet(setName: string): Promise<Card[]> {
-  // Later we can switch this to use real API set IDs.
-  return mockCards.filter((card) => card.set === setName);
+function transformTcgdexCardToCard(tcgdexCard: any): Card {
+  // Extract card fields
+  const cardId = tcgdexCard.id || '';
+  const cardName = tcgdexCard.name || '';
+  const cardNumber = tcgdexCard.localId || ''; // localId is the card number in the set (e.g., "001")
+  const setName = tcgdexCard.set?.name || '';
+  const rarity = tcgdexCard.rarity || '';
+  const artist = tcgdexCard.artist || '';
+  
+  // Image URL - TCGDEX provides image object with different resolutions
+  // We'll use the high-quality image if available
+  let imageUrl = '';
+  if (tcgdexCard.image) {
+    // Try to get the highest quality image
+    imageUrl = tcgdexCard.image.high || tcgdexCard.image.low || '';
+  }
+  
+  // Convert to our Card type
+  return {
+    id: cardId,
+    name: cardName,
+    number: cardNumber,
+    set: setName,
+    rarity: rarity,
+    artist: artist,
+    imageUrl: imageUrl,
+    variant: 'base' as const, // Default to base variant for now (Step 24F will handle variants)
+  };
+}
+
+/**
+ * Get cards for a specific set using TCGDEX SDK.
+ * Falls back to mock data if API call fails.
+ * 
+ * @param setIdentifier - Can be either set name or set ID
+ */
+export async function getCardsBySet(setIdentifier: string): Promise<Card[]> {
+  console.log('[24C] getCardsBySet() called:', { setIdentifier });
+  
+  try {
+    // Step 1: Determine if we have a set ID or name
+    // TCGDEX uses lowercase IDs with hyphens (e.g., "base1", "swsh1", "sv01")
+    // Set names are human-readable (e.g., "Base Set", "Sword & Shield")
+    
+    // First, try to fetch the set directly assuming it's an ID
+    let tcgdexSet: any = null;
+    try {
+      tcgdexSet = await tcgdex.set.get(setIdentifier);
+      console.log('[24C] Set fetched using identifier as ID:', {
+        setId: tcgdexSet.id,
+        setName: tcgdexSet.name,
+      });
+    } catch (error) {
+      // If that fails, we might have a set name, so we need to find the set ID
+      console.log('[24C] Failed to fetch set by ID, trying to find by name...');
+      
+      // Get all sets and find the one matching the name
+      const allSets = await tcgdex.set.list();
+      const matchingSet = allSets.find(
+        (s: any) => s.name === setIdentifier || s.id === setIdentifier.toLowerCase().replace(/\s+/g, '-')
+      );
+      
+      if (!matchingSet) {
+        throw new Error(`Set not found: ${setIdentifier}`);
+      }
+      
+      // Fetch the full set details
+      tcgdexSet = await tcgdex.set.get(matchingSet.id);
+      console.log('[24C] Set fetched using name lookup:', {
+        setId: tcgdexSet.id,
+        setName: tcgdexSet.name,
+      });
+    }
+    
+    // Check if we successfully got a set
+    if (!tcgdexSet) {
+      throw new Error(`Failed to fetch set: ${setIdentifier}`);
+    }
+    
+    // Step 2: Extract cards from the set
+    // TCGDEX SDK provides cards as an array
+    const cards = tcgdexSet.cards || [];
+    
+    console.log('[24C] Cards extracted from set:', {
+      setId: tcgdexSet.id,
+      setName: tcgdexSet.name,
+      cardCount: cards.length,
+      sampleCard: cards[0] ? {
+        id: cards[0].id,
+        name: cards[0].name,
+        localId: cards[0].localId,
+      } : null,
+    });
+    
+    // Step 3: Transform cards to our Card type
+    const transformedCards = cards.map(transformTcgdexCardToCard);
+    
+    console.log('[24C] Cards transformed:', {
+      transformedCount: transformedCards.length,
+      sampleTransformed: transformedCards[0],
+    });
+    
+    // Filter out invalid cards (missing required fields)
+    const validCards = transformedCards.filter((card: Card) => card.id && card.name);
+    
+    if (validCards.length < transformedCards.length) {
+      console.warn('[24C] Some cards were filtered out due to missing required fields:', {
+        total: transformedCards.length,
+        valid: validCards.length,
+        filtered: transformedCards.length - validCards.length,
+      });
+    }
+    
+    return validCards;
+  } catch (error) {
+    console.error('[24C] Error in getCardsBySet():', {
+      setIdentifier,
+      error: error instanceof Error ? error.message : error,
+    });
+    
+    // Fallback to mock data
+    console.log('[24C] Falling back to mock cards filtered by set name');
+    return mockCards.filter((card) => card.set === setIdentifier);
+  }
 }
 
 /**

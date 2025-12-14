@@ -320,54 +320,53 @@ async function transformTcgdexCardToCard(tcgdexCard: any): Promise<Card> {
   const rarity = tcgdexCard.rarity || '';
   
   // Artist field - TCGDEX uses "illustrator" (not "artist")
-  // The illustrator might be a string, SimpleEndpoint object, or need special handling
+  // According to the REST API, illustrator should be a direct string on full card objects
+  // But the TypeScript SDK might wrap it, so we try multiple approaches
   let artist = '';
   
-  // Try multiple ways to extract the illustrator
-  if (tcgdexCard.illustrator) {
-    if (typeof tcgdexCard.illustrator === 'string') {
-      // Direct string value
-      artist = tcgdexCard.illustrator;
-    } else {
-      // Try to access it as an object property
-      const illustratorObj = tcgdexCard.illustrator;
-      
-      // Log what we're dealing with
-      console.log('[24C] Illustrator object details:', {
-        illustratorObj,
-        isObject: typeof illustratorObj === 'object',
-        keys: illustratorObj ? Object.keys(illustratorObj) : [],
-        toString: illustratorObj?.toString?.(),
-        valueOf: illustratorObj?.valueOf?.(),
-      });
-      
-      // Try different properties
-      artist = illustratorObj?.name || 
-               illustratorObj?.value || 
-               illustratorObj?.toString?.() || 
-               '';
+  // Try direct access first (should work for full cards from tcgdex.card.get())
+  try {
+    artist = tcgdexCard.illustrator || '';
+  } catch (e) {
+    console.warn('[24C] Direct illustrator access failed:', e);
+  }
+  
+  // If still empty, try alternative approaches
+  if (!artist && tcgdexCard.illustrator) {
+    const ill = tcgdexCard.illustrator;
+    
+    // Log the illustrator object to debug
+    console.log('[24C] Illustrator object details:', {
+      type: typeof ill,
+      value: ill,
+      keys: typeof ill === 'object' ? Object.keys(ill) : [],
+      string: String(ill),
+    });
+    
+    // Try different ways to extract the value
+    if (typeof ill === 'string') {
+      artist = ill;
+    } else if (typeof ill === 'object') {
+      artist = ill?.name || ill?.value || String(ill) || '';
     }
   }
   
-  // If we have a getIllustrator method on the card, try that
+  // Final fallback: try getIllustrator() method if it exists
   if (!artist && typeof tcgdexCard.getIllustrator === 'function') {
     try {
-      const illustratorData = await tcgdexCard.getIllustrator();
-      artist = typeof illustratorData === 'string' ? illustratorData : illustratorData?.name || '';
+      const result = await tcgdexCard.getIllustrator();
+      artist = typeof result === 'string' ? result : result?.name || '';
       console.log('[24C] Got illustrator from getIllustrator():', artist);
     } catch (error) {
-      console.warn('[24C] Failed to fetch illustrator via getIllustrator():', error);
+      console.warn('[24C] getIllustrator() failed:', error);
     }
   }
   
-  console.log('[24C] Extracted fields:', {
-    cardId,
-    cardName,
-    cardNumber,
-    setName,
-    rarity,
+  console.log('[24C] Final artist value:', {
     artist,
     hasArtist: !!artist,
+    cardId,
+    cardName,
   });
   
   // Image URL - TCGDEX provides image in different ways:

@@ -320,25 +320,43 @@ async function transformTcgdexCardToCard(tcgdexCard: any): Promise<Card> {
   const rarity = tcgdexCard.rarity || '';
   
   // Artist field - TCGDEX uses "illustrator" (not "artist")
-  // The illustrator might be a string or a SimpleEndpoint object that needs to be called
+  // The illustrator might be a string, SimpleEndpoint object, or need special handling
   let artist = '';
   
-  if (typeof tcgdexCard.illustrator === 'string') {
-    // Direct string value
-    artist = tcgdexCard.illustrator;
-  } else if (tcgdexCard.illustrator && typeof tcgdexCard.illustrator === 'object') {
-    // SimpleEndpoint object - try to get the value
-    // It might have a name property or need to be called as a function
-    if (tcgdexCard.illustrator.name) {
-      artist = tcgdexCard.illustrator.name;
-    } else if (typeof tcgdexCard.getIllustrator === 'function') {
-      // Try to call getIllustrator() method if it exists
-      try {
-        const illustratorData = await tcgdexCard.getIllustrator();
-        artist = illustratorData?.name || illustratorData || '';
-      } catch (error) {
-        console.warn('[24C] Failed to fetch illustrator:', error);
-      }
+  // Try multiple ways to extract the illustrator
+  if (tcgdexCard.illustrator) {
+    if (typeof tcgdexCard.illustrator === 'string') {
+      // Direct string value
+      artist = tcgdexCard.illustrator;
+    } else {
+      // Try to access it as an object property
+      const illustratorObj = tcgdexCard.illustrator;
+      
+      // Log what we're dealing with
+      console.log('[24C] Illustrator object details:', {
+        illustratorObj,
+        isObject: typeof illustratorObj === 'object',
+        keys: illustratorObj ? Object.keys(illustratorObj) : [],
+        toString: illustratorObj?.toString?.(),
+        valueOf: illustratorObj?.valueOf?.(),
+      });
+      
+      // Try different properties
+      artist = illustratorObj?.name || 
+               illustratorObj?.value || 
+               illustratorObj?.toString?.() || 
+               '';
+    }
+  }
+  
+  // If we have a getIllustrator method on the card, try that
+  if (!artist && typeof tcgdexCard.getIllustrator === 'function') {
+    try {
+      const illustratorData = await tcgdexCard.getIllustrator();
+      artist = typeof illustratorData === 'string' ? illustratorData : illustratorData?.name || '';
+      console.log('[24C] Got illustrator from getIllustrator():', artist);
+    } catch (error) {
+      console.warn('[24C] Failed to fetch illustrator via getIllustrator():', error);
     }
   }
   
@@ -349,8 +367,7 @@ async function transformTcgdexCardToCard(tcgdexCard: any): Promise<Card> {
     setName,
     rarity,
     artist,
-    illustratorType: typeof tcgdexCard.illustrator,
-    illustratorRaw: tcgdexCard.illustrator,
+    hasArtist: !!artist,
   });
   
   // Image URL - TCGDEX provides image in different ways:

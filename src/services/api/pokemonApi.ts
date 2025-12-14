@@ -531,11 +531,55 @@ export async function getCardsByRegion(region: Region, pokemonArtStyle?: Pokemon
 }
 
 /**
- * Simple helper to get a single card by ID.
+ * Get a single card by ID using TCGDEX SDK.
+ * Falls back to mock data if API call fails.
+ * 
+ * @param id - Card ID from TCGDEX (e.g., "swsh11-TG21", "base1-4")
  */
 export async function getCardById(id: string): Promise<Card | null> {
-  const card = mockCards.find((c) => c.id === id);
-  return card || null;
+  console.log('[24D] getCardById() called:', { cardId: id });
+  
+  try {
+    // Fetch card from TCGDEX SDK
+    const tcgdexCard = await tcgdex.card.get(id);
+    
+    console.log('[24D] Card fetched from SDK:', {
+      cardId: tcgdexCard.id,
+      cardName: tcgdexCard.name,
+      hasImage: !!tcgdexCard.image,
+      hasVariants: !!tcgdexCard.variants,
+      allKeys: Object.keys(tcgdexCard),
+    });
+    
+    // Transform TCGDEX card to our Card type
+    const transformedCard = transformTcgdexCardToCard(tcgdexCard);
+    
+    console.log('[24D] Card transformed:', {
+      transformedId: transformedCard.id,
+      transformedName: transformedCard.name,
+      hasImageUrl: !!transformedCard.imageUrl,
+      hasHiResUrl: !!transformedCard.imageUrlHiRes,
+    });
+    
+    return transformedCard;
+  } catch (error) {
+    console.error('[24D] Error in getCardById():', {
+      cardId: id,
+      error: error instanceof Error ? error.message : error,
+    });
+    
+    // Fallback to mock data
+    console.log('[24D] Falling back to mock card data');
+    const mockCard = mockCards.find((c) => c.id === id);
+    
+    if (mockCard) {
+      console.log('[24D] Using mock card as fallback:', { cardId: mockCard.id, cardName: mockCard.name });
+    } else {
+      console.warn('[24D] Card not found in mock data either:', { cardId: id });
+    }
+    
+    return mockCard || null;
+  }
 }
 
 /**

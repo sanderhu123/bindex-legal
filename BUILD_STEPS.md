@@ -1233,7 +1233,7 @@ Each step uses a unique log prefix to make debugging easier:
 ---
 
 #### Step 24D: Implement `getCardById()` with Real API
-- [ ] **Status**: Not started
+- [x] **Status**: Completed
 
 **What we're doing:** Replace mockup single card lookup with real TCGDEX API using the SDK
 
@@ -1243,20 +1243,26 @@ Each step uses a unique log prefix to make debugging easier:
 - `src/services/api/pokemonApi.ts` - Update `getCardById()` function to use SDK
 
 **What gets implemented:**
-- Fetch single card using SDK: `await tcgdex.card.get(cardId)`
-- SDK handles API communication internally (uses `https://api.tcgdex.net/v2/` internally)
-- Transform TCGDEX SDK response to match existing `Card` type
-- Map TCGDEX fields to our Card type
-- Card images will use `https://assets.tcgdex.net` (assets URL, not API URL)
-- Fallback to mockup data on error
+- ✅ Fetch single card using SDK: `await tcgdex.card.get(cardId)`
+- ✅ SDK handles API communication internally (uses `https://api.tcgdex.net/v2/` internally)
+- ✅ Transform TCGDEX SDK response to match existing `Card` type
+- ✅ Map TCGDEX fields to our Card type (reuses transformTcgdexCardToCard function)
+- ✅ Card images include both low-res and high-res URLs
+- ✅ Fallback to mockup data on error
+- ✅ Detailed logging with [24D] prefix for debugging
 
 **Testing:**
-- [ ] Can fetch single card by ID from API
-- [ ] Card detail screen loads correctly
-- [ ] Full card image displays (large view)
-- [ ] All card information shows (name, number, set, rarity, artist)
-- [ ] Fallback to mockup data works if API fails
-- [ ] Navigation to card detail works
+- [x] `getCardById()` implemented with TCGDEX SDK
+- [x] Uses transformTcgdexCardToCard() for consistent transformation
+- [x] Falls back to mock data on error
+- [x] Detailed logging added with [24D] prefix
+- [x] No TypeScript errors
+- [ ] Can fetch single card by ID from API - Ready to test
+- [ ] Card detail screen loads correctly - Ready to test
+- [ ] Full card image displays (large view) - Ready to test
+- [ ] All card information shows (name, number, set, rarity, artist) - Ready to test
+- [ ] Fallback to mockup data works if API fails - Ready to test
+- [ ] Navigation to card detail works - Ready to test
 
 **How to Test Step 24D:**
 1. **Navigate to a card:**

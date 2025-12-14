@@ -299,6 +299,14 @@ export async function getSets(): Promise<PokemonSet[]> {
  * Transform TCGDEX SDK card response to our Card type
  */
 function transformTcgdexCardToCard(tcgdexCard: any): Card {
+  // Log the raw card data to debug image URL issues
+  console.log('[24C] Transforming card - raw data:', {
+    id: tcgdexCard.id,
+    name: tcgdexCard.name,
+    imageField: tcgdexCard.image,
+    allKeys: Object.keys(tcgdexCard),
+  });
+  
   // Extract card fields
   const cardId = tcgdexCard.id || '';
   const cardName = tcgdexCard.name || '';
@@ -307,13 +315,37 @@ function transformTcgdexCardToCard(tcgdexCard: any): Card {
   const rarity = tcgdexCard.rarity || '';
   const artist = tcgdexCard.artist || '';
   
-  // Image URL - TCGDEX provides image object with different resolutions
-  // We'll use the high-quality image if available
+  // Image URL - TCGDEX provides image in different ways:
+  // 1. As a string URL directly
+  // 2. As an object with different resolutions
+  // 3. Via a method to get the image
   let imageUrl = '';
-  if (tcgdexCard.image) {
-    // Try to get the highest quality image
-    imageUrl = tcgdexCard.image.high || tcgdexCard.image.low || '';
+  
+  if (typeof tcgdexCard.image === 'string') {
+    // Direct URL string
+    imageUrl = tcgdexCard.image;
+  } else if (tcgdexCard.image && typeof tcgdexCard.image === 'object') {
+    // Image object with resolutions
+    imageUrl = tcgdexCard.image.high || tcgdexCard.image.low || tcgdexCard.image.small || '';
   }
+  
+  // If still no image, try to construct it manually from TCGDEX assets
+  // Format: https://assets.tcgdex.net/[lang]/[set-id]/[card-id]
+  if (!imageUrl && cardId) {
+    // Try to construct the image URL
+    // TCGDEX format is typically: https://assets.tcgdex.net/en/[set-id]/[local-id]
+    const setId = tcgdexCard.set?.id || '';
+    if (setId && cardNumber) {
+      imageUrl = `https://assets.tcgdex.net/en/${setId}/${cardNumber}`;
+    }
+  }
+  
+  console.log('[24C] Image URL extracted:', {
+    cardId,
+    cardName,
+    imageUrl,
+    hasImage: !!imageUrl,
+  });
   
   // Convert to our Card type
   return {
@@ -389,6 +421,8 @@ export async function getCardsBySet(setIdentifier: string): Promise<Card[]> {
         id: cards[0].id,
         name: cards[0].name,
         localId: cards[0].localId,
+        image: cards[0].image,
+        allCardKeys: Object.keys(cards[0]),
       } : null,
     });
     

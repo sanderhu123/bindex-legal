@@ -12,6 +12,10 @@ interface SetSelectorProps {
 function SetItem({ item, isSelected, onSelect }: { item: PokemonSet; isSelected: boolean; onSelect: (name: string) => void }) {
   const [imageLoading, setImageLoading] = useState(true);
   const [imageError, setImageError] = useState(false);
+  
+  // Use logo if available, otherwise use symbol
+  const imageUrl = item.logo || item.symbol || '';
+  const hasImage = imageUrl.length > 0;
 
   return (
     <TouchableOpacity
@@ -20,7 +24,7 @@ function SetItem({ item, isSelected, onSelect }: { item: PokemonSet; isSelected:
       onPress={() => onSelect(item.name)}
     >
       <View style={styles.itemContent}>
-        {item.logo && !imageError ? (
+        {hasImage && !imageError ? (
           <View style={styles.logoContainer}>
             {imageLoading && (
               <View style={styles.logoPlaceholder}>
@@ -29,7 +33,7 @@ function SetItem({ item, isSelected, onSelect }: { item: PokemonSet; isSelected:
             )}
             <Image
               source={{ 
-                uri: item.logo,
+                uri: imageUrl,
                 cache: 'force-cache', // Cache images aggressively
               }}
               style={[styles.setLogo, imageLoading && styles.hiddenImage]}
@@ -43,7 +47,7 @@ function SetItem({ item, isSelected, onSelect }: { item: PokemonSet; isSelected:
             />
           </View>
         ) : (
-          // Fallback placeholder when no logo or error
+          // Fallback placeholder when no logo/symbol or error
           <View style={styles.logoPlaceholder}>
             <Text style={styles.logoPlaceholderText}>🎴</Text>
           </View>

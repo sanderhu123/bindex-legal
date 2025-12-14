@@ -12,8 +12,28 @@ import type { PokemonSet } from '../services/api/pokemonApi';
 
 /**
  * Generate logo URL for a set from TCGDEX
+ * Some sets have non-standard paths or missing logos, so we need special handling
  */
 function getSetLogoUrl(setId: string, seriesSlug: string): string {
+  // Special cases for sets with known working logo URLs or that use symbols instead
+  // These sets either don't have logos or have them in different locations
+  const specialCases: { [key: string]: string } = {
+    // Celebrations uses symbol instead of logo
+    'cel25': 'https://assets.tcgdex.net/en/swsh/cel25/symbol.png',
+    // Detective Pikachu uses symbol instead of logo
+    'det1': 'https://assets.tcgdex.net/en/sm/det1/symbol.png',
+    // Special promos and subsets
+    'col1': 'https://assets.tcgdex.net/en/hgss/col1/symbol.png',
+    'dv1': 'https://assets.tcgdex.net/en/bw/dv1/symbol.png',
+    'g1': 'https://assets.tcgdex.net/en/xy/g1/symbol.png',
+  };
+  
+  // Check if this set has a special case
+  if (setId in specialCases) {
+    return specialCases[setId];
+  }
+  
+  // Standard logo URL pattern
   return `https://assets.tcgdex.net/en/${seriesSlug}/${setId}/logo.png`;
 }
 

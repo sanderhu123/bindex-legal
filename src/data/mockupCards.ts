@@ -6,6 +6,8 @@ export type MockSet = {
   name: string;
   series: string;
   releaseDate: string;
+  logo?: string;
+  symbol?: string;
 };
 
 export const mockSets: MockSet[] = [

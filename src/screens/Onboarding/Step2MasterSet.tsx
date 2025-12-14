@@ -1,22 +1,18 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator, TouchableOpacity, Image } from 'react-native';
 import SetSelector from '../../components/Binder/SetSelector';
-import { getSetsMinimal, getSetsBySerie } from '../../services/api/pokemonApi';
+import { getSetsBySerie, getErasList } from '../../services/api/pokemonApi';
 import type { PokemonSet } from '../../services/api/pokemonApi';
-import TCGdex from '@tcgdex/sdk';
-
-const tcgdex = new TCGdex('en');
 
 interface Step2MasterSetProps {
   selectedSetName: string | null;
-  onSetChange: (setName: string) => void;
+  onSetChange: (setName: string | null) => void;
 }
 
 export default function Step2MasterSet({
   selectedSetName,
   onSetChange,
 }: Step2MasterSetProps) {
-  const [minimalSets, setMinimalSets] = useState<PokemonSet[]>([]);
   const [setsInEra, setSetsInEra] = useState<PokemonSet[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingEraSets, setLoadingEraSets] = useState(false);
@@ -27,26 +23,18 @@ export default function Step2MasterSet({
     loadInitialData();
   }, []);
 
-  // Load minimal sets and all series for era selection
+  // Load eras from hard-coded data (already ordered newest first)
   const loadInitialData = async () => {
     try {
       setLoading(true);
       
-      // Fetch minimal sets (fast - just id and name)
-      const fetchedMinimalSets = await getSetsMinimal();
-      setMinimalSets(fetchedMinimalSets);
+      // Get eras from hard-coded data (newest first)
+      const fetchedSeries = getErasList();
+      setSeries(fetchedSeries);
       
-      // Fetch all series to show eras (fast - maybe 10-20 series)
-      const fetchedSeries = await tcgdex.serie.list();
-      const seriesList = fetchedSeries.map((serie: any) => ({
-        id: serie.id || '',
-        name: serie.name || serie.id || 'Unknown',
-      }));
-      setSeries(seriesList);
-      
-      console.log('[Step2MasterSet] Initial data loaded:', {
-        minimalSetsCount: fetchedMinimalSets.length,
-        seriesCount: seriesList.length,
+      console.log('[Step2MasterSet] Initial data loaded from hard-coded data:', {
+        seriesCount: fetchedSeries.length,
+        eras: fetchedSeries.map(s => s.name),
       });
     } catch (error) {
       console.error('Error loading initial data:', error);
@@ -77,12 +65,28 @@ export default function Step2MasterSet({
         serieName,
         setCount: fetchedSets.length,
       });
+      
+      // Preload all logos for this era in the background
+      preloadSetLogos(fetchedSets);
     } catch (error) {
       console.error('Error loading sets for era:', error);
       setSetsInEra([]);
     } finally {
       setLoadingEraSets(false);
     }
+  };
+
+  // Preload set logo images to cache them
+  const preloadSetLogos = (sets: PokemonSet[]) => {
+    sets.forEach((set) => {
+      if (set.logo) {
+        // Start loading the image in the background
+        Image.prefetch(set.logo).catch((error) => {
+          console.warn(`Failed to preload logo for ${set.name}:`, error);
+        });
+      }
+    });
+    console.log('[Step2MasterSet] Preloading', sets.length, 'set logos...');
   };
 
   // Get set count for each era (we don't know this from minimal data, so we'll show "?" or fetch on demand)

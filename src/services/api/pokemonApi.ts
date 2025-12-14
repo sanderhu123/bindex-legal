@@ -2,6 +2,7 @@ import type { Card } from '../../types';
 import type { PokemonArtStyle } from '../../types';
 import { mockCards, mockSets, type MockSet } from '../../data/mockupCards';
 import { getPokemonByRegion } from '../../data/pokemonRegions';
+import { getEras, getSetsByEra, convertSetToPokemonSet } from '../../data/pokemonEras';
 import TCGdex from '@tcgdex/sdk';
 
 export type PokemonSet = MockSet;
@@ -163,46 +164,27 @@ export async function getSetsMinimal(): Promise<PokemonSet[]> {
 }
 
 /**
- * Get full set details for sets in a specific serie/era.
- * This is called when user selects an era - only fetches full details for sets in that era.
- * Falls back to empty array if API call fails.
+ * Get full set details for sets in a specific serie/era using hard-coded data.
+ * Sets are already ordered newest first in the hard-coded data.
+ * This is reliable and works offline.
  */
 export async function getSetsBySerie(serieName: string): Promise<PokemonSet[]> {
-  console.log('[24B] getSetsBySerie() called:', { serieName });
+  console.log('[24B] getSetsBySerie() called (using hard-coded data):', { serieName });
   
   try {
-    // Step 1: Get minimal set data first
-    const tcgdexSetsMinimal = await tcgdex.set.list();
+    // Get sets for the era from hard-coded data (already sorted newest first)
+    const setDefinitions = getSetsByEra(serieName);
     
-    // Step 2: Fetch full details for all sets (we need this to filter by serie)
-    // Then filter to only sets in the specified serie
-    // Note: This is still many API calls, but only happens when user selects an era
-    console.log('[24B] Fetching full details for sets in serie:', serieName);
-    const BATCH_SIZE = 20;
-    const fullSets: any[] = [];
+    // Convert SetDefinition to PokemonSet format
+    const sets = setDefinitions.map(setDef => convertSetToPokemonSet(setDef, serieName));
     
-    // Fetch full details in batches
-    for (let i = 0; i < tcgdexSetsMinimal.length; i += BATCH_SIZE) {
-      const batch = tcgdexSetsMinimal.slice(i, i + BATCH_SIZE);
-      const batchPromises = batch.map(set => tcgdex.set.get(set.id));
-      const batchResults = await Promise.all(batchPromises);
-      fullSets.push(...batchResults);
-    }
-    
-    // Transform and filter by serie
-    const allSets = await Promise.all(fullSets.map(transformTcgdexSetToPokemonSet));
-    const setsInSerie = allSets.filter(set => set.series === serieName);
-    
-    // Sort by release date (newest → oldest)
-    const sortedSets = sortSetsByDate(setsInSerie);
-    
-    console.log('[24B] Sets by serie fetched:', {
+    console.log('[24B] Sets by serie fetched from hard-coded data:', {
       serieName,
-      setCount: sortedSets.length,
-      sampleSet: sortedSets[0],
+      setCount: sets.length,
+      sampleSet: sets[0],
     });
     
-    return sortedSets;
+    return sets;
   } catch (error) {
     console.error('[24B] Error in getSetsBySerie():', error);
     return [];
@@ -368,6 +350,14 @@ export async function getCardsByRegion(region: Region, pokemonArtStyle?: Pokemon
 export async function getCardById(id: string): Promise<Card | null> {
   const card = mockCards.find((c) => c.id === id);
   return card || null;
+}
+
+/**
+ * Get all eras using hard-coded data (ordered newest first).
+ * This replaces the need to call tcgdx.serie.list() from the API.
+ */
+export function getErasList(): Array<{ id: string; name: string }> {
+  return getEras();
 }
 
 

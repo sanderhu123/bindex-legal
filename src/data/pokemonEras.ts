@@ -11,6 +11,51 @@
 import type { PokemonSet } from '../services/api/pokemonApi';
 
 /**
+ * Generate logo URL for a set from TCGDEX
+ */
+function getSetLogoUrl(setId: string, seriesSlug: string): string {
+  return `https://assets.tcgdex.net/en/${seriesSlug}/${setId}/logo.png`;
+}
+
+/**
+ * Generate symbol URL for a set from TCGDEX
+ */
+function getSetSymbolUrl(setId: string): string {
+  return `https://assets.tcgdex.net/univ/${getSeriesSlugFromId(setId)}/${setId}/symbol.png`;
+}
+
+/**
+ * Get series slug from set ID
+ */
+function getSeriesSlugFromId(setId: string): string {
+  if (setId.startsWith('me')) return 'me';
+  if (setId.startsWith('sv')) return 'sv';
+  if (setId.startsWith('swsh')) return 'swsh';
+  if (setId.startsWith('sm')) return 'sm';
+  if (setId.startsWith('xy')) return 'xy';
+  if (setId.startsWith('bw')) return 'bw';
+  if (setId.startsWith('hgss')) return 'hgss';
+  if (setId.startsWith('pl')) return 'pl';
+  if (setId.startsWith('dp')) return 'dp';
+  if (setId.startsWith('ex')) return 'ex';
+  if (setId.startsWith('ecard')) return 'ecard';
+  if (setId.startsWith('neo')) return 'neo';
+  if (setId.startsWith('gym')) return 'gym';
+  if (setId.startsWith('base')) return 'base';
+  if (setId.startsWith('pop')) return 'pop';
+  if (setId === 'lc') return 'lc';
+  if (setId === 'si1') return 'neo';
+  if (setId === 'det1') return 'det';
+  if (setId === 'cel25') return 'cel';
+  if (setId === 'col1') return 'col';
+  if (setId === 'dv1') return 'dv';
+  if (setId === 'rc') return 'rc';
+  if (setId === 'dc1') return 'dc';
+  if (setId === 'g1') return 'g';
+  return 'base'; // fallback
+}
+
+/**
  * Era definition with ordered sets (newest first)
  */
 export interface EraDefinition {
@@ -26,6 +71,8 @@ export interface SetDefinition {
   id: string;
   name: string;
   releaseDate: string;
+  logo?: string;
+  symbol?: string;
 }
 
 /**
@@ -396,11 +443,15 @@ export function getEraForSetId(setId: string): string | null {
  * Convert SetDefinition to PokemonSet format
  */
 export function convertSetToPokemonSet(setDef: SetDefinition, eraName: string): PokemonSet {
+  const seriesSlug = getSeriesSlugFromId(setDef.id);
+  
   return {
     id: setDef.id,
     name: setDef.name,
     series: eraName,
     releaseDate: setDef.releaseDate,
+    logo: setDef.logo || getSetLogoUrl(setDef.id, seriesSlug),
+    symbol: setDef.symbol || getSetSymbolUrl(setDef.id),
   };
 }
 

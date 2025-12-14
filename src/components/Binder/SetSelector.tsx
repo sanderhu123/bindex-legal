@@ -1,11 +1,62 @@
-import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, Image, ActivityIndicator } from 'react-native';
 import type { PokemonSet } from '../../services/api/pokemonApi';
 
 interface SetSelectorProps {
   sets: PokemonSet[];
   selectedSetName: string | null;
   onSelect: (setName: string) => void;
+}
+
+// Individual set item component with loading state
+function SetItem({ item, isSelected, onSelect }: { item: PokemonSet; isSelected: boolean; onSelect: (name: string) => void }) {
+  const [imageLoading, setImageLoading] = useState(true);
+  const [imageError, setImageError] = useState(false);
+
+  return (
+    <TouchableOpacity
+      key={item.id}
+      style={[styles.item, isSelected && styles.itemSelected]}
+      onPress={() => onSelect(item.name)}
+    >
+      <View style={styles.itemContent}>
+        {item.logo && !imageError ? (
+          <View style={styles.logoContainer}>
+            {imageLoading && (
+              <View style={styles.logoPlaceholder}>
+                <ActivityIndicator size="small" color="#007AFF" />
+              </View>
+            )}
+            <Image
+              source={{ 
+                uri: item.logo,
+                cache: 'force-cache', // Cache images aggressively
+              }}
+              style={[styles.setLogo, imageLoading && styles.hiddenImage]}
+              resizeMode="contain"
+              onLoadStart={() => setImageLoading(true)}
+              onLoadEnd={() => setImageLoading(false)}
+              onError={() => {
+                setImageLoading(false);
+                setImageError(true);
+              }}
+            />
+          </View>
+        ) : (
+          // Fallback placeholder when no logo or error
+          <View style={styles.logoPlaceholder}>
+            <Text style={styles.logoPlaceholderText}>🎴</Text>
+          </View>
+        )}
+        <View style={styles.itemText}>
+          <Text style={styles.itemTitle}>{item.name}</Text>
+          <Text style={styles.itemSubtitle}>
+            {item.series} • {item.releaseDate}
+          </Text>
+        </View>
+      </View>
+    </TouchableOpacity>
+  );
 }
 
 export default function SetSelector({ sets, selectedSetName, onSelect }: SetSelectorProps) {
@@ -27,16 +78,12 @@ export default function SetSelector({ sets, selectedSetName, onSelect }: SetSele
       {sortedSets.map((item) => {
         const isSelected = selectedSetName === item.name;
         return (
-          <TouchableOpacity
+          <SetItem
             key={item.id}
-            style={[styles.item, isSelected && styles.itemSelected]}
-            onPress={() => onSelect(item.name)}
-          >
-            <Text style={styles.itemTitle}>{item.name}</Text>
-            <Text style={styles.itemSubtitle}>
-              {item.series} • {item.releaseDate}
-            </Text>
-          </TouchableOpacity>
+            item={item}
+            isSelected={isSelected}
+            onSelect={onSelect}
+          />
         );
       })}
     </View>
@@ -55,6 +102,40 @@ const styles = StyleSheet.create({
   itemSelected: {
     borderColor: '#007AFF',
     backgroundColor: '#E5F0FF',
+  },
+  itemContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  logoContainer: {
+    width: 60,
+    height: 40,
+    marginRight: 12,
+    position: 'relative',
+  },
+  setLogo: {
+    width: 60,
+    height: 40,
+  },
+  hiddenImage: {
+    opacity: 0,
+  },
+  logoPlaceholder: {
+    width: 60,
+    height: 40,
+    backgroundColor: '#f0f0f0',
+    borderRadius: 4,
+    justifyContent: 'center',
+    alignItems: 'center',
+    position: 'absolute',
+    top: 0,
+    left: 0,
+  },
+  logoPlaceholderText: {
+    fontSize: 24,
+  },
+  itemText: {
+    flex: 1,
   },
   itemTitle: {
     fontSize: 16,

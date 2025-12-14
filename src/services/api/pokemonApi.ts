@@ -1,4 +1,5 @@
 import type { Card } from '../../types';
+import type { PokemonArtStyle } from '../../types';
 import { mockCards, mockSets, type MockSet } from '../../data/mockupCards';
 import { getPokemonByRegion } from '../../data/pokemonRegions';
 
@@ -34,10 +35,29 @@ export async function getCardsBySet(setName: string): Promise<Card[]> {
 }
 
 /**
- * Get cards for a Pokédex region using hardcoded Pokémon list.
- * Returns Card objects with Pokémon names and Pokédex numbers, but no card images.
+ * Generate Pokemon image URL based on Pokédex number and art style
  */
-export async function getCardsByRegion(region: Region): Promise<Card[]> {
+function getPokemonImageUrl(pokedexNumber: number, artStyle: PokemonArtStyle): string {
+  const baseUrl = 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon';
+  
+  switch (artStyle) {
+    case 'sprite':
+      return `${baseUrl}/${pokedexNumber}.png`;
+    case 'home':
+      return `${baseUrl}/other/home/${pokedexNumber}.png`;
+    case 'official-artwork':
+      return `${baseUrl}/other/official-artwork/${pokedexNumber}.png`;
+    default:
+      // Default to sprite if unknown style
+      return `${baseUrl}/${pokedexNumber}.png`;
+  }
+}
+
+/**
+ * Get cards for a Pokédex region using hardcoded Pokémon list.
+ * Returns Card objects with Pokémon names, Pokédex numbers, and images based on art style.
+ */
+export async function getCardsByRegion(region: Region, pokemonArtStyle?: PokemonArtStyle): Promise<Card[]> {
   const pokemonList = getPokemonByRegion(region);
   
   // Convert Pokémon entries to Card objects
@@ -48,7 +68,7 @@ export async function getCardsByRegion(region: Region): Promise<Card[]> {
     set: `${region} Region`, // Use region name as "set"
     rarity: '', // No rarity for Region mode
     artist: '', // No artist for Region mode
-    imageUrl: undefined, // No card images for Region mode
+    imageUrl: pokemonArtStyle ? getPokemonImageUrl(pokemon.number, pokemonArtStyle) : undefined,
     pokedexNumber: pokemon.number,
     variant: 'base' as const, // Always base for Region mode
   }));

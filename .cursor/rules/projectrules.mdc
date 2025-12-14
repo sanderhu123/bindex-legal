@@ -27,9 +27,9 @@
 - **React Query/TanStack Query** for server state and caching
 
 ### Data Fetching
-- **Pokémon TCG API** for card data
-  - API Key: `4fff0075-cf2c-4871-aed2-53afa1cfc65a` (stored in environment variables)
-  - Base URL: `https://api.pokemontcg.io/v2/`
+- **TCGDEX.DEV** for card data
+  - https://tcgdex.dev/
+  - IT'S 'TCGDEX' AND NOT 'TCGDX'
 - **Mockup data** for testing/development
 - Use **React Query** for API calls and caching
 

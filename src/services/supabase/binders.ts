@@ -1,5 +1,5 @@
 import { supabase } from './client';
-import type { Binder, CollectionMode, VariantPlacement, LayoutPreference } from '../../types';
+import type { Binder, CollectionMode, VariantPlacement, LayoutPreference, PokemonArtStyle } from '../../types';
 
 /**
  * Database representation of a binder (matches database schema)
@@ -14,6 +14,7 @@ interface BinderRow {
   variants_to_track: string[] | null;
   variant_placement: VariantPlacement | null;
   layout_preference: LayoutPreference | null;
+  pokemon_art_style: PokemonArtStyle | null;
   nfc_tag_id: string | null;
   created_at: string;
   updated_at: string;
@@ -33,6 +34,7 @@ function rowToBinder(row: BinderRow, cardIds: string[]): Binder {
     variantsToTrack: row.variants_to_track || undefined,
     variantPlacement: row.variant_placement || undefined,
     layoutPreference: row.layout_preference || undefined,
+    pokemonArtStyle: row.pokemon_art_style || undefined,
     nfcTagId: row.nfc_tag_id || undefined,
     cardIds,
     createdAt: new Date(row.created_at),
@@ -187,6 +189,7 @@ export async function createBinder(binder: {
   variantsToTrack?: string[];
   variantPlacement?: VariantPlacement;
   layoutPreference?: LayoutPreference;
+  pokemonArtStyle?: PokemonArtStyle;
   nfcTagId?: string;
 }): Promise<Binder> {
   const { data: { user } } = await supabase.auth.getUser();
@@ -206,6 +209,7 @@ export async function createBinder(binder: {
       variants_to_track: binder.variantsToTrack || null,
       variant_placement: binder.variantPlacement || null,
       layout_preference: binder.layoutPreference || null,
+      pokemon_art_style: binder.pokemonArtStyle || null,
       nfc_tag_id: binder.nfcTagId || null,
     })
     .select()

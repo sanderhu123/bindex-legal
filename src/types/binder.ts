@@ -14,6 +14,11 @@ export type VariantPlacement = 'grouped' | 'end';
 export type LayoutPreference = '3x3' | '4x3';
 
 /**
+ * Pokemon art style preference for region mode
+ */
+export type PokemonArtStyle = 'sprite' | 'home' | 'official-artwork';
+
+/**
  * Binder interface representing a user's card collection binder
  */
 export interface Binder {
@@ -26,6 +31,7 @@ export interface Binder {
   variantsToTrack?: string[]; // ['base', 'reverse-holo', 'poke-ball', 'master-ball']
   variantPlacement?: VariantPlacement; // How to display variants
   layoutPreference?: LayoutPreference; // Grid layout preference
+  pokemonArtStyle?: PokemonArtStyle; // Pokemon art style for region mode
   nfcTagId?: string; // NFC tag ID (1:1 relationship, optional for manual binders)
   cardIds: string[]; // IDs of owned cards
   createdAt: Date;

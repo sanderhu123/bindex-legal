@@ -53,6 +53,7 @@ CREATE TABLE IF NOT EXISTS public.binders (
   variants_to_track TEXT[], -- Array of variant names ['base', 'reverse-holo', etc.]
   variant_placement TEXT CHECK (variant_placement IN ('grouped', 'end')),
   layout_preference TEXT CHECK (layout_preference IN ('auto', '3x3', '4x3')),
+  pokemon_art_style TEXT CHECK (pokemon_art_style IN ('sprite', 'home', 'official-artwork')), -- For region mode
   nfc_tag_id TEXT UNIQUE, -- Unique constraint for 1:1 relationship
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()

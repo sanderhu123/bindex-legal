@@ -99,7 +99,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
         if (binder.collectionMode === 'master-set' && binder.set) {
           allCards = await getCardsBySet(binder.set);
         } else if (binder.collectionMode === 'region' && binder.region) {
-          allCards = await getCardsByRegion(binder.region as Region);
+          allCards = await getCardsByRegion(binder.region as Region, binder.pokemonArtStyle);
         } else if (binder.collectionMode === 'custom') {
           // For custom binders, we'll show only owned cards for now
           // (We'll improve this later)

@@ -1,0 +1,309 @@
+/**
+ * Hard-coded Pokémon TCG Era and Set mappings
+ * 
+ * This file provides reliable, offline-friendly mappings of sets to their eras.
+ * Eras are ordered newest first, and sets within each era are also ordered newest first.
+ * 
+ * Structure matches TCGDEX API organization where sets have a "series" field
+ * that corresponds to these era names.
+ */
+
+import type { PokemonSet } from '../services/api/pokemonApi';
+
+/**
+ * Era definition with ordered sets (newest first)
+ */
+export interface EraDefinition {
+  id: string;
+  name: string; // This matches the "series" field in API responses
+  sets: SetDefinition[];
+}
+
+/**
+ * Set definition with basic information
+ */
+export interface SetDefinition {
+  id: string;
+  name: string;
+  releaseDate: string;
+}
+
+/**
+ * Complete era and set definitions
+ * Ordered: Newest era first, newest sets first within each era
+ */
+export const POKEMON_ERAS: EraDefinition[] = [
+  // Mega Evolution Era (2025-present)
+  {
+    id: 'mega-evolution',
+    name: 'Mega Evolution',
+    sets: [
+      { id: 'me02', name: 'Phantasmal Flames', releaseDate: '2025-11-14' },
+      { id: 'me01', name: 'Mega Evolution', releaseDate: '2025-09-26' },
+    ],
+  },
+  
+  // Scarlet & Violet Era (2023-2025)
+  {
+    id: 'scarlet-violet',
+    name: 'Scarlet & Violet',
+    sets: [
+      { id: 'sv10.5b', name: 'Black Bolt', releaseDate: '2025-07-18' },
+      { id: 'sv10.5w', name: 'White Flare', releaseDate: '2025-07-18' },
+      { id: 'sv10', name: 'Destined Rivals', releaseDate: '2025-05-30' },
+      { id: 'sv09', name: 'Journey Together', releaseDate: '2025-03-28' },
+      { id: 'sv08.5', name: 'Prismatic Evolutions', releaseDate: '2025-01-17' },
+      { id: 'sv08', name: 'Surging Sparks', releaseDate: '2024-11-08' },
+      { id: 'sv07', name: 'Stellar Crown', releaseDate: '2024-09-13' },
+      { id: 'sv06.5', name: 'Shrouded Fable', releaseDate: '2024-08-02' },
+      { id: 'sv06', name: 'Twilight Masquerade', releaseDate: '2024-05-24' },
+      { id: 'sv05', name: 'Temporal Forces', releaseDate: '2024-03-22' },
+      { id: 'sv04.5', name: 'Paldean Fates', releaseDate: '2024-01-26' },
+      { id: 'sv04', name: 'Paradox Rift', releaseDate: '2023-11-03' },
+      { id: 'sv03.5', name: '151', releaseDate: '2023-09-22' },
+      { id: 'sv03', name: 'Obsidian Flames', releaseDate: '2023-08-11' },
+      { id: 'sv02', name: 'Paldea Evolved', releaseDate: '2023-06-09' },
+      { id: 'sv01', name: 'Scarlet & Violet', releaseDate: '2023-03-31' },
+    ],
+  },
+  
+  // Sword & Shield Era (2020-2023)
+  {
+    id: 'sword-shield',
+    name: 'Sword & Shield',
+    sets: [
+      { id: 'swsh12.5', name: 'Crown Zenith', releaseDate: '2023-01-20' },
+      { id: 'swsh12', name: 'Silver Tempest', releaseDate: '2022-11-11' },
+      { id: 'swsh11', name: 'Lost Origin', releaseDate: '2022-09-09' },
+      { id: 'swsh10.5', name: 'Pokémon GO', releaseDate: '2022-07-01' },
+      { id: 'swsh10', name: 'Astral Radiance', releaseDate: '2022-05-27' },
+      { id: 'swsh9', name: 'Brilliant Stars', releaseDate: '2022-02-25' },
+      { id: 'swsh8', name: 'Fusion Strike', releaseDate: '2021-11-12' },
+      { id: 'swsh7', name: 'Evolving Skies', releaseDate: '2021-08-27' },
+      { id: 'swsh6', name: 'Chilling Reign', releaseDate: '2021-06-18' },
+      { id: 'swsh5', name: 'Battle Styles', releaseDate: '2021-03-19' },
+      { id: 'swsh4.5', name: 'Shining Fates', releaseDate: '2021-02-19' },
+      { id: 'swsh4', name: 'Vivid Voltage', releaseDate: '2020-11-13' },
+      { id: 'swsh3.5', name: "Champion's Path", releaseDate: '2020-09-25' },
+      { id: 'swsh3', name: 'Darkness Ablaze', releaseDate: '2020-08-14' },
+      { id: 'swsh2', name: 'Rebel Clash', releaseDate: '2020-05-01' },
+      { id: 'swsh1', name: 'Sword & Shield', releaseDate: '2020-02-07' },
+    ],
+  },
+  
+  // Sun & Moon Era (2017-2020)
+  {
+    id: 'sun-moon',
+    name: 'Sun & Moon',
+    sets: [
+      { id: 'sm12', name: 'Cosmic Eclipse', releaseDate: '2019-11-01' },
+      { id: 'sm115', name: 'Hidden Fates', releaseDate: '2019-08-23' },
+      { id: 'sm11', name: 'Unified Minds', releaseDate: '2019-08-02' },
+      { id: 'sm10', name: 'Unbroken Bonds', releaseDate: '2019-05-03' },
+      { id: 'sm9', name: 'Team Up', releaseDate: '2019-02-01' },
+      { id: 'sm8', name: 'Lost Thunder', releaseDate: '2018-11-02' },
+      { id: 'sm7.5', name: 'Dragon Majesty', releaseDate: '2018-09-07' },
+      { id: 'sm7', name: 'Celestial Storm', releaseDate: '2018-08-03' },
+      { id: 'sm6', name: 'Forbidden Light', releaseDate: '2018-05-04' },
+      { id: 'sm5', name: 'Ultra Prism', releaseDate: '2018-02-02' },
+      { id: 'sm4', name: 'Crimson Invasion', releaseDate: '2017-11-03' },
+      { id: 'sm3.5', name: 'Shining Legends', releaseDate: '2017-10-06' },
+      { id: 'sm3', name: 'Burning Shadows', releaseDate: '2017-08-04' },
+      { id: 'sm2', name: 'Guardians Rising', releaseDate: '2017-05-05' },
+      { id: 'sm1', name: 'Sun & Moon', releaseDate: '2017-02-03' },
+    ],
+  },
+  
+  // XY Era (2013-2017)
+  {
+    id: 'xy',
+    name: 'XY',
+    sets: [
+      { id: 'xy12', name: 'Evolutions', releaseDate: '2016-11-02' },
+      { id: 'xy11', name: 'Steam Siege', releaseDate: '2016-08-03' },
+      { id: 'xy10', name: 'Fates Collide', releaseDate: '2016-05-04' },
+      { id: 'g1', name: 'Generations', releaseDate: '2016-02-22' },
+      { id: 'xy9', name: 'BREAKpoint', releaseDate: '2016-02-03' },
+      { id: 'xy8', name: 'BREAKthrough', releaseDate: '2015-11-04' },
+      { id: 'xy7', name: 'Ancient Origins', releaseDate: '2015-08-12' },
+      { id: 'xy6', name: 'Roaring Skies', releaseDate: '2015-05-06' },
+      { id: 'dc1', name: 'Double Crisis', releaseDate: '2015-03-25' },
+      { id: 'xy5', name: 'Primal Clash', releaseDate: '2015-02-04' },
+      { id: 'xy4', name: 'Phantom Forces', releaseDate: '2014-11-05' },
+      { id: 'xy3', name: 'Furious Fists', releaseDate: '2014-08-13' },
+      { id: 'xy2', name: 'Flashfire', releaseDate: '2014-05-07' },
+      { id: 'xy1', name: 'XY', releaseDate: '2014-02-05' },
+    ],
+  },
+  
+  // Black & White Era (2011-2013)
+  {
+    id: 'black-white',
+    name: 'Black & White',
+    sets: [
+      { id: 'bw11', name: 'Legendary Treasures', releaseDate: '2013-11-08' },
+      { id: 'bw10', name: 'Plasma Blast', releaseDate: '2013-08-14' },
+      { id: 'bw9', name: 'Plasma Freeze', releaseDate: '2013-05-08' },
+      { id: 'bw8', name: 'Plasma Storm', releaseDate: '2013-02-06' },
+      { id: 'bw7', name: 'Boundaries Crossed', releaseDate: '2012-11-07' },
+      { id: 'bw6', name: 'Dragons Exalted', releaseDate: '2012-08-15' },
+      { id: 'bw5', name: 'Dark Explorers', releaseDate: '2012-05-09' },
+      { id: 'bw4', name: 'Next Destinies', releaseDate: '2012-02-08' },
+      { id: 'bw3', name: 'Noble Victories', releaseDate: '2011-11-16' },
+      { id: 'bw2', name: 'Emerging Powers', releaseDate: '2011-08-31' },
+      { id: 'bw1', name: 'Black & White', releaseDate: '2011-04-25' },
+    ],
+  },
+  
+  // HeartGold & SoulSilver Era (2010-2011)
+  {
+    id: 'heartgold-soulsilver',
+    name: 'HeartGold & SoulSilver',
+    sets: [
+      { id: 'hgss4', name: 'Triumphant', releaseDate: '2010-11-03' },
+      { id: 'hgss3', name: 'Undaunted', releaseDate: '2010-08-18' },
+      { id: 'hgss2', name: 'Unleashed', releaseDate: '2010-05-12' },
+      { id: 'hgss1', name: 'HeartGold & SoulSilver', releaseDate: '2010-02-10' },
+    ],
+  },
+  
+  // Platinum Era (2009-2010)
+  {
+    id: 'platinum',
+    name: 'Platinum',
+    sets: [
+      { id: 'pl4', name: 'Arceus', releaseDate: '2009-11-04' },
+      { id: 'pl3', name: 'Supreme Victors', releaseDate: '2009-08-19' },
+      { id: 'pl2', name: 'Rising Rivals', releaseDate: '2009-05-20' },
+      { id: 'pl1', name: 'Platinum', releaseDate: '2009-02-11' },
+    ],
+  },
+  
+  // Diamond & Pearl Era (2007-2009)
+  {
+    id: 'diamond-pearl',
+    name: 'Diamond & Pearl',
+    sets: [
+      { id: 'dp7', name: 'Stormfront', releaseDate: '2008-11-05' },
+      { id: 'dp6', name: 'Legends Awakened', releaseDate: '2008-08-20' },
+      { id: 'dp5', name: 'Majestic Dawn', releaseDate: '2008-05-21' },
+      { id: 'dp4', name: 'Great Encounters', releaseDate: '2008-02-13' },
+      { id: 'dp3', name: 'Secret Wonders', releaseDate: '2007-11-07' },
+      { id: 'dp2', name: 'Mysterious Treasures', releaseDate: '2007-08-22' },
+      { id: 'dp1', name: 'Diamond & Pearl', releaseDate: '2007-05-23' },
+    ],
+  },
+  
+  // EX Era (2003-2007)
+  {
+    id: 'ex',
+    name: 'EX',
+    sets: [
+      { id: 'ex16', name: 'Power Keepers', releaseDate: '2007-02-14' },
+      { id: 'ex15', name: 'Dragon Frontiers', releaseDate: '2006-11-08' },
+      { id: 'ex14', name: 'Crystal Guardians', releaseDate: '2006-08-30' },
+      { id: 'ex13', name: 'Holon Phantoms', releaseDate: '2006-05-03' },
+      { id: 'ex12', name: 'Legend Maker', releaseDate: '2006-02-13' },
+      { id: 'ex11', name: 'Delta Species', releaseDate: '2005-10-31' },
+      { id: 'ex10', name: 'Unseen Forces', releaseDate: '2005-08-22' },
+      { id: 'ex9', name: 'Emerald', releaseDate: '2005-05-09' },
+      { id: 'ex8', name: 'Deoxys', releaseDate: '2005-02-14' },
+      { id: 'ex7', name: 'Team Rocket Returns', releaseDate: '2004-11-08' },
+      { id: 'ex6', name: 'FireRed & LeafGreen', releaseDate: '2004-09-29' },
+      { id: 'ex5', name: 'Hidden Legends', releaseDate: '2004-06-01' },
+      { id: 'ex4', name: 'Team Magma vs Team Aqua', releaseDate: '2004-03-15' },
+      { id: 'ex3', name: 'Dragon', releaseDate: '2003-11-24' },
+      { id: 'ex2', name: 'Sandstorm', releaseDate: '2003-09-17' },
+      { id: 'ex1', name: 'Ruby & Sapphire', releaseDate: '2003-06-18' },
+    ],
+  },
+  
+  // Neo Era (2000-2002)
+  {
+    id: 'neo',
+    name: 'Neo',
+    sets: [
+      { id: 'neo4', name: 'Neo Destiny', releaseDate: '2002-02-28' },
+      { id: 'neo3', name: 'Neo Revelation', releaseDate: '2001-09-21' },
+      { id: 'neo2', name: 'Neo Discovery', releaseDate: '2001-06-16' },
+      { id: 'neo1', name: 'Neo Genesis', releaseDate: '2000-12-16' },
+    ],
+  },
+  
+  // Base Era (1999-2000)
+  {
+    id: 'base',
+    name: 'Base',
+    sets: [
+      { id: 'base4', name: 'Base Set 2', releaseDate: '2000-02-24' },
+      { id: 'base5', name: 'Team Rocket', releaseDate: '2000-04-24' },
+      { id: 'base3', name: 'Fossil', releaseDate: '1999-10-10' },
+      { id: 'base2', name: 'Jungle', releaseDate: '1999-06-16' },
+      { id: 'base1', name: 'Base Set', releaseDate: '1999-01-09' },
+    ],
+  },
+];
+
+/**
+ * Get all eras ordered newest first
+ */
+export function getEras(): Array<{ id: string; name: string }> {
+  return POKEMON_ERAS.map(era => ({
+    id: era.id,
+    name: era.name,
+  }));
+}
+
+/**
+ * Get sets for a specific era, ordered newest first
+ */
+export function getSetsByEra(eraName: string): SetDefinition[] {
+  const era = POKEMON_ERAS.find(e => e.name === eraName);
+  return era ? [...era.sets] : [];
+}
+
+/**
+ * Get all sets from all eras, ordered by era (newest first) and within era (newest first)
+ */
+export function getAllSets(): SetDefinition[] {
+  return POKEMON_ERAS.flatMap(era => era.sets);
+}
+
+/**
+ * Find which era a set belongs to by set name
+ */
+export function getEraForSet(setName: string): string | null {
+  for (const era of POKEMON_ERAS) {
+    const set = era.sets.find(s => s.name === setName);
+    if (set) {
+      return era.name;
+    }
+  }
+  return null;
+}
+
+/**
+ * Find which era a set belongs to by set ID
+ */
+export function getEraForSetId(setId: string): string | null {
+  for (const era of POKEMON_ERAS) {
+    const set = era.sets.find(s => s.id === setId);
+    if (set) {
+      return era.name;
+    }
+  }
+  return null;
+}
+
+/**
+ * Convert SetDefinition to PokemonSet format
+ */
+export function convertSetToPokemonSet(setDef: SetDefinition, eraName: string): PokemonSet {
+  return {
+    id: setDef.id,
+    name: setDef.name,
+    series: eraName,
+    releaseDate: setDef.releaseDate,
+  };
+}
+

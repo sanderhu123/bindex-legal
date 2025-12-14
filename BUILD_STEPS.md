@@ -891,28 +891,751 @@ npx expo install expo-linking
 ## Phase 8: Production
 
 ### Step 24: Connect Real API
-- [ ] **Status**: Not started
+- [ ] **Status**: In Progress
 
-**What we're doing:** Switch from mockup to real Pokémon TCG API
+**What we're doing:** Switch from mockup to real TCGDEX API using the official SDK
 
-**Steps:**
-1. API key already configured: `4fff0075-cf2c-4871-aed2-53afa1cfc65a`
-2. Update API service to use real endpoint
-3. Test with real data
-4. Handle rate limiting
-5. Fallback to mockup if API fails
+---
+
+## 📋 **IMPORTANT: URLs and Configuration Summary**
+
+**API Name**: TCGDEX (remember: it's **TCGDEX**, not TCGDX)
+
+**SDK Package**: 
+- **Package Name**: `@tcgdex/sdk`
+- **Version**: `^2.7.1` (as of implementation)
+- **Installation**: `npm install @tcgdex/sdk`
+- **Type**: Official TypeScript/JavaScript SDK
+
+**URLs We're Using (Explicitly Listed - No Confusion):**
+
+1. **API Base URL** (for data): 
+   - `https://api.tcgdex.net/v2/`
+   - Used by SDK internally for API calls
+   - We don't call this directly - SDK handles it automatically
+
+2. **Assets URL** (for images): 
+   - `https://assets.tcgdex.net`
+   - Used for card images and set logos
+   - **⚠️ NOT for API calls** - only for images/assets
+
+3. **Documentation Website**: 
+   - `https://tcgdex.dev/`
+   - Main documentation and guides
+
+4. **SDK Documentation**: 
+   - `https://tcgdex.dev/sdks/typescript`
+   - TypeScript SDK usage and API reference
+
+**Authentication**: None required (free, open-source API)
+
+**Important Notes:** 
+- ✅ We're using the **official TCGDEX SDK** (`@tcgdex/sdk`) instead of raw API calls
+- ✅ The SDK handles all API requests internally - we don't make direct fetch calls
+- ✅ SDK uses `https://api.tcgdex.net/v2/` internally (no need to configure)
+- ✅ Card images come from `https://assets.tcgdex.net` (assets URL)
+- ⚠️ `getCardsByRegion()` uses PokeAPI (not TCGDEX API), so it will remain as-is
+
+---
+
+## 🔍 **Logging & Debugging Strategy**
+
+**Log Prefix System:**
+Each step uses a unique log prefix to make debugging easier:
+- `[24A]` - SDK setup and initialization
+- `[24B]` - Sets fetching (`getSets()`)
+- `[24C]` - Cards by set fetching (`getCardsBySet()`)
+- `[24D]` - Single card fetching (`getCardById()`)
+- `[24E]` - Rate limiting and caching
+- `[24F]` - Variant handling
+- `[24G]` - Performance and optimization
+
+**How to Use Logs:**
+1. **Filter logs**: Search console for specific prefix (e.g., `[24B]`) to see only that step's logs
+2. **Track flow**: Follow the log sequence to see where execution stops
+3. **Identify issues**: Look for error logs or missing expected logs
+4. **Performance**: Check duration logs in `[24G]` to identify slow operations
+
+**Where to Check Logs:**
+- **Development**: Browser console (Chrome DevTools) or React Native debugger
+- **Metro Bundler**: Terminal output when running `npm start`
+- **Network Tab**: Browser DevTools Network tab for API requests
+- **Performance Tab**: Browser DevTools Performance tab for timing
+
+**Common Issues to Look For:**
+- ❌ Logs stop at a certain point → That's where the error occurs
+- ❌ Missing expected logs → Function not being called or early return
+- ❌ Error logs → Check error message for specific issue
+- ❌ Slow performance → Check `[24G]` duration logs
+
+---
+
+---
+
+#### Step 24A: Set Up SDK and API Infrastructure
+- [x] **Status**: Completed
+
+**What we're doing:** Install and set up the official TCGDEX SDK
+
+**Files to create/modify:**
+- `package.json` - Add `@tcgdex/sdk` dependency
+- `src/services/api/pokemonApi.ts` - Initialize SDK instance
+- `src/services/api/client.ts` - Base API client (kept for potential future use, but SDK is primary)
+- `src/types/api.ts` - API response types (for reference, SDK provides its own types)
+
+**What gets implemented:**
+- ✅ Installed `@tcgdex/sdk` package via npm
+- ✅ Created SDK instance: `const tcgdex = new TCGdex('en')` (English language)
+- ✅ SDK handles all API communication internally
+- ✅ No manual API client needed (SDK provides everything)
+
+**SDK Usage:**
+- **Package**: `@tcgdex/sdk`
+- **Version**: `^2.7.1` (as of implementation)
+- **Initialization**: `new TCGdex('en')` - language code for responses
+- **API Base URL**: SDK uses `https://api.tcgdex.net/v2/` internally (no need to configure)
 
 **Testing:**
-- [ ] Real API connects successfully
-- [ ] Can fetch sets from API
-- [ ] Can fetch cards from API
-- [ ] Card images load from API
-- [ ] Rate limiting handled correctly
-- [ ] Falls back to mockup if API fails
-- [ ] All sets load correctly
-- [ ] Variants detected correctly from API
-- [ ] Performance is acceptable
-- [ ] Error handling works for API failures
+- [x] SDK package installed (`@tcgdex/sdk@2.7.1`)
+- [x] SDK can be imported: `import TCGdex from '@tcgdex/sdk'`
+- [x] SDK instance created successfully
+- [x] No TypeScript errors
+- [x] SDK types are available
+
+**How to Test Step 24A:**
+1. Check `package.json` - should have `"@tcgdex/sdk": "^2.7.1"` in dependencies
+2. Verify SDK can be imported: `import TCGdex from '@tcgdex/sdk'`
+3. Run `npx tsc --noEmit` - should have no TypeScript errors
+4. SDK instance should initialize without errors
+
+**Logging & Debugging for Step 24A:**
+- **Where to add logs**: In `src/services/api/pokemonApi.ts` after SDK initialization
+- **What to log**:
+  ```typescript
+  // After: const tcgdex = new TCGdex('en');
+  console.log('[24A] TCGDEX SDK initialized:', {
+    language: 'en',
+    sdkVersion: '@tcgdex/sdk version from package.json',
+    timestamp: new Date().toISOString(),
+  });
+  ```
+- **What to look for**:
+  - ✅ Should see: `[24A] TCGDEX SDK initialized` in console
+  - ❌ If you see import errors: Check `package.json` has `@tcgdex/sdk` installed
+  - ❌ If you see "TCGdex is not a constructor": Check import statement is correct
+  - ❌ If TypeScript errors: Check SDK types are available
+- **Where to check logs**: Browser/React Native debugger console, Metro bundler output
+
+---
+
+#### Step 24B: Implement `getSets()` with Real API
+- [x] **Status**: Completed
+
+**What we're doing:** Replace mockup `getSets()` with real TCGDEX API calls using the SDK
+
+**SDK Method:** `tcgdex.set.list()` - fetches all sets from TCGDEX API
+
+**Files to modify:**
+- `src/services/api/pokemonApi.ts` - Update `getSets()` function to use SDK
+
+**What gets implemented:**
+- ✅ Using TCGDEX SDK: `await tcgdex.set.list()` (instead of raw API calls)
+- ✅ SDK handles API communication internally (uses `https://api.tcgdex.net/v2/` internally)
+- ✅ Transform TCGDEX SDK response to match existing `PokemonSet` type
+- ✅ Map TCGDEX fields (id, name, series, releaseDate) to our type
+- ✅ Fallback to mockup data on error
+- ✅ Keep same return type for compatibility
+- ✅ Sort sets by release date (newest → oldest)
+- ✅ Error handling with detailed logging
+
+**Testing:**
+- [x] `getSets()` calls real API endpoint (implemented)
+- [ ] Sets list appears in onboarding questionnaire (Step 2 - Master Set selection) - Ready to test
+- [ ] Sets are sorted correctly (newest → oldest) - Ready to test
+- [ ] Fallback to mockup data works if API fails - Ready to test
+- [ ] Loading state shows while fetching - Ready to test
+- [ ] Error handling works (shows fallback, doesn't crash) - Ready to test
+
+**How to Test Step 24B:**
+1. **Open the app:**
+   - Run `npm start`
+   - Log in to the app
+   - Navigate to create a new binder
+
+2. **Test set loading:**
+   - Select "Master Set" as collection mode
+   - Should see list of sets (should be real sets from API, not just 3 mock sets)
+   - Sets should be sorted newest to oldest
+   - Loading spinner should appear briefly
+
+3. **Test error handling:**
+   - Turn off internet/WiFi
+   - Try to create a binder again
+   - Should fall back to mockup sets (should see 3 sets: Base Set, Jungle, Scarlet & Violet)
+   - App should not crash
+
+4. **Verify data:**
+   - Check that sets have: id, name, series, releaseDate
+   - Sets should be real Pokémon TCG sets from TCGDEX API
+   - Data structure should match TCGDEX API response format
+
+**Logging & Debugging for Step 24B:**
+- **Where to add logs**: In `src/services/api/pokemonApi.ts` in `getSets()` function
+- **What to log**:
+  ```typescript
+  export async function getSets(): Promise<PokemonSet[]> {
+    console.log('[24B] getSets() called - starting fetch');
+    try {
+      const tcgdexSets = await tcgdex.set.list();
+      console.log('[24B] SDK response received:', {
+        setCount: tcgdexSets.length,
+        firstSet: tcgdexSets[0]?.name,
+        lastSet: tcgdexSets[tcgdexSets.length - 1]?.name,
+      });
+      
+      const sets = tcgdexSets.map(transformTcgdexSetToPokemonSet);
+      console.log('[24B] Sets transformed:', {
+        transformedCount: sets.length,
+        sampleSet: sets[0],
+      });
+      
+      const sortedSets = sortSetsByDate(sets);
+      console.log('[24B] Sets sorted by date:', {
+        newestSet: sortedSets[0]?.name,
+        oldestSet: sortedSets[sortedSets.length - 1]?.name,
+      });
+      
+      return sortedSets;
+    } catch (error) {
+      // Existing error logging...
+      console.error('[24B] Error in getSets():', error);
+      return mockSets;
+    }
+  }
+  ```
+- **What to look for**:
+  - ✅ Should see: `[24B] getSets() called` → `[24B] SDK response received` → `[24B] Sets transformed` → `[24B] Sets sorted`
+  - ❌ If stuck at "getSets() called": SDK request is hanging (check network/internet)
+  - ❌ If "SDK response received" but 0 sets: API returned empty array (check API status)
+  - ❌ If error after "SDK response received": Transformation or sorting issue (check data structure)
+  - ❌ If "Error in getSets()": Check error message for details (network, API down, etc.)
+- **Where to check logs**: Browser/React Native debugger console, check for `[24B]` prefix
+
+---
+
+#### Step 24C: Implement `getCardsBySet()` with Real API
+- [ ] **Status**: Not started
+
+**What we're doing:** Replace mockup cards with real TCGDEX API data for sets using the SDK
+
+**SDK Method:** `tcgdex.set.get(setId)` then access cards, or `tcgdex.card.list()` with filters
+- Check SDK documentation for exact method: https://tcgdex.dev/sdks/typescript
+
+**Files to modify:**
+- `src/services/api/pokemonApi.ts` - Update `getCardsBySet()` function to use SDK
+
+**What gets implemented:**
+- Fetch cards from TCGDEX using SDK (e.g., `tcgdex.set.get(setId)` or `tcgdex.card.list()`)
+- SDK handles API communication internally (uses `https://api.tcgdex.net/v2/` internally)
+- Handle pagination if TCGDEX supports it (check SDK documentation)
+- Transform TCGDEX SDK response to match existing `Card` type
+- Map TCGDEX fields (name, number, set, rarity, artist, images, variants) to our type
+- Card images will use `https://assets.tcgdex.net` (assets URL, not API URL)
+- Fallback to mockup data on error
+
+**Testing:**
+- [ ] Cards fetch from API when viewing a binder
+- [ ] Cards display correctly in binder detail screen
+- [ ] Pagination works for large sets (sets with >250 cards)
+- [ ] Card images load from API URLs
+- [ ] All card fields display correctly (name, number, set, rarity, artist)
+- [ ] Fallback to mockup data works if API fails
+- [ ] Performance is acceptable (loading doesn't take too long)
+
+**How to Test Step 24C:**
+1. **Open an existing binder or create a new one:**
+   - Create a binder with a real set (e.g., "Base Set" or "Scarlet & Violet")
+   - Navigate to binder detail screen
+
+2. **Test card loading:**
+   - Cards should display in grid/list view
+   - Card images should load from API (not placeholders)
+   - Cards should have correct information (name, number, set, rarity, artist)
+   - For large sets (like Scarlet & Violet with 198 cards), all cards should load
+
+3. **Test pagination (if applicable):**
+   - Find a very large set (if exists)
+   - All cards should load (even if >250 cards)
+   - Should see all cards in the set
+
+4. **Test error handling:**
+   - Turn off internet/WiFi
+   - Open binder detail screen
+   - Should fall back to mockup cards or show error message
+   - App should not crash
+
+5. **Verify data:**
+   - Card IDs should match TCGDEX API format
+   - Card numbers should be in format like "004/102" (or match TCGDEX format)
+   - Images should load from TCGDEX image URLs (check TCGDEX documentation for image URL structure)
+
+**Logging & Debugging for Step 24C:**
+- **Where to add logs**: In `src/services/api/pokemonApi.ts` in `getCardsBySet()` function
+- **What to log**:
+  ```typescript
+  export async function getCardsBySet(setName: string): Promise<Card[]> {
+    console.log('[24C] getCardsBySet() called:', { setName });
+    try {
+      // Find set ID from setName (you'll need to map this)
+      const set = await tcgdex.set.get(setId);
+      console.log('[24C] Set fetched from SDK:', {
+        setId: set.id,
+        setName: set.name,
+        cardCount: set.cards?.length || 0,
+      });
+      
+      const cards = set.cards || [];
+      console.log('[24C] Cards extracted:', {
+        cardCount: cards.length,
+        sampleCard: cards[0]?.name,
+      });
+      
+      const transformedCards = cards.map(transformTcgdexCardToCard);
+      console.log('[24C] Cards transformed:', {
+        transformedCount: transformedCards.length,
+        sampleTransformed: transformedCards[0],
+      });
+      
+      return transformedCards;
+    } catch (error) {
+      console.error('[24C] Error in getCardsBySet():', {
+        setName,
+        error: error instanceof Error ? error.message : error,
+      });
+      return mockCards.filter((card) => card.set === setName);
+    }
+  }
+  ```
+- **What to look for**:
+  - ✅ Should see: `[24C] getCardsBySet() called` → `[24C] Set fetched` → `[24C] Cards extracted` → `[24C] Cards transformed`
+  - ❌ If stuck at "getCardsBySet() called": SDK request is hanging (check network/setId)
+  - ❌ If "Set fetched" but 0 cards: Set has no cards or wrong field name (check SDK response structure)
+  - ❌ If error after "Set fetched": Transformation issue (check card data structure)
+  - ❌ If "Error in getCardsBySet()": Check error message (invalid setId, network error, etc.)
+- **Where to check logs**: Browser/React Native debugger console, check for `[24C]` prefix
+
+---
+
+#### Step 24D: Implement `getCardById()` with Real API
+- [ ] **Status**: Not started
+
+**What we're doing:** Replace mockup single card lookup with real TCGDEX API using the SDK
+
+**SDK Method:** `tcgdex.card.get(cardId)` - fetches a single card by ID
+
+**Files to modify:**
+- `src/services/api/pokemonApi.ts` - Update `getCardById()` function to use SDK
+
+**What gets implemented:**
+- Fetch single card using SDK: `await tcgdex.card.get(cardId)`
+- SDK handles API communication internally (uses `https://api.tcgdex.net/v2/` internally)
+- Transform TCGDEX SDK response to match existing `Card` type
+- Map TCGDEX fields to our Card type
+- Card images will use `https://assets.tcgdex.net` (assets URL, not API URL)
+- Fallback to mockup data on error
+
+**Testing:**
+- [ ] Can fetch single card by ID from API
+- [ ] Card detail screen loads correctly
+- [ ] Full card image displays (large view)
+- [ ] All card information shows (name, number, set, rarity, artist)
+- [ ] Fallback to mockup data works if API fails
+- [ ] Navigation to card detail works
+
+**How to Test Step 24D:**
+1. **Navigate to a card:**
+   - Open any binder
+   - Tap on any card to open card detail screen
+
+2. **Test card detail:**
+   - Full card image should display (large, clear image)
+   - Card name, number, set, rarity, artist should all show
+   - Image should load from API URL
+   - Information should match what's shown in the binder list
+
+3. **Test error handling:**
+   - Turn off internet/WiFi
+   - Try to open a card detail
+   - Should fall back to mockup data or show error
+   - App should not crash
+
+4. **Verify data:**
+   - Card ID should match TCGDEX API format
+   - All fields should be populated correctly from TCGDEX response
+
+**Logging & Debugging for Step 24D:**
+- **Where to add logs**: In `src/services/api/pokemonApi.ts` in `getCardById()` function
+- **What to log**:
+  ```typescript
+  export async function getCardById(id: string): Promise<Card | null> {
+    console.log('[24D] getCardById() called:', { cardId: id });
+    try {
+      const card = await tcgdex.card.get(id);
+      console.log('[24D] Card fetched from SDK:', {
+        cardId: card.id,
+        cardName: card.name,
+        hasImage: !!card.image,
+        hasVariants: !!card.variants,
+      });
+      
+      const transformedCard = transformTcgdexCardToCard(card);
+      console.log('[24D] Card transformed:', {
+        transformedId: transformedCard.id,
+        transformedName: transformedCard.name,
+      });
+      
+      return transformedCard;
+    } catch (error) {
+      console.error('[24D] Error in getCardById():', {
+        cardId: id,
+        error: error instanceof Error ? error.message : error,
+      });
+      // Fallback to mock data
+      const mockCard = mockCards.find((c) => c.id === id);
+      if (mockCard) {
+        console.log('[24D] Using mock card as fallback');
+      }
+      return mockCard || null;
+    }
+  }
+  ```
+- **What to look for**:
+  - ✅ Should see: `[24D] getCardById() called` → `[24D] Card fetched` → `[24D] Card transformed`
+  - ❌ If stuck at "getCardById() called": SDK request is hanging (check network/cardId format)
+  - ❌ If "Card fetched" but missing fields: Check SDK response structure (field names may differ)
+  - ❌ If error after "Card fetched": Transformation issue (check card data mapping)
+  - ❌ If "Error in getCardById()": Check error message (invalid cardId, card not found, network error)
+  - ✅ If "Using mock card as fallback": Fallback is working correctly
+- **Where to check logs**: Browser/React Native debugger console, check for `[24D]` prefix
+
+---
+
+#### Step 24E: Add Rate Limiting & Caching
+- [ ] **Status**: Not started
+
+**What we're doing:** Optimize API usage and handle rate limits (SDK may handle some of this)
+
+**Note:** The TCGDEX SDK (`@tcgdex/sdk`) may already handle some rate limiting and caching internally. Check SDK documentation first.
+
+**Files to create/modify:**
+- `src/services/api/pokemonApi.ts` - Add rate limiting logic (if SDK doesn't handle it)
+- `src/hooks/useCardQuery.ts` (if exists) - Ensure React Query caching is used
+- Or add caching layer in API service
+
+**What gets implemented:**
+- Check if SDK handles rate limiting (may already be built-in)
+- Detect rate limit responses (HTTP 429) if SDK doesn't handle it
+- Implement exponential backoff retry logic (if needed)
+- Add response caching (React Query helps, but add explicit cache layer)
+- Request deduplication (same request shouldn't fire multiple times)
+- User-friendly error messages for rate limits
+
+**Testing:**
+- [ ] Rate limit errors are detected correctly
+- [ ] Retry logic works (waits and retries after rate limit)
+- [ ] Caching reduces duplicate API calls
+- [ ] No duplicate requests for same data
+- [ ] User sees friendly message if rate limited
+- [ ] App doesn't make too many API calls
+
+**How to Test Step 24E:**
+1. **Test caching:**
+   - Open a binder (first load - should call API)
+   - Close and reopen the same binder (should use cache, no API call)
+   - Check network tab/logs - should see fewer API calls on second load
+
+2. **Test rate limiting (if possible):**
+   - Make many rapid requests (open/close binders quickly)
+   - If rate limited, should see error message
+   - Should retry automatically after waiting
+   - App should handle gracefully, not crash
+
+3. **Verify deduplication:**
+   - Open multiple screens that need same data simultaneously
+   - Should only make one API call, not multiple
+   - Check network logs to verify
+
+**Logging & Debugging for Step 24E:**
+- **Where to add logs**: In `src/services/api/pokemonApi.ts` and any caching/rate limiting code
+- **What to log**:
+  ```typescript
+  // In API functions, add request tracking
+  const requestCache = new Map();
+  
+  export async function getSets(): Promise<PokemonSet[]> {
+    const cacheKey = 'sets';
+    console.log('[24E] getSets() called - checking cache');
+    
+    if (requestCache.has(cacheKey)) {
+      console.log('[24E] Using cached sets (deduplication)');
+      return requestCache.get(cacheKey);
+    }
+    
+    try {
+      console.log('[24E] Making SDK request (not cached)');
+      const sets = await tcgdex.set.list();
+      requestCache.set(cacheKey, sets);
+      console.log('[24E] Sets cached for future requests');
+      return sets;
+    } catch (error) {
+      if (error.statusCode === 429) {
+        console.warn('[24E] Rate limit hit (429):', {
+          retryAfter: error.retryAfter,
+          willRetry: true,
+        });
+        // Retry logic...
+      }
+      console.error('[24E] Error:', error);
+      throw error;
+    }
+  }
+  ```
+- **What to look for**:
+  - ✅ Should see: `[24E] getSets() called` → `[24E] Using cached sets` (on second call)
+  - ✅ Should see: `[24E] Making SDK request` (on first call only)
+  - ❌ If always seeing "Making SDK request": Caching not working (check cache implementation)
+  - ❌ If "Rate limit hit (429)": API rate limit reached (check retry logic)
+  - ✅ Should see fewer API calls in network tab on subsequent requests
+- **Where to check logs**: Browser/React Native debugger console, network tab, check for `[24E]` prefix
+
+---
+
+#### Step 24F: Handle Variants from API
+- [ ] **Status**: Not started
+
+**What we're doing:** Detect and handle card variants from TCGDEX SDK response
+
+**SDK Method:** Variants are included in card data from SDK (check SDK documentation for variant structure)
+
+**Files to modify:**
+- `src/services/api/pokemonApi.ts` - Parse variant information from TCGDEX SDK response
+- May need to update `src/types/card.ts` if variant types differ from SDK format
+
+**What gets implemented:**
+- Parse variant information from TCGDEX SDK response (check SDK documentation for variant fields)
+- SDK provides card data with variant information (check `tcgdex.card.get()` response structure)
+- Map TCGDEX variant types to app variant types:
+  - Reverse Holo
+  - Poké Ball
+  - Master Ball
+- Ensure variant detection works correctly
+- Variants should appear in binder detail
+
+**Testing:**
+- [ ] Variants are detected from API data
+- [ ] Variant types map correctly (reverse-holo, poke-ball, master-ball)
+- [ ] Variants appear in binder detail screen
+- [ ] Variant placement preference works (grouped/end)
+- [ ] Progress tracking counts variants correctly
+- [ ] Can toggle variants on/off in onboarding
+
+**How to Test Step 24F:**
+1. **Test variant detection:**
+   - Create a binder for a set that has variants (e.g., Scarlet & Violet)
+   - In onboarding, variants should be detected and shown
+   - Should see options for Reverse Holo, Poké Ball, Master Ball (if available)
+
+2. **Test variant display:**
+   - Open binder detail screen
+   - Variants should appear based on placement preference
+   - If "grouped" - variants should appear next to base card
+   - If "end" - variants should appear at the end
+
+3. **Test variant counting:**
+   - Check progress percentage
+   - Progress should count selected variants correctly
+   - If only base cards selected, variants shouldn't count toward 100%
+
+4. **Verify variant data:**
+   - Variants should have correct IDs (different from base card)
+   - Variants should have same name/number as base card
+   - Variant type should be correctly identified
+
+**Logging & Debugging for Step 24F:**
+- **Where to add logs**: In `src/services/api/pokemonApi.ts` in card transformation functions
+- **What to log**:
+  ```typescript
+  function transformTcgdexCardToCard(tcgdexCard: TcgdexCard): Card {
+    console.log('[24F] Transforming card:', {
+      cardId: tcgdexCard.id,
+      cardName: tcgdexCard.name,
+      hasVariants: !!tcgdexCard.variants,
+      variantCount: tcgdexCard.variants?.length || 0,
+      variantTypes: tcgdexCard.variants || [],
+    });
+    
+    const baseCard = {
+      id: tcgdexCard.id,
+      name: tcgdexCard.name,
+      // ... other fields
+      variant: 'base' as const,
+    };
+    
+    // Process variants
+    if (tcgdexCard.variants && tcgdexCard.variants.length > 0) {
+      console.log('[24F] Processing variants:', {
+        variantTypes: tcgdexCard.variants,
+        mappedVariants: tcgdexCard.variants.map(mapVariantType),
+      });
+    }
+    
+    return baseCard;
+  }
+  
+  function mapVariantType(variant: string): string {
+    console.log('[24F] Mapping variant type:', { from: variant });
+    const mapping = {
+      'reverse-holo': 'reverse-holo',
+      'poke-ball': 'poke-ball',
+      'master-ball': 'master-ball',
+    };
+    const mapped = mapping[variant] || variant;
+    console.log('[24F] Variant mapped:', { from: variant, to: mapped });
+    return mapped;
+  }
+  ```
+- **What to look for**:
+  - ✅ Should see: `[24F] Transforming card` with variant information
+  - ✅ Should see: `[24F] Processing variants` if card has variants
+  - ✅ Should see: `[24F] Mapping variant type` for each variant
+  - ❌ If "hasVariants: false" but card should have variants: Check SDK response structure
+  - ❌ If variant types don't match: Check variant mapping function
+  - ❌ If variants not appearing in UI: Check variant transformation logic
+- **Where to check logs**: Browser/React Native debugger console, check for `[24F]` prefix
+
+---
+
+#### Step 24G: Optimize & Polish
+- [ ] **Status**: Not started
+
+**What we're doing:** Final optimizations and polish (SDK may handle some optimizations)
+
+**Files to modify:**
+- `src/services/api/pokemonApi.ts` - Optimize SDK usage
+- Components using API - Add better loading states
+- Error components - Improve error messages
+
+**What gets implemented:**
+- Optimize image loading from `https://assets.tcgdex.net` (assets URL)
+- Add loading states for all SDK calls
+- Improve error messages (more user-friendly)
+- Add retry logic for failed SDK requests (if SDK doesn't handle it)
+- Performance optimizations
+- Final error handling polish
+- Ensure SDK is used efficiently (check SDK documentation for best practices)
+
+**Testing:**
+- [ ] All API calls have loading states
+- [ ] Error messages are clear and helpful
+- [ ] Retry works for failed requests
+- [ ] Image loading is optimized
+- [ ] Performance is good (no lag, fast loading)
+- [ ] No console errors
+- [ ] App feels smooth and responsive
+
+**How to Test Step 24G:**
+1. **Test loading states:**
+   - Open app and navigate around
+   - Should see loading spinners while data fetches
+   - No blank screens during loading
+
+2. **Test error messages:**
+   - Turn off internet
+   - Try to use the app
+   - Should see clear error messages (not technical errors)
+   - Messages should guide user what to do
+
+3. **Test retry logic:**
+   - Start a request, then turn off internet
+   - Request should fail gracefully
+   - Turn internet back on
+   - Retry button should work (if implemented)
+
+4. **Test performance:**
+   - App should load quickly
+   - Images should load efficiently
+   - No lag when scrolling through cards
+   - Smooth transitions between screens
+
+5. **Check console:**
+   - Open developer console
+   - Should see no errors
+   - API calls should be logged appropriately
+
+**Logging & Debugging for Step 24G:**
+- **Where to add logs**: Throughout `src/services/api/pokemonApi.ts` and components using API
+- **What to log**:
+  ```typescript
+  // Performance logging
+  export async function getSets(): Promise<PokemonSet[]> {
+    const startTime = performance.now();
+    console.log('[24G] getSets() started');
+    
+    try {
+      const sets = await tcgdex.set.list();
+      const endTime = performance.now();
+      const duration = endTime - startTime;
+      
+      console.log('[24G] getSets() completed:', {
+        duration: `${duration.toFixed(2)}ms`,
+        setCount: sets.length,
+        performance: duration < 1000 ? 'good' : duration < 3000 ? 'acceptable' : 'slow',
+      });
+      
+      return sets;
+    } catch (error) {
+      const endTime = performance.now();
+      console.error('[24G] getSets() failed:', {
+        duration: `${(endTime - startTime).toFixed(2)}ms`,
+        error: error instanceof Error ? error.message : error,
+      });
+      throw error;
+    }
+  }
+  
+  // Image loading logging (in components)
+  console.log('[24G] Loading image:', {
+    imageUrl: card.imageUrl,
+    fromAssets: card.imageUrl?.includes('assets.tcgdex.net'),
+  });
+  ```
+- **What to look for**:
+  - ✅ Should see: `[24G] getSets() started` → `[24G] getSets() completed` with duration
+  - ✅ Duration should be < 3000ms for good performance
+  - ❌ If duration > 5000ms: Performance issue (check network, API response time)
+  - ✅ Should see: `[24G] Loading image` with correct assets URL
+  - ❌ If image URLs wrong: Check image URL transformation
+  - ✅ Should see no errors in console
+  - ❌ If errors appear: Check error messages for specific issues
+- **Where to check logs**: Browser/React Native debugger console, performance tab, check for `[24G]` prefix
+
+---
+
+**Overall Testing Checklist for Step 24:**
+- [ ] TCGDEX SDK installed and working (`@tcgdex/sdk@^2.7.1`)
+- [ ] SDK connects to TCGDEX API successfully (tested in 24A-24G)
+- [ ] Can fetch sets from TCGDEX API using SDK (tested in 24B)
+- [ ] Can fetch cards from TCGDEX API using SDK (tested in 24C)
+- [ ] Can fetch single card by ID from TCGDEX API using SDK (tested in 24D)
+- [ ] Card images load from `https://assets.tcgdex.net` (assets URL, not API URL)
+- [ ] Rate limiting handled correctly (tested in 24E - SDK may handle this)
+- [ ] Falls back to mockup if TCGDEX API fails (tested in 24B, 24C, 24D)
+- [ ] All sets load correctly from TCGDEX API (tested in 24B)
+- [ ] Variants detected correctly from TCGDEX API (tested in 24F)
+- [ ] Performance is acceptable (tested in 24G)
+- [ ] Error handling works for API failures (tested throughout)
+- [ ] App works both online and offline (fallback tested)
+- [ ] SDK methods work correctly (`tcgdex.set.list()`, `tcgdex.card.get()`, etc.)
 
 ---
 

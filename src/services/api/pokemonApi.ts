@@ -31,14 +31,81 @@ console.log('[24A] TCGDEX SDK initialized:', {
 });
 
 /**
- * Transform TCGDEX SDK set response to our PokemonSet type
+ * Transform minimal TCGDEX SDK set response (from set.list()) to our PokemonSet type
+ * Minimal sets only have id and name - serie and releaseDate will be empty
  */
-function transformTcgdexSetToPokemonSet(tcgdexSet: { id: string; name: string; series?: string; releaseDate?: string }): PokemonSet {
+function transformMinimalSetToPokemonSet(tcgdexSet: any): PokemonSet {
   return {
-    id: tcgdexSet.id,
-    name: tcgdexSet.name,
-    series: tcgdexSet.series || 'Unknown',
-    releaseDate: tcgdexSet.releaseDate || '',
+    id: tcgdexSet.id || '',
+    name: tcgdexSet.name || '',
+    series: 'Unknown', // Will be filled in when full details are loaded
+    releaseDate: '', // Will be filled in when full details are loaded
+  };
+}
+
+/**
+ * Transform TCGDEX SDK full set response to our PokemonSet type
+ * When fetching full set details via set.get(), we get releaseDate and serie info
+ */
+async function transformTcgdexSetToPokemonSet(tcgdexSet: any): Promise<PokemonSet> {
+  // Extract ID - always present
+  const setId = tcgdexSet.id || '';
+  
+  // Extract name - always present
+  const setName = tcgdexSet.name || '';
+  
+  // Extract release date - only available in full set details (set.get())
+  const releaseDate = tcgdexSet.releaseDate || '';
+  
+  // Extract series/era - TCGDEX uses 'serie' (singular)
+  // In full set details, serie might be a string ID or an object, or we need to call getSerie()
+  let series = '';
+  
+  // Try to get serie information
+  if (tcgdexSet.serie) {
+    if (typeof tcgdexSet.serie === 'string') {
+      // If it's a string ID, try to get the full serie object
+      try {
+        const serieObj = await tcgdexSet.getSerie?.();
+        series = serieObj?.name || tcgdexSet.serie;
+      } catch (error) {
+        // If getSerie() fails, use the ID as fallback
+        series = tcgdexSet.serie;
+      }
+    } else if (tcgdexSet.serie.name) {
+      // If serie is already an object with name property
+      series = tcgdexSet.serie.name;
+    } else if (tcgdexSet.serie.id) {
+      // If serie has ID but no name, try to get it
+      try {
+        const serieObj = await tcgdexSet.getSerie?.();
+        series = serieObj?.name || tcgdexSet.serie.id;
+      } catch (error) {
+        series = tcgdexSet.serie.id;
+      }
+    }
+  }
+  
+  // If serie is still empty, try calling getSerie() method if it exists
+  if ((!series || series === '') && typeof tcgdexSet.getSerie === 'function') {
+    try {
+      const serieObj = await tcgdexSet.getSerie();
+      series = serieObj?.name || '';
+    } catch (error) {
+      // Silently fail - we'll use 'Unknown' as fallback
+    }
+  }
+  
+  // Default to 'Unknown' if no series found
+  if (!series || series === '') {
+    series = 'Unknown';
+  }
+  
+  return {
+    id: setId,
+    name: setName,
+    series: series,
+    releaseDate: releaseDate,
   };
 }
 
@@ -57,32 +124,167 @@ function sortSetsByDate(sets: PokemonSet[]): PokemonSet[] {
 }
 
 /**
- * Get all available sets from TCGDEX API using the SDK.
+ * Get minimal set data (fast - just id and name) for initial display.
+ * This is used for lazy loading - returns sets with incomplete data (no releaseDate or serie).
  * Falls back to mock data if API call fails.
  */
-export async function getSets(): Promise<PokemonSet[]> {
-  console.log('[24B] getSets() called - starting fetch');
+export async function getSetsMinimal(): Promise<PokemonSet[]> {
+  console.log('[24B] getSetsMinimal() called - fetching minimal set data');
   
   try {
-    // Fetch sets from TCGDEX API using SDK
-    const tcgdexSets = await tcgdex.set.list();
+    // Fetch minimal set data (fast - single API call)
+    const tcgdexSetsMinimal = await tcgdex.set.list();
     
-    console.log('[24B] SDK response received:', {
-      setCount: tcgdexSets.length,
-      firstSet: tcgdexSets[0]?.name,
-      lastSet: tcgdexSets[tcgdexSets.length - 1]?.name,
+    console.log('[24B] SDK set.list() response received:', {
+      setCount: tcgdexSetsMinimal.length,
+      firstSet: tcgdexSetsMinimal[0]?.name,
+      lastSet: tcgdexSetsMinimal[tcgdexSetsMinimal.length - 1]?.name,
     });
     
-    // Transform TCGDEX SDK response to our PokemonSet type
-    const sets = tcgdexSets.map(transformTcgdexSetToPokemonSet);
+    // Transform minimal set data (no serie or releaseDate yet)
+    const sets = tcgdexSetsMinimal.map(transformMinimalSetToPokemonSet);
+    
+    // Filter out sets with missing required fields (id or name)
+    const validSets = sets.filter(set => set.id && set.name);
+    
+    console.log('[24B] Minimal sets transformed:', {
+      transformedCount: validSets.length,
+      note: 'Sets have id and name, but serie and releaseDate are empty',
+    });
+    
+    return validSets;
+  } catch (error) {
+    console.error('[24B] Error in getSetsMinimal():', error);
+    
+    // Fallback to mock data
+    console.log('[24B] Falling back to mock data');
+    return mockSets;
+  }
+}
+
+/**
+ * Get full set details for sets in a specific serie/era.
+ * This is called when user selects an era - only fetches full details for sets in that era.
+ * Falls back to empty array if API call fails.
+ */
+export async function getSetsBySerie(serieName: string): Promise<PokemonSet[]> {
+  console.log('[24B] getSetsBySerie() called:', { serieName });
+  
+  try {
+    // Step 1: Get minimal set data first
+    const tcgdexSetsMinimal = await tcgdex.set.list();
+    
+    // Step 2: Fetch full details for all sets (we need this to filter by serie)
+    // Then filter to only sets in the specified serie
+    // Note: This is still many API calls, but only happens when user selects an era
+    console.log('[24B] Fetching full details for sets in serie:', serieName);
+    const BATCH_SIZE = 20;
+    const fullSets: any[] = [];
+    
+    // Fetch full details in batches
+    for (let i = 0; i < tcgdexSetsMinimal.length; i += BATCH_SIZE) {
+      const batch = tcgdexSetsMinimal.slice(i, i + BATCH_SIZE);
+      const batchPromises = batch.map(set => tcgdex.set.get(set.id));
+      const batchResults = await Promise.all(batchPromises);
+      fullSets.push(...batchResults);
+    }
+    
+    // Transform and filter by serie
+    const allSets = await Promise.all(fullSets.map(transformTcgdexSetToPokemonSet));
+    const setsInSerie = allSets.filter(set => set.series === serieName);
+    
+    // Sort by release date (newest → oldest)
+    const sortedSets = sortSetsByDate(setsInSerie);
+    
+    console.log('[24B] Sets by serie fetched:', {
+      serieName,
+      setCount: sortedSets.length,
+      sampleSet: sortedSets[0],
+    });
+    
+    return sortedSets;
+  } catch (error) {
+    console.error('[24B] Error in getSetsBySerie():', error);
+    return [];
+  }
+}
+
+/**
+ * Get all available sets with full details from TCGDEX API using the SDK.
+ * This fetches all sets with complete data (id, name, releaseDate, serie).
+ * Note: This is slow (197 API calls). Use getSetsMinimal() + getSetsBySerie() for lazy loading instead.
+ * Falls back to mock data if API call fails.
+ * 
+ * @deprecated Use getSetsMinimal() + getSetsBySerie() for better performance
+ */
+export async function getSets(): Promise<PokemonSet[]> {
+  console.log('[24B] getSets() called - fetching ALL sets with full details (slow)');
+  console.warn('[24B] Consider using getSetsMinimal() + getSetsBySerie() for better performance');
+  
+  try {
+    // Step 1: Get list of sets (minimal data - just id, name, logo, cardCount)
+    const tcgdexSetsMinimal = await tcgdex.set.list();
+    
+    console.log('[24B] SDK set.list() response received:', {
+      setCount: tcgdexSetsMinimal.length,
+      firstSet: tcgdexSetsMinimal[0]?.name,
+      lastSet: tcgdexSetsMinimal[tcgdexSetsMinimal.length - 1]?.name,
+    });
+    
+    // Step 2: Fetch full details for each set to get releaseDate and serie
+    // We'll do this in batches to avoid overwhelming the API
+    console.log('[24B] Fetching full set details (this may take a moment)...');
+    const BATCH_SIZE = 20; // Fetch 20 sets at a time
+    const fullSets: any[] = [];
+    
+    for (let i = 0; i < tcgdexSetsMinimal.length; i += BATCH_SIZE) {
+      const batch = tcgdexSetsMinimal.slice(i, i + BATCH_SIZE);
+      const batchPromises = batch.map(set => tcgdex.set.get(set.id));
+      const batchResults = await Promise.all(batchPromises);
+      fullSets.push(...batchResults);
+      
+      // Log progress every 50 sets
+      if ((i + BATCH_SIZE) % 50 === 0 || i + BATCH_SIZE >= tcgdexSetsMinimal.length) {
+        console.log('[24B] Fetched full details for', Math.min(i + BATCH_SIZE, tcgdexSetsMinimal.length), 'of', tcgdexSetsMinimal.length, 'sets');
+      }
+    }
+    
+    // Log the first full set's structure
+    if (fullSets.length > 0) {
+      console.log('[24B] SDK response - First full set structure:', {
+        allKeys: Object.keys(fullSets[0]),
+        hasReleaseDate: 'releaseDate' in fullSets[0],
+        hasSerie: 'serie' in fullSets[0],
+        serieType: typeof fullSets[0].serie,
+        firstSetData: fullSets[0],
+      });
+    }
+    
+    // Step 3: Transform full set details to our PokemonSet type
+    const sets = await Promise.all(fullSets.map(transformTcgdexSetToPokemonSet));
+    
+    // Filter out sets with missing required fields (id or name)
+    const validSets = sets.filter(set => set.id && set.name);
+    
+    if (validSets.length < sets.length) {
+      console.warn('[24B] Some sets were filtered out due to missing id/name:', {
+        total: sets.length,
+        valid: validSets.length,
+        filtered: sets.length - validSets.length,
+      });
+    }
     
     console.log('[24B] Sets transformed:', {
-      transformedCount: sets.length,
-      sampleSet: sets[0],
+      transformedCount: validSets.length,
+      sampleSet: validSets[0],
+      sampleSetKeys: validSets[0] ? Object.keys(validSets[0]) : [],
+      setsWithReleaseDate: validSets.filter(s => s.releaseDate).length,
+      setsWithSeries: validSets.filter(s => s.series && s.series !== 'Unknown').length,
+      uniqueSeries: [...new Set(validSets.map(s => s.series))],
     });
     
     // Sort by release date (newest → oldest)
-    const sortedSets = sortSetsByDate(sets);
+    const sortedSets = sortSetsByDate(validSets);
     
     console.log('[24B] Sets sorted by date:', {
       newestSet: sortedSets[0]?.name,

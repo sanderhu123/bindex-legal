@@ -299,12 +299,17 @@ export async function getSets(): Promise<PokemonSet[]> {
  * Transform TCGDEX SDK card response to our Card type
  */
 function transformTcgdexCardToCard(tcgdexCard: any): Card {
-  // Log the raw card data to debug image URL issues
+  // Log the raw card data to debug field extraction
   console.log('[24C] Transforming card - raw data:', {
     id: tcgdexCard.id,
     name: tcgdexCard.name,
+    localId: tcgdexCard.localId,
     imageField: tcgdexCard.image,
+    rarity: tcgdexCard.rarity,
+    artist: tcgdexCard.artist,
+    illustrator: tcgdexCard.illustrator, // TCGDEX might use "illustrator" instead of "artist"
     allKeys: Object.keys(tcgdexCard),
+    fullCard: tcgdexCard, // Log the entire card object to see all available fields
   });
   
   // Extract card fields
@@ -313,7 +318,19 @@ function transformTcgdexCardToCard(tcgdexCard: any): Card {
   const cardNumber = tcgdexCard.localId || ''; // localId is the card number in the set (e.g., "001")
   const setName = tcgdexCard.set?.name || '';
   const rarity = tcgdexCard.rarity || '';
-  const artist = tcgdexCard.artist || '';
+  
+  // Artist field - TCGDEX might use "illustrator" instead of "artist"
+  const artist = tcgdexCard.artist || tcgdexCard.illustrator || '';
+  
+  console.log('[24C] Extracted fields:', {
+    cardId,
+    cardName,
+    cardNumber,
+    setName,
+    rarity,
+    artist,
+    artistSource: tcgdexCard.artist ? 'artist' : tcgdexCard.illustrator ? 'illustrator' : 'none',
+  });
   
   // Image URL - TCGDEX provides image in different ways:
   // 1. As a string URL directly (base URL without quality/format)

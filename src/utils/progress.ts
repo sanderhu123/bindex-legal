@@ -4,6 +4,8 @@ import { getCardsBySet, getCardsByRegion, type Region } from '../services/api/po
 /**
  * Get total number of cards expected for a binder
  * Returns the total count of cards based on collection mode
+ * 
+ * @deprecated This function is no longer used. Use binder.totalCards instead (cached in database)
  */
 export async function getBinderTotalCards(binder: Binder): Promise<number> {
   try {
@@ -27,6 +29,9 @@ export async function getBinderTotalCards(binder: Binder): Promise<number> {
 /**
  * Calculate completion percentage for a binder
  * Returns a percentage (0-100)
+ * 
+ * @deprecated This function is no longer used. Calculate progress from cached values:
+ * `Math.round((binder.ownedCards / binder.totalCards) * 100)`
  */
 export async function calculateBinderProgress(binder: Binder): Promise<number> {
   try {

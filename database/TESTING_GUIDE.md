@@ -155,3 +155,4 @@ DELETE FROM public.binders WHERE nfc_tag_id LIKE 'test-nfc-%';
 
 
 
+

@@ -14,7 +14,6 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { signOut } from '../../services/supabase/auth';
 import { getBinders, deleteBinder } from '../../services/supabase/binders';
 import type { Binder } from '../../types';
-import { calculateBinderProgress, getBinderTotalCards } from '../../utils/progress';
 import BinderCard from '../../components/Binder/BinderCard';
 import LoadingScreen from '../../components/Loading/LoadingScreen';
 import EmptyState from '../../components/EmptyState/EmptyState';
@@ -37,16 +36,19 @@ export default function BinderListScreen() {
     try {
       const fetchedBinders = await getBinders();
       
-      // Calculate progress and total cards for each binder
-      const bindersWithProgress = await Promise.all(
-        fetchedBinders.map(async (binder) => {
-          const [progress, totalCards] = await Promise.all([
-            calculateBinderProgress(binder),
-            getBinderTotalCards(binder),
-          ]);
-          return { ...binder, progress, totalCards };
-        })
-      );
+      // Calculate progress from cached values (instant!)
+      const bindersWithProgress = fetchedBinders.map((binder) => {
+        // Progress is calculated from cached totalCards and ownedCards
+        const progress = binder.totalCards > 0 
+          ? Math.round((binder.ownedCards / binder.totalCards) * 100)
+          : 0;
+        
+        return { 
+          ...binder, 
+          progress, 
+          totalCards: binder.totalCards 
+        };
+      });
 
       setBinders(bindersWithProgress);
     } catch (error: any) {

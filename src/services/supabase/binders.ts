@@ -1,5 +1,6 @@
 import { supabase } from './client';
 import type { Binder, CollectionMode, VariantPlacement, LayoutPreference, PokemonArtStyle } from '../../types';
+import { getCardsBySet, getCardsByRegion, type Region } from '../api/pokemonApi';
 
 /**
  * Database representation of a binder (matches database schema)
@@ -16,6 +17,8 @@ interface BinderRow {
   layout_preference: LayoutPreference | null;
   pokemon_art_style: PokemonArtStyle | null;
   nfc_tag_id: string | null;
+  total_cards: number;
+  owned_cards: number;
   created_at: string;
   updated_at: string;
 }
@@ -37,6 +40,8 @@ function rowToBinder(row: BinderRow, cardIds: string[]): Binder {
     pokemonArtStyle: row.pokemon_art_style || undefined,
     nfcTagId: row.nfc_tag_id || undefined,
     cardIds,
+    totalCards: row.total_cards || 0,
+    ownedCards: row.owned_cards || 0,
     createdAt: new Date(row.created_at),
     updatedAt: new Date(row.updated_at),
   };
@@ -179,6 +184,32 @@ export async function checkNfcTagOwnership(nfcTagId: string): Promise<boolean> {
 }
 
 /**
+ * Calculate total cards for a binder based on collection mode
+ */
+async function calculateTotalCards(
+  collectionMode: CollectionMode,
+  set?: string,
+  region?: string
+): Promise<number> {
+  try {
+    if (collectionMode === 'master-set' && set) {
+      const cards = await getCardsBySet(set);
+      return cards.length;
+    } else if (collectionMode === 'region' && region) {
+      const cards = await getCardsByRegion(region as Region);
+      return cards.length;
+    } else if (collectionMode === 'custom') {
+      // Custom binders don't have a fixed total
+      return 0;
+    }
+    return 0;
+  } catch (error) {
+    console.error('Error calculating total cards:', error);
+    return 0;
+  }
+}
+
+/**
  * Create a new binder
  */
 export async function createBinder(binder: {
@@ -198,6 +229,13 @@ export async function createBinder(binder: {
     throw new Error('User not authenticated');
   }
 
+  // Calculate total cards for this binder
+  const totalCards = await calculateTotalCards(
+    binder.collectionMode,
+    binder.set,
+    binder.region
+  );
+
   const { data, error } = await supabase
     .from('binders')
     .insert({
@@ -211,6 +249,8 @@ export async function createBinder(binder: {
       layout_preference: binder.layoutPreference || null,
       pokemon_art_style: binder.pokemonArtStyle || null,
       nfc_tag_id: binder.nfcTagId || null,
+      total_cards: totalCards,
+      owned_cards: 0, // New binder starts with 0 owned cards
     })
     .select()
     .single();

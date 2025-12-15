@@ -1,7 +1,7 @@
 /**
  * Card variant types
  */
-export type CardVariant = 'base' | 'reverse-holo' | 'poke-ball' | 'master-ball';
+export type CardVariant = 'base' | 'holo' | 'reverse-holo' | 'poke-ball' | 'master-ball';
 
 /**
  * Card interface representing a Pokémon TCG card

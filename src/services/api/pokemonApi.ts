@@ -3,6 +3,7 @@ import type { PokemonArtStyle } from '../../types';
 import { mockCards, mockSets, type MockSet } from '../../data/mockupCards';
 import { getPokemonByRegion } from '../../data/pokemonRegions';
 import { getEras, getSetsByEra, convertSetToPokemonSet } from '../../data/pokemonEras';
+import { getSpecialVariantsForCard, hasSpecialVariants } from '../../data/cardVariants';
 import TCGdex from '@tcgdex/sdk';
 
 export type PokemonSet = MockSet;
@@ -461,6 +462,80 @@ async function transformTcgdexCardToCard(tcgdexCard: any): Promise<Card> {
 }
 
 /**
+ * Generate all variant cards from a base card based on API variant data.
+ * 
+ * Creates separate Card objects for each available variant:
+ * - Base (always)
+ * - Holo (if API says holo: true)
+ * - Reverse holo (if API says reverse: true)
+ * - Pokeball holo (special sets only, if reverse: true)
+ * - Masterball holo (special sets only, if reverse: true and supertype: "Pokémon")
+ * 
+ * @param baseCard - The base card from transformTcgdexCardToCard
+ * @param tcgdexCard - The original TCGDEX card data (for variant info)
+ * @returns Array of Card objects for each available variant
+ */
+function generateVariantCards(baseCard: Card, tcgdexCard: any): Card[] {
+  const variants: Card[] = [];
+  const setId = tcgdexCard.set?.id || '';
+  
+  // Get variant availability from API
+  const hasHolo = tcgdexCard.variants?.holo === true;
+  const hasReverse = tcgdexCard.variants?.reverse === true;
+  const supertype = tcgdexCard.category || '';
+  
+  // 1. Base card (always available)
+  variants.push({
+    ...baseCard,
+    variant: 'base',
+    id: `${baseCard.id}-base`,
+  });
+  
+  // 2. Holo variant (if available)
+  if (hasHolo) {
+    variants.push({
+      ...baseCard,
+      variant: 'holo' as any, // Note: 'holo' not in CardVariant type yet, but included for completeness
+      id: `${baseCard.id}-holo`,
+    });
+  }
+  
+  // 3. Regular reverse holo (if available)
+  if (hasReverse) {
+    variants.push({
+      ...baseCard,
+      variant: 'reverse-holo',
+      id: `${baseCard.id}-reverse`,
+    });
+  }
+  
+  // 4. Special variants (pokeball/masterball) - only for special sets
+  if (hasSpecialVariants(setId)) {
+    const specialVariants = getSpecialVariantsForCard(setId, hasReverse, supertype);
+    
+    for (const variantType of specialVariants) {
+      variants.push({
+        ...baseCard,
+        variant: variantType,
+        id: `${baseCard.id}-${variantType}`,
+      });
+    }
+  }
+  
+  console.log('[VARIANT] Generated variants for card:', {
+    cardName: baseCard.name,
+    setId,
+    hasHolo,
+    hasReverse,
+    supertype,
+    variantCount: variants.length,
+    variants: variants.map(v => v.variant),
+  });
+  
+  return variants;
+}
+
+/**
  * Get cards for a specific set using TCGDEX SDK.
  * Falls back to mock data if API call fails.
  * 
@@ -534,14 +609,30 @@ export async function getCardsBySet(setIdentifier: string): Promise<Card[]> {
       sampleTransformed: transformedCards[0],
     });
     
-    // Filter out invalid cards (missing required fields)
-    const validCards = transformedCards.filter((card: Card) => card.id && card.name);
+    // Step 4: Generate variant cards for each base card
+    const allVariantCards: Card[] = [];
+    for (let i = 0; i < transformedCards.length; i++) {
+      const baseCard = transformedCards[i];
+      const tcgdexCard = cards[i]; // Original TCGDEX card data for variant info
+      
+      const variantCards = generateVariantCards(baseCard, tcgdexCard);
+      allVariantCards.push(...variantCards);
+    }
     
-    if (validCards.length < transformedCards.length) {
+    console.log('[24C] Variant cards generated:', {
+      baseCardCount: transformedCards.length,
+      totalVariantCount: allVariantCards.length,
+      avgVariantsPerCard: (allVariantCards.length / transformedCards.length).toFixed(2),
+    });
+    
+    // Filter out invalid cards (missing required fields)
+    const validCards = allVariantCards.filter((card: Card) => card.id && card.name);
+    
+    if (validCards.length < allVariantCards.length) {
       console.warn('[24C] Some cards were filtered out due to missing required fields:', {
-        total: transformedCards.length,
+        total: allVariantCards.length,
         valid: validCards.length,
-        filtered: transformedCards.length - validCards.length,
+        filtered: allVariantCards.length - validCards.length,
       });
     }
     

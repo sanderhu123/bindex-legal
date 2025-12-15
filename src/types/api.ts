@@ -52,7 +52,13 @@ export interface TcgdexCard {
     small?: string;
     large?: string;
   };
-  variants?: string[]; // Array of variant types (e.g., ["reverse-holo", "poke-ball"])
+  variants?: {
+    normal: boolean;      // Regular non-foil version
+    holo: boolean;        // Holofoil version
+    reverse: boolean;     // Reverse holofoil version
+    firstEdition: boolean; // First edition printing
+    wPromo: boolean;      // W Promo variant
+  }; // Note: API doesn't distinguish reverse holo patterns (pokeball vs masterball)
   tcgplayer?: {
     url?: string;
     updatedAt?: string;

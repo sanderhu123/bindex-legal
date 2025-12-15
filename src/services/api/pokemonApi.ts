@@ -324,9 +324,11 @@ async function transformTcgdexCardToCard(tcgdexCard: any): Promise<Card> {
   // Extract supertype (TCGDEX calls it "category")
   const supertype = tcgdexCard.category || '';
   
-  // Extract set total (total cards in the set)
-  const setTotal = tcgdexCard.set?.cardCount?.total 
-    ? String(tcgdexCard.set.cardCount.total) 
+  // Extract set total (printed number, excluding secret rares)
+  // TCGDEX provides cardCount.official for the printed total (what's shown on cards)
+  // and cardCount.total for the actual total including secret rares
+  const setTotal = tcgdexCard.set?.cardCount?.official 
+    ? String(tcgdexCard.set.cardCount.official) 
     : '';
   
   // Artist field - TCGDEX uses "illustrator" (not "artist")

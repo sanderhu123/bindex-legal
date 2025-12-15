@@ -61,6 +61,25 @@ All binders should show "✅ Match".
 
 ---
 
+## ⚠️ IMPORTANT: Fix Existing Binders
+
+If you had binders **before** running this migration, they will show "0 / 0 cards" because `total_cards` defaults to 0 for existing binders.
+
+### Quick Fix Option 1: Use the Fix Button in the App ⭐ **EASIEST**
+
+1. Open your app
+2. Go to "My Binders" page
+3. Click the **🔧 Fix** button in the top right
+4. Confirm the fix
+5. Wait for it to complete
+6. Your binders should now show the correct card counts!
+
+### Alternative Option 2: Use SQL (Manual)
+
+If you prefer to fix it via SQL, see `database/fix_existing_binders.sql` for manual queries.
+
+---
+
 ## What Changed in the Code
 
 ### Database:

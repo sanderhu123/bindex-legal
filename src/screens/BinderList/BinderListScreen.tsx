@@ -84,6 +84,46 @@ export default function BinderListScreen() {
     navigation.navigate('Questionnaire');
   };
 
+  const handleFixBinders = async () => {
+    Alert.alert(
+      'Fix Binder Card Counts',
+      'This will recalculate the total card count for all your binders. This may take a moment. Continue?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Fix Now',
+          onPress: async () => {
+            try {
+              // Import dynamically to avoid loading unless needed
+              const { fixExistingBinders } = await import('../../utils/fixExistingBinders');
+              
+              setLoading(true);
+              const result = await fixExistingBinders();
+              setLoading(false);
+              
+              if (result.success) {
+                Alert.alert(
+                  'Success!',
+                  `Fixed ${result.fixed} binders successfully! Refreshing...`,
+                  [{ text: 'OK', onPress: () => loadBinders() }]
+                );
+              } else {
+                Alert.alert(
+                  'Completed',
+                  `Fixed ${result.fixed} binders. ${result.errors} had errors.`,
+                  [{ text: 'OK', onPress: () => loadBinders() }]
+                );
+              }
+            } catch (error: any) {
+              setLoading(false);
+              Alert.alert('Error', error.message || 'Failed to fix binders');
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const handleDeleteBinder = (binder: Binder) => {
     Alert.alert(
       'Delete Binder',
@@ -167,9 +207,14 @@ export default function BinderListScreen() {
     <View style={styles.container}>
       <View style={styles.headerRow}>
         <Text style={styles.title}>My Binders</Text>
-        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-          <Text style={styles.logoutText}>Logout</Text>
-        </TouchableOpacity>
+        <View style={styles.headerButtons}>
+          <TouchableOpacity style={styles.fixButton} onPress={handleFixBinders}>
+            <Text style={styles.fixButtonText}>🔧 Fix</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+            <Text style={styles.logoutText}>Logout</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       <FlatList
@@ -212,6 +257,22 @@ const styles = StyleSheet.create({
     fontSize: typography['3xl'],
     fontWeight: typography.bold,
     color: colors.text,
+  },
+  headerButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  fixButton: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    backgroundColor: colors.primary,
+    borderRadius: borderRadius.sm,
+  },
+  fixButtonText: {
+    color: colors.background,
+    fontSize: typography.xs,
+    fontWeight: typography.semibold,
   },
   logoutButton: {
     paddingHorizontal: spacing.md,

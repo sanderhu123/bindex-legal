@@ -73,7 +73,15 @@ export default function CardDetails({
           </View>
         )}
       </View>
-      <Text style={styles.fullNumber}>{card.number}</Text>
+      <Text style={styles.fullNumber}>
+        {card.setTotal ? `${card.number}/${card.setTotal}` : card.number}
+      </Text>
+      {card.supertype && (
+        <View style={styles.fullRow}>
+          <Text style={styles.fullLabel}>Type:</Text>
+          <Text style={styles.fullValue}>{card.supertype}</Text>
+        </View>
+      )}
       {showSet && (
         <View style={styles.fullRow}>
           <Text style={styles.fullLabel}>Set:</Text>

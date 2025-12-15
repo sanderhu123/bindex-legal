@@ -17,5 +17,7 @@ export interface Card {
   imageUrlHiRes?: string; // High-res image for detail view - Optional
   pokedexNumber?: number; // For region mode
   variant?: CardVariant; // Card variant (defaults to 'base' if not specified)
+  supertype?: string; // Card supertype (Pokémon, Trainer, Energy)
+  setTotal?: string; // Total cards in set (e.g., "197")
 }
 

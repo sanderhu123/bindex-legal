@@ -308,6 +308,8 @@ async function transformTcgdexCardToCard(tcgdexCard: any): Promise<Card> {
     rarity: tcgdexCard.rarity,
     artist: tcgdexCard.artist,
     illustrator: tcgdexCard.illustrator, // TCGDEX might use "illustrator" instead of "artist"
+    category: tcgdexCard.category, // Supertype field
+    set: tcgdexCard.set, // To check cardCount
     allKeys: Object.keys(tcgdexCard),
     fullCard: tcgdexCard, // Log the entire card object to see all available fields
   });
@@ -318,6 +320,14 @@ async function transformTcgdexCardToCard(tcgdexCard: any): Promise<Card> {
   const cardNumber = tcgdexCard.localId || ''; // localId is the card number in the set (e.g., "001")
   const setName = tcgdexCard.set?.name || '';
   const rarity = tcgdexCard.rarity || '';
+  
+  // Extract supertype (TCGDEX calls it "category")
+  const supertype = tcgdexCard.category || '';
+  
+  // Extract set total (total cards in the set)
+  const setTotal = tcgdexCard.set?.cardCount?.total 
+    ? String(tcgdexCard.set.cardCount.total) 
+    : '';
   
   // Artist field - TCGDEX uses "illustrator" (not "artist")
   // According to the REST API, illustrator should be a direct string on full card objects
@@ -443,6 +453,8 @@ async function transformTcgdexCardToCard(tcgdexCard: any): Promise<Card> {
     imageUrl: imageUrl, // Low-res for grid view
     imageUrlHiRes: imageUrlHiRes, // High-res for detail view
     variant: 'base' as const, // Default to base variant for now (Step 24F will handle variants)
+    supertype: supertype, // Card supertype (Pokémon, Trainer, Energy)
+    setTotal: setTotal, // Total cards in set
   };
 }
 

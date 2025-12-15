@@ -86,8 +86,8 @@ export default function BinderListScreen() {
 
   const handleFixBinders = async () => {
     Alert.alert(
-      'Fix Binder Card Counts',
-      'This will recalculate the total card count for all your binders. This may take a moment. Continue?',
+      'Recalculate Card Counts',
+      'This will recalculate the total card count for all your binders. Use this if you see "0 / 0 cards". Continue?',
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -104,13 +104,13 @@ export default function BinderListScreen() {
               if (result.success) {
                 Alert.alert(
                   'Success!',
-                  `Fixed ${result.fixed} binders successfully! Refreshing...`,
+                  `Fixed ${result.fixed} binder${result.fixed !== 1 ? 's' : ''} successfully! Refreshing...`,
                   [{ text: 'OK', onPress: () => loadBinders() }]
                 );
               } else {
                 Alert.alert(
                   'Completed',
-                  `Fixed ${result.fixed} binders. ${result.errors} had errors.`,
+                  `Fixed ${result.fixed} binder${result.fixed !== 1 ? 's' : ''}. ${result.errors} had errors.`,
                   [{ text: 'OK', onPress: () => loadBinders() }]
                 );
               }

@@ -40,6 +40,10 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+-- Drop triggers if they exist (to allow re-running this script)
+DROP TRIGGER IF EXISTS update_owned_cards_on_insert ON public.binder_cards;
+DROP TRIGGER IF EXISTS update_owned_cards_on_delete ON public.binder_cards;
+
 -- Trigger on INSERT (when cards are added)
 CREATE TRIGGER update_owned_cards_on_insert
   AFTER INSERT ON public.binder_cards

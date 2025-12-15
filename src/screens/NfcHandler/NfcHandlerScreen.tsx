@@ -3,6 +3,8 @@ import { View, StyleSheet, Text, ActivityIndicator, Alert } from 'react-native';
 import { handleNfcTag, subscribeToNfcLinks, extractNfcTagIdFromUrl } from '../../utils/nfcHandler';
 import { Linking } from 'react-native';
 import type { NfcHandleResult } from '../../utils/nfcHandler';
+import MigrationScreen from '../Migration/MigrationScreen';
+import { isProgressCacheMigrationCompleted } from '../../utils/migrationCheck';
 
 interface NfcHandlerScreenProps {
   navigation: any;
@@ -12,8 +14,18 @@ interface NfcHandlerScreenProps {
 export default function NfcHandlerScreen({ navigation, route }: NfcHandlerScreenProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showMigration, setShowMigration] = useState(false);
+  const [migrationChecked, setMigrationChecked] = useState(false);
 
   useEffect(() => {
+    // First, check if migration is needed
+    checkMigration();
+  }, []);
+
+  useEffect(() => {
+    // Only proceed with NFC handling after migration check
+    if (!migrationChecked) return;
+
     // Check if tagId was passed via route params
     const tagId = route.params?.tagId;
     
@@ -30,7 +42,30 @@ export default function NfcHandlerScreen({ navigation, route }: NfcHandlerScreen
         subscription.remove();
       };
     }
-  }, []);
+  }, [migrationChecked]);
+
+  const checkMigration = async () => {
+    try {
+      const migrationCompleted = await isProgressCacheMigrationCompleted();
+      
+      if (!migrationCompleted) {
+        // Show migration screen
+        setShowMigration(true);
+      } else {
+        // Migration already done, proceed normally
+        setMigrationChecked(true);
+      }
+    } catch (error) {
+      console.error('Error checking migration:', error);
+      // On error, skip migration and proceed
+      setMigrationChecked(true);
+    }
+  };
+
+  const handleMigrationComplete = () => {
+    setShowMigration(false);
+    setMigrationChecked(true);
+  };
 
   const checkInitialUrl = async () => {
     try {
@@ -87,6 +122,11 @@ export default function NfcHandlerScreen({ navigation, route }: NfcHandlerScreen
       navigation.replace('BinderList');
     }
   };
+
+  // Show migration screen if needed
+  if (showMigration) {
+    return <MigrationScreen onComplete={handleMigrationComplete} />;
+  }
 
   if (loading) {
     return (

@@ -12,3 +12,4 @@ ADD COLUMN IF NOT EXISTS pokemon_art_style TEXT CHECK (pokemon_art_style IN ('sp
 COMMENT ON COLUMN public.binders.pokemon_art_style IS 'Pokemon art style preference for region mode binders (sprite, home, or official-artwork)';
 
 
+

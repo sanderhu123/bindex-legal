@@ -839,3 +839,4 @@ export function getPokemonByRegion(region: Region): PokemonEntry[] {
 }
 
 
+

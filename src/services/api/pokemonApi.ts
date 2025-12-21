@@ -702,6 +702,12 @@ export async function getCardById(id: string): Promise<Card | null> {
     // Fetch card from TCGDEX SDK
     const tcgdexCard = await tcgdex.card.get(id);
     
+    // Check if card was found
+    if (!tcgdexCard) {
+      console.warn('[24D] Card not found in SDK:', { cardId: id });
+      throw new Error(`Card not found: ${id}`);
+    }
+    
     console.log('[24D] Card fetched from SDK:', {
       cardId: tcgdexCard.id,
       cardName: tcgdexCard.name,

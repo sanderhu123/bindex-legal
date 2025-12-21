@@ -584,36 +584,56 @@ export async function getCardsBySet(setIdentifier: string): Promise<Card[]> {
       throw new Error(`Failed to fetch set: ${setIdentifier}`);
     }
     
-    // Step 2: Extract cards from the set
-    // TCGDEX SDK provides cards as an array
-    const cards = tcgdexSet.cards || [];
+    // Step 2: Extract card IDs from the set
+    // TCGDEX SDK provides cards as an array of minimal card objects
+    const minimalCards = tcgdexSet.cards || [];
     
-    console.log('[24C] Cards extracted from set:', {
+    console.log('[24C] Minimal cards extracted from set:', {
       setId: tcgdexSet.id,
       setName: tcgdexSet.name,
-      cardCount: cards.length,
-      sampleCard: cards[0] ? {
-        id: cards[0].id,
-        name: cards[0].name,
-        localId: cards[0].localId,
-        image: cards[0].image,
-        allCardKeys: Object.keys(cards[0]),
+      cardCount: minimalCards.length,
+      sampleCard: minimalCards[0] ? {
+        id: minimalCards[0].id,
+        name: minimalCards[0].name,
+        localId: minimalCards[0].localId,
+        allCardKeys: Object.keys(minimalCards[0]),
       } : null,
     });
     
-    // Step 3: Transform cards to our Card type
-    const transformedCards = await Promise.all(cards.map(transformTcgdexCardToCard));
+    // Step 3: Fetch FULL card details for each card (to get variant information)
+    // We need full details because minimal cards don't include variants, category, rarity, etc.
+    console.log('[24C] Fetching full details for', minimalCards.length, 'cards...');
+    const fullCards = await Promise.all(
+      minimalCards.map(async (minimalCard) => {
+        try {
+          return await tcgdex.card.get(minimalCard.id);
+        } catch (error) {
+          console.error('[24C] Failed to fetch full details for card:', minimalCard.id, error);
+          return minimalCard; // Fallback to minimal card if fetch fails
+        }
+      })
+    );
+    
+    console.log('[24C] Full cards fetched. Sample card with all fields:', {
+      sampleCard: fullCards[0],
+      allKeys: fullCards[0] ? Object.keys(fullCards[0]) : [],
+      hasVariants: fullCards[0] ? !!fullCards[0].variants : false,
+      hasCategory: fullCards[0] ? !!fullCards[0].category : false,
+    });
+    
+    // Step 4: Transform cards to our Card type
+    const transformedCards = await Promise.all(fullCards.map(transformTcgdexCardToCard));
     
     console.log('[24C] Cards transformed:', {
       transformedCount: transformedCards.length,
       sampleTransformed: transformedCards[0],
     });
     
-    // Step 4: Generate variant cards for each base card
+    // Step 5: Generate variant cards for each base card
     const allVariantCards: Card[] = [];
     for (let i = 0; i < transformedCards.length; i++) {
       const baseCard = transformedCards[i];
-      const tcgdexCard = cards[i]; // Original TCGDEX card data for variant info
+      const tcgdexCard = fullCards[i]; // Use FULL card data for variant info
       
       const variantCards = generateVariantCards(baseCard, tcgdexCard);
       allVariantCards.push(...variantCards);

@@ -32,6 +32,200 @@ console.log('[24A] TCGDEX SDK initialized:', {
   timestamp: new Date().toISOString(),
 });
 
+// ==================== STEP 24E: CACHING & RATE LIMITING ====================
+
+/**
+ * In-memory cache for API responses
+ * Key: request identifier (e.g., "sets", "cards-base1", "card-swsh11-TG21")
+ * Value: { data: any, timestamp: number }
+ */
+const apiCache = new Map<string, { data: any; timestamp: number }>();
+
+/**
+ * Cache duration in milliseconds (5 minutes)
+ */
+const CACHE_DURATION = 5 * 60 * 1000;
+
+/**
+ * Pending requests map for request deduplication
+ * Prevents multiple identical requests from being sent simultaneously
+ */
+const pendingRequests = new Map<string, Promise<any>>();
+
+/**
+ * Rate limit state
+ */
+let rateLimitResetTime: number = 0;
+let rateLimitRetryCount: number = 0;
+const MAX_RATE_LIMIT_RETRIES = 3;
+
+/**
+ * Check if cached data is still valid
+ */
+function isCacheValid(timestamp: number): boolean {
+  return Date.now() - timestamp < CACHE_DURATION;
+}
+
+/**
+ * Get data from cache if available and valid
+ */
+function getCachedData<T>(cacheKey: string): T | null {
+  const cached = apiCache.get(cacheKey);
+  
+  if (!cached) {
+    console.log('[24E] Cache miss:', { cacheKey });
+    return null;
+  }
+  
+  if (!isCacheValid(cached.timestamp)) {
+    console.log('[24E] Cache expired:', { cacheKey, age: Date.now() - cached.timestamp });
+    apiCache.delete(cacheKey); // Clean up expired cache
+    return null;
+  }
+  
+  console.log('[24E] Cache hit:', { cacheKey, age: Date.now() - cached.timestamp });
+  return cached.data as T;
+}
+
+/**
+ * Store data in cache
+ */
+function setCachedData(cacheKey: string, data: any): void {
+  apiCache.set(cacheKey, {
+    data,
+    timestamp: Date.now(),
+  });
+  console.log('[24E] Data cached:', { cacheKey, cacheSize: apiCache.size });
+}
+
+/**
+ * Check if we're currently rate limited
+ */
+function isRateLimited(): boolean {
+  if (rateLimitResetTime === 0) return false;
+  
+  const now = Date.now();
+  if (now >= rateLimitResetTime) {
+    // Rate limit has expired
+    rateLimitResetTime = 0;
+    rateLimitRetryCount = 0;
+    console.log('[24E] Rate limit expired, resetting');
+    return false;
+  }
+  
+  console.log('[24E] Currently rate limited:', {
+    resetIn: rateLimitResetTime - now,
+    retryCount: rateLimitRetryCount,
+  });
+  return true;
+}
+
+/**
+ * Handle rate limit error
+ */
+function handleRateLimitError(error: any): void {
+  // TCGDEX SDK might return rate limit errors differently
+  // Check for HTTP 429 or similar indicators
+  const is429 = 
+    error?.status === 429 || 
+    error?.statusCode === 429 || 
+    error?.response?.status === 429 ||
+    (error?.message && error.message.toLowerCase().includes('rate limit'));
+  
+  if (is429) {
+    rateLimitRetryCount++;
+    
+    // Extract retry-after header if available (in seconds)
+    const retryAfter = error?.retryAfter || error?.response?.headers?.['retry-after'];
+    const waitTime = retryAfter ? parseInt(retryAfter) * 1000 : 60000; // Default 60 seconds
+    
+    rateLimitResetTime = Date.now() + waitTime;
+    
+    console.warn('[24E] Rate limit hit (429):', {
+      retryCount: rateLimitRetryCount,
+      maxRetries: MAX_RATE_LIMIT_RETRIES,
+      waitTime: waitTime,
+      resetTime: new Date(rateLimitResetTime).toISOString(),
+    });
+    
+    throw new Error(
+      `Rate limit exceeded. Please wait ${Math.ceil(waitTime / 1000)} seconds before trying again. ` +
+      `(Retry ${rateLimitRetryCount}/${MAX_RATE_LIMIT_RETRIES})`
+    );
+  }
+}
+
+/**
+ * Wait for rate limit to reset
+ */
+async function waitForRateLimit(): Promise<void> {
+  if (!isRateLimited()) return;
+  
+  const waitTime = rateLimitResetTime - Date.now();
+  if (waitTime <= 0) return;
+  
+  console.log('[24E] Waiting for rate limit to reset:', { waitTime });
+  await new Promise(resolve => setTimeout(resolve, waitTime));
+}
+
+/**
+ * Deduplicate requests - if the same request is already pending, return the existing promise
+ */
+async function deduplicateRequest<T>(
+  cacheKey: string,
+  requestFn: () => Promise<T>
+): Promise<T> {
+  // Check if request is already pending
+  const pending = pendingRequests.get(cacheKey);
+  if (pending) {
+    console.log('[24E] Request already pending, using existing promise:', { cacheKey });
+    return pending as Promise<T>;
+  }
+  
+  // Create new request and store in pending map
+  const requestPromise = requestFn().finally(() => {
+    // Remove from pending map when done
+    pendingRequests.delete(cacheKey);
+  });
+  
+  pendingRequests.set(cacheKey, requestPromise);
+  return requestPromise;
+}
+
+/**
+ * Clear all cached data (useful for testing or manual refresh)
+ */
+export function clearApiCache(): void {
+  apiCache.clear();
+  pendingRequests.clear();
+  console.log('[24E] API cache cleared');
+}
+
+/**
+ * Get cache statistics (useful for debugging)
+ */
+export function getCacheStats() {
+  const entries = Array.from(apiCache.entries());
+  const validEntries = entries.filter(([_, value]) => isCacheValid(value.timestamp));
+  const expiredEntries = entries.filter(([_, value]) => !isCacheValid(value.timestamp));
+  
+  return {
+    totalEntries: apiCache.size,
+    validEntries: validEntries.length,
+    expiredEntries: expiredEntries.length,
+    pendingRequests: pendingRequests.size,
+    oldestEntry: entries.length > 0 
+      ? Math.min(...entries.map(([_, v]) => v.timestamp))
+      : null,
+    newestEntry: entries.length > 0
+      ? Math.max(...entries.map(([_, v]) => v.timestamp))
+      : null,
+  };
+}
+
+// ==================== END STEP 24E ====================
+
+
 /**
  * Transform minimal TCGDEX SDK set response (from set.list()) to our PokemonSet type
  * Minimal sets only have id and name - serie and releaseDate will be empty
@@ -133,35 +327,77 @@ function sortSetsByDate(sets: PokemonSet[]): PokemonSet[] {
 export async function getSetsMinimal(): Promise<PokemonSet[]> {
   console.log('[24B] getSetsMinimal() called - fetching minimal set data');
   
-  try {
-    // Fetch minimal set data (fast - single API call)
-    const tcgdexSetsMinimal = await tcgdex.set.list();
-    
-    console.log('[24B] SDK set.list() response received:', {
-      setCount: tcgdexSetsMinimal.length,
-      firstSet: tcgdexSetsMinimal[0]?.name,
-      lastSet: tcgdexSetsMinimal[tcgdexSetsMinimal.length - 1]?.name,
-    });
-    
-    // Transform minimal set data (no serie or releaseDate yet)
-    const sets = tcgdexSetsMinimal.map(transformMinimalSetToPokemonSet);
-    
-    // Filter out sets with missing required fields (id or name)
-    const validSets = sets.filter(set => set.id && set.name);
-    
-    console.log('[24B] Minimal sets transformed:', {
-      transformedCount: validSets.length,
-      note: 'Sets have id and name, but serie and releaseDate are empty',
-    });
-    
-    return validSets;
-  } catch (error) {
-    console.error('[24B] Error in getSetsMinimal():', error);
-    
-    // Fallback to mock data
-    console.log('[24B] Falling back to mock data');
+  const cacheKey = 'sets-minimal';
+  
+  // Step 1: Check cache first
+  const cachedData = getCachedData<PokemonSet[]>(cacheKey);
+  if (cachedData) {
+    console.log('[24E] Returning cached minimal sets:', { count: cachedData.length });
+    return cachedData;
+  }
+  
+  // Step 2: Check if rate limited
+  if (isRateLimited()) {
+    console.warn('[24E] Rate limited, returning cached data or mock data');
+    // Try to return stale cache if available
+    const staleCache = apiCache.get(cacheKey);
+    if (staleCache) {
+      console.log('[24E] Returning stale cache due to rate limit');
+      return staleCache.data;
+    }
+    // Fall back to mock data
+    console.log('[24E] No cache available, returning mock data');
     return mockSets;
   }
+  
+  // Step 3: Deduplicate request
+  return deduplicateRequest(cacheKey, async () => {
+    try {
+      const startTime = performance.now();
+      console.log('[24E] Making SDK request for minimal sets');
+      
+      // Fetch minimal set data (fast - single API call)
+      const tcgdexSetsMinimal = await tcgdex.set.list();
+      
+      const duration = performance.now() - startTime;
+      console.log('[24B] SDK set.list() response received:', {
+        setCount: tcgdexSetsMinimal.length,
+        firstSet: tcgdexSetsMinimal[0]?.name,
+        lastSet: tcgdexSetsMinimal[tcgdexSetsMinimal.length - 1]?.name,
+        duration: `${duration.toFixed(2)}ms`,
+      });
+      
+      // Transform minimal set data (no serie or releaseDate yet)
+      const sets = tcgdexSetsMinimal.map(transformMinimalSetToPokemonSet);
+      
+      // Filter out sets with missing required fields (id or name)
+      const validSets = sets.filter(set => set.id && set.name);
+      
+      console.log('[24B] Minimal sets transformed:', {
+        transformedCount: validSets.length,
+        note: 'Sets have id and name, but serie and releaseDate are empty',
+      });
+      
+      // Cache the result
+      setCachedData(cacheKey, validSets);
+      
+      return validSets;
+    } catch (error) {
+      // Handle rate limit error
+      try {
+        handleRateLimitError(error);
+      } catch (rateLimitError) {
+        console.error('[24E] Rate limit error:', rateLimitError);
+        throw rateLimitError;
+      }
+      
+      console.error('[24B] Error in getSetsMinimal():', error);
+      
+      // Fallback to mock data
+      console.log('[24B] Falling back to mock data');
+      return mockSets;
+    }
+  });
 }
 
 /**
@@ -560,129 +796,172 @@ function generateVariantCards(baseCard: Card, tcgdexCard: any): Card[] {
 export async function getCardsBySet(setIdentifier: string): Promise<Card[]> {
   console.log('[24C] getCardsBySet() called:', { setIdentifier });
   
-  try {
-    // Step 1: Determine if we have a set ID or name
-    // TCGDEX uses lowercase IDs with hyphens (e.g., "base1", "swsh1", "sv01")
-    // Set names are human-readable (e.g., "Base Set", "Sword & Shield")
-    
-    // First, try to fetch the set directly assuming it's an ID
-    let tcgdexSet: any = null;
-    try {
-      tcgdexSet = await tcgdex.set.get(setIdentifier);
-      console.log('[24C] Set fetched using identifier as ID:', {
-        setId: tcgdexSet.id,
-        setName: tcgdexSet.name,
-      });
-    } catch (error) {
-      // If that fails, we might have a set name, so we need to find the set ID
-      console.log('[24C] Failed to fetch set by ID, trying to find by name...');
-      
-      // Get all sets and find the one matching the name
-      const allSets = await tcgdex.set.list();
-      const matchingSet = allSets.find(
-        (s: any) => s.name === setIdentifier || s.id === setIdentifier.toLowerCase().replace(/\s+/g, '-')
-      );
-      
-      if (!matchingSet) {
-        throw new Error(`Set not found: ${setIdentifier}`);
-      }
-      
-      // Fetch the full set details
-      tcgdexSet = await tcgdex.set.get(matchingSet.id);
-      console.log('[24C] Set fetched using name lookup:', {
-        setId: tcgdexSet.id,
-        setName: tcgdexSet.name,
-      });
+  const cacheKey = `cards-${setIdentifier}`;
+  
+  // Step 1: Check cache first
+  const cachedData = getCachedData<Card[]>(cacheKey);
+  if (cachedData) {
+    console.log('[24E] Returning cached cards:', { setIdentifier, count: cachedData.length });
+    return cachedData;
+  }
+  
+  // Step 2: Check if rate limited
+  if (isRateLimited()) {
+    console.warn('[24E] Rate limited, returning cached data or mock data');
+    // Try to return stale cache if available
+    const staleCache = apiCache.get(cacheKey);
+    if (staleCache) {
+      console.log('[24E] Returning stale cache due to rate limit');
+      return staleCache.data;
     }
-    
-    // Check if we successfully got a set
-    if (!tcgdexSet) {
-      throw new Error(`Failed to fetch set: ${setIdentifier}`);
-    }
-    
-    // Step 2: Extract card IDs from the set
-    // TCGDEX SDK provides cards as an array of minimal card objects
-    const minimalCards = tcgdexSet.cards || [];
-    
-    console.log('[24C] Minimal cards extracted from set:', {
-      setId: tcgdexSet.id,
-      setName: tcgdexSet.name,
-      cardCount: minimalCards.length,
-      sampleCard: minimalCards[0] ? {
-        id: minimalCards[0].id,
-        name: minimalCards[0].name,
-        localId: minimalCards[0].localId,
-        allCardKeys: Object.keys(minimalCards[0]),
-      } : null,
-    });
-    
-    // Step 3: Fetch FULL card details for each card (to get variant information)
-    // We need full details because minimal cards don't include variants, category, rarity, etc.
-    console.log('[24C] Fetching full details for', minimalCards.length, 'cards...');
-    const fullCards = await Promise.all(
-      minimalCards.map(async (minimalCard) => {
-        try {
-          return await tcgdex.card.get(minimalCard.id);
-        } catch (error) {
-          console.error('[24C] Failed to fetch full details for card:', minimalCard.id, error);
-          return minimalCard; // Fallback to minimal card if fetch fails
-        }
-      })
-    );
-    
-    console.log('[24C] Full cards fetched. Sample card with all fields:', {
-      sampleCard: fullCards[0],
-      allKeys: fullCards[0] ? Object.keys(fullCards[0]) : [],
-      hasVariants: fullCards[0] ? !!fullCards[0].variants : false,
-      hasCategory: fullCards[0] ? !!fullCards[0].category : false,
-    });
-    
-    // Step 4: Transform cards to our Card type
-    const transformedCards = await Promise.all(fullCards.map(transformTcgdexCardToCard));
-    
-    console.log('[24C] Cards transformed:', {
-      transformedCount: transformedCards.length,
-      sampleTransformed: transformedCards[0],
-    });
-    
-    // Step 5: Generate variant cards for each base card
-    const allVariantCards: Card[] = [];
-    for (let i = 0; i < transformedCards.length; i++) {
-      const baseCard = transformedCards[i];
-      const tcgdexCard = fullCards[i]; // Use FULL card data for variant info
-      
-      const variantCards = generateVariantCards(baseCard, tcgdexCard);
-      allVariantCards.push(...variantCards);
-    }
-    
-    console.log('[24C] Variant cards generated:', {
-      baseCardCount: transformedCards.length,
-      totalVariantCount: allVariantCards.length,
-      avgVariantsPerCard: (allVariantCards.length / transformedCards.length).toFixed(2),
-    });
-    
-    // Filter out invalid cards (missing required fields)
-    const validCards = allVariantCards.filter((card: Card) => card.id && card.name);
-    
-    if (validCards.length < allVariantCards.length) {
-      console.warn('[24C] Some cards were filtered out due to missing required fields:', {
-        total: allVariantCards.length,
-        valid: validCards.length,
-        filtered: allVariantCards.length - validCards.length,
-      });
-    }
-    
-    return validCards;
-  } catch (error) {
-    console.error('[24C] Error in getCardsBySet():', {
-      setIdentifier,
-      error: error instanceof Error ? error.message : error,
-    });
-    
-    // Fallback to mock data
-    console.log('[24C] Falling back to mock cards filtered by set name');
+    // Fall back to mock data
+    console.log('[24E] No cache available, returning mock data');
     return mockCards.filter((card) => card.set === setIdentifier);
   }
+  
+  // Step 3: Deduplicate request
+  return deduplicateRequest(cacheKey, async () => {
+    try {
+      const startTime = performance.now();
+      console.log('[24E] Making SDK request for cards');
+      
+      // Step 1: Determine if we have a set ID or name
+      // TCGDEX uses lowercase IDs with hyphens (e.g., "base1", "swsh1", "sv01")
+      // Set names are human-readable (e.g., "Base Set", "Sword & Shield")
+      
+      // First, try to fetch the set directly assuming it's an ID
+      let tcgdexSet: any = null;
+      try {
+        tcgdexSet = await tcgdex.set.get(setIdentifier);
+        console.log('[24C] Set fetched using identifier as ID:', {
+          setId: tcgdexSet.id,
+          setName: tcgdexSet.name,
+        });
+      } catch (error) {
+        // If that fails, we might have a set name, so we need to find the set ID
+        console.log('[24C] Failed to fetch set by ID, trying to find by name...');
+        
+        // Get all sets and find the one matching the name
+        const allSets = await tcgdex.set.list();
+        const matchingSet = allSets.find(
+          (s: any) => s.name === setIdentifier || s.id === setIdentifier.toLowerCase().replace(/\s+/g, '-')
+        );
+        
+        if (!matchingSet) {
+          throw new Error(`Set not found: ${setIdentifier}`);
+        }
+        
+        // Fetch the full set details
+        tcgdexSet = await tcgdex.set.get(matchingSet.id);
+        console.log('[24C] Set fetched using name lookup:', {
+          setId: tcgdexSet.id,
+          setName: tcgdexSet.name,
+        });
+      }
+      
+      // Check if we successfully got a set
+      if (!tcgdexSet) {
+        throw new Error(`Failed to fetch set: ${setIdentifier}`);
+      }
+      
+      // Step 2: Extract card IDs from the set
+      // TCGDEX SDK provides cards as an array of minimal card objects
+      const minimalCards = tcgdexSet.cards || [];
+      
+      console.log('[24C] Minimal cards extracted from set:', {
+        setId: tcgdexSet.id,
+        setName: tcgdexSet.name,
+        cardCount: minimalCards.length,
+        sampleCard: minimalCards[0] ? {
+          id: minimalCards[0].id,
+          name: minimalCards[0].name,
+          localId: minimalCards[0].localId,
+          allCardKeys: Object.keys(minimalCards[0]),
+        } : null,
+      });
+      
+      // Step 3: Fetch FULL card details for each card (to get variant information)
+      // We need full details because minimal cards don't include variants, category, rarity, etc.
+      console.log('[24C] Fetching full details for', minimalCards.length, 'cards...');
+      const fullCards = await Promise.all(
+        minimalCards.map(async (minimalCard) => {
+          try {
+            return await tcgdex.card.get(minimalCard.id);
+          } catch (error) {
+            console.error('[24C] Failed to fetch full details for card:', minimalCard.id, error);
+            return minimalCard; // Fallback to minimal card if fetch fails
+          }
+        })
+      );
+      
+      console.log('[24C] Full cards fetched. Sample card with all fields:', {
+        sampleCard: fullCards[0],
+        allKeys: fullCards[0] ? Object.keys(fullCards[0]) : [],
+        hasVariants: fullCards[0] ? !!fullCards[0].variants : false,
+        hasCategory: fullCards[0] ? !!fullCards[0].category : false,
+      });
+      
+      // Step 4: Transform cards to our Card type
+      const transformedCards = await Promise.all(fullCards.map(transformTcgdexCardToCard));
+      
+      console.log('[24C] Cards transformed:', {
+        transformedCount: transformedCards.length,
+        sampleTransformed: transformedCards[0],
+      });
+      
+      // Step 5: Generate variant cards for each base card
+      const allVariantCards: Card[] = [];
+      for (let i = 0; i < transformedCards.length; i++) {
+        const baseCard = transformedCards[i];
+        const tcgdexCard = fullCards[i]; // Use FULL card data for variant info
+        
+        const variantCards = generateVariantCards(baseCard, tcgdexCard);
+        allVariantCards.push(...variantCards);
+      }
+      
+      const duration = performance.now() - startTime;
+      console.log('[24C] Variant cards generated:', {
+        baseCardCount: transformedCards.length,
+        totalVariantCount: allVariantCards.length,
+        avgVariantsPerCard: (allVariantCards.length / transformedCards.length).toFixed(2),
+        duration: `${duration.toFixed(2)}ms`,
+        performance: duration < 3000 ? 'good' : duration < 10000 ? 'acceptable' : 'slow',
+      });
+      
+      // Filter out invalid cards (missing required fields)
+      const validCards = allVariantCards.filter((card: Card) => card.id && card.name);
+      
+      if (validCards.length < allVariantCards.length) {
+        console.warn('[24C] Some cards were filtered out due to missing required fields:', {
+          total: allVariantCards.length,
+          valid: validCards.length,
+          filtered: allVariantCards.length - validCards.length,
+        });
+      }
+      
+      // Cache the result
+      setCachedData(cacheKey, validCards);
+      
+      return validCards;
+    } catch (error) {
+      // Handle rate limit error
+      try {
+        handleRateLimitError(error);
+      } catch (rateLimitError) {
+        console.error('[24E] Rate limit error:', rateLimitError);
+        throw rateLimitError;
+      }
+      
+      console.error('[24C] Error in getCardsBySet():', {
+        setIdentifier,
+        error: error instanceof Error ? error.message : error,
+      });
+      
+      // Fallback to mock data
+      console.log('[24C] Falling back to mock cards filtered by set name');
+      return mockCards.filter((card) => card.set === setIdentifier);
+    }
+  });
 }
 
 /**
@@ -734,59 +1013,101 @@ export async function getCardsByRegion(region: Region, pokemonArtStyle?: Pokemon
 export async function getCardById(id: string): Promise<Card | null> {
   console.log('[24D] getCardById() called:', { cardId: id });
   
-  try {
-    // Strip variant suffix from ID if present
-    // Variant suffixes: -base, -holo, -reverse, -poke-ball, -master-ball
-    const baseId = id.replace(/-(base|holo|reverse|poke-ball|master-ball)$/, '');
-    
-    console.log('[24D] Card ID processed:', { originalId: id, baseId });
-    
-    // Fetch card from TCGDEX SDK using base ID
-    const tcgdexCard = await tcgdex.card.get(baseId);
-    
-    // Check if card was found
-    if (!tcgdexCard) {
-      console.warn('[24D] Card not found in SDK:', { cardId: id, baseId });
-      throw new Error(`Card not found: ${id}`);
-    }
-    
-    console.log('[24D] Card fetched from SDK:', {
-      cardId: tcgdexCard.id,
-      cardName: tcgdexCard.name,
-      hasImage: !!tcgdexCard.image,
-      hasVariants: !!tcgdexCard.variants,
-      allKeys: Object.keys(tcgdexCard),
-    });
-    
-    // Transform TCGDEX card to our Card type
-    const transformedCard = await transformTcgdexCardToCard(tcgdexCard);
-    
-    console.log('[24D] Card transformed:', {
-      transformedId: transformedCard.id,
-      transformedName: transformedCard.name,
-      hasImageUrl: !!transformedCard.imageUrl,
-      hasHiResUrl: !!transformedCard.imageUrlHiRes,
-    });
-    
-    return transformedCard;
-  } catch (error) {
-    console.error('[24D] Error in getCardById():', {
-      cardId: id,
-      error: error instanceof Error ? error.message : error,
-    });
-    
-    // Fallback to mock data
-    console.log('[24D] Falling back to mock card data');
-    const mockCard = mockCards.find((c) => c.id === id);
-    
-    if (mockCard) {
-      console.log('[24D] Using mock card as fallback:', { cardId: mockCard.id, cardName: mockCard.name });
-    } else {
-      console.warn('[24D] Card not found in mock data either:', { cardId: id });
-    }
-    
-    return mockCard || null;
+  const cacheKey = `card-${id}`;
+  
+  // Step 1: Check cache first
+  const cachedData = getCachedData<Card | null>(cacheKey);
+  if (cachedData !== null) {
+    console.log('[24E] Returning cached card:', { cardId: id });
+    return cachedData;
   }
+  
+  // Step 2: Check if rate limited
+  if (isRateLimited()) {
+    console.warn('[24E] Rate limited, returning cached data or mock data');
+    // Try to return stale cache if available
+    const staleCache = apiCache.get(cacheKey);
+    if (staleCache) {
+      console.log('[24E] Returning stale cache due to rate limit');
+      return staleCache.data;
+    }
+    // Fall back to mock data
+    console.log('[24E] No cache available, returning mock data');
+    return mockCards.find((c) => c.id === id) || null;
+  }
+  
+  // Step 3: Deduplicate request
+  return deduplicateRequest(cacheKey, async () => {
+    try {
+      const startTime = performance.now();
+      console.log('[24E] Making SDK request for single card');
+      
+      // Strip variant suffix from ID if present
+      // Variant suffixes: -base, -holo, -reverse, -poke-ball, -master-ball
+      const baseId = id.replace(/-(base|holo|reverse|poke-ball|master-ball)$/, '');
+      
+      console.log('[24D] Card ID processed:', { originalId: id, baseId });
+      
+      // Fetch card from TCGDEX SDK using base ID
+      const tcgdexCard = await tcgdex.card.get(baseId);
+      
+      // Check if card was found
+      if (!tcgdexCard) {
+        console.warn('[24D] Card not found in SDK:', { cardId: id, baseId });
+        throw new Error(`Card not found: ${id}`);
+      }
+      
+      const duration = performance.now() - startTime;
+      console.log('[24D] Card fetched from SDK:', {
+        cardId: tcgdexCard.id,
+        cardName: tcgdexCard.name,
+        hasImage: !!tcgdexCard.image,
+        hasVariants: !!tcgdexCard.variants,
+        allKeys: Object.keys(tcgdexCard),
+        duration: `${duration.toFixed(2)}ms`,
+      });
+      
+      // Transform TCGDEX card to our Card type
+      const transformedCard = await transformTcgdexCardToCard(tcgdexCard);
+      
+      console.log('[24D] Card transformed:', {
+        transformedId: transformedCard.id,
+        transformedName: transformedCard.name,
+        hasImageUrl: !!transformedCard.imageUrl,
+        hasHiResUrl: !!transformedCard.imageUrlHiRes,
+      });
+      
+      // Cache the result
+      setCachedData(cacheKey, transformedCard);
+      
+      return transformedCard;
+    } catch (error) {
+      // Handle rate limit error
+      try {
+        handleRateLimitError(error);
+      } catch (rateLimitError) {
+        console.error('[24E] Rate limit error:', rateLimitError);
+        throw rateLimitError;
+      }
+      
+      console.error('[24D] Error in getCardById():', {
+        cardId: id,
+        error: error instanceof Error ? error.message : error,
+      });
+      
+      // Fallback to mock data
+      console.log('[24D] Falling back to mock card data');
+      const mockCard = mockCards.find((c) => c.id === id);
+      
+      if (mockCard) {
+        console.log('[24D] Using mock card as fallback:', { cardId: mockCard.id, cardName: mockCard.name });
+      } else {
+        console.warn('[24D] Card not found in mock data either:', { cardId: id });
+      }
+      
+      return mockCard || null;
+    }
+  });
 }
 
 /**

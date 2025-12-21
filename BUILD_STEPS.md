@@ -1373,6 +1373,11 @@ Each step uses a unique log prefix to make debugging easier:
 - [ ] App doesn't make too many API calls (ready to test)
 
 **How to Test Step 24E:**
+
+**See `TESTING_STEP24E.md` for detailed testing instructions.**
+
+**Quick Tests:**
+
 1. **Test caching:**
    - Open a binder (first load - should call API)
    - Close and reopen the same binder (should use cache, no API call)

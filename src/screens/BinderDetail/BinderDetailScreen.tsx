@@ -106,6 +106,24 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
           allCards = [];
         }
 
+        // Filter cards based on variants to track (Master Set mode only)
+        if (binder.collectionMode === 'master-set' && binder.variantsToTrack && binder.variantsToTrack.length > 0) {
+          const originalCount = allCards.length;
+          
+          // Only show cards with variants that the user selected
+          allCards = allCards.filter((card) => {
+            // If card has no variant specified, treat it as 'base'
+            const cardVariant = card.variant || 'base';
+            return binder.variantsToTrack!.includes(cardVariant);
+          });
+          
+          console.log('[BinderDetail] Filtered cards by variantsToTrack:', {
+            variantsToTrack: binder.variantsToTrack,
+            originalCount: originalCount,
+            filteredCount: allCards.length,
+          });
+        }
+
         // Mark which cards are owned
         const ownedCardIds = new Set(binder.cardIds);
         let cardsWithOwnership: CardWithOwnership[] = allCards.map((card) => ({

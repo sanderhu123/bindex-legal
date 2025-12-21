@@ -462,14 +462,20 @@ async function transformTcgdexCardToCard(tcgdexCard: any): Promise<Card> {
 }
 
 /**
- * Generate all variant cards from a base card based on API variant data.
+ * Generate all variant cards from a base card based on API variant data and rarity.
  * 
  * Creates separate Card objects for each available variant:
  * - Base (always)
- * - Holo (if API says holo: true)
- * - Reverse holo (if API says reverse: true)
- * - Pokeball holo (special sets only, if reverse: true)
- * - Masterball holo (special sets only, if reverse: true and supertype: "Pokémon")
+ * - Holo (if API says holo: true AND rarity is exactly "Rare")
+ * - Reverse holo (if API says reverse: true AND rarity is Common/Uncommon/Rare)
+ * - Pokeball holo (special sets only, follows EXACT same logic as reverse holo)
+ * - Masterball holo (special sets only, follows same logic as reverse holo BUT only for Pokemon supertype)
+ * 
+ * VARIANT LOGIC:
+ * - Holo: hasHolo === true AND rarity === "Rare" (exactly "Rare", not "Rare Holo" or others)
+ * - Reverse Holo: hasReverse === true AND rarity in [Common, Uncommon, Rare]
+ * - Pokeball: hasReverse === true AND rarity in [Common, Uncommon, Rare] (same as reverse holo)
+ * - Masterball: hasReverse === true AND rarity in [Common, Uncommon, Rare] AND supertype === "Pokemon"
  * 
  * @param baseCard - The base card from transformTcgdexCardToCard
  * @param tcgdexCard - The original TCGDEX card data (for variant info)
@@ -483,6 +489,18 @@ function generateVariantCards(baseCard: Card, tcgdexCard: any): Card[] {
   const hasHolo = tcgdexCard.variants?.holo === true;
   const hasReverse = tcgdexCard.variants?.reverse === true;
   const supertype = tcgdexCard.category || '';
+  const rarity = tcgdexCard.rarity || '';
+  
+  // Check if card rarity allows reverse/special holos
+  // Only Common, Uncommon, and Rare cards can have reverse/pokeball/masterball holos
+  const allowsReverseHolo = (
+    rarity === 'Common' || 
+    rarity === 'Uncommon' || 
+    rarity === 'Rare'
+  );
+  
+  // Holo variant is only for Rare cards (not Rare Holo, Double Rare, etc.)
+  const allowsHolo = (rarity === 'Rare');
   
   // 1. Base card (always available)
   variants.push({
@@ -491,8 +509,8 @@ function generateVariantCards(baseCard: Card, tcgdexCard: any): Card[] {
     id: `${baseCard.id}-base`,
   });
   
-  // 2. Holo variant (if available)
-  if (hasHolo) {
+  // 2. Holo variant (if available AND card is exactly "Rare")
+  if (hasHolo && allowsHolo) {
     variants.push({
       ...baseCard,
       variant: 'holo' as any, // Note: 'holo' not in CardVariant type yet, but included for completeness
@@ -500,8 +518,8 @@ function generateVariantCards(baseCard: Card, tcgdexCard: any): Card[] {
     });
   }
   
-  // 3. Regular reverse holo (if available)
-  if (hasReverse) {
+  // 3. Regular reverse holo (if available AND rarity allows it)
+  if (hasReverse && allowsReverseHolo) {
     variants.push({
       ...baseCard,
       variant: 'reverse-holo',
@@ -511,7 +529,7 @@ function generateVariantCards(baseCard: Card, tcgdexCard: any): Card[] {
   
   // 4. Special variants (pokeball/masterball) - only for special sets
   if (hasSpecialVariants(setId)) {
-    const specialVariants = getSpecialVariantsForCard(setId, hasReverse, supertype);
+    const specialVariants = getSpecialVariantsForCard(setId, hasReverse, supertype, rarity);
     
     for (const variantType of specialVariants) {
       variants.push({
@@ -525,6 +543,9 @@ function generateVariantCards(baseCard: Card, tcgdexCard: any): Card[] {
   console.log('[VARIANT] Generated variants for card:', {
     cardName: baseCard.name,
     setId,
+    rarity,
+    allowsHolo,
+    allowsReverseHolo,
     hasHolo,
     hasReverse,
     supertype,

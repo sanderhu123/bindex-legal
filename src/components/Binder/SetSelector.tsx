@@ -4,12 +4,12 @@ import type { PokemonSet } from '../../services/api/pokemonApi';
 
 interface SetSelectorProps {
   sets: PokemonSet[];
-  selectedSetName: string | null;
-  onSelect: (setName: string) => void;
+  selectedSetId: string | null;
+  onSelect: (setId: string, setName: string) => void;
 }
 
 // Individual set item component with loading state
-function SetItem({ item, isSelected, onSelect }: { item: PokemonSet; isSelected: boolean; onSelect: (name: string) => void }) {
+function SetItem({ item, isSelected, onSelect }: { item: PokemonSet; isSelected: boolean; onSelect: (id: string, name: string) => void }) {
   const [imageLoading, setImageLoading] = useState(true);
   const [imageError, setImageError] = useState(false);
   
@@ -21,7 +21,7 @@ function SetItem({ item, isSelected, onSelect }: { item: PokemonSet; isSelected:
     <TouchableOpacity
       key={item.id}
       style={[styles.item, isSelected && styles.itemSelected]}
-      onPress={() => onSelect(item.name)}
+      onPress={() => onSelect(item.id, item.name)}
     >
       <View style={styles.itemContent}>
         <View style={styles.logoContainer}>
@@ -65,7 +65,7 @@ function SetItem({ item, isSelected, onSelect }: { item: PokemonSet; isSelected:
   );
 }
 
-export default function SetSelector({ sets, selectedSetName, onSelect }: SetSelectorProps) {
+export default function SetSelector({ sets, selectedSetId, onSelect }: SetSelectorProps) {
   // Sort newest → oldest by releaseDate
   const sortedSets = [...sets].sort(
     (a, b) => new Date(b.releaseDate).getTime() - new Date(a.releaseDate).getTime()
@@ -82,7 +82,7 @@ export default function SetSelector({ sets, selectedSetName, onSelect }: SetSele
   return (
     <View>
       {sortedSets.map((item) => {
-        const isSelected = selectedSetName === item.name;
+        const isSelected = selectedSetId === item.id;
         return (
           <SetItem
             key={item.id}

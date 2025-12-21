@@ -21,6 +21,7 @@ interface OnboardingState {
   // Step 1
   collectionMode: CollectionMode | null;
   // Step 2A (Master Set)
+  selectedSetId: string | null;
   selectedSetName: string | null;
   selectedVariants: string[]; // Always includes 'base' implicitly
   // Step 2B (Region)
@@ -44,6 +45,7 @@ export default function OnboardingScreen() {
   const [saving, setSaving] = useState(false);
   const [state, setState] = useState<OnboardingState>({
     collectionMode: null,
+    selectedSetId: null,
     selectedSetName: null,
     selectedVariants: [],
     selectedRegion: null,
@@ -104,7 +106,7 @@ export default function OnboardingScreen() {
         return state.collectionMode !== null;
       case 2:
         if (state.collectionMode === 'master-set') {
-          return state.selectedSetName !== null;
+          return state.selectedSetId !== null;
         } else if (state.collectionMode === 'region') {
           return state.selectedRegion !== null;
         }
@@ -204,8 +206,9 @@ export default function OnboardingScreen() {
         if (state.collectionMode === 'master-set') {
           return (
             <Step2MasterSet
+              selectedSetId={state.selectedSetId}
               selectedSetName={state.selectedSetName}
-              onSetChange={(setName) => setState({ ...state, selectedSetName: setName })}
+              onSetChange={(setId, setName) => setState({ ...state, selectedSetId: setId, selectedSetName: setName })}
             />
           );
         } else if (state.collectionMode === 'region') {
@@ -229,6 +232,7 @@ export default function OnboardingScreen() {
         }
         return (
           <Step3Variants
+            selectedSetId={state.selectedSetId}
             selectedVariants={state.selectedVariants}
             onChange={(variants) => setState({ ...state, selectedVariants: variants })}
           />

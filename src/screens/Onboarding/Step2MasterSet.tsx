@@ -5,8 +5,9 @@ import { getSetsBySerie, getErasList } from '../../services/api/pokemonApi';
 import type { PokemonSet } from '../../services/api/pokemonApi';
 
 interface Step2MasterSetProps {
+  selectedSetId: string | null;
   selectedSetName: string | null;
-  onSetChange: (setName: string | null) => void;
+  onSetChange: (setId: string | null, setName: string | null) => void;
 }
 
 interface EraItem {
@@ -35,6 +36,7 @@ function EraItemComponent({
 }
 
 export default function Step2MasterSet({
+  selectedSetId,
   selectedSetName,
   onSetChange,
 }: Step2MasterSetProps) {
@@ -119,13 +121,13 @@ export default function Step2MasterSet({
 
   // Reset set selection when era changes
   useEffect(() => {
-    if (selectedEra && selectedSetName) {
-      const setExistsInEra = setsInEra.some((s) => s.name === selectedSetName);
+    if (selectedEra && selectedSetId) {
+      const setExistsInEra = setsInEra.some((s) => s.id === selectedSetId);
       if (!setExistsInEra) {
-        onSetChange(null);
+        onSetChange(null, null);
       }
     }
-  }, [selectedEra, setsInEra, selectedSetName, onSetChange]);
+  }, [selectedEra, setsInEra, selectedSetId, onSetChange]);
 
   if (loading) {
     return (
@@ -162,7 +164,7 @@ export default function Step2MasterSet({
             style={styles.backToEras}
             onPress={() => {
               setSelectedEra(null);
-              onSetChange(null);
+              onSetChange(null, null);
             }}
           >
             <Text style={styles.backToErasText}>← Back to Eras</Text>
@@ -177,8 +179,8 @@ export default function Step2MasterSet({
           ) : setsInEra.length > 0 ? (
             <SetSelector
               sets={setsInEra}
-              selectedSetName={selectedSetName}
-              onSelect={onSetChange}
+              selectedSetId={selectedSetId}
+              onSelect={(setId, setName) => onSetChange(setId, setName)}
             />
           ) : (
             <View style={styles.emptyContainer}>

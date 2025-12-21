@@ -1,16 +1,24 @@
 import React from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import VariantSelector from '../../components/Binder/VariantSelector';
+import { getAvailableVariantsForSet } from '../../data/cardVariants';
 
 interface Step3VariantsProps {
+  selectedSetId: string | null;
   selectedVariants: string[];
   onChange: (variants: string[]) => void;
 }
 
 export default function Step3Variants({
+  selectedSetId,
   selectedVariants,
   onChange,
 }: Step3VariantsProps) {
+  // Get available variants for the selected set (excluding 'base' which is always included)
+  const availableVariants = selectedSetId 
+    ? getAvailableVariantsForSet(selectedSetId).filter(v => v !== 'base')
+    : ['reverse-holo']; // Fallback to just reverse-holo if no set selected
+
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <Text style={styles.title}>Select Variants to Track</Text>
@@ -20,6 +28,7 @@ export default function Step3Variants({
       <VariantSelector
         selected={selectedVariants}
         onChange={onChange}
+        availableKeys={availableVariants}
       />
     </ScrollView>
   );

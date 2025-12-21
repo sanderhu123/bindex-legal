@@ -161,13 +161,14 @@ export default function CardDetailScreen({ navigation, route }: CardDetailScreen
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
-      {/* Card Image - Smaller size */}
+      {/* Card Image - Smaller size with high priority loading */}
       <View style={styles.imageContainer}>
         <CardImage
-          source={card.imageUrl}
+          source={card.imageUrlHiRes || card.imageUrl}
           isMissing={!isOwned}
           aspectRatio={0.7}
           style={[styles.cardImage, { width: imageWidth }]}
+          priority="high"
         />
       </View>
 

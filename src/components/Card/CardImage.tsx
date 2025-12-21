@@ -8,15 +8,18 @@ interface CardImageProps {
   isMissing?: boolean;
   aspectRatio?: number;
   onError?: () => void;
+  priority?: 'low' | 'normal' | 'high'; // Image loading priority
 }
 
 /**
  * CardImage component for displaying Pokémon card images
  * Features:
- * - Image caching (via expo-image)
- * - Loading placeholder
- * - Error handling with fallback
+ * - Image caching (via expo-image with memory-disk policy)
+ * - Loading placeholder with spinner
+ * - Error handling with fallback placeholder
  * - Missing card opacity (50% transparency)
+ * - Optimized loading with priority support
+ * - Performance optimizations (Step 24G)
  */
 export default function CardImage({
   source,
@@ -24,18 +27,46 @@ export default function CardImage({
   isMissing = false,
   aspectRatio = 0.7, // Default card aspect ratio (height/width)
   onError,
+  priority = 'normal', // Default priority
 }: CardImageProps) {
   const [hasError, setHasError] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [retryCount, setRetryCount] = useState(0);
+  const MAX_RETRIES = 2;
 
   const handleLoadEnd = () => {
+    console.log('[24G] Image loaded successfully:', { 
+      source: typeof source === 'string' ? source.substring(0, 50) + '...' : 'ImageSource object',
+      retryCount,
+    });
     setIsLoading(false);
   };
 
-  const handleError = () => {
+  const handleError = (error: any) => {
+    console.error('[24G] Image load error:', { 
+      source: typeof source === 'string' ? source.substring(0, 50) + '...' : 'ImageSource object',
+      retryCount,
+      maxRetries: MAX_RETRIES,
+      error: error?.message || 'Unknown error',
+    });
+    
     setIsLoading(false);
-    setHasError(true);
-    onError?.();
+    
+    // Retry logic - try loading again if we haven't hit max retries
+    if (retryCount < MAX_RETRIES) {
+      console.log('[24G] Retrying image load...', { attempt: retryCount + 1, maxRetries: MAX_RETRIES });
+      setRetryCount(prev => prev + 1);
+      setIsLoading(true);
+      setHasError(false);
+      // Force re-render by updating state - expo-image will retry
+      setTimeout(() => {
+        setIsLoading(true);
+      }, 500); // Wait 500ms before retry
+    } else {
+      // Max retries reached, show error placeholder
+      setHasError(true);
+      onError?.();
+    }
   };
 
   // Handle empty/missing imageUrl (for Region mode)
@@ -91,20 +122,26 @@ export default function CardImage({
             source={imageSource}
             style={styles.image}
             contentFit="contain"
-            transition={200}
-            cachePolicy="memory-disk"
+            transition={200} // Smooth fade-in
+            cachePolicy="memory-disk" // Cache in memory and disk for offline access
+            priority={priority} // Load priority (high for detail view, normal for grid)
+            recyclingKey={typeof source === 'string' ? source : undefined} // Help with recycling in lists
             onLoadEnd={handleLoadEnd}
             onError={handleError}
           />
           {isLoading && (
             <View style={styles.loadingOverlay}>
               <ActivityIndicator size="small" color="#999" />
+              {retryCount > 0 && (
+                <Text style={styles.retryText}>Retry {retryCount}/{MAX_RETRIES}</Text>
+              )}
             </View>
           )}
         </>
       ) : (
         <View style={styles.errorPlaceholder}>
           <Text style={styles.errorText}>?</Text>
+          <Text style={styles.errorSubtext}>Image unavailable</Text>
         </View>
       )}
     </View>
@@ -138,6 +175,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: 'rgba(245, 245, 245, 0.9)',
   },
+  retryText: {
+    marginTop: 4,
+    fontSize: 10,
+    color: '#999',
+  },
   errorPlaceholder: {
     width: '100%',
     height: '100%',
@@ -149,6 +191,11 @@ const styles = StyleSheet.create({
     fontSize: 24,
     color: '#999',
     fontWeight: 'bold',
+  },
+  errorSubtext: {
+    marginTop: 4,
+    fontSize: 10,
+    color: '#999',
   },
   noImagePlaceholder: {
     width: '100%',

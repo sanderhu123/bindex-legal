@@ -466,13 +466,12 @@ async function transformTcgdexCardToCard(tcgdexCard: any): Promise<Card> {
  * 
  * Creates separate Card objects for each available variant:
  * - Base (always)
- * - Holo (if API says holo: true AND rarity is exactly "Rare")
+ * - Holo (if API says holo: true)
  * - Reverse holo (if API says reverse: true AND rarity is Common/Uncommon/Rare)
  * - Pokeball holo (special sets only, follows EXACT same logic as reverse holo)
  * - Masterball holo (special sets only, follows same logic as reverse holo BUT only for Pokemon supertype)
  * 
  * VARIANT LOGIC:
- * - Holo: hasHolo === true AND rarity === "Rare" (exactly "Rare", not "Rare Holo" or others)
  * - Reverse Holo: hasReverse === true AND rarity in [Common, Uncommon, Rare]
  * - Pokeball: hasReverse === true AND rarity in [Common, Uncommon, Rare] (same as reverse holo)
  * - Masterball: hasReverse === true AND rarity in [Common, Uncommon, Rare] AND supertype === "Pokemon"
@@ -499,9 +498,6 @@ function generateVariantCards(baseCard: Card, tcgdexCard: any): Card[] {
     rarity === 'Rare'
   );
   
-  // Holo variant is only for Rare cards (not Rare Holo, Double Rare, etc.)
-  const allowsHolo = (rarity === 'Rare');
-  
   // 1. Base card (always available)
   variants.push({
     ...baseCard,
@@ -509,8 +505,8 @@ function generateVariantCards(baseCard: Card, tcgdexCard: any): Card[] {
     id: `${baseCard.id}-base`,
   });
   
-  // 2. Holo variant (if available AND card is exactly "Rare")
-  if (hasHolo && allowsHolo) {
+  // 2. Holo variant (if available)
+  if (hasHolo) {
     variants.push({
       ...baseCard,
       variant: 'holo' as any, // Note: 'holo' not in CardVariant type yet, but included for completeness
@@ -544,7 +540,6 @@ function generateVariantCards(baseCard: Card, tcgdexCard: any): Card[] {
     cardName: baseCard.name,
     setId,
     rarity,
-    allowsHolo,
     allowsReverseHolo,
     hasHolo,
     hasReverse,
@@ -734,18 +729,24 @@ export async function getCardsByRegion(region: Region, pokemonArtStyle?: Pokemon
  * Get a single card by ID using TCGDEX SDK.
  * Falls back to mock data if API call fails.
  * 
- * @param id - Card ID from TCGDEX (e.g., "swsh11-TG21", "base1-4")
+ * @param id - Card ID from TCGDEX (e.g., "swsh11-TG21", "base1-4") or with variant suffix (e.g., "swsh11-TG21-base")
  */
 export async function getCardById(id: string): Promise<Card | null> {
   console.log('[24D] getCardById() called:', { cardId: id });
   
   try {
-    // Fetch card from TCGDEX SDK
-    const tcgdexCard = await tcgdex.card.get(id);
+    // Strip variant suffix from ID if present
+    // Variant suffixes: -base, -holo, -reverse, -poke-ball, -master-ball
+    const baseId = id.replace(/-(base|holo|reverse|poke-ball|master-ball)$/, '');
+    
+    console.log('[24D] Card ID processed:', { originalId: id, baseId });
+    
+    // Fetch card from TCGDEX SDK using base ID
+    const tcgdexCard = await tcgdex.card.get(baseId);
     
     // Check if card was found
     if (!tcgdexCard) {
-      console.warn('[24D] Card not found in SDK:', { cardId: id });
+      console.warn('[24D] Card not found in SDK:', { cardId: id, baseId });
       throw new Error(`Card not found: ${id}`);
     }
     

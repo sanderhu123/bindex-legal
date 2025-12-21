@@ -19,6 +19,12 @@ export default function Step3Variants({
     ? getAvailableVariantsForSet(selectedSetId).filter(v => v !== 'base')
     : ['reverse-holo']; // Fallback to just reverse-holo if no set selected
 
+  console.log('[Step3Variants] ===== VARIANT SELECTION =====');
+  console.log('[Step3Variants] Selected Set ID:', selectedSetId);
+  console.log('[Step3Variants] Available Variants:', availableVariants);
+  console.log('[Step3Variants] Currently Selected:', selectedVariants);
+  console.log('[Step3Variants] ================================');
+
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <Text style={styles.title}>Select Variants to Track</Text>

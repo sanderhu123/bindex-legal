@@ -171,6 +171,13 @@ export default function OnboardingScreen() {
         ? ['base', ...state.selectedVariants]
         : ['base']; // Region mode only has base cards
 
+      console.log('[Questionnaire] ===== SAVING BINDER WITH VARIANTS =====');
+      console.log('[Questionnaire] Collection Mode:', state.collectionMode);
+      console.log('[Questionnaire] Selected Variants (from state):', state.selectedVariants);
+      console.log('[Questionnaire] Variants to Track (final array):', variantsToTrack);
+      console.log('[Questionnaire] Set:', state.selectedSetName);
+      console.log('[Questionnaire] ==========================================');
+
       // Create binder
       const binder = await createBinder({
         name: binderName,
@@ -183,6 +190,11 @@ export default function OnboardingScreen() {
         pokemonArtStyle: state.collectionMode === 'region' ? (state.pokemonArtStyle || undefined) : undefined,
         nfcTagId: nfcTagId || undefined,
       });
+
+      console.log('[Questionnaire] ===== BINDER CREATED =====');
+      console.log('[Questionnaire] Binder ID:', binder.id);
+      console.log('[Questionnaire] Binder variantsToTrack:', binder.variantsToTrack);
+      console.log('[Questionnaire] ===========================');
 
       // Navigate to binder detail
       navigation.replace('BinderDetail', { binderId: binder.id });

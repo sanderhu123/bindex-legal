@@ -23,11 +23,16 @@ export default function VariantSelector({
   availableKeys,
 }: VariantSelectorProps) {
   const toggleVariant = (key: string) => {
+    let newSelected: string[];
     if (selected.includes(key)) {
-      onChange(selected.filter((v) => v !== key));
+      newSelected = selected.filter((v) => v !== key);
+      console.log('[VariantSelector] REMOVED variant:', key);
     } else {
-      onChange([...selected, key]);
+      newSelected = [...selected, key];
+      console.log('[VariantSelector] ADDED variant:', key);
     }
+    console.log('[VariantSelector] New selected variants:', newSelected);
+    onChange(newSelected);
   };
 
   const variantsToShow = availableKeys

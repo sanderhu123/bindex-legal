@@ -76,6 +76,16 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
         setLoading(true);
         setError(null);
         const binderData = await getBinderById(binderId);
+        
+        console.log('[BinderDetail] ===== BINDER LOADED =====');
+        console.log('[BinderDetail] Binder ID:', binderData.id);
+        console.log('[BinderDetail] Binder Name:', binderData.name);
+        console.log('[BinderDetail] Collection Mode:', binderData.collectionMode);
+        console.log('[BinderDetail] Set:', binderData.set);
+        console.log('[BinderDetail] variantsToTrack:', binderData.variantsToTrack);
+        console.log('[BinderDetail] variantPlacement:', binderData.variantPlacement);
+        console.log('[BinderDetail] ================================');
+        
         setBinder(binderData);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load binder');
@@ -97,7 +107,23 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
 
         // Get all cards based on collection mode
         if (binder.collectionMode === 'master-set' && binder.set) {
+          console.log('[BinderDetail] Fetching cards for set:', binder.set);
           allCards = await getCardsBySet(binder.set);
+          console.log('[BinderDetail] Fetched', allCards.length, 'cards from API');
+          
+          // Log first 5 cards and their variants
+          console.log('[BinderDetail] First 5 cards:');
+          allCards.slice(0, 5).forEach((card, index) => {
+            console.log(`  ${index + 1}. ${card.name} (${card.number}) - variant: ${card.variant || 'undefined'}, id: ${card.id}`);
+          });
+          
+          // Count cards by variant
+          const variantCounts: Record<string, number> = {};
+          allCards.forEach(card => {
+            const variant = card.variant || 'undefined';
+            variantCounts[variant] = (variantCounts[variant] || 0) + 1;
+          });
+          console.log('[BinderDetail] Cards by variant type:', variantCounts);
         } else if (binder.collectionMode === 'region' && binder.region) {
           allCards = await getCardsByRegion(binder.region as Region, binder.pokemonArtStyle);
         } else if (binder.collectionMode === 'custom') {
@@ -107,22 +133,61 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
         }
 
         // Filter cards based on variants to track (Master Set mode only)
+        console.log('[BinderDetail] ===== VARIANT FILTERING =====');
+        console.log('[BinderDetail] Collection Mode:', binder.collectionMode);
+        console.log('[BinderDetail] variantsToTrack:', binder.variantsToTrack);
+        console.log('[BinderDetail] variantsToTrack is array?', Array.isArray(binder.variantsToTrack));
+        console.log('[BinderDetail] variantsToTrack length:', binder.variantsToTrack?.length);
+        
         if (binder.collectionMode === 'master-set' && binder.variantsToTrack && binder.variantsToTrack.length > 0) {
           const originalCount = allCards.length;
+          console.log('[BinderDetail] BEFORE FILTER - Total cards:', originalCount);
+          
+          // Log some example cards before filtering
+          console.log('[BinderDetail] Example cards BEFORE filter (first 3):');
+          allCards.slice(0, 3).forEach((card, index) => {
+            const cardVariant = card.variant || 'base';
+            const willKeep = binder.variantsToTrack!.includes(cardVariant);
+            console.log(`  ${index + 1}. ${card.name} - variant: "${cardVariant}" - will keep: ${willKeep}`);
+          });
           
           // Only show cards with variants that the user selected
           allCards = allCards.filter((card) => {
             // If card has no variant specified, treat it as 'base'
             const cardVariant = card.variant || 'base';
-            return binder.variantsToTrack!.includes(cardVariant);
+            const shouldKeep = binder.variantsToTrack!.includes(cardVariant);
+            
+            // Log a few filter decisions
+            if (Math.random() < 0.05) { // Log ~5% of decisions to avoid spam
+              console.log(`[BinderDetail] Filter check: ${card.name} (${cardVariant}) - ${shouldKeep ? 'KEEP' : 'REMOVE'}`);
+            }
+            
+            return shouldKeep;
           });
           
-          console.log('[BinderDetail] Filtered cards by variantsToTrack:', {
+          console.log('[BinderDetail] AFTER FILTER - Total cards:', allCards.length);
+          
+          // Count filtered cards by variant
+          const filteredVariantCounts: Record<string, number> = {};
+          allCards.forEach(card => {
+            const variant = card.variant || 'undefined';
+            filteredVariantCounts[variant] = (filteredVariantCounts[variant] || 0) + 1;
+          });
+          console.log('[BinderDetail] Filtered cards by variant type:', filteredVariantCounts);
+          
+          console.log('[BinderDetail] Filter summary:', {
             variantsToTrack: binder.variantsToTrack,
             originalCount: originalCount,
             filteredCount: allCards.length,
+            removedCount: originalCount - allCards.length,
           });
+        } else {
+          console.log('[BinderDetail] SKIPPING FILTER - Reason:');
+          console.log('  - Is master-set?', binder.collectionMode === 'master-set');
+          console.log('  - Has variantsToTrack?', !!binder.variantsToTrack);
+          console.log('  - variantsToTrack length > 0?', binder.variantsToTrack && binder.variantsToTrack.length > 0);
         }
+        console.log('[BinderDetail] ================================');
 
         // Mark which cards are owned
         const ownedCardIds = new Set(binder.cardIds);

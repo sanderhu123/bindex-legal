@@ -523,6 +523,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: screenPadding,
+    paddingBottom: 80, // Extra space at bottom to see last row card numbers
     backgroundColor: colors.background,
   },
   title: {

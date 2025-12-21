@@ -9,25 +9,22 @@
  * VARIANT LOGIC RULES:
  * =====================
  * 
- * RARITY RESTRICTIONS:
- * - Holo variant: ONLY for rarity "Rare" (exactly "Rare", not "Rare Holo" or others)
- * - Reverse holo, Pokeball holo, Masterball holo: ONLY for Common/Uncommon/Rare
- * - NOT available for higher rarities: Rare Holo, Double Rare, Ultra Rare, etc.
+ * RARITY RESTRICTION (ALL SETS):
+ * - Reverse holo, Pokeball holo, and Masterball holo are ONLY available for:
+ *   → Common, Uncommon, Rare
+ * - NOT available for higher rarities:
+ *   → Rare Holo, Double Rare, Ultra Rare, Illustration Rare, etc.
  * 
- * 1. HOLO (all sets): 
- *    - Available if API says holo: true
- *    - AND rarity is exactly "Rare"
- * 
- * 2. REVERSE HOLO (all sets): 
+ * 1. REVERSE HOLO (all sets): 
  *    - Available if API says reverse: true
  *    - AND rarity is Common/Uncommon/Rare
  * 
- * 3. POKEBALL HOLO (special sets only): Follows EXACT same logic as reverse holo
+ * 2. POKEBALL HOLO (special sets only): Follows EXACT same logic as reverse holo
  *    - Available if API says reverse: true
  *    - AND rarity is Common/Uncommon/Rare
  *    - Only in special sets (Prismatic Evolutions, White Flare, Black Bolt)
  * 
- * 4. MASTERBALL HOLO (special sets only): Same as reverse holo + Pokemon restriction
+ * 3. MASTERBALL HOLO (special sets only): Same as reverse holo + Pokemon restriction
  *    - Available if API says reverse: true
  *    - AND rarity is Common/Uncommon/Rare
  *    - AND card must be Supertype "Pokemon" (not Trainer or Energy)

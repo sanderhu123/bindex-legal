@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, StyleSheet, Text, ScrollView, Dimensions, TouchableOpacity } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { getCardById } from '../../services/api/pokemonApi';
 import { getBinderById } from '../../services/supabase/binders';
 import { addCardToBinder, removeCardFromBinder } from '../../services/supabase/cards';
@@ -81,6 +82,27 @@ export default function CardDetailScreen({ navigation, route }: CardDetailScreen
     }
   }, [card, navigation]);
 
+  // Refresh ownership status when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      async function refreshOwnership() {
+        if (!binderId || !cardId) return;
+        
+        try {
+          const binderData = await getBinderById(binderId);
+          if (binderData) {
+            setBinder(binderData);
+            setIsOwned(binderData.cardIds.includes(cardId));
+          }
+        } catch (err) {
+          console.error('Error refreshing ownership:', err);
+        }
+      }
+      
+      refreshOwnership();
+    }, [binderId, cardId])
+  );
+
   // Loading state
   if (loading) {
     return <LoadingScreen message="Loading card..." />;
@@ -109,11 +131,18 @@ export default function CardDetailScreen({ navigation, route }: CardDetailScreen
     setIsOwned(newIsOwned);
     setIsUpdating(true);
 
-    // Update binder state optimistically
+    // Update binder state optimistically (including ownedCards for sync)
     const updatedCardIds = newIsOwned
       ? [...binder.cardIds, card.id]
       : binder.cardIds.filter((id) => id !== card.id);
-    setBinder({ ...binder, cardIds: updatedCardIds });
+    const updatedOwnedCards = newIsOwned
+      ? binder.ownedCards + 1
+      : binder.ownedCards - 1;
+    setBinder({ 
+      ...binder, 
+      cardIds: updatedCardIds,
+      ownedCards: updatedOwnedCards
+    });
 
     // Sync with database
     try {

@@ -7,7 +7,7 @@ import type { Binder, Card } from '../../types';
 import CardGrid from '../../components/Card/CardGrid';
 import CardList from '../../components/Card/CardList';
 import { useCardSearch } from '../../hooks/useCardSearch';
-import { useCardFilter, useAvailableRarities, type OwnershipFilter } from '../../hooks/useCardFilter';
+import { useCardFilter, type OwnershipFilter } from '../../hooks/useCardFilter';
 import SearchBar from '../../components/Search/SearchBar';
 import FilterPanel from '../../components/Filter/FilterPanel';
 import ProgressBar from '../../components/Progress/ProgressBar';
@@ -52,7 +52,6 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
   const [error, setError] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedRarities, setSelectedRarities] = useState<Set<string>>(new Set());
   const [ownershipFilter, setOwnershipFilter] = useState<OwnershipFilter>('all');
   const [screenWidth, setScreenWidth] = useState(Dimensions.get('window').width);
 
@@ -364,15 +363,12 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
     }
   }, [binder, navigation]);
 
-  // Get all unique rarities from cards
-  const availableRarities = useAvailableRarities(cards);
-
   // Apply search filter
   const searchedCards = useCardSearch(cards, searchQuery);
 
-  // Apply filter (ownership + rarity)
+  // Apply filter (ownership only)
   const filteredCards = useCardFilter(searchedCards, {
-    selectedRarities,
+    selectedRarities: new Set(),
     ownershipFilter,
   });
 
@@ -472,18 +468,6 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
         
         {/* Filter Panel */}
         <FilterPanel
-          availableRarities={availableRarities}
-          selectedRarities={selectedRarities}
-          onRarityToggle={(rarity) => {
-            const newSelected = new Set(selectedRarities);
-            if (newSelected.has(rarity)) {
-              newSelected.delete(rarity);
-            } else {
-              newSelected.add(rarity);
-            }
-            setSelectedRarities(newSelected);
-          }}
-          onClearRarities={() => setSelectedRarities(new Set())}
           ownershipFilter={ownershipFilter}
           onOwnershipFilterChange={setOwnershipFilter}
         />

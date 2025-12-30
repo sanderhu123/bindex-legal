@@ -101,58 +101,86 @@ export async function signOut() {
  * Get the current authenticated user
  */
 export async function getCurrentUser(): Promise<User | null> {
-  const { data: { user }, error } = await supabase.auth.getUser();
+  try {
+    const { data: { user }, error } = await supabase.auth.getUser();
 
-  if (error) {
+    if (error) {
+      // Network errors are common in Expo Go on Android
+      if (error.message && error.message.includes('Network request failed')) {
+        console.warn('[Auth] Network error getting user - this is normal in Expo Go on startup');
+        return null;
+      }
+      throw error;
+    }
+
+    if (!user) {
+      return null;
+    }
+
+    // Fetch user profile
+    const { data: profile, error: profileError } = await supabase
+      .from('user_profiles')
+      .select('*')
+      .eq('id', user.id)
+      .single();
+
+    if (profileError) {
+      // Profile might not exist yet, return basic user info
+      return {
+        id: user.id,
+        email: user.email || '',
+        displayName: user.user_metadata?.display_name,
+        binders: [], // Will be populated when binders are fetched
+      };
+    }
+
+    // Fetch user's binder IDs
+    const { data: userBinders } = await supabase
+      .from('binders')
+      .select('id')
+      .eq('user_id', user.id);
+
+    return {
+      id: profile.id,
+      email: profile.email,
+      displayName: profile.display_name || undefined,
+      binders: userBinders?.map((b) => b.id) || [],
+    };
+  } catch (error) {
+    // Catch any network errors that slip through
+    if (error instanceof Error && error.message.includes('Network request failed')) {
+      console.warn('[Auth] Network error getting user (caught) - returning null');
+      return null;
+    }
     throw error;
   }
-
-  if (!user) {
-    return null;
-  }
-
-  // Fetch user profile
-  const { data: profile, error: profileError } = await supabase
-    .from('user_profiles')
-    .select('*')
-    .eq('id', user.id)
-    .single();
-
-  if (profileError) {
-    // Profile might not exist yet, return basic user info
-    return {
-      id: user.id,
-      email: user.email || '',
-      displayName: user.user_metadata?.display_name,
-      binders: [], // Will be populated when binders are fetched
-    };
-  }
-
-  // Fetch user's binder IDs
-  const { data: userBinders } = await supabase
-    .from('binders')
-    .select('id')
-    .eq('user_id', user.id);
-
-  return {
-    id: profile.id,
-    email: profile.email,
-    displayName: profile.display_name || undefined,
-    binders: userBinders?.map((b) => b.id) || [],
-  };
 }
 
 /**
  * Get the current session
  */
 export async function getSession() {
-  const { data: { session }, error } = await supabase.auth.getSession();
+  try {
+    const { data: { session }, error } = await supabase.auth.getSession();
 
-  if (error) {
+    if (error) {
+      // Network errors are common in Expo Go on Android
+      if (error.message && error.message.includes('Network request failed')) {
+        console.warn('[Auth] Network error getting session - this is normal in Expo Go on startup');
+        return null;
+      }
+      throw error;
+    }
+
+    return session;
+  } catch (error) {
+    // Catch any network errors that slip through
+    if (error instanceof Error && error.message.includes('Network request failed')) {
+      console.warn('[Auth] Network error getting session (caught) - returning null');
+      return null;
+    }
     throw error;
   }
-
-  return session;
 }
 
 /**

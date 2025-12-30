@@ -194,7 +194,7 @@ interface User {
 - **All sets supported**, organized by era
 - Sets ordered: Newest to oldest within each era
 - Cards ordered by set number (default)
-- Filter by rarity, artist
+- Filter by ownership (owned/missing/all)
 - Show set completion percentage
 
 ### Region Mode
@@ -202,7 +202,7 @@ interface User {
 - **All regions supported**: Kanto, Johto, Hoenn, Sinnoh, Unova, Kalos, Alola, Galar, Paldea
 - Regions ordered: Oldest to newest (Kanto → Paldea)
 - Cards ordered by Pokédex number (default)
-- Filter by rarity, artist
+- Filter by ownership (owned/missing/all)
 - Show region completion percentage
 
 ### Custom Mode

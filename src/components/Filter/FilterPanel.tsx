@@ -3,22 +3,14 @@ import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import type { OwnershipFilter } from '../../hooks/useCardFilter';
 
 interface FilterPanelProps {
-  availableRarities: string[];
-  selectedRarities: Set<string>;
-  onRarityToggle: (rarity: string) => void;
-  onClearRarities: () => void;
   ownershipFilter: OwnershipFilter;
   onOwnershipFilterChange: (filter: OwnershipFilter) => void;
 }
 
 /**
- * Filter panel component with rarity and ownership filters
+ * Filter panel component with ownership filter
  */
 export default function FilterPanel({
-  availableRarities,
-  selectedRarities,
-  onRarityToggle,
-  onClearRarities,
   ownershipFilter,
   onOwnershipFilterChange,
 }: FilterPanelProps) {
@@ -78,45 +70,6 @@ export default function FilterPanel({
           </TouchableOpacity>
         </View>
       </View>
-
-      {/* Rarity Filter */}
-      {availableRarities.length > 0 && (
-        <View style={styles.filterSection}>
-          <Text style={styles.filterLabel}>Filter by Rarity:</Text>
-          <View style={styles.filterButtons}>
-            {availableRarities.map((rarity) => {
-              const isSelected = selectedRarities.has(rarity);
-              return (
-                <TouchableOpacity
-                  key={rarity}
-                  style={[
-                    styles.filterButton,
-                    isSelected && styles.filterButtonActive,
-                  ]}
-                  onPress={() => onRarityToggle(rarity)}
-                >
-                  <Text
-                    style={[
-                      styles.filterButtonText,
-                      isSelected && styles.filterButtonTextActive,
-                    ]}
-                  >
-                    {rarity}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-            {selectedRarities.size > 0 && (
-              <TouchableOpacity
-                style={styles.clearFilterButton}
-                onPress={onClearRarities}
-              >
-                <Text style={styles.clearFilterButtonText}>Clear</Text>
-              </TouchableOpacity>
-            )}
-          </View>
-        </View>
-      )}
     </View>
   );
 }
@@ -159,18 +112,5 @@ const styles = StyleSheet.create({
   },
   filterButtonTextActive: {
     color: '#fff',
-  },
-  clearFilterButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 6,
-    backgroundColor: '#ff6b6b',
-    marginRight: 8,
-    marginBottom: 8,
-  },
-  clearFilterButtonText: {
-    fontSize: 14,
-    color: '#fff',
-    fontWeight: '500',
   },
 });

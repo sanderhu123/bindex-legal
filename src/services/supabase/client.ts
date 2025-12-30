@@ -47,8 +47,11 @@ Please ensure your .env file contains:
 After creating/updating .env, restart your Expo dev server.
   `.trim();
   
+  console.error('[Supabase Client]', errorMessage);
   throw new Error(errorMessage);
 }
+
+console.log('[Supabase Client] Initializing with URL:', supabaseUrl?.substring(0, 30) + '...');
 
 // Custom storage adapter for React Native using AsyncStorage
 // This ensures Supabase doesn't try to use window.localStorage
@@ -85,5 +88,19 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     persistSession: true,
     detectSessionInUrl: false,
   },
+  global: {
+    headers: {
+      'X-Client-Info': 'supabase-js-react-native',
+    },
+  },
+  // Add timeout and retry configuration for better network handling
+  db: {
+    schema: 'public',
+  },
+  realtime: {
+    timeout: 10000, // 10 second timeout
+  },
 } as SupabaseClientOptions<'public'>);
+
+console.log('[Supabase Client] Client created successfully');
 

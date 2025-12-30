@@ -76,6 +76,7 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
       <TextInput
         style={styles.input}
         placeholder="Email"
+        placeholderTextColor={colors.textLight}
         value={email}
         onChangeText={setEmail}
         autoCapitalize="none"
@@ -85,6 +86,7 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
       <TextInput
         style={styles.input}
         placeholder="Password"
+        placeholderTextColor={colors.textLight}
         value={password}
         onChangeText={setPassword}
         secureTextEntry

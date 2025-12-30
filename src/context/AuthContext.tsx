@@ -31,18 +31,24 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const refreshSession = async () => {
     try {
+      console.log('[AuthContext] Refreshing session...');
       const session = await getSession();
       if (session) {
         const currentUser = await getCurrentUser();
         console.log('[AuthContext] Session refreshed, user:', currentUser?.email || 'null');
         setUser(currentUser);
       } else {
+        console.log('[AuthContext] No session to refresh');
         setUser(null);
       }
       setLoading(false);
       setInitialized(true);
     } catch (error) {
       console.error('[AuthContext] Error refreshing session:', error);
+      // Network errors are common in Expo Go
+      if (error instanceof Error && error.message.includes('Network request failed')) {
+        console.warn('[AuthContext] Network error during refresh - this is normal in Expo Go.');
+      }
       setUser(null);
       setLoading(false);
       setInitialized(true);
@@ -82,15 +88,23 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const checkSession = async () => {
     try {
+      console.log('[AuthContext] Checking session...');
       const session = await getSession();
       if (session) {
         const currentUser = await getCurrentUser();
+        console.log('[AuthContext] Session found, user:', currentUser?.email || 'null');
         setUser(currentUser);
       } else {
+        console.log('[AuthContext] No session found');
         setUser(null);
       }
     } catch (error) {
-      console.error('Error checking session:', error);
+      console.error('[AuthContext] Error checking session:', error);
+      // Network errors are common on app startup in Expo Go
+      // Don't crash the app, just assume no user is logged in
+      if (error instanceof Error && error.message.includes('Network request failed')) {
+        console.warn('[AuthContext] Network error on startup - this is normal in Expo Go. Continuing without auth check.');
+      }
       setUser(null);
     } finally {
       setLoading(false);

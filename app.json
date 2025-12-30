@@ -10,16 +10,27 @@
     ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.trackerapp"
+      "bundleIdentifier": "com.trackerapp",
+      "infoPlist": {
+        "NSAppTransportSecurity": {
+          "NSAllowsArbitraryLoads": true
+        }
+      }
     },
     "android": {
-      "package": "com.trackerapp"
+      "package": "com.trackerapp",
+      "permissions": [
+        "INTERNET",
+        "ACCESS_NETWORK_STATE"
+      ],
+      "usesCleartextTraffic": true
     },
     "web": {},
     "extra": {
       "eas": {
         "projectId": "cf1e564f-825d-49a4-8d35-2c596b286813"
       }
-    }
+    },
+    "plugins": []
   }
 }

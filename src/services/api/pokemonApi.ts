@@ -799,17 +799,34 @@ function generateVariantCards(baseCard: Card, tcgdexCard: any): Card[] {
     }
   }
   
-  console.log('[VARIANT] Generated variants for card:', {
-    cardName: baseCard.name,
-    setId,
-    rarity,
-    allowsReverseHolo,
-    hasHolo,
-    hasReverse,
-    supertype,
-    variantCount: variants.length,
-    variants: variants.map(v => v.variant),
-  });
+  // Log detailed info for debugging (only log occasionally to avoid spam)
+  const shouldLog = Math.random() < 0.1; // Log ~10% of cards
+  if (shouldLog) {
+    console.log('[VARIANT] Generated variants for card:', {
+      cardName: baseCard.name,
+      cardNumber: baseCard.number,
+      setId,
+      rarity,
+      supertype,
+      hasHolo,
+      hasReverse,
+      allowsReverseHolo,
+      variantCount: variants.length,
+      variants: variants.map(v => v.variant),
+    });
+  }
+  
+  // Special logging for cards that should have reverse-holo but don't
+  if (allowsReverseHolo && hasReverse && !variants.some(v => v.variant === 'reverse-holo')) {
+    console.warn('[VARIANT] ⚠️ MISSING REVERSE-HOLO:', {
+      cardName: baseCard.name,
+      cardNumber: baseCard.number,
+      rarity,
+      hasReverse,
+      allowsReverseHolo,
+      variants: variants.map(v => v.variant),
+    });
+  }
   
   return variants;
 }
@@ -966,17 +983,56 @@ export async function getCardsBySet(setIdentifier: string): Promise<Card[]> {
       // Step 5: Generate variant cards for each base card
       const variantStartTime = performance.now();
       const allVariantCards: Card[] = [];
+      
+      console.log('[VARIANT-GEN] ========================================');
+      console.log('[VARIANT-GEN] GENERATING VARIANTS FOR', transformedCards.length, 'BASE CARDS');
+      console.log('[VARIANT-GEN] ========================================');
+      
+      // Track variant statistics
+      const variantStats = {
+        totalCards: 0,
+        withBase: 0,
+        withHolo: 0,
+        withReverseHolo: 0,
+        withPokeballHolo: 0,
+        withMasterballHolo: 0,
+        cardsWithMultipleVariants: 0,
+      };
+      
       for (let i = 0; i < transformedCards.length; i++) {
         const baseCard = transformedCards[i];
         const tcgdexCard = fullCards[i]; // Use FULL card data for variant info
         
         const variantCards = generateVariantCards(baseCard, tcgdexCard);
         allVariantCards.push(...variantCards);
+        
+        // Track statistics
+        variantStats.totalCards += variantCards.length;
+        if (variantCards.some(c => c.variant === 'base')) variantStats.withBase++;
+        if (variantCards.some(c => c.variant === 'holo')) variantStats.withHolo++;
+        if (variantCards.some(c => c.variant === 'reverse-holo')) variantStats.withReverseHolo++;
+        if (variantCards.some(c => c.variant === 'poke-ball')) variantStats.withPokeballHolo++;
+        if (variantCards.some(c => c.variant === 'master-ball')) variantStats.withMasterballHolo++;
+        if (variantCards.length > 1) variantStats.cardsWithMultipleVariants++;
       }
-      const variantDuration = performance.now() - variantStartTime;
       
+      const variantDuration = performance.now() - variantStartTime;
       const duration = performance.now() - startTime;
       const performanceRating = duration < 5000 ? 'excellent' : duration < 10000 ? 'good' : duration < 20000 ? 'acceptable' : 'slow';
+      
+      console.log('[VARIANT-GEN] ✓ Generation complete:');
+      console.log('[VARIANT-GEN]   Base cards:', transformedCards.length);
+      console.log('[VARIANT-GEN]   Total variant cards:', allVariantCards.length);
+      console.log('[VARIANT-GEN]   Avg variants per card:', (allVariantCards.length / transformedCards.length).toFixed(2));
+      console.log('[VARIANT-GEN] ========================================');
+      console.log('[VARIANT-GEN] VARIANT BREAKDOWN:');
+      console.log('[VARIANT-GEN]   Cards with base variant:', variantStats.withBase);
+      console.log('[VARIANT-GEN]   Cards with holo variant:', variantStats.withHolo);
+      console.log('[VARIANT-GEN]   Cards with reverse-holo variant:', variantStats.withReverseHolo);
+      console.log('[VARIANT-GEN]   Cards with poke-ball variant:', variantStats.withPokeballHolo);
+      console.log('[VARIANT-GEN]   Cards with master-ball variant:', variantStats.withMasterballHolo);
+      console.log('[VARIANT-GEN]   Cards with multiple variants:', variantStats.cardsWithMultipleVariants);
+      console.log('[VARIANT-GEN] ========================================');
       
       console.log('[24G] Variant cards generated (performance):', {
         baseCardCount: transformedCards.length,

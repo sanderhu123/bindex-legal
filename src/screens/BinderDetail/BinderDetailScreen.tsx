@@ -106,15 +106,11 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
 
         // Get all cards based on collection mode
         if (binder.collectionMode === 'master-set' && binder.set) {
-          console.log('[BinderDetail] Fetching cards for set:', binder.set);
+          console.log('[BinderDetail] ========================================');
+          console.log('[BinderDetail] FETCHING CARDS FOR SET:', binder.set);
+          console.log('[BinderDetail] ========================================');
           allCards = await getCardsBySet(binder.set);
-          console.log('[BinderDetail] Fetched', allCards.length, 'cards from API');
-          
-          // Log first 5 cards and their variants
-          console.log('[BinderDetail] First 5 cards:');
-          allCards.slice(0, 5).forEach((card, index) => {
-            console.log(`  ${index + 1}. ${card.name} (${card.number}) - variant: ${card.variant || 'undefined'}, id: ${card.id}`);
-          });
+          console.log('[BinderDetail] ✓ Fetched', allCards.length, 'total cards from API');
           
           // Count cards by variant
           const variantCounts: Record<string, number> = {};
@@ -122,7 +118,32 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
             const variant = card.variant || 'undefined';
             variantCounts[variant] = (variantCounts[variant] || 0) + 1;
           });
-          console.log('[BinderDetail] Cards by variant type:', variantCounts);
+          console.log('[BinderDetail] Variant breakdown:', variantCounts);
+          
+          // Count unique base cards
+          const uniqueBaseCards = new Set<string>();
+          allCards.forEach(card => {
+            // Remove variant suffix from ID to get base card ID
+            const baseId = card.id.replace(/-(base|holo|reverse|poke-ball|master-ball)$/, '');
+            uniqueBaseCards.add(baseId);
+          });
+          console.log('[BinderDetail] Unique base cards:', uniqueBaseCards.size);
+          
+          // Find cards that have reverse-holo variants
+          const cardsWithReverseHolo = new Set<string>();
+          allCards.forEach(card => {
+            if (card.variant === 'reverse-holo') {
+              const baseId = card.id.replace(/-(base|holo|reverse|poke-ball|master-ball)$/, '');
+              cardsWithReverseHolo.add(baseId);
+            }
+          });
+          console.log('[BinderDetail] Cards with reverse-holo variant:', cardsWithReverseHolo.size);
+          
+          // Log first 5 cards with all their details
+          console.log('[BinderDetail] Sample cards (first 5):');
+          allCards.slice(0, 5).forEach((card, index) => {
+            console.log(`  ${index + 1}. ${card.name} (${card.number}) - variant: ${card.variant}, rarity: ${card.rarity}, id: ${card.id}`);
+          });
         } else if (binder.collectionMode === 'region' && binder.region) {
           allCards = await getCardsByRegion(binder.region as Region, binder.pokemonArtStyle);
         } else if (binder.collectionMode === 'custom') {
@@ -132,7 +153,9 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
         }
 
         // Filter cards based on variants to track (Master Set mode only)
-        console.log('[BinderDetail] ===== VARIANT FILTERING =====');
+        console.log('[BinderDetail] ========================================');
+        console.log('[BinderDetail] VARIANT FILTERING');
+        console.log('[BinderDetail] ========================================');
         console.log('[BinderDetail] Collection Mode:', binder.collectionMode);
         console.log('[BinderDetail] variantsToTrack:', binder.variantsToTrack);
         console.log('[BinderDetail] variantsToTrack is array?', Array.isArray(binder.variantsToTrack));
@@ -142,13 +165,8 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
           const originalCount = allCards.length;
           console.log('[BinderDetail] BEFORE FILTER - Total cards:', originalCount);
           
-          // Log some example cards before filtering
-          console.log('[BinderDetail] Example cards BEFORE filter (first 3):');
-          allCards.slice(0, 3).forEach((card, index) => {
-            const cardVariant = card.variant || 'base';
-            const willKeep = binder.variantsToTrack!.includes(cardVariant);
-            console.log(`  ${index + 1}. ${card.name} - variant: "${cardVariant}" - will keep: ${willKeep}`);
-          });
+          // Track which cards are being removed and why
+          const removedCards: { name: string; variant: string; rarity: string }[] = [];
           
           // Only show cards with variants that the user selected
           allCards = allCards.filter((card) => {
@@ -156,9 +174,12 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
             const cardVariant = card.variant || 'base';
             const shouldKeep = binder.variantsToTrack!.includes(cardVariant);
             
-            // Log a few filter decisions
-            if (Math.random() < 0.05) { // Log ~5% of decisions to avoid spam
-              console.log(`[BinderDetail] Filter check: ${card.name} (${cardVariant}) - ${shouldKeep ? 'KEEP' : 'REMOVE'}`);
+            if (!shouldKeep) {
+              removedCards.push({
+                name: card.name,
+                variant: cardVariant,
+                rarity: card.rarity,
+              });
             }
             
             return shouldKeep;
@@ -172,13 +193,43 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
             const variant = card.variant || 'undefined';
             filteredVariantCounts[variant] = (filteredVariantCounts[variant] || 0) + 1;
           });
-          console.log('[BinderDetail] Filtered cards by variant type:', filteredVariantCounts);
+          console.log('[BinderDetail] ✓ Kept cards by variant:', filteredVariantCounts);
           
+          // Count removed cards by variant
+          const removedVariantCounts: Record<string, number> = {};
+          removedCards.forEach(card => {
+            const variant = card.variant || 'undefined';
+            removedVariantCounts[variant] = (removedVariantCounts[variant] || 0) + 1;
+          });
+          console.log('[BinderDetail] ✗ Removed cards by variant:', removedVariantCounts);
+          
+          // Count unique base cards after filtering
+          const uniqueFilteredCards = new Set<string>();
+          allCards.forEach(card => {
+            const baseId = card.id.replace(/-(base|holo|reverse|poke-ball|master-ball)$/, '');
+            uniqueFilteredCards.add(baseId);
+          });
+          console.log('[BinderDetail] Unique base cards after filter:', uniqueFilteredCards.size);
+          
+          // Calculate expected count based on variants selected
+          console.log('[BinderDetail] ========================================');
+          console.log('[BinderDetail] EXPECTED vs ACTUAL');
+          console.log('[BinderDetail] ========================================');
+          console.log('[BinderDetail] Expected logic:');
+          console.log('  - 165 regular cards with base + reverse-holo = 330 cards');
+          console.log('  - 42 special cards with base only = 42 cards');
+          console.log('  - Total expected = 372 cards');
+          console.log('[BinderDetail] Actual:', allCards.length, 'cards');
+          console.log('[BinderDetail] Difference:', 372 - allCards.length, 'cards missing');
+          
+          console.log('[BinderDetail] ========================================');
           console.log('[BinderDetail] Filter summary:', {
             variantsToTrack: binder.variantsToTrack,
             originalCount: originalCount,
             filteredCount: allCards.length,
             removedCount: originalCount - allCards.length,
+            expectedCount: 372,
+            missingCards: 372 - allCards.length,
           });
         } else {
           console.log('[BinderDetail] SKIPPING FILTER - Reason:');
@@ -186,7 +237,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
           console.log('  - Has variantsToTrack?', !!binder.variantsToTrack);
           console.log('  - variantsToTrack length > 0?', binder.variantsToTrack && binder.variantsToTrack.length > 0);
         }
-        console.log('[BinderDetail] ================================');
+        console.log('[BinderDetail] ========================================');
 
         // Mark which cards are owned
         const ownedCardIds = new Set(binder.cardIds);

@@ -71,7 +71,7 @@ export default function BinderCard({ binder, completionPercentage, totalCards, o
         </Text>
 
         <ProgressBar
-          current={binder.cardIds.length}
+          current={binder.ownedCards}
           total={totalCards}
           percentage={completionPercentage}
           format="ratio"

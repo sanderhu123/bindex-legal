@@ -385,11 +385,18 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
     );
     setCards(updatedCards);
 
-    // Update binder state optimistically
+    // Update binder state optimistically (including ownedCards for sync with BinderList)
     const updatedCardIds = newIsOwned
       ? [...binder.cardIds, card.id]
       : binder.cardIds.filter((id) => id !== card.id);
-    setBinder({ ...binder, cardIds: updatedCardIds });
+    const updatedOwnedCards = newIsOwned
+      ? binder.ownedCards + 1
+      : binder.ownedCards - 1;
+    setBinder({ 
+      ...binder, 
+      cardIds: updatedCardIds,
+      ownedCards: updatedOwnedCards
+    });
 
     // Sync with database in the background
     try {
@@ -455,9 +462,10 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
     binder.collectionMode === 'region' ? 'Region' :
     'Custom';
 
-  // Progress is always calculated from all cards (not filtered)
-  const ownedCount = cards.filter(c => c.isOwned).length;
-  const totalCount = cards.length;
+  // Progress uses cached values from binder for consistency with BinderList
+  // Fallback to counting cards if cached value not available (shouldn't happen)
+  const ownedCount = binder.ownedCards ?? cards.filter(c => c.isOwned).length;
+  const totalCount = binder.totalCards ?? cards.length;
   const progressPercentage = totalCount > 0 ? Math.round((ownedCount / totalCount) * 100) : 0;
 
   // Determine grid columns based on layout preference (default to 3)

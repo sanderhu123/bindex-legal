@@ -185,18 +185,31 @@ export async function checkNfcTagOwnership(nfcTagId: string): Promise<boolean> {
 
 /**
  * Calculate total cards for a binder based on collection mode
+ * Applies variant filtering if specified (for master-set mode)
  */
 async function calculateTotalCards(
   collectionMode: CollectionMode,
   set?: string,
-  region?: string
+  region?: string,
+  variantsToTrack?: string[],
+  pokemonArtStyle?: PokemonArtStyle
 ): Promise<number> {
   try {
     if (collectionMode === 'master-set' && set) {
-      const cards = await getCardsBySet(set);
+      let cards = await getCardsBySet(set);
+      
+      // Apply variant filtering if specified (just like BinderDetailScreen does)
+      if (variantsToTrack && variantsToTrack.length > 0) {
+        cards = cards.filter((card) => {
+          // If card has no variant specified, treat it as 'base'
+          const cardVariant = card.variant || 'base';
+          return variantsToTrack.includes(cardVariant);
+        });
+      }
+      
       return cards.length;
     } else if (collectionMode === 'region' && region) {
-      const cards = await getCardsByRegion(region as Region);
+      const cards = await getCardsByRegion(region as Region, pokemonArtStyle);
       return cards.length;
     } else if (collectionMode === 'custom') {
       // Custom binders don't have a fixed total
@@ -229,11 +242,13 @@ export async function createBinder(binder: {
     throw new Error('User not authenticated');
   }
 
-  // Calculate total cards for this binder
+  // Calculate total cards for this binder (with variant filtering if applicable)
   const totalCards = await calculateTotalCards(
     binder.collectionMode,
     binder.set,
-    binder.region
+    binder.region,
+    binder.variantsToTrack,
+    binder.pokemonArtStyle
   );
 
   const { data, error } = await supabase

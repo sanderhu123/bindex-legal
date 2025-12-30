@@ -12,26 +12,44 @@ interface BinderToFix {
   collection_mode: 'master-set' | 'region' | 'custom';
   set: string | null;
   region: string | null;
+  variants_to_track: string[] | null;
+  pokemon_art_style: 'all' | 'regular' | 'illustration' | null;
   total_cards: number;
   owned_cards: number;
 }
 
 /**
  * Calculate total cards for a binder based on its collection mode
+ * Applies variant filtering if specified (for master-set mode)
  */
 async function calculateTotalCards(
   collectionMode: 'master-set' | 'region' | 'custom',
   set?: string | null,
-  region?: string | null
+  region?: string | null,
+  variantsToTrack?: string[] | null,
+  pokemonArtStyle?: 'all' | 'regular' | 'illustration' | null
 ): Promise<number> {
   try {
     if (collectionMode === 'master-set' && set) {
       console.log(`Fetching cards for set: ${set}...`);
-      const cards = await getCardsBySet(set);
+      let cards = await getCardsBySet(set);
+      console.log(`  Got ${cards.length} cards from API`);
+      
+      // Apply variant filtering if specified (just like BinderDetailScreen does)
+      if (variantsToTrack && variantsToTrack.length > 0) {
+        const originalCount = cards.length;
+        cards = cards.filter((card) => {
+          // If card has no variant specified, treat it as 'base'
+          const cardVariant = card.variant || 'base';
+          return variantsToTrack.includes(cardVariant);
+        });
+        console.log(`  Filtered from ${originalCount} to ${cards.length} cards based on variants: ${variantsToTrack.join(', ')}`);
+      }
+      
       return cards.length;
     } else if (collectionMode === 'region' && region) {
       console.log(`Fetching cards for region: ${region}...`);
-      const cards = await getCardsByRegion(region as Region);
+      const cards = await getCardsByRegion(region as Region, pokemonArtStyle || undefined);
       return cards.length;
     } else if (collectionMode === 'custom') {
       // Custom binders don't have a fixed total
@@ -66,10 +84,10 @@ export async function fixExistingBinders(): Promise<{
       throw new Error('User not authenticated');
     }
 
-    // Fetch all binders for the current user that have total_cards = 0
+    // Fetch all binders for the current user
     const { data: binders, error: fetchError } = await supabase
       .from('binders')
-      .select('id, name, collection_mode, set, region, total_cards, owned_cards')
+      .select('id, name, collection_mode, set, region, variants_to_track, pokemon_art_style, total_cards, owned_cards')
       .eq('user_id', user.id);
 
     if (fetchError) {
@@ -102,12 +120,15 @@ export async function fixExistingBinders(): Promise<{
         console.log(`   Mode: ${binder.collection_mode}`);
         if (binder.set) console.log(`   Set: ${binder.set}`);
         if (binder.region) console.log(`   Region: ${binder.region}`);
+        if (binder.variants_to_track) console.log(`   Variants: ${binder.variants_to_track.join(', ')}`);
 
-        // Calculate total cards
+        // Calculate total cards (with variant filtering if applicable)
         const totalCards = await calculateTotalCards(
           binder.collection_mode,
           binder.set,
-          binder.region
+          binder.region,
+          binder.variants_to_track,
+          binder.pokemon_art_style
         );
 
         if (totalCards === 0 && binder.collection_mode !== 'custom') {
@@ -184,7 +205,7 @@ export async function fixSingleBinder(binderId: string): Promise<{
     // Fetch the binder
     const { data: binder, error: fetchError } = await supabase
       .from('binders')
-      .select('id, name, collection_mode, set, region, total_cards, owned_cards')
+      .select('id, name, collection_mode, set, region, variants_to_track, pokemon_art_style, total_cards, owned_cards')
       .eq('id', binderId)
       .eq('user_id', user.id)
       .single();
@@ -199,11 +220,13 @@ export async function fixSingleBinder(binderId: string): Promise<{
 
     const binderData = binder as BinderToFix;
 
-    // Calculate total cards
+    // Calculate total cards (with variant filtering if applicable)
     const totalCards = await calculateTotalCards(
       binderData.collection_mode,
       binderData.set,
-      binderData.region
+      binderData.region,
+      binderData.variants_to_track,
+      binderData.pokemon_art_style
     );
 
     // Update the binder

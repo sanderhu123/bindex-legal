@@ -451,6 +451,20 @@ export function getEraForSet(setName: string): string | null {
 }
 
 /**
+ * Get the logo URL for a set by its name
+ */
+export function getSetLogoByName(setName: string): string | null {
+  for (const era of POKEMON_ERAS) {
+    const set = era.sets.find(s => s.name === setName);
+    if (set) {
+      const seriesSlug = getSeriesSlugFromId(set.id);
+      return set.logo || getSetLogoUrl(set.id, seriesSlug);
+    }
+  }
+  return null;
+}
+
+/**
  * Find which era a set belongs to by set ID
  */
 export function getEraForSetId(setId: string): string | null {

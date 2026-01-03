@@ -1,7 +1,8 @@
-import React from 'react';
-import { View, StyleSheet, Text, TouchableOpacity } from 'react-native';
+import React, { useState } from 'react';
+import { View, StyleSheet, Text, TouchableOpacity, Image } from 'react-native';
 import type { Binder } from '../../types';
 import ProgressBar from '../Progress/ProgressBar';
+import { getSetLogoByName } from '../../data/pokemonEras';
 
 interface BinderCardProps {
   binder: Binder;
@@ -12,6 +13,13 @@ interface BinderCardProps {
 }
 
 export default function BinderCard({ binder, completionPercentage, totalCards, onPress, onDelete }: BinderCardProps) {
+  const [logoError, setLogoError] = useState(false);
+  
+  // Get set logo URL for master-set binders
+  const setLogoUrl = binder.collectionMode === 'master-set' && binder.set 
+    ? getSetLogoByName(binder.set) 
+    : null;
+
   // Format collection mode for display
   const getCollectionModeLabel = (mode: string): string => {
     switch (mode) {
@@ -41,6 +49,18 @@ export default function BinderCard({ binder, completionPercentage, totalCards, o
   return (
     <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.7}>
       <View style={styles.content}>
+        {/* Set logo for master-set binders */}
+        {binder.collectionMode === 'master-set' && setLogoUrl && !logoError && (
+          <View style={styles.logoContainer}>
+            <Image
+              source={{ uri: setLogoUrl }}
+              style={styles.setLogo}
+              resizeMode="contain"
+              onError={() => setLogoError(true)}
+            />
+          </View>
+        )}
+        
         <View style={styles.header}>
           <View style={styles.titleContainer}>
             <Text style={styles.title} numberOfLines={1}>
@@ -96,6 +116,14 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: 16,
+  },
+  logoContainer: {
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  setLogo: {
+    width: '100%',
+    height: 40,
   },
   header: {
     flexDirection: 'row',

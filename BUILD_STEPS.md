@@ -50,10 +50,11 @@ This guide walks you through building the app step-by-step. We'll build it incre
 
 ### ❌ **Not Yet Implemented**
 - **Step 23**: Comprehensive Testing - Needs user testing
+- **Step 27**: Premium System (Freemium Model) - Not started
 - **Step 25**: Build for Production - Not started
 - **Step 26**: Deploy to App Stores - Not started
 
-### 📊 **Overall Progress**: ~90% Complete (Core features done, production build & testing remain)
+### 📊 **Overall Progress**: ~85% Complete (Core features done, premium system, testing and production build remain)
 
 ---
 
@@ -1760,6 +1761,845 @@ Each step uses a unique log prefix to make debugging easier:
 
 ---
 
+## Phase 9: Monetization
+
+### Step 27: Premium System (Freemium Model)
+- [ ] **Status**: Not started
+
+**What we're doing:** Implement freemium monetization with generous free tier and lifetime premium via binder purchase
+
+**Business Model:**
+- **Free Tier**: 3 binders max, unlimited cards per binder, all core features (no NFC, no cloud sync)
+- **Premium Tier**: Unlimited binders, NFC tap-to-open, cloud sync, export, analytics
+- **How to Get Premium**: Buy a physical smart binder ($24.99) → Lifetime premium unlocked via NFC activation
+
+---
+
+#### Step 27A: Update Database Schema for Premium
+- [ ] **Status**: Not started
+
+**What we're doing:** Add premium tracking fields to database
+
+**Database Changes:**
+
+Run this SQL in Supabase SQL Editor:
+
+```sql
+-- Add premium fields to user_profiles table
+ALTER TABLE public.user_profiles 
+ADD COLUMN IF NOT EXISTS premium_status TEXT DEFAULT 'free' CHECK (premium_status IN ('free', 'lifetime')),
+ADD COLUMN IF NOT EXISTS premium_activated_at TIMESTAMP WITH TIME ZONE,
+ADD COLUMN IF NOT EXISTS premium_source TEXT; -- 'nfc-binder' or 'manual'
+
+-- Add premium_activated flag to binders table
+-- (Tracks if this binder has been used to activate premium)
+ALTER TABLE public.binders
+ADD COLUMN IF NOT EXISTS premium_activated BOOLEAN DEFAULT FALSE;
+
+-- Create index for premium status lookups
+CREATE INDEX IF NOT EXISTS idx_user_profiles_premium_status 
+ON public.user_profiles(premium_status);
+
+-- Verification query
+SELECT column_name, data_type, column_default 
+FROM information_schema.columns 
+WHERE table_name = 'user_profiles' 
+AND column_name IN ('premium_status', 'premium_activated_at', 'premium_source');
+
+SELECT column_name, data_type, column_default 
+FROM information_schema.columns 
+WHERE table_name = 'binders' 
+AND column_name = 'premium_activated';
+```
+
+**What gets created:**
+- `user_profiles.premium_status` - User's premium status ('free' or 'lifetime')
+- `user_profiles.premium_activated_at` - When premium was activated
+- `user_profiles.premium_source` - How they got premium ('nfc-binder')
+- `binders.premium_activated` - Has this binder activated premium for someone (prevents reuse)
+
+**Testing:**
+- [ ] SQL runs without errors in Supabase
+- [ ] New columns appear in user_profiles table
+- [ ] New column appears in binders table
+- [ ] Default values are correct (free, FALSE)
+- [ ] Check constraints work
+- [ ] Index created successfully
+
+---
+
+#### Step 27B: Update TypeScript Types
+- [ ] **Status**: Not started
+
+**What we're doing:** Add premium fields to TypeScript interfaces
+
+**Files to modify:**
+
+**1. Update `src/types/user.ts`:**
+
+```typescript
+/**
+ * Premium status types
+ */
+export type PremiumStatus = 'free' | 'lifetime';
+
+/**
+ * User interface representing a user account
+ */
+export interface User {
+  id: string;
+  email: string;
+  displayName?: string;
+  binders: string[]; // Binder IDs
+  
+  // Premium fields
+  premiumStatus: PremiumStatus;
+  premiumActivatedAt?: Date;
+  premiumSource?: string; // 'nfc-binder' or 'manual'
+}
+
+/**
+ * Check if user has active premium
+ */
+export function isPremiumActive(user: User): boolean {
+  return user.premiumStatus === 'lifetime';
+}
+
+/**
+ * Check if user is on free tier
+ */
+export function isFreeTier(user: User): boolean {
+  return user.premiumStatus === 'free';
+}
+```
+
+**2. Update `src/types/binder.ts`:**
+
+Add `premiumActivated` field to Binder interface:
+
+```typescript
+export interface Binder {
+  id: string;
+  userId: string;
+  name: string;
+  collectionMode: CollectionMode;
+  set?: string;
+  region?: string;
+  variantsToTrack?: string[];
+  variantPlacement?: VariantPlacement;
+  layoutPreference?: LayoutPreference;
+  pokemonArtStyle?: PokemonArtStyle;
+  nfcTagId?: string;
+  premiumActivated?: boolean; // NEW: Has this binder activated premium?
+  cardIds: string[];
+  totalCards: number;
+  ownedCards: number;
+  createdAt: Date;
+  updatedAt: Date;
+}
+```
+
+**Testing:**
+- [ ] Run `npx tsc --noEmit` - no TypeScript errors
+- [ ] Types import correctly in other files
+- [ ] isPremiumActive() function works
+- [ ] isFreeTier() function works
+
+---
+
+#### Step 27C: Update Supabase Services
+- [ ] **Status**: Not started
+
+**What we're doing:** Update auth and binder services to handle premium data
+
+**Files to modify:**
+
+**1. Update `src/services/supabase/auth.ts`:**
+
+In `getCurrentUser()` function, add premium fields to return object:
+
+```typescript
+// In getCurrentUser() function, update the return statement:
+return {
+  id: profile.id,
+  email: profile.email,
+  displayName: profile.display_name || undefined,
+  binders: userBinders?.map((b) => b.id) || [],
+  // Add premium fields:
+  premiumStatus: profile.premium_status || 'free',
+  premiumActivatedAt: profile.premium_activated_at ? new Date(profile.premium_activated_at) : undefined,
+  premiumSource: profile.premium_source || undefined,
+};
+
+// Also update the fallback return (when profile doesn't exist):
+return {
+  id: user.id,
+  email: user.email || '',
+  displayName: user.user_metadata?.display_name,
+  binders: [],
+  premiumStatus: 'free', // Default to free
+  premiumActivatedAt: undefined,
+  premiumSource: undefined,
+};
+```
+
+**2. Update `src/services/supabase/binders.ts`:**
+
+In `BinderRow` interface and `rowToBinder()` function:
+
+```typescript
+// Update BinderRow interface to include premium_activated:
+interface BinderRow {
+  // ... existing fields
+  premium_activated: boolean; // ADD THIS
+  // ... rest of fields
+}
+
+// Update rowToBinder() to map premium_activated:
+function rowToBinder(row: BinderRow, cardIds: string[]): Binder {
+  return {
+    // ... existing fields
+    premiumActivated: row.premium_activated || false, // ADD THIS
+    // ... rest of fields
+  };
+}
+```
+
+**Testing:**
+- [ ] getCurrentUser() returns premium fields
+- [ ] Premium status defaults to 'free' for new users
+- [ ] Binder premium_activated field is returned
+- [ ] No TypeScript errors
+
+---
+
+#### Step 27D: Create Premium Gate Utilities
+- [ ] **Status**: Not started
+
+**What we're doing:** Create functions to check premium access and show upgrade prompts
+
+**Files to create:**
+
+**Create `src/utils/premiumGates.ts`:**
+
+```typescript
+import { Alert, Linking } from 'react-native';
+import { supabase } from '../services/supabase/client';
+import { getCurrentUser } from '../services/supabase/auth';
+import { isPremiumActive } from '../types/user';
+
+/**
+ * Your store website URL
+ * TODO: Update with your actual store URL
+ */
+const STORE_URL = 'https://your-store.com'; // UPDATE THIS!
+
+/**
+ * Open store website in browser
+ */
+export function openStore() {
+  Linking.openURL(STORE_URL).catch((err) => {
+    console.error('Failed to open store URL:', err);
+    Alert.alert('Error', 'Could not open store. Please visit ' + STORE_URL);
+  });
+}
+
+/**
+ * Check if user can create a new binder
+ * Free users limited to 3 binders
+ * Premium users have unlimited binders
+ * 
+ * @returns true if user can create binder, false if limit reached
+ */
+export async function checkCanCreateBinder(): Promise<boolean> {
+  try {
+    const user = await getCurrentUser();
+    if (!user) {
+      Alert.alert('Error', 'Please log in to create binders');
+      return false;
+    }
+
+    // Premium users can create unlimited binders
+    if (isPremiumActive(user)) {
+      return true;
+    }
+
+    // Free users - check binder count
+    const { data: binders, error } = await supabase
+      .from('binders')
+      .select('id')
+      .eq('user_id', user.id);
+
+    if (error) {
+      console.error('Error checking binder count:', error);
+      // Allow creation on error (fail open)
+      return true;
+    }
+
+    const binderCount = binders?.length || 0;
+
+    if (binderCount >= 3) {
+      // Show upgrade prompt
+      Alert.alert(
+        '🎴 Upgrade to Premium',
+        `Free users can create up to 3 binders.\n\nYou have ${binderCount}/3 binders.\n\nBuy a smart binder to unlock:\n✅ Unlimited binders\n✅ NFC tap-to-open\n✅ Cloud sync\n✅ Lifetime premium access`,
+        [
+          { text: 'Maybe Later', style: 'cancel' },
+          {
+            text: 'Buy Binder',
+            onPress: openStore,
+            style: 'default',
+          },
+        ]
+      );
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    console.error('Error in checkCanCreateBinder:', error);
+    // Allow creation on error (fail open)
+    return true;
+  }
+}
+
+/**
+ * Check if user can use NFC features
+ * Only premium users can use NFC
+ * 
+ * @returns true if user has NFC access, false otherwise
+ */
+export async function checkCanUseNFC(): Promise<boolean> {
+  try {
+    const user = await getCurrentUser();
+    if (!user) {
+      return false;
+    }
+
+    // Premium users can use NFC
+    if (isPremiumActive(user)) {
+      return true;
+    }
+
+    // Free users cannot use NFC
+    Alert.alert(
+      '🎴 Premium Feature',
+      'NFC tap-to-open requires premium.\n\nBuy a smart binder to unlock:\n✅ NFC tap-to-open magic\n✅ Unlimited binders\n✅ Cloud sync\n✅ Lifetime premium access\n\nStarting at $24.99 (one-time payment)',
+      [
+        { text: 'Not Now', style: 'cancel' },
+        {
+          text: 'Learn More',
+          onPress: openStore,
+          style: 'default',
+        },
+      ]
+    );
+    return false;
+  } catch (error) {
+    console.error('Error in checkCanUseNFC:', error);
+    return false;
+  }
+}
+
+/**
+ * Show premium upsell message for any feature
+ * 
+ * @param featureName - Name of the feature that requires premium
+ */
+export function showPremiumUpsell(featureName: string = 'This feature') {
+  Alert.alert(
+    '✨ Premium Feature',
+    `${featureName} requires premium.\n\nBuy a smart binder to get lifetime premium access!`,
+    [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Buy Binder', onPress: openStore },
+    ]
+  );
+}
+```
+
+**Testing:**
+- [ ] checkCanCreateBinder() returns true for premium users
+- [ ] checkCanCreateBinder() shows alert when free user has 3 binders
+- [ ] checkCanUseNFC() returns true for premium users
+- [ ] checkCanUseNFC() shows alert for free users
+- [ ] openStore() opens browser with store URL
+- [ ] No TypeScript errors
+
+---
+
+#### Step 27E: Create Premium Activation Service
+- [ ] **Status**: Not started
+
+**What we're doing:** Handle NFC premium activation when user taps their new binder
+
+**Files to create:**
+
+**Create `src/services/premium/activation.ts`:**
+
+```typescript
+import { supabase } from '../supabase/client';
+import { getCurrentUser } from '../supabase/auth';
+import { isPremiumActive } from '../../types/user';
+
+/**
+ * Activate premium for a user via NFC binder purchase
+ * 
+ * @param nfcTagId - The NFC tag ID from the binder
+ * @returns Object with success status and message
+ */
+export async function activatePremiumFromNFC(nfcTagId: string): Promise<{
+  success: boolean;
+  message: string;
+  alreadyPremium?: boolean;
+}> {
+  try {
+    console.log('[Premium] Attempting to activate premium from NFC:', nfcTagId);
+
+    const user = await getCurrentUser();
+    if (!user) {
+      return {
+        success: false,
+        message: 'Please log in to activate premium',
+      };
+    }
+
+    // Check if user already has premium
+    if (isPremiumActive(user)) {
+      console.log('[Premium] User already has premium');
+      return {
+        success: false,
+        message: 'You already have premium access!',
+        alreadyPremium: true,
+      };
+    }
+
+    // Check if this NFC tag exists in binders table
+    const { data: binder, error: binderError } = await supabase
+      .from('binders')
+      .select('id, premium_activated, user_id')
+      .eq('nfc_tag_id', nfcTagId)
+      .single();
+
+    if (binderError || !binder) {
+      console.log('[Premium] Binder not found for NFC tag:', nfcTagId);
+      // This is okay - binder will be created during questionnaire
+      return {
+        success: false,
+        message: 'Binder not found. Complete setup first.',
+      };
+    }
+
+    // Check if this binder has already activated premium
+    if (binder.premium_activated) {
+      console.log('[Premium] This binder already activated premium');
+      return {
+        success: false,
+        message: 'This binder has already been used to activate premium.',
+      };
+    }
+
+    // Check if binder belongs to current user
+    if (binder.user_id !== user.id) {
+      console.log('[Premium] Binder belongs to different user');
+      return {
+        success: false,
+        message: 'This binder belongs to another user.',
+      };
+    }
+
+    // Activate premium!
+    console.log('[Premium] Activating premium for user:', user.id);
+
+    // Update user profile to premium
+    const { error: profileError } = await supabase
+      .from('user_profiles')
+      .update({
+        premium_status: 'lifetime',
+        premium_activated_at: new Date().toISOString(),
+        premium_source: 'nfc-binder',
+      })
+      .eq('id', user.id);
+
+    if (profileError) {
+      console.error('[Premium] Error updating user profile:', profileError);
+      return {
+        success: false,
+        message: 'Failed to activate premium. Please try again.',
+      };
+    }
+
+    // Mark binder as having activated premium
+    const { error: binderUpdateError } = await supabase
+      .from('binders')
+      .update({ premium_activated: true })
+      .eq('id', binder.id);
+
+    if (binderUpdateError) {
+      console.error('[Premium] Error marking binder as activated:', binderUpdateError);
+      // Continue anyway - user has premium now
+    }
+
+    console.log('[Premium] Premium activated successfully!');
+    return {
+      success: true,
+      message: 'Premium activated! You now have lifetime access. 🎉',
+    };
+  } catch (error) {
+    console.error('[Premium] Error activating premium:', error);
+    return {
+      success: false,
+      message: 'An error occurred. Please try again.',
+    };
+  }
+}
+```
+
+**Create `src/services/premium/index.ts`:**
+
+```typescript
+export { activatePremiumFromNFC } from './activation';
+```
+
+**Testing:**
+- [ ] activatePremiumFromNFC() activates premium for valid binder
+- [ ] Returns error if binder already used to activate premium
+- [ ] Returns error if binder belongs to another user
+- [ ] Returns success message on successful activation
+- [ ] User profile updated correctly in database
+- [ ] Binder marked as premium_activated in database
+- [ ] No TypeScript errors
+
+---
+
+#### Step 27F: Add Premium Gates to UI
+- [ ] **Status**: Not started
+
+**What we're doing:** Add premium checks to key user actions
+
+**Files to modify:**
+
+**1. Update `src/screens/BinderList/BinderListScreen.tsx`:**
+
+Add premium check before creating binder:
+
+```typescript
+// At top of file, add import:
+import { checkCanCreateBinder } from '../../utils/premiumGates';
+
+// In BinderListScreen component, update handleCreateBinder:
+const handleCreateBinder = async () => {
+  // NEW: Check if user can create binder (premium gate)
+  const canCreate = await checkCanCreateBinder();
+  if (!canCreate) {
+    return; // User hit limit, alert shown by checkCanCreateBinder()
+  }
+
+  // Existing code: Navigate to questionnaire
+  navigation.navigate('Questionnaire');
+};
+```
+
+**2. Update NFC handler (if implemented):**
+
+If you have `src/utils/nfcHandler.ts` or similar:
+
+```typescript
+// Add import:
+import { checkCanUseNFC } from './premiumGates';
+import { activatePremiumFromNFC } from '../services/premium';
+
+// In handleNfcScan function, add premium check:
+export async function handleNfcScan(nfcTagId: string, navigation: any) {
+  try {
+    // Check if user can use NFC
+    const canUseNFC = await checkCanUseNFC();
+    if (!canUseNFC) {
+      return; // Free user, alert shown
+    }
+
+    // Try to activate premium with this NFC tag
+    const activationResult = await activatePremiumFromNFC(nfcTagId);
+    if (activationResult.success) {
+      Alert.alert('🎉 Premium Unlocked!', activationResult.message);
+    }
+
+    // Continue with existing NFC logic...
+    const binder = await getBinderByNfcTagId(nfcTagId);
+    // ... rest of existing code
+  } catch (error) {
+    // Error handling
+  }
+}
+```
+
+**Testing:**
+- [ ] Creating 4th binder shows upgrade prompt for free users
+- [ ] Premium users can create unlimited binders
+- [ ] NFC scan shows upgrade prompt for free users
+- [ ] Premium users can use NFC features
+- [ ] Upgrade alerts display correctly
+- [ ] "Buy Binder" button opens store URL
+
+---
+
+#### Step 27G: Create Premium Status Screen (Optional)
+- [ ] **Status**: Not started
+
+**What we're doing:** Create a screen showing premium status and benefits
+
+**Files to create:**
+
+**Create `src/screens/Premium/PremiumScreen.tsx`:**
+
+```typescript
+import React from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { useAuth } from '../../context/AuthContext';
+import { isPremiumActive } from '../../types/user';
+import { openStore } from '../../utils/premiumGates';
+import { COLORS, SPACING, TYPOGRAPHY } from '../../constants/theme';
+
+export default function PremiumScreen() {
+  const { user } = useAuth();
+  const hasPremium = user ? isPremiumActive(user) : false;
+
+  if (hasPremium) {
+    return (
+      <ScrollView style={styles.container}>
+        <View style={styles.header}>
+          <Text style={styles.headerEmoji}>✨</Text>
+          <Text style={styles.headerTitle}>You Have Premium!</Text>
+          <Text style={styles.headerSubtitle}>Enjoy all features, forever.</Text>
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Your Premium Benefits:</Text>
+          <View style={styles.benefit}>
+            <Text style={styles.benefitIcon}>✅</Text>
+            <Text style={styles.benefitText}>Unlimited binders</Text>
+          </View>
+          <View style={styles.benefit}>
+            <Text style={styles.benefitIcon}>✅</Text>
+            <Text style={styles.benefitText}>NFC tap-to-open magic</Text>
+          </View>
+          <View style={styles.benefit}>
+            <Text style={styles.benefitIcon}>✅</Text>
+            <Text style={styles.benefitText}>Cloud sync across devices</Text>
+          </View>
+          <View style={styles.benefit}>
+            <Text style={styles.benefitIcon}>✅</Text>
+            <Text style={styles.benefitText}>Export to CSV/PDF</Text>
+          </View>
+          <View style={styles.benefit}>
+            <Text style={styles.benefitIcon}>✅</Text>
+            <Text style={styles.benefitText}>Priority support</Text>
+          </View>
+        </View>
+
+        {user?.premiumActivatedAt && (
+          <View style={styles.section}>
+            <Text style={styles.infoText}>
+              Premium since: {user.premiumActivatedAt.toLocaleDateString()}
+            </Text>
+          </View>
+        )}
+      </ScrollView>
+    );
+  }
+
+  // Free tier view
+  return (
+    <ScrollView style={styles.container}>
+      <View style={styles.header}>
+        <Text style={styles.headerEmoji}>🎴</Text>
+        <Text style={styles.headerTitle}>Unlock Premium</Text>
+        <Text style={styles.headerSubtitle}>Get lifetime access to all features</Text>
+      </View>
+
+      <View style={styles.section}>
+        <Text style={styles.optionTitle}>Buy a Smart Binder</Text>
+        <Text style={styles.optionPrice}>$24.99 one-time</Text>
+        <Text style={styles.optionDescription}>
+          Get a premium physical binder + lifetime premium app access
+        </Text>
+        <View style={styles.benefitList}>
+          <View style={styles.benefit}>
+            <Text style={styles.benefitIcon}>✅</Text>
+            <Text style={styles.benefitText}>Premium 9-pocket binder</Text>
+          </View>
+          <View style={styles.benefit}>
+            <Text style={styles.benefitIcon}>✅</Text>
+            <Text style={styles.benefitText}>Pre-installed NFC tag</Text>
+          </View>
+          <View style={styles.benefit}>
+            <Text style={styles.benefitIcon}>✅</Text>
+            <Text style={styles.benefitText}>Lifetime premium access</Text>
+          </View>
+          <View style={styles.benefit}>
+            <Text style={styles.benefitIcon}>✅</Text>
+            <Text style={styles.benefitText}>All premium features</Text>
+          </View>
+        </View>
+        <TouchableOpacity style={styles.button} onPress={openStore}>
+          <Text style={styles.buttonText}>Buy Smart Binder</Text>
+        </TouchableOpacity>
+      </View>
+
+      <View style={styles.comparison}>
+        <Text style={styles.comparisonText}>
+          💡 One binder = lifetime premium. Never pay a subscription!
+        </Text>
+      </View>
+    </ScrollView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: COLORS.background,
+  },
+  header: {
+    alignItems: 'center',
+    padding: SPACING.xl,
+    backgroundColor: COLORS.primary,
+  },
+  headerEmoji: {
+    fontSize: 64,
+    marginBottom: SPACING.md,
+  },
+  headerTitle: {
+    ...TYPOGRAPHY.h1,
+    color: COLORS.white,
+    marginBottom: SPACING.sm,
+  },
+  headerSubtitle: {
+    ...TYPOGRAPHY.body,
+    color: COLORS.white,
+    opacity: 0.9,
+  },
+  section: {
+    padding: SPACING.lg,
+    backgroundColor: COLORS.surface,
+    marginVertical: SPACING.md,
+  },
+  sectionTitle: {
+    ...TYPOGRAPHY.h2,
+    marginBottom: SPACING.md,
+  },
+  optionTitle: {
+    ...TYPOGRAPHY.h2,
+    marginBottom: SPACING.xs,
+  },
+  optionPrice: {
+    ...TYPOGRAPHY.h3,
+    color: COLORS.primary,
+    marginBottom: SPACING.sm,
+  },
+  optionDescription: {
+    ...TYPOGRAPHY.body,
+    color: COLORS.textSecondary,
+    marginBottom: SPACING.md,
+  },
+  benefitList: {
+    marginBottom: SPACING.lg,
+  },
+  benefit: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: SPACING.sm,
+  },
+  benefitIcon: {
+    fontSize: 20,
+    marginRight: SPACING.sm,
+  },
+  benefitText: {
+    ...TYPOGRAPHY.body,
+    flex: 1,
+  },
+  button: {
+    backgroundColor: COLORS.primary,
+    padding: SPACING.md,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  buttonText: {
+    ...TYPOGRAPHY.button,
+    color: COLORS.white,
+  },
+  comparison: {
+    padding: SPACING.lg,
+    backgroundColor: COLORS.accent + '20',
+    marginHorizontal: SPACING.md,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  comparisonText: {
+    ...TYPOGRAPHY.body,
+    textAlign: 'center',
+  },
+  infoText: {
+    ...TYPOGRAPHY.caption,
+    color: COLORS.textSecondary,
+    textAlign: 'center',
+  },
+});
+```
+
+**Testing:**
+- [ ] Premium screen displays correctly for free users
+- [ ] Premium screen displays correctly for premium users
+- [ ] "Buy Smart Binder" button opens store URL
+- [ ] All benefits listed correctly
+- [ ] Premium activation date shows for premium users
+- [ ] No TypeScript errors
+
+---
+
+#### Step 27H: Add Premium Badge to UI (Optional)
+- [ ] **Status**: Not started
+
+**What we're doing:** Show premium badge/indicator in app UI
+
+**Files to modify:**
+
+**Update `src/screens/BinderList/BinderListScreen.tsx` or navigation header:**
+
+Add premium badge near user's name or in header:
+
+```typescript
+// Example: Add to header or user profile area
+{user && isPremiumActive(user) && (
+  <View style={styles.premiumBadge}>
+    <Text style={styles.premiumBadgeText}>✨ Premium</Text>
+  </View>
+)}
+```
+
+**Testing:**
+- [ ] Premium badge shows for premium users
+- [ ] Premium badge hidden for free users
+- [ ] Badge displays correctly in UI
+
+---
+
+**Overall Testing for Step 27:**
+- [ ] Database schema updated correctly
+- [ ] TypeScript types updated and working
+- [ ] Premium status persists across app restarts
+- [ ] Free users limited to 3 binders
+- [ ] Premium users can create unlimited binders
+- [ ] NFC activation works (requires physical device + NFC tag)
+- [ ] Premium gates show appropriate alerts
+- [ ] Store URL opens correctly
+- [ ] Premium screen displays correctly
+- [ ] No TypeScript errors
+- [ ] No console errors
+- [ ] App doesn't crash on premium checks
+
+---
+
 ### Step 25: Build for Production
 - [ ] **Status**: Not started
 
@@ -1826,6 +2666,7 @@ eas build --profile production --platform all
 9. ✅ **Offline** - Work without internet
 10. ✅ **Polish** - UI improvements
 11. ✅ **Production** - Real API, build, deploy
+12. ⏳ **Monetization** - Premium system (freemium)
 
 ---
 
@@ -1863,30 +2704,39 @@ I'll begin with Phase 1, Step 1, and we'll build it step by step! 🚀
 
 ### 🔧 **To Complete Before Production:**
 
-1. **Install NFC Package** (if you want NFC functionality):
+1. **Premium System** (Step 27):
+   - Implement freemium monetization model
+   - Add database fields for premium tracking
+   - Create premium gates (3 binder limit for free users)
+   - Implement NFC premium activation
+   - Create premium status screen
+   - Test premium flow end-to-end
+
+2. **Install NFC Package** (if you want NFC functionality):
    ```bash
    npm install react-native-nfc-manager
    ```
    - Then create development build (see DEVELOPMENT_BUILD_GUIDE.md)
    - Test NFC scanning on physical device
 
-2. **Optional Enhancements:**
+3. **Optional Enhancements:**
    - Create dedicated AddCardScreen (currently using tap-to-toggle)
    - Implement full offline sync (currently has basic caching)
    - Add artist filter to BinderDetailScreen (currently only rarity filter)
 
-3. **Testing** (Step 23):
+4. **Testing** (Step 23):
    - Test all features thoroughly
    - Test on both iOS and Android
    - Test offline mode
    - Test NFC functionality (requires physical device + NFC tags)
+   - Test premium system (free tier limits, premium activation)
    - Verify variant system works correctly
 
-4. **Production Build** (Step 25):
+5. **Production Build** (Step 25):
    - Configure EAS build
    - Create production builds for iOS and Android
 
-5. **App Store Deployment** (Step 26):
+6. **App Store Deployment** (Step 26):
    - Create app store listings
    - Prepare screenshots
    - Submit to App Store and Google Play
@@ -1912,5 +2762,44 @@ I'll begin with Phase 1, Step 1, and we'll build it step by step! 🚀
   - Era-based set organization
 
 ### 🎯 **Current State:** 
-The app is **~90% complete** and fully functional for core features. You can create binders, add cards, track progress, and use all main features. What remains is primarily testing, optional enhancements, and production deployment.
+The app is **~85% complete** and fully functional for core features. You can create binders, add cards, track progress, and use all main features. What remains is implementing the premium/monetization system, testing, optional enhancements, and production deployment.
+
+---
+
+## 📋 **Premium/Monetization System Overview**
+
+### **Business Model: Freemium with Physical Product**
+
+**Free Tier (Generous):**
+- ✅ 3 binders max
+- ✅ Unlimited cards per binder
+- ✅ All core features (card images, search, progress tracking, variants)
+- ✅ Offline mode (local storage)
+- ❌ No NFC tap-to-open
+- ❌ No cloud sync (local only)
+- ❌ No export (CSV/PDF)
+- ❌ No detailed analytics
+
+**Premium Tier (Lifetime - $24.99):**
+- ✅ Unlimited binders
+- ✅ NFC tap-to-open magic
+- ✅ Cloud sync across devices
+- ✅ Export to CSV/PDF
+- ✅ Detailed analytics
+- ✅ Priority support
+- ✅ All future features
+
+**How to Get Premium:**
+- Buy a physical smart binder ($24.99) with pre-installed NFC tag
+- Tap the NFC tag with phone → Premium activated for life
+- One-time payment, no subscription ever
+
+**Why This Works:**
+- Physical product drives app adoption
+- NFC creates "magic moment" experience
+- Lifetime premium = amazing value perception
+- No subscription fatigue
+- Clear upgrade path (hit 3 binder limit → buy physical binder)
+
+See **Step 27** for complete implementation guide.
 

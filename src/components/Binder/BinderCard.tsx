@@ -49,18 +49,6 @@ export default function BinderCard({ binder, completionPercentage, totalCards, o
   return (
     <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.7}>
       <View style={styles.content}>
-        {/* Set logo for master-set binders */}
-        {binder.collectionMode === 'master-set' && setLogoUrl && !logoError && (
-          <View style={styles.logoContainer}>
-            <Image
-              source={{ uri: setLogoUrl }}
-              style={styles.setLogo}
-              resizeMode="contain"
-              onError={() => setLogoError(true)}
-            />
-          </View>
-        )}
-        
         <View style={styles.header}>
           <View style={styles.titleContainer}>
             <Text style={styles.title} numberOfLines={1}>
@@ -72,6 +60,19 @@ export default function BinderCard({ binder, completionPercentage, totalCards, o
               </View>
             )}
           </View>
+          
+          {/* Set logo for master-set binders - between title and delete button */}
+          {binder.collectionMode === 'master-set' && setLogoUrl && !logoError && (
+            <View style={styles.logoContainer}>
+              <Image
+                source={{ uri: setLogoUrl }}
+                style={styles.setLogo}
+                resizeMode="contain"
+                onError={() => setLogoError(true)}
+              />
+            </View>
+          )}
+          
           {onDelete && (
             <TouchableOpacity
               style={styles.deleteButton}
@@ -118,12 +119,12 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   logoContainer: {
-    alignItems: 'center',
-    marginBottom: 12,
+    marginHorizontal: 8,
+    justifyContent: 'center',
   },
   setLogo: {
-    width: '100%',
-    height: 40,
+    width: 80,
+    height: 24,
   },
   header: {
     flexDirection: 'row',

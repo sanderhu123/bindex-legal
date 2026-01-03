@@ -176,7 +176,6 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 14,
     color: '#666',
-    flex: 1,
   },
 });
 

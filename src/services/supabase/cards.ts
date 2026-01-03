@@ -14,10 +14,10 @@ export async function addCardToBinder(
     throw new Error('User not authenticated');
   }
 
-  // Verify binder belongs to user
+  // Verify binder belongs to user and get current owned_cards count
   const { data: binder, error: binderError } = await supabase
     .from('binders')
-    .select('id')
+    .select('id, owned_cards')
     .eq('id', binderId)
     .eq('user_id', user.id)
     .single();
@@ -25,6 +25,15 @@ export async function addCardToBinder(
   if (binderError || !binder) {
     throw new Error('Binder not found or access denied');
   }
+
+  // Check if card already exists to avoid double-counting
+  const { data: existingCard } = await supabase
+    .from('binder_cards')
+    .select('id')
+    .eq('binder_id', binderId)
+    .eq('card_id', cardId)
+    .eq('variant', variant || null)
+    .maybeSingle();
 
   // Insert card (or update if exists)
   const { error } = await supabase
@@ -40,6 +49,18 @@ export async function addCardToBinder(
 
   if (error) {
     throw error;
+  }
+
+  // Only increment owned_cards if this was a new card (not already in binder)
+  if (!existingCard) {
+    const { error: updateError } = await supabase
+      .from('binders')
+      .update({ owned_cards: (binder.owned_cards || 0) + 1 })
+      .eq('id', binderId);
+
+    if (updateError) {
+      console.error('Failed to update owned_cards count:', updateError);
+    }
   }
 }
 
@@ -57,10 +78,10 @@ export async function removeCardFromBinder(
     throw new Error('User not authenticated');
   }
 
-  // Verify binder belongs to user
+  // Verify binder belongs to user and get current owned_cards count
   const { data: binder, error: binderError } = await supabase
     .from('binders')
-    .select('id')
+    .select('id, owned_cards')
     .eq('id', binderId)
     .eq('user_id', user.id)
     .single();
@@ -69,23 +90,39 @@ export async function removeCardFromBinder(
     throw new Error('Binder not found or access denied');
   }
 
-  // Build delete query
-  let query = supabase
+  // Check if card exists before deleting (to know if we should decrement count)
+  const { data: existingCard } = await supabase
+    .from('binder_cards')
+    .select('id')
+    .eq('binder_id', binderId)
+    .eq('card_id', cardId)
+    .eq('variant', variant || null)
+    .maybeSingle();
+
+  // Build delete query - always match exact variant (including null)
+  const { error } = await supabase
     .from('binder_cards')
     .delete()
     .eq('user_id', user.id)
     .eq('binder_id', binderId)
-    .eq('card_id', cardId);
-
-  // If variant specified, only delete that variant
-  if (variant) {
-    query = query.eq('variant', variant);
-  }
-
-  const { error } = await query;
+    .eq('card_id', cardId)
+    .eq('variant', variant || null);
 
   if (error) {
     throw error;
+  }
+
+  // Only decrement owned_cards if the card was actually in the binder
+  if (existingCard) {
+    const newCount = Math.max(0, (binder.owned_cards || 0) - 1);
+    const { error: updateError } = await supabase
+      .from('binders')
+      .update({ owned_cards: newCount })
+      .eq('id', binderId);
+
+    if (updateError) {
+      console.error('Failed to update owned_cards count:', updateError);
+    }
   }
 }
 

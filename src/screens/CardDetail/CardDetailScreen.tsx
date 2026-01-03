@@ -21,12 +21,12 @@ interface CardDetailScreenProps {
  * Displays full details of a single card
  */
 export default function CardDetailScreen({ navigation, route }: CardDetailScreenProps) {
-  const { cardId, binderId } = route.params || {};
+  const { cardId, binderId, isOwned: initialOwnedParam } = route.params || {};
   const [card, setCard] = useState<Card | null>(null);
   const [binder, setBinder] = useState<Binder | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [isOwned, setIsOwned] = useState(false);
+  const [isOwned, setIsOwned] = useState<boolean>(!!initialOwnedParam);
   const [isUpdating, setIsUpdating] = useState(false);
 
   // Fetch card and binder data
@@ -81,6 +81,13 @@ export default function CardDetailScreen({ navigation, route }: CardDetailScreen
       navigation.setOptions({ title: card.name });
     }
   }, [card, navigation]);
+
+  // Keep local ownership in sync with navigation param when returning from grid
+  useEffect(() => {
+    if (initialOwnedParam !== undefined) {
+      setIsOwned(!!initialOwnedParam);
+    }
+  }, [initialOwnedParam]);
 
   // Refresh ownership status when screen comes into focus
   useFocusEffect(

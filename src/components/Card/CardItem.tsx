@@ -43,6 +43,8 @@ export default function CardItem({ card, onPress, binderId, width, variant = 'gr
     navigation.navigate('CardDetail', {
       cardId: card.id,
       binderId: binderId,
+      // Pass current ownership so detail screen shows the latest optimistic state
+      isOwned: card.isOwned,
     });
   };
 

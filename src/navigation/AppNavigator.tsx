@@ -22,40 +22,33 @@ export default function AppNavigator() {
   return (
     <Stack.Navigator
       screenOptions={{
-        headerShown: true,
-        headerBackTitleVisible: false,
+        headerShown: false,
       }}
       initialRouteName="NfcHandler"
     >
       <Stack.Screen
         name="NfcHandler"
         component={NfcHandlerScreen}
-        options={{ headerShown: false }}
       />
       <Stack.Screen
         name="Questionnaire"
         component={OnboardingScreen}
-        options={{ headerShown: false }}
       />
       <Stack.Screen
         name="BinderList"
         component={BinderListScreen}
-        options={{ title: 'My Binders' }}
       />
       <Stack.Screen
         name="BinderDetail"
         component={BinderDetailScreen}
-        options={{ title: 'Binder' }}
       />
       <Stack.Screen
         name="CardList"
         component={CardListScreen}
-        options={{ title: 'Cards' }}
       />
       <Stack.Screen
         name="CardDetail"
         component={CardDetailScreen}
-        options={{ title: 'Card Details' }}
       />
     </Stack.Navigator>
   );

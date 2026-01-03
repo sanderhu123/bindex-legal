@@ -412,48 +412,72 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
   ]);
 
   // Toggle card ownership (tap to add/remove) - with optimistic updates
-  const handleToggleCard = async (card: CardWithOwnership) => {
+  // Uses functional state updates to handle rapid tapping correctly
+  const handleToggleCard = useCallback(async (card: CardWithOwnership) => {
     if (!binder) return;
 
-    // Store the previous state in case we need to revert
-    const previousCards = [...cards];
-    const previousBinder = { ...binder };
-
-    // Optimistic update: Update UI immediately
+    // Calculate new ownership state based on current card state
     const newIsOwned = !card.isOwned;
-    const updatedCards = cards.map((c) =>
-      c.id === card.id ? { ...c, isOwned: newIsOwned } : c
-    );
-    setCards(updatedCards);
+    const cardId = card.id;
+    const cardVariant = card.variant;
+    const binderId = binder.id;
 
-    // Update binder state optimistically (including ownedCards for sync with BinderList)
-    const updatedCardIds = newIsOwned
-      ? [...binder.cardIds, card.id]
-      : binder.cardIds.filter((id) => id !== card.id);
-    const updatedOwnedCards = newIsOwned
-      ? binder.ownedCards + 1
-      : binder.ownedCards - 1;
-    setBinder({ 
-      ...binder, 
-      cardIds: updatedCardIds,
-      ownedCards: updatedOwnedCards
+    // Optimistic update using functional setState to ensure we always use latest state
+    // This prevents race conditions when tapping multiple cards quickly
+    setCards((prevCards) =>
+      prevCards.map((c) =>
+        c.id === cardId ? { ...c, isOwned: newIsOwned } : c
+      )
+    );
+
+    // Update binder state optimistically using functional setState
+    setBinder((prevBinder) => {
+      if (!prevBinder) return prevBinder;
+      const updatedCardIds = newIsOwned
+        ? [...prevBinder.cardIds, cardId]
+        : prevBinder.cardIds.filter((id) => id !== cardId);
+      const updatedOwnedCards = newIsOwned
+        ? (prevBinder.ownedCards || 0) + 1
+        : Math.max(0, (prevBinder.ownedCards || 0) - 1);
+      return { 
+        ...prevBinder, 
+        cardIds: updatedCardIds,
+        ownedCards: updatedOwnedCards
+      };
     });
 
     // Sync with database in the background
     try {
       if (newIsOwned) {
-        await addCardToBinder(binder.id, card.id, card.variant);
+        await addCardToBinder(binderId, cardId, cardVariant);
       } else {
-        await removeCardFromBinder(binder.id, card.id, card.variant);
+        await removeCardFromBinder(binderId, cardId, cardVariant);
       }
     } catch (err) {
-      // Revert on error
-      setCards(previousCards);
-      setBinder(previousBinder);
+      // Revert on error using functional setState
+      setCards((prevCards) =>
+        prevCards.map((c) =>
+          c.id === cardId ? { ...c, isOwned: !newIsOwned } : c
+        )
+      );
+      setBinder((prevBinder) => {
+        if (!prevBinder) return prevBinder;
+        const revertedCardIds = !newIsOwned
+          ? [...prevBinder.cardIds, cardId]
+          : prevBinder.cardIds.filter((id) => id !== cardId);
+        const revertedOwnedCards = !newIsOwned
+          ? (prevBinder.ownedCards || 0) + 1
+          : Math.max(0, (prevBinder.ownedCards || 0) - 1);
+        return { 
+          ...prevBinder, 
+          cardIds: revertedCardIds,
+          ownedCards: revertedOwnedCards
+        };
+      });
       setError(err instanceof Error ? err.message : 'Failed to update card');
       console.error('Failed to update card:', err);
     }
-  };
+  }, [binder?.id]);
 
   // Update header title when binder loads
   useEffect(() => {

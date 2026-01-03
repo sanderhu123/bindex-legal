@@ -60,19 +60,6 @@ export default function BinderCard({ binder, completionPercentage, totalCards, o
               </View>
             )}
           </View>
-          
-          {/* Set logo for master-set binders - between title and delete button */}
-          {binder.collectionMode === 'master-set' && setLogoUrl && !logoError && (
-            <View style={styles.logoContainer}>
-              <Image
-                source={{ uri: setLogoUrl }}
-                style={styles.setLogo}
-                resizeMode="contain"
-                onError={() => setLogoError(true)}
-              />
-            </View>
-          )}
-          
           {onDelete && (
             <TouchableOpacity
               style={styles.deleteButton}
@@ -86,10 +73,24 @@ export default function BinderCard({ binder, completionPercentage, totalCards, o
           )}
         </View>
         
-        <Text style={styles.subtitle} numberOfLines={1}>
-          {getCollectionModeLabel(binder.collectionMode)}
-          {getSubtitle() && ` • ${getSubtitle()}`}
-        </Text>
+        <View style={styles.subtitleRow}>
+          <Text style={styles.subtitle} numberOfLines={1}>
+            {getCollectionModeLabel(binder.collectionMode)}
+            {getSubtitle() && ` • ${getSubtitle()}`}
+          </Text>
+          
+          {/* Set logo for master-set binders - on subtitle row */}
+          {binder.collectionMode === 'master-set' && setLogoUrl && !logoError && (
+            <View style={styles.logoContainer}>
+              <Image
+                source={{ uri: setLogoUrl }}
+                style={styles.setLogo}
+                resizeMode="contain"
+                onError={() => setLogoError(true)}
+              />
+            </View>
+          )}
+        </View>
 
         <ProgressBar
           current={binder.ownedCards}
@@ -118,13 +119,18 @@ const styles = StyleSheet.create({
   content: {
     padding: 16,
   },
+  subtitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
   logoContainer: {
-    marginHorizontal: 8,
-    justifyContent: 'center',
+    marginLeft: 8,
   },
   setLogo: {
     width: 80,
-    height: 24,
+    height: 20,
   },
   header: {
     flexDirection: 'row',
@@ -171,7 +177,7 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 14,
     color: '#666',
-    marginBottom: 12,
+    flex: 1,
   },
 });
 

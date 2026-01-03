@@ -5,6 +5,7 @@ import { getPokemonByRegion } from '../../data/pokemonRegions';
 import { getEras, getSetsByEra, convertSetToPokemonSet } from '../../data/pokemonEras';
 import { getSpecialVariantsForCard, hasSpecialVariants } from '../../data/cardVariants';
 import TCGdex from '@tcgdex/sdk';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export type PokemonSet = MockSet;
 
@@ -33,18 +34,36 @@ console.log('[24A] TCGDEX SDK initialized:', {
 });
 
 // ==================== STEP 24E: CACHING & RATE LIMITING ====================
+// Enhanced with persistent storage using AsyncStorage
 
 /**
- * In-memory cache for API responses
+ * In-memory cache for API responses (fast access)
  * Key: request identifier (e.g., "sets", "cards-base1", "card-swsh11-TG21")
  * Value: { data: any, timestamp: number }
  */
 const apiCache = new Map<string, { data: any; timestamp: number }>();
 
 /**
- * Cache duration in milliseconds (5 minutes)
+ * Memory cache duration in milliseconds (5 minutes)
+ * This is for super-fast repeated access during a session
  */
-const CACHE_DURATION = 5 * 60 * 1000;
+const MEMORY_CACHE_DURATION = 5 * 60 * 1000;
+
+/**
+ * Persistent cache duration in milliseconds (7 days)
+ * Card data for sets doesn't change often, so we can keep it longer
+ */
+const PERSISTENT_CACHE_DURATION = 7 * 24 * 60 * 60 * 1000;
+
+/**
+ * AsyncStorage key prefix for card cache
+ */
+const CACHE_PREFIX = '@pokemon_cache_';
+
+/**
+ * Track if persistent cache has been loaded into memory
+ */
+let persistentCacheLoaded = false;
 
 /**
  * Pending requests map for request deduplication
@@ -60,42 +79,139 @@ let rateLimitRetryCount: number = 0;
 const MAX_RATE_LIMIT_RETRIES = 3;
 
 /**
- * Check if cached data is still valid
+ * Check if memory cached data is still valid (5 minutes)
  */
-function isCacheValid(timestamp: number): boolean {
-  return Date.now() - timestamp < CACHE_DURATION;
+function isMemoryCacheValid(timestamp: number): boolean {
+  return Date.now() - timestamp < MEMORY_CACHE_DURATION;
+}
+
+/**
+ * Check if persistent cached data is still valid (7 days)
+ */
+function isPersistentCacheValid(timestamp: number): boolean {
+  return Date.now() - timestamp < PERSISTENT_CACHE_DURATION;
+}
+
+/**
+ * Load persistent cache from AsyncStorage into memory on app start
+ * Call this once when the app initializes
+ */
+export async function initializePersistentCache(): Promise<void> {
+  if (persistentCacheLoaded) {
+    console.log('[CACHE] Persistent cache already loaded');
+    return;
+  }
+
+  try {
+    console.log('[CACHE] Loading persistent cache from storage...');
+    const startTime = performance.now();
+    
+    // Get all keys that start with our prefix
+    const allKeys = await AsyncStorage.getAllKeys();
+    const cacheKeys = allKeys.filter(key => key.startsWith(CACHE_PREFIX));
+    
+    if (cacheKeys.length === 0) {
+      console.log('[CACHE] No persistent cache found');
+      persistentCacheLoaded = true;
+      return;
+    }
+    
+    // Load all cached items
+    const cachedItems = await AsyncStorage.multiGet(cacheKeys);
+    let loadedCount = 0;
+    let expiredCount = 0;
+    
+    for (const [key, value] of cachedItems) {
+      if (value) {
+        try {
+          const parsed = JSON.parse(value);
+          const cacheKey = key.replace(CACHE_PREFIX, '');
+          
+          // Only load if persistent cache is still valid (7 days)
+          if (isPersistentCacheValid(parsed.timestamp)) {
+            apiCache.set(cacheKey, parsed);
+            loadedCount++;
+          } else {
+            // Clean up expired persistent cache
+            expiredCount++;
+            AsyncStorage.removeItem(key).catch(() => {});
+          }
+        } catch (parseError) {
+          console.warn('[CACHE] Failed to parse cached item:', key);
+        }
+      }
+    }
+    
+    const duration = performance.now() - startTime;
+    console.log('[CACHE] Persistent cache loaded:', {
+      loadedItems: loadedCount,
+      expiredItems: expiredCount,
+      duration: `${duration.toFixed(2)}ms`,
+    });
+    
+    persistentCacheLoaded = true;
+  } catch (error) {
+    console.error('[CACHE] Failed to load persistent cache:', error);
+    persistentCacheLoaded = true; // Mark as loaded to prevent retry loops
+  }
 }
 
 /**
  * Get data from cache if available and valid
+ * First checks memory cache, then persistent storage
  */
 function getCachedData<T>(cacheKey: string): T | null {
   const cached = apiCache.get(cacheKey);
   
   if (!cached) {
-    console.log('[24E] Cache miss:', { cacheKey });
+    console.log('[CACHE] Miss:', { cacheKey });
     return null;
   }
   
-  if (!isCacheValid(cached.timestamp)) {
-    console.log('[24E] Cache expired:', { cacheKey, age: Date.now() - cached.timestamp });
-    apiCache.delete(cacheKey); // Clean up expired cache
-    return null;
+  // Check memory cache validity (5 minutes for fastest access)
+  if (!isMemoryCacheValid(cached.timestamp)) {
+    // Check if persistent cache is still valid (7 days)
+    if (!isPersistentCacheValid(cached.timestamp)) {
+      console.log('[CACHE] Expired (>7 days):', { cacheKey, age: Date.now() - cached.timestamp });
+      apiCache.delete(cacheKey);
+      // Also remove from persistent storage
+      AsyncStorage.removeItem(CACHE_PREFIX + cacheKey).catch(() => {});
+      return null;
+    }
+    
+    // Persistent cache valid but memory cache expired - still return data
+    console.log('[CACHE] Hit (from persistent, <7 days):', { cacheKey });
+    return cached.data as T;
   }
   
-  console.log('[24E] Cache hit:', { cacheKey, age: Date.now() - cached.timestamp });
+  console.log('[CACHE] Hit (memory):', { cacheKey });
   return cached.data as T;
 }
 
 /**
- * Store data in cache
+ * Store data in both memory cache and persistent storage
  */
 function setCachedData(cacheKey: string, data: any): void {
-  apiCache.set(cacheKey, {
+  const cacheEntry = {
     data,
     timestamp: Date.now(),
-  });
-  console.log('[24E] Data cached:', { cacheKey, cacheSize: apiCache.size });
+  };
+  
+  // Store in memory cache
+  apiCache.set(cacheKey, cacheEntry);
+  console.log('[CACHE] Stored in memory:', { cacheKey, cacheSize: apiCache.size });
+  
+  // Store in persistent storage (async, non-blocking)
+  // Only persist card data (not minimal sets which change more often)
+  if (cacheKey.startsWith('cards-')) {
+    AsyncStorage.setItem(CACHE_PREFIX + cacheKey, JSON.stringify(cacheEntry))
+      .then(() => {
+        console.log('[CACHE] Stored in persistent storage:', { cacheKey });
+      })
+      .catch((error) => {
+        console.warn('[CACHE] Failed to persist cache:', { cacheKey, error });
+      });
+  }
 }
 
 /**
@@ -193,12 +309,27 @@ async function deduplicateRequest<T>(
 }
 
 /**
- * Clear all cached data (useful for testing or manual refresh)
+ * Clear all cached data (both memory and persistent storage)
+ * Useful for testing or manual refresh
  */
-export function clearApiCache(): void {
+export async function clearApiCache(): Promise<void> {
+  // Clear memory cache
   apiCache.clear();
   pendingRequests.clear();
-  console.log('[24E] API cache cleared');
+  
+  // Clear persistent cache
+  try {
+    const allKeys = await AsyncStorage.getAllKeys();
+    const cacheKeys = allKeys.filter(key => key.startsWith(CACHE_PREFIX));
+    if (cacheKeys.length > 0) {
+      await AsyncStorage.multiRemove(cacheKeys);
+      console.log('[CACHE] Cleared persistent storage:', { keysRemoved: cacheKeys.length });
+    }
+  } catch (error) {
+    console.warn('[CACHE] Failed to clear persistent storage:', error);
+  }
+  
+  console.log('[CACHE] All cache cleared');
 }
 
 /**
@@ -206,14 +337,17 @@ export function clearApiCache(): void {
  */
 export function getCacheStats() {
   const entries = Array.from(apiCache.entries());
-  const validEntries = entries.filter(([_, value]) => isCacheValid(value.timestamp));
-  const expiredEntries = entries.filter(([_, value]) => !isCacheValid(value.timestamp));
+  const validMemoryEntries = entries.filter(([_, value]) => isMemoryCacheValid(value.timestamp));
+  const validPersistentEntries = entries.filter(([_, value]) => isPersistentCacheValid(value.timestamp));
+  const expiredEntries = entries.filter(([_, value]) => !isPersistentCacheValid(value.timestamp));
   
   return {
     totalEntries: apiCache.size,
-    validEntries: validEntries.length,
+    validMemoryEntries: validMemoryEntries.length,
+    validPersistentEntries: validPersistentEntries.length,
     expiredEntries: expiredEntries.length,
     pendingRequests: pendingRequests.size,
+    persistentCacheLoaded,
     oldestEntry: entries.length > 0 
       ? Math.min(...entries.map(([_, v]) => v.timestamp))
       : null,

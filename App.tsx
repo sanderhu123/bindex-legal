@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { StatusBar } from 'expo-status-bar';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -6,6 +6,7 @@ import { AuthProvider, useAuth } from './src/context/AuthContext';
 import AuthNavigator from './src/navigation/AuthNavigator';
 import AppNavigator from './src/navigation/AppNavigator';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
+import { initializePersistentCache } from './src/services/api/pokemonApi';
 
 // Create React Query client with caching configuration
 const queryClient = new QueryClient({
@@ -28,9 +29,23 @@ const queryClient = new QueryClient({
 
 function AppContent() {
   const { user, loading, initialized } = useAuth();
+  const [cacheInitialized, setCacheInitialized] = useState(false);
 
-  // Show loading screen while checking auth state
-  if (!initialized || loading) {
+  // Initialize persistent cache on app startup
+  useEffect(() => {
+    initializePersistentCache()
+      .then(() => {
+        console.log('[App] Persistent cache initialized');
+        setCacheInitialized(true);
+      })
+      .catch((error) => {
+        console.warn('[App] Failed to initialize cache:', error);
+        setCacheInitialized(true); // Continue anyway
+      });
+  }, []);
+
+  // Show loading screen while checking auth state or initializing cache
+  if (!initialized || loading || !cacheInitialized) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#007AFF" />

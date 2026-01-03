@@ -122,15 +122,14 @@ const styles = StyleSheet.create({
   subtitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     marginBottom: 12,
   },
   logoContainer: {
-    marginLeft: 8,
+    marginLeft: 12,
   },
   setLogo: {
-    width: 80,
-    height: 20,
+    width: 100,
+    height: 28,
   },
   header: {
     flexDirection: 'row',

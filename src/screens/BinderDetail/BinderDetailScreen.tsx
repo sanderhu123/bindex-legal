@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, StyleSheet, Text, ScrollView, TouchableOpacity, Dimensions } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { getBinderById } from '../../services/supabase/binders';
 import { addCardToBinder, removeCardFromBinder } from '../../services/supabase/cards';
 import { getCardsBySet, getCardsByRegion, type Region } from '../../services/api/pokemonApi';
@@ -94,6 +95,38 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
 
     fetchBinder();
   }, [binderId]);
+
+  // Keep binder ownership in sync when returning from CardDetail
+  const refreshOwnershipFromDb = useCallback(async () => {
+    if (!binderId) return;
+
+    try {
+      const latestBinder = await getBinderById(binderId);
+      if (!latestBinder) {
+        setError('Binder not found');
+        return;
+      }
+
+      // Update binder counts/cardIds without re-fetching card list
+      setBinder((prev) => prev ? { ...prev, ...latestBinder } : latestBinder);
+      setCards((prevCards) =>
+        prevCards.map((card) => ({
+          ...card,
+          isOwned: latestBinder.cardIds.includes(card.id),
+        }))
+      );
+    } catch (err) {
+      console.error('Failed to refresh binder ownership:', err);
+    }
+  }, [binderId]);
+
+  useFocusEffect(
+    useCallback(() => {
+      refreshOwnershipFromDb();
+    }, [refreshOwnershipFromDb])
+  );
+
+  const variantsKey = binder?.variantsToTrack?.join(',') ?? '';
 
   // Fetch cards when binder is loaded
   useEffect(() => {
@@ -368,7 +401,15 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
     }
 
     fetchCards();
-  }, [binder]);
+  }, [
+    binder?.id,
+    binder?.collectionMode,
+    binder?.set,
+    binder?.region,
+    variantsKey,
+    binder?.variantPlacement,
+    binder?.pokemonArtStyle,
+  ]);
 
   // Toggle card ownership (tap to add/remove) - with optimistic updates
   const handleToggleCard = async (card: CardWithOwnership) => {
@@ -401,9 +442,9 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
     // Sync with database in the background
     try {
       if (newIsOwned) {
-        await addCardToBinder(binder.id, card.id);
+        await addCardToBinder(binder.id, card.id, card.variant);
       } else {
-        await removeCardFromBinder(binder.id, card.id);
+        await removeCardFromBinder(binder.id, card.id, card.variant);
       }
     } catch (err) {
       // Revert on error

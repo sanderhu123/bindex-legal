@@ -1,6 +1,5 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, Text, ScrollView, Dimensions, TouchableOpacity } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
 import { getCardById } from '../../services/api/pokemonApi';
 import { getBinderById } from '../../services/supabase/binders';
 import { addCardToBinder, removeCardFromBinder } from '../../services/supabase/cards';
@@ -28,10 +27,6 @@ export default function CardDetailScreen({ navigation, route }: CardDetailScreen
   const [error, setError] = useState<string | null>(null);
   const [isOwned, setIsOwned] = useState<boolean>(!!initialOwnedParam);
   const [isUpdating, setIsUpdating] = useState(false);
-  
-  // Track if this is the first focus - we skip refresh on initial focus
-  // because we trust the optimistic update passed from the grid view
-  const isFirstFocus = useRef(true);
 
   // Fetch card and binder data
   useEffect(() => {
@@ -89,34 +84,6 @@ export default function CardDetailScreen({ navigation, route }: CardDetailScreen
       navigation.setOptions({ title: card.name });
     }
   }, [card, navigation]);
-
-  // Refresh ownership status when screen comes back into focus (not on initial focus)
-  // This ensures we get the latest data when returning from another screen
-  useFocusEffect(
-    useCallback(() => {
-      // Skip the first focus - we trust the optimistic update from grid view
-      if (isFirstFocus.current) {
-        isFirstFocus.current = false;
-        return;
-      }
-
-      async function refreshOwnership() {
-        if (!binderId || !cardId) return;
-        
-        try {
-          const binderData = await getBinderById(binderId);
-          if (binderData) {
-            setBinder(binderData);
-            setIsOwned(binderData.cardIds.includes(cardId));
-          }
-        } catch (err) {
-          console.error('Error refreshing ownership:', err);
-        }
-      }
-      
-      refreshOwnership();
-    }, [binderId, cardId])
-  );
 
   // Loading state
   if (loading) {

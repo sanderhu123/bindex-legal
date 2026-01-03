@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { View, StyleSheet, Text, ScrollView, Dimensions, TouchableOpacity } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { getCardById } from '../../services/api/pokemonApi';
@@ -28,6 +28,10 @@ export default function CardDetailScreen({ navigation, route }: CardDetailScreen
   const [error, setError] = useState<string | null>(null);
   const [isOwned, setIsOwned] = useState<boolean>(!!initialOwnedParam);
   const [isUpdating, setIsUpdating] = useState(false);
+  
+  // Track if this is the first focus - we skip refresh on initial focus
+  // because we trust the optimistic update passed from the grid view
+  const isFirstFocus = useRef(true);
 
   // Fetch card and binder data
   useEffect(() => {
@@ -62,8 +66,12 @@ export default function CardDetailScreen({ navigation, route }: CardDetailScreen
 
         setCard(cardData);
         setBinder(binderData);
-        // Set initial ownership status
-        setIsOwned(binderData.cardIds.includes(cardData.id));
+        // Trust the navigation param if provided (supports optimistic updates from grid view)
+        // Only fall back to database if no param was provided
+        if (initialOwnedParam === undefined) {
+          setIsOwned(binderData.cardIds.includes(cardData.id));
+        }
+        // If initialOwnedParam was provided, we already set it in useState, so don't override
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load card details');
         console.error('Error fetching card detail:', err);
@@ -73,7 +81,7 @@ export default function CardDetailScreen({ navigation, route }: CardDetailScreen
     }
 
     fetchData();
-  }, [cardId, binderId]);
+  }, [cardId, binderId, initialOwnedParam]);
 
   // Update header title when card loads
   useEffect(() => {
@@ -82,16 +90,16 @@ export default function CardDetailScreen({ navigation, route }: CardDetailScreen
     }
   }, [card, navigation]);
 
-  // Keep local ownership in sync with navigation param when returning from grid
-  useEffect(() => {
-    if (initialOwnedParam !== undefined) {
-      setIsOwned(!!initialOwnedParam);
-    }
-  }, [initialOwnedParam]);
-
-  // Refresh ownership status when screen comes into focus
+  // Refresh ownership status when screen comes back into focus (not on initial focus)
+  // This ensures we get the latest data when returning from another screen
   useFocusEffect(
     useCallback(() => {
+      // Skip the first focus - we trust the optimistic update from grid view
+      if (isFirstFocus.current) {
+        isFirstFocus.current = false;
+        return;
+      }
+
       async function refreshOwnership() {
         if (!binderId || !cardId) return;
         

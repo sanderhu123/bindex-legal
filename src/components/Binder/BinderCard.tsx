@@ -60,6 +60,19 @@ export default function BinderCard({ binder, completionPercentage, totalCards, o
               </View>
             )}
           </View>
+          
+          {/* Set logo for master-set binders - after binder name */}
+          {binder.collectionMode === 'master-set' && setLogoUrl && !logoError && (
+            <View style={styles.logoContainer}>
+              <Image
+                source={{ uri: setLogoUrl }}
+                style={styles.setLogo}
+                resizeMode="contain"
+                onError={() => setLogoError(true)}
+              />
+            </View>
+          )}
+          
           {onDelete && (
             <TouchableOpacity
               style={styles.deleteButton}
@@ -73,24 +86,10 @@ export default function BinderCard({ binder, completionPercentage, totalCards, o
           )}
         </View>
         
-        <View style={styles.subtitleRow}>
-          <Text style={styles.subtitle} numberOfLines={1}>
-            {getCollectionModeLabel(binder.collectionMode)}
-            {getSubtitle() && ` • ${getSubtitle()}`}
-          </Text>
-          
-          {/* Set logo for master-set binders - on subtitle row */}
-          {binder.collectionMode === 'master-set' && setLogoUrl && !logoError && (
-            <View style={styles.logoContainer}>
-              <Image
-                source={{ uri: setLogoUrl }}
-                style={styles.setLogo}
-                resizeMode="contain"
-                onError={() => setLogoError(true)}
-              />
-            </View>
-          )}
-        </View>
+        <Text style={styles.subtitle} numberOfLines={1}>
+          {getCollectionModeLabel(binder.collectionMode)}
+          {getSubtitle() && ` • ${getSubtitle()}`}
+        </Text>
 
         <ProgressBar
           current={binder.ownedCards}
@@ -119,13 +118,8 @@ const styles = StyleSheet.create({
   content: {
     padding: 16,
   },
-  subtitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
   logoContainer: {
-    marginLeft: 6,
+    marginRight: 8,
   },
   setLogo: {
     width: 115,
@@ -176,6 +170,7 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 14,
     color: '#666',
+    marginBottom: 12,
   },
 });
 

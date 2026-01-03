@@ -1194,11 +1194,23 @@ export async function getCardById(id: string): Promise<Card | null> {
       const startTime = performance.now();
       console.log('[24E] Making SDK request for single card');
       
-      // Strip variant suffix from ID if present
+      // Extract variant from ID if present
       // Variant suffixes: -base, -holo, -reverse, -poke-ball, -master-ball
+      const variantMatch = id.match(/-(base|holo|reverse|poke-ball|master-ball)$/);
+      const variant = variantMatch ? variantMatch[1] : undefined;
       const baseId = id.replace(/-(base|holo|reverse|poke-ball|master-ball)$/, '');
       
-      console.log('[24D] Card ID processed:', { originalId: id, baseId });
+      // Map extracted suffix to proper variant name
+      const variantMap: Record<string, string> = {
+        'base': 'base',
+        'holo': 'holo',
+        'reverse': 'reverse-holo',
+        'poke-ball': 'poke-ball',
+        'master-ball': 'master-ball',
+      };
+      const cardVariant = variant ? variantMap[variant] : undefined;
+      
+      console.log('[24D] Card ID processed:', { originalId: id, baseId, extractedVariant: variant, cardVariant });
       
       // Fetch card from TCGDEX SDK using base ID
       const tcgdexCard = await tcgdex.card.get(baseId);
@@ -1226,9 +1238,17 @@ export async function getCardById(id: string): Promise<Card | null> {
       const transformedCard = await transformTcgdexCardToCard(tcgdexCard);
       const transformDuration = performance.now() - transformStartTime;
       
+      // IMPORTANT: Preserve the original ID and variant from the request
+      // This ensures the card matches what the grid view expects
+      if (variant) {
+        transformedCard.id = id; // Use the original ID with variant suffix
+        transformedCard.variant = cardVariant as any; // Set the variant property
+      }
+      
       console.log('[24G] Card transformed (performance):', {
         transformedId: transformedCard.id,
         transformedName: transformedCard.name,
+        transformedVariant: transformedCard.variant,
         hasImageUrl: !!transformedCard.imageUrl,
         hasHiResUrl: !!transformedCard.imageUrlHiRes,
         transformDuration: `${transformDuration.toFixed(2)}ms`,

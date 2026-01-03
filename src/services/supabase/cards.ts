@@ -30,6 +30,7 @@ export async function addCardToBinder(
   const { error } = await supabase
     .from('binder_cards')
     .upsert({
+      user_id: user.id,
       binder_id: binderId,
       card_id: cardId,
       variant: variant || null,
@@ -72,6 +73,7 @@ export async function removeCardFromBinder(
   let query = supabase
     .from('binder_cards')
     .delete()
+    .eq('user_id', user.id)
     .eq('binder_id', binderId)
     .eq('card_id', cardId);
 
@@ -112,6 +114,7 @@ export async function getBinderCardIds(binderId: string): Promise<string[]> {
   const { data, error } = await supabase
     .from('binder_cards')
     .select('card_id')
+    .eq('user_id', user.id)
     .eq('binder_id', binderId);
 
   if (error) {
@@ -150,6 +153,7 @@ export async function isCardInBinder(
   let query = supabase
     .from('binder_cards')
     .select('id')
+    .eq('user_id', user.id)
     .eq('binder_id', binderId)
     .eq('card_id', cardId)
     .limit(1);
@@ -195,6 +199,7 @@ export async function getBinderCardsWithVariants(binderId: string): Promise<Arra
   const { data, error } = await supabase
     .from('binder_cards')
     .select('card_id, variant')
+    .eq('user_id', user.id)
     .eq('binder_id', binderId);
 
   if (error) {

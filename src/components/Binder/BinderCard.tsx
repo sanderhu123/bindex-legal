@@ -60,19 +60,6 @@ export default function BinderCard({ binder, completionPercentage, totalCards, o
               </View>
             )}
           </View>
-          
-          {/* Set logo for master-set binders - after binder name */}
-          {binder.collectionMode === 'master-set' && setLogoUrl && !logoError && (
-            <View style={styles.logoContainer}>
-              <Image
-                source={{ uri: setLogoUrl }}
-                style={styles.setLogo}
-                resizeMode="contain"
-                onError={() => setLogoError(true)}
-              />
-            </View>
-          )}
-          
           {onDelete && (
             <TouchableOpacity
               style={styles.deleteButton}
@@ -91,12 +78,28 @@ export default function BinderCard({ binder, completionPercentage, totalCards, o
           {getSubtitle() && ` • ${getSubtitle()}`}
         </Text>
 
-        <ProgressBar
-          current={binder.ownedCards}
-          total={totalCards}
-          percentage={completionPercentage}
-          format="ratio"
-        />
+        <View style={styles.progressRow}>
+          <View style={styles.progressContainer}>
+            <ProgressBar
+              current={binder.ownedCards}
+              total={totalCards}
+              percentage={completionPercentage}
+              format="ratio"
+            />
+          </View>
+          
+          {/* Set logo for master-set binders - next to progress bar */}
+          {binder.collectionMode === 'master-set' && setLogoUrl && !logoError && (
+            <View style={styles.logoContainer}>
+              <Image
+                source={{ uri: setLogoUrl }}
+                style={styles.setLogo}
+                resizeMode="contain"
+                onError={() => setLogoError(true)}
+              />
+            </View>
+          )}
+        </View>
       </View>
     </TouchableOpacity>
   );
@@ -118,12 +121,19 @@ const styles = StyleSheet.create({
   content: {
     padding: 16,
   },
+  progressRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  progressContainer: {
+    flex: 1,
+  },
   logoContainer: {
-    marginRight: 8,
+    marginLeft: 12,
   },
   setLogo: {
-    width: 115,
-    height: 32,
+    width: 100,
+    height: 28,
   },
   header: {
     flexDirection: 'row',

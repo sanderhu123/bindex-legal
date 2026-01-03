@@ -125,11 +125,11 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   logoContainer: {
-    marginLeft: 12,
+    marginLeft: 6,
   },
   setLogo: {
-    width: 100,
-    height: 28,
+    width: 115,
+    height: 32,
   },
   header: {
     flexDirection: 'row',

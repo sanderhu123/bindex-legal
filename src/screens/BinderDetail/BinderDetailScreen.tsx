@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, StyleSheet, Text, ScrollView, TouchableOpacity, Dimensions } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { getBinderById } from '../../services/supabase/binders';
 import { addCardToBinder, removeCardFromBinder } from '../../services/supabase/cards';
@@ -538,8 +539,9 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
   const cardWidth = Math.max(50, calculateCardWidth(screenWidth, gridColumns)); // Ensure minimum width of 50
 
   return (
-    <ScrollView style={styles.container}>
-      <Text style={styles.title}>{binder.name}</Text>
+    <SafeAreaView style={styles.safeArea}>
+      <ScrollView style={styles.container}>
+        <Text style={styles.title}>{binder.name}</Text>
       <Text style={styles.subtitle}>Collection Mode: {collectionModeText}</Text>
       {binder.set && <Text style={styles.text}>Set: {binder.set}</Text>}
       {binder.region && <Text style={styles.text}>Region: {binder.region}</Text>}
@@ -623,11 +625,16 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
           />
         )}
       </View>
-    </ScrollView>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
   container: {
     flex: 1,
     padding: screenPadding,

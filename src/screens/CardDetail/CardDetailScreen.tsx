@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, Text, ScrollView, Dimensions, TouchableOpacity } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { getCardById } from '../../services/api/pokemonApi';
 import { getBinderById } from '../../services/supabase/binders';
 import { addCardToBinder, removeCardFromBinder } from '../../services/supabase/cards';
@@ -171,57 +172,63 @@ export default function CardDetailScreen({ navigation, route }: CardDetailScreen
   );
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
-      {/* Card Image - Smaller size with high priority loading */}
-      <View style={styles.imageContainer}>
-        <CardImage
-          source={card.imageUrlHiRes || card.imageUrl}
-          isMissing={!isOwned}
-          aspectRatio={0.7}
-          style={[styles.cardImage, { width: imageWidth }]}
-          priority="high"
-        />
-      </View>
+    <SafeAreaView style={styles.safeArea}>
+      <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
+        {/* Card Image - Smaller size with high priority loading */}
+        <View style={styles.imageContainer}>
+          <CardImage
+            source={card.imageUrlHiRes || card.imageUrl}
+            isMissing={!isOwned}
+            aspectRatio={0.7}
+            style={[styles.cardImage, { width: imageWidth }]}
+            priority="high"
+          />
+        </View>
 
-      {/* Card Information */}
-      <View style={styles.detailsContainer}>
-        <CardDetails
-          card={card}
-          variant="full"
-          showSet={true}
-          showRarity={true}
-          showArtist={true}
-          showVariantBadge={true}
-          showPokedex={false}
-        />
-      </View>
+        {/* Card Information */}
+        <View style={styles.detailsContainer}>
+          <CardDetails
+            card={card}
+            variant="full"
+            showSet={true}
+            showRarity={true}
+            showArtist={true}
+            showVariantBadge={true}
+            showPokedex={false}
+          />
+        </View>
 
-      {/* Ownership Toggle Button */}
-      <View style={styles.buttonContainer}>
-        <TouchableOpacity
-          style={[
-            styles.toggleButton,
-            isOwned ? styles.toggleButtonOwned : styles.toggleButtonMissing,
-            isUpdating && styles.toggleButtonDisabled,
-          ]}
-          onPress={handleToggleOwnership}
-          disabled={isUpdating}
-          activeOpacity={0.7}
-        >
-          {isUpdating ? (
-            <Text style={styles.toggleButtonText}>Updating...</Text>
-          ) : (
-            <Text style={styles.toggleButtonText}>
-              {isOwned ? 'Mark as Missing' : 'Mark as Owned'}
-            </Text>
-          )}
-        </TouchableOpacity>
-      </View>
-    </ScrollView>
+        {/* Ownership Toggle Button */}
+        <View style={styles.buttonContainer}>
+          <TouchableOpacity
+            style={[
+              styles.toggleButton,
+              isOwned ? styles.toggleButtonOwned : styles.toggleButtonMissing,
+              isUpdating && styles.toggleButtonDisabled,
+            ]}
+            onPress={handleToggleOwnership}
+            disabled={isUpdating}
+            activeOpacity={0.7}
+          >
+            {isUpdating ? (
+              <Text style={styles.toggleButtonText}>Updating...</Text>
+            ) : (
+              <Text style={styles.toggleButtonText}>
+                {isOwned ? 'Mark as Missing' : 'Mark as Owned'}
+              </Text>
+            )}
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
   container: {
     flex: 1,
     backgroundColor: colors.background,

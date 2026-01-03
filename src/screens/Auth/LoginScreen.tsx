@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { View, StyleSheet, Text, TextInput, TouchableOpacity, Alert, Platform, Linking } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { signIn, signInWithGoogle, signInWithApple } from '../../services/supabase/auth';
 import { colors, spacing, typography, borderRadius, screenPadding } from '../../constants/theme';
 
@@ -70,7 +71,7 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
   };
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       <Text style={styles.title}>Login</Text>
       
       <TextInput
@@ -140,7 +141,7 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
       <TouchableOpacity onPress={() => navigation.navigate('Signup')}>
         <Text style={styles.linkText}>Don't have an account? Sign up</Text>
       </TouchableOpacity>
-    </View>
+    </SafeAreaView>
   );
 }
 

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { View, StyleSheet, Text, ActivityIndicator, Alert } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { handleNfcTag, subscribeToNfcLinks, extractNfcTagIdFromUrl } from '../../utils/nfcHandler';
 import { Linking } from 'react-native';
 import type { NfcHandleResult } from '../../utils/nfcHandler';
@@ -130,25 +131,25 @@ export default function NfcHandlerScreen({ navigation, route }: NfcHandlerScreen
 
   if (loading) {
     return (
-      <View style={styles.container}>
+      <SafeAreaView style={styles.container}>
         <ActivityIndicator size="large" color="#007AFF" />
         <Text style={styles.text}>Processing NFC tag...</Text>
-      </View>
+      </SafeAreaView>
     );
   }
 
   if (error) {
     return (
-      <View style={styles.container}>
+      <SafeAreaView style={styles.container}>
         <Text style={styles.errorText}>{error}</Text>
-      </View>
+      </SafeAreaView>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       <Text style={styles.text}>NFC Handler</Text>
-    </View>
+    </SafeAreaView>
   );
 }
 

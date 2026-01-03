@@ -8,6 +8,7 @@ import {
   Alert,
   RefreshControl,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import type { MainStackParamList } from '../../navigation/AppNavigator';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -191,7 +192,7 @@ export default function BinderListScreen() {
 
   if (loading) {
     return (
-      <View style={styles.container}>
+      <SafeAreaView style={styles.container}>
         <View style={styles.headerRow}>
           <Text style={styles.title}>My Binders</Text>
           <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
@@ -199,12 +200,12 @@ export default function BinderListScreen() {
           </TouchableOpacity>
         </View>
         <LoadingScreen message="Loading binders..." fullScreen={false} />
-      </View>
+      </SafeAreaView>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       <View style={styles.headerRow}>
         <Text style={styles.title}>My Binders</Text>
         <View style={styles.headerButtons}>
@@ -233,7 +234,7 @@ export default function BinderListScreen() {
           <Text style={styles.createButtonText}>Create New Binder</Text>
         </TouchableOpacity>
       </View>
-    </View>
+    </SafeAreaView>
   );
 }
 

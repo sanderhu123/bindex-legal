@@ -32,38 +32,41 @@ export default function CardImage({
   const [hasError, setHasError] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [retryCount, setRetryCount] = useState(0);
+  const [retryKey, setRetryKey] = useState(0); // Key to force image remount on retry
   const MAX_RETRIES = 2;
 
   const handleLoadEnd = () => {
-    console.log('[24G] Image loaded successfully:', { 
-      source: typeof source === 'string' ? source.substring(0, 50) + '...' : 'ImageSource object',
-      retryCount,
-    });
+    // Only log on first successful load (not retries that eventually worked)
+    if (retryCount === 0) {
+      // Successful load on first try - no need to log
+    } else {
+      console.log('[24G] Image loaded after retry:', { 
+        source: typeof source === 'string' ? source.substring(0, 50) + '...' : 'ImageSource object',
+        attempts: retryCount + 1,
+      });
+    }
     setIsLoading(false);
   };
 
   const handleError = (error: any) => {
-    console.error('[24G] Image load error:', { 
-      source: typeof source === 'string' ? source.substring(0, 50) + '...' : 'ImageSource object',
-      retryCount,
-      maxRetries: MAX_RETRIES,
-      error: error?.message || 'Unknown error',
-    });
-    
-    setIsLoading(false);
-    
-    // Retry logic - try loading again if we haven't hit max retries
+    // Check if we can still retry
     if (retryCount < MAX_RETRIES) {
-      console.log('[24G] Retrying image load...', { attempt: retryCount + 1, maxRetries: MAX_RETRIES });
+      // Silent retry - don't log errors for retries that might succeed
       setRetryCount(prev => prev + 1);
       setIsLoading(true);
       setHasError(false);
-      // Force re-render by updating state - expo-image will retry
+      // Use setTimeout to give network a moment, then change key to force remount
       setTimeout(() => {
-        setIsLoading(true);
-      }, 500); // Wait 500ms before retry
+        setRetryKey(prev => prev + 1);
+      }, 300);
     } else {
-      // Max retries reached, show error placeholder
+      // Max retries reached - now log the error since it's a real failure
+      console.error('[24G] Image load failed after retries:', { 
+        source: typeof source === 'string' ? source.substring(0, 50) + '...' : 'ImageSource object',
+        attempts: retryCount + 1,
+        error: error?.message || 'Unknown error',
+      });
+      setIsLoading(false);
       setHasError(true);
       onError?.();
     }
@@ -119,6 +122,7 @@ export default function CardImage({
       {!hasError ? (
         <>
           <Image
+            key={retryKey} // Force remount when retrying to trigger new fetch
             source={imageSource}
             style={styles.image}
             contentFit="contain"

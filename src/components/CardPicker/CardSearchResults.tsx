@@ -63,10 +63,9 @@ export function CardSearchResults({
     >
       <View style={styles.cardImageContainer}>
         <CardImage
-          imageUrl={item.imageUrl}
-          cardName={item.name}
-          size="small"
+          source={item.imageUrl}
           isMissing={false}
+          style={styles.cardImage}
         />
       </View>
       <View style={styles.cardInfo}>
@@ -196,6 +195,11 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.sm,
     overflow: 'hidden',
     backgroundColor: colors.backgroundLight,
+  },
+  cardImage: {
+    width: 50,
+    height: 70,
+    borderRadius: borderRadius.sm,
   },
   cardInfo: {
     flex: 1,

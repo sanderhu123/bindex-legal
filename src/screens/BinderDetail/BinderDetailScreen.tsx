@@ -65,6 +65,10 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
   // Pagination state for infinite scroll
   const [displayCount, setDisplayCount] = useState(PAGE_SIZE);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
+  
+  // Track if data was loaded from cache (fast load = cached)
+  // If cards loaded in < 500ms, they came from cache
+  const [loadedFromCache, setLoadedFromCache] = useState(false);
 
   // Update screen width on dimension changes
   useEffect(() => {
@@ -150,8 +154,12 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
 
       try {
         setLoading(true);
-        // Reset pagination when fetching new cards
+        // Reset pagination and cache status when fetching new cards
         setDisplayCount(PAGE_SIZE);
+        setLoadedFromCache(false);
+        
+        // Track load time to detect if data came from cache
+        const loadStartTime = Date.now();
         let allCards: Card[] = [];
 
         // Get all cards based on collection mode
@@ -410,6 +418,12 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
         }
 
         setCards(cardsWithOwnership);
+        
+        // Check if data came from cache (loaded in < 500ms = cached)
+        const loadTime = Date.now() - loadStartTime;
+        const wasCached = loadTime < 500;
+        setLoadedFromCache(wasCached);
+        console.log('[BinderDetail] Load time:', loadTime + 'ms', wasCached ? '(from cache)' : '(fresh load)');
         
         // Start background prefetch for all card images
         // This continues even if the user leaves the screen
@@ -673,12 +687,12 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
           onOwnershipFilterChange={setOwnershipFilter}
         />
         
-        {/* Progress indicator for pagination */}
-        <View style={styles.paginationProgress}>
-          <Text style={styles.paginationText}>
-            Showing {displayedCards.length} of {filteredCards.length} cards
-          </Text>
-          {filteredCards.length > 0 && (
+        {/* Progress indicator for pagination - only show when NOT cached and still loading more */}
+        {!loadedFromCache && hasMoreCards && filteredCards.length > 0 && (
+          <View style={styles.paginationProgress}>
+            <Text style={styles.paginationText}>
+              Showing {displayedCards.length} of {filteredCards.length} cards ({Math.round((displayedCards.length / filteredCards.length) * 100)}%)
+            </Text>
             <View style={styles.paginationBarContainer}>
               <View 
                 style={[
@@ -687,8 +701,8 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
                 ]} 
               />
             </View>
-          )}
-        </View>
+          </View>
+        )}
         
         <Text style={styles.helpText}>Tap a card to view details, tap checkbox to mark owned</Text>
       </View>

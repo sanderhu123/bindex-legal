@@ -778,9 +778,10 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
         onEndReached={loadMoreCards}
         onEndReachedThreshold={0.5}
         // Performance optimizations
-        removeClippedSubviews={true}
+        // NOTE: removeClippedSubviews causes blank cards on scroll - DO NOT USE
+        removeClippedSubviews={false}
         maxToRenderPerBatch={PAGE_SIZE}
-        windowSize={5}
+        windowSize={11} // Larger window = more cards kept in memory = smoother scrolling
         initialNumToRender={PAGE_SIZE}
         // Extra data to trigger re-render when cards ownership changes
         extraData={[displayCount, cards]}

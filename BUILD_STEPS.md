@@ -1,8 +1,8 @@
 # Build Steps - Pokémon TCG Binder Tracker App
 
-> **📅 Last Updated:** December 30, 2025  
-> **🎯 Status:** ~90% Complete - Core features done, ready for testing and production build  
-> **✅ Major Milestones:** All phases 1-7 complete, Phase 8 (API integration) complete, testing and deployment remain
+> **📅 Last Updated:** January 6, 2026  
+> **🎯 Status:** ~85% Complete - Core features done, advanced collection features planned  
+> **✅ Major Milestones:** All phases 1-7 complete, Phase 8 (API integration) complete, Phase 9 (Monetization) planned, Phase 10 (Advanced Features) planned
 
 ## Overview
 
@@ -51,10 +51,15 @@ This guide walks you through building the app step-by-step. We'll build it incre
 ### ❌ **Not Yet Implemented**
 - **Step 23**: Comprehensive Testing - Needs user testing
 - **Step 27**: Premium System (Freemium Model) - Not started
+- **Step 28**: Global Card Search Foundation - Not started
+- **Step 29**: Custom Binder Mode (full implementation) - Not started
+- **Step 30**: Extra Cards in Master Set Binders - Not started
+- **Step 31**: Region Mode Card Selection - Not started
+- **Step 32**: Polish & Integration for Phase 10 - Not started
 - **Step 25**: Build for Production - Not started
 - **Step 26**: Deploy to App Stores - Not started
 
-### 📊 **Overall Progress**: ~85% Complete (Core features done, premium system, testing and production build remain)
+### 📊 **Overall Progress**: ~75% Complete (Core features done, premium system, advanced features, testing and production build remain)
 
 ---
 
@@ -2667,6 +2672,7 @@ eas build --profile production --platform all
 10. ✅ **Polish** - UI improvements
 11. ✅ **Production** - Real API, build, deploy
 12. ⏳ **Monetization** - Premium system (freemium)
+13. ⏳ **Advanced Features** - Custom binders, extra cards, region card selection
 
 ---
 
@@ -2712,31 +2718,38 @@ I'll begin with Phase 1, Step 1, and we'll build it step by step! 🚀
    - Create premium status screen
    - Test premium flow end-to-end
 
-2. **Install NFC Package** (if you want NFC functionality):
+2. **Advanced Collection Features** (Phase 10 - Steps 28-32):
+   - **Global Card Search** (Step 28): Search all cards across TCGDEX API
+   - **Custom Binder Mode** (Step 29): Create binders with any cards from any set
+   - **Extra Cards in Master Set** (Step 30): Add non-set cards to Master Set binders
+   - **Region Card Selection** (Step 31): Replace Pokémon sprites with TCG card images
+   - **Polish & Integration** (Step 32): Final optimization and error handling
+
+3. **Install NFC Package** (if you want NFC functionality):
    ```bash
    npm install react-native-nfc-manager
    ```
    - Then create development build (see DEVELOPMENT_BUILD_GUIDE.md)
    - Test NFC scanning on physical device
 
-3. **Optional Enhancements:**
-   - Create dedicated AddCardScreen (currently using tap-to-toggle)
+4. **Optional Enhancements:**
    - Implement full offline sync (currently has basic caching)
    - Add artist filter to BinderDetailScreen (currently only rarity filter)
 
-4. **Testing** (Step 23):
+5. **Testing** (Step 23):
    - Test all features thoroughly
    - Test on both iOS and Android
    - Test offline mode
    - Test NFC functionality (requires physical device + NFC tags)
    - Test premium system (free tier limits, premium activation)
    - Verify variant system works correctly
+   - Test new Phase 10 features (custom binders, extra cards, region selection)
 
-5. **Production Build** (Step 25):
+6. **Production Build** (Step 25):
    - Configure EAS build
    - Create production builds for iOS and Android
 
-6. **App Store Deployment** (Step 26):
+7. **App Store Deployment** (Step 26):
    - Create app store listings
    - Prepare screenshots
    - Submit to App Store and Google Play
@@ -2762,7 +2775,11 @@ I'll begin with Phase 1, Step 1, and we'll build it step by step! 🚀
   - Era-based set organization
 
 ### 🎯 **Current State:** 
-The app is **~85% complete** and fully functional for core features. You can create binders, add cards, track progress, and use all main features. What remains is implementing the premium/monetization system, testing, optional enhancements, and production deployment.
+The app is **~75% complete** and fully functional for core features. You can create binders, add cards, track progress, and use all main features. What remains is:
+- **Phase 9** (Step 27): Premium/monetization system
+- **Phase 10** (Steps 28-32): Advanced collection features (custom binders, extra cards, region card selection)
+- **Testing** (Step 23): Comprehensive testing
+- **Production** (Steps 25-26): Build and deploy to app stores
 
 ---
 
@@ -2802,4 +2819,712 @@ The app is **~85% complete** and fully functional for core features. You can cre
 - Clear upgrade path (hit 3 binder limit → buy physical binder)
 
 See **Step 27** for complete implementation guide.
+
+---
+
+## Phase 10: Advanced Collection Features
+
+### Overview
+
+This phase adds three powerful features that share a common foundation: **Global Card Search**.
+
+1. **Custom Binder Mode** - Users create binders with any cards from any set
+2. **Extra Cards in Master Set** - Add cards to a Master Set binder that aren't officially in that set
+3. **Region Card Selection** - Replace generic Pokémon sprites with actual TCG card images
+
+All three features require the ability to search across all cards in the TCGDEX API.
+
+---
+
+### Step 28: Global Card Search Foundation
+- [ ] **Status**: Not started
+
+**What we're doing:** Create the foundation for searching all cards across the entire TCGDEX API
+
+This is the shared foundation that enables Custom binders, Extra Cards, and Region card selection.
+
+---
+
+#### Step 28A: Add Global Card Search API Function
+- [ ] **Status**: Not started
+
+**What we're doing:** Add a function to search cards by name across all sets in the TCGDEX API
+
+**SDK Method:** `tcgdex.card.list()` with filters, or search endpoint (check SDK documentation)
+
+**Files to modify:**
+- `src/services/api/pokemonApi.ts` - Add `searchCardsByName()` function
+- `src/types/api.ts` - Add search result types if needed
+
+**What gets implemented:**
+- Search cards by Pokémon name (e.g., "Bulbasaur" returns all Bulbasaur cards)
+- Search cards by partial name (e.g., "Char" returns Charmander, Charmeleon, Charizard, etc.)
+- Filter results to only Pokémon cards (exclude Trainers that mention Pokémon names)
+- Cache search results for performance
+- Pagination support for large result sets
+- Rate limiting protection
+
+**Function signature:**
+```typescript
+/**
+ * Search for cards by Pokémon name across all sets
+ * @param query - Search query (Pokémon name or partial name)
+ * @param options - Search options (limit, offset, pokemonOnly)
+ * @returns Array of matching cards
+ */
+export async function searchCardsByName(
+  query: string,
+  options?: {
+    limit?: number;
+    offset?: number;
+    pokemonOnly?: boolean; // Filter to only Pokemon supertype
+  }
+): Promise<Card[]>
+```
+
+**Testing:**
+- [ ] searchCardsByName() returns cards matching the query
+- [ ] Search "Pikachu" returns all Pikachu cards from all sets
+- [ ] Search "Char" returns Charmander, Charmeleon, Charizard cards
+- [ ] pokemonOnly option filters out Trainer cards
+- [ ] Results are cached for repeated searches
+- [ ] Rate limiting is handled gracefully
+- [ ] Empty search returns empty array (no crash)
+- [ ] Special characters in search don't crash the app
+- [ ] Performance is acceptable (<3 seconds for results)
+
+**How to Test Step 28A:**
+1. **Unit test the function:**
+   - Call `searchCardsByName('Pikachu')` and verify results
+   - Call `searchCardsByName('Bulbasaur', { pokemonOnly: true })` and verify only Pokémon cards
+   - Call `searchCardsByName('xyz123')` and verify empty array returned
+
+2. **Check console logs:**
+   - Should see `[28A] searchCardsByName() called` with query
+   - Should see `[28A] Search results` with count
+   - Should see cache hit on repeated searches
+
+**Logging & Debugging for Step 28A:**
+```typescript
+export async function searchCardsByName(query: string, options?: SearchOptions): Promise<Card[]> {
+  console.log('[28A] searchCardsByName() called:', { query, options });
+  const startTime = performance.now();
+  
+  // ... implementation
+  
+  console.log('[28A] Search completed:', {
+    query,
+    resultCount: results.length,
+    duration: `${(performance.now() - startTime).toFixed(2)}ms`,
+    cached: wasCached,
+  });
+  
+  return results;
+}
+```
+
+---
+
+#### Step 28B: Create Card Search/Picker UI Component
+- [ ] **Status**: Not started
+
+**What we're doing:** Create a reusable modal/screen for searching and selecting cards
+
+This component will be used by:
+- Custom binder mode (add any card)
+- Extra cards feature (add card to Master Set)
+- Region card selection (pick TCG card for Pokémon slot)
+
+**Files to create:**
+- `src/components/CardPicker/CardPickerModal.tsx` - Modal component for card selection
+- `src/components/CardPicker/CardSearchResults.tsx` - Search results grid/list
+- `src/components/CardPicker/index.ts` - Export components
+- `src/hooks/useCardPicker.ts` - Hook for card picker logic
+
+**Features:**
+- Search input with debounced search (300ms delay)
+- Loading state while searching
+- Results grid showing card images and names
+- Tap card to select it
+- "Cancel" button to close without selecting
+- Empty state when no results
+- Error state for API failures
+- Pagination/infinite scroll for large result sets
+
+**Component Props:**
+```typescript
+interface CardPickerModalProps {
+  visible: boolean;
+  onClose: () => void;
+  onSelectCard: (card: Card) => void;
+  title?: string; // e.g., "Add Card" or "Choose a Bulbasaur Card"
+  initialQuery?: string; // Pre-fill search (e.g., "Bulbasaur" for Region mode)
+  pokemonOnly?: boolean; // Only show Pokémon cards
+}
+```
+
+**Testing:**
+- [ ] Modal opens and closes correctly
+- [ ] Search input works with debounce
+- [ ] Results display in grid/list
+- [ ] Tapping card calls onSelectCard
+- [ ] Cancel button calls onClose
+- [ ] Loading spinner shows during search
+- [ ] Empty state shows when no results
+- [ ] Error state shows on API failure
+- [ ] Scrolling works for many results
+- [ ] Modal is accessible (proper focus management)
+
+**How to Test Step 28B:**
+1. **Open card picker:**
+   - Trigger the modal from a test button/screen
+   - Verify modal appears with search input
+
+2. **Test search:**
+   - Type "Pikachu" and wait for results
+   - Verify Pikachu cards appear
+   - Verify loading spinner shows during search
+
+3. **Test selection:**
+   - Tap a card in results
+   - Verify onSelectCard is called with card data
+   - Verify modal closes after selection
+
+4. **Test cancel:**
+   - Open modal and tap Cancel
+   - Verify modal closes without selection
+
+---
+
+### Step 29: Custom Binder Mode
+- [ ] **Status**: Not started
+
+**What we're doing:** Fully implement the Custom binder mode where users can add any cards from any set
+
+**Current state:** Custom mode exists in types but shows empty card list in BinderDetailScreen
+
+---
+
+#### Step 29A: Update Custom Binder Creation Flow
+- [ ] **Status**: Not started
+
+**What we're doing:** Add proper onboarding flow for Custom binders
+
+**Files to modify:**
+- `src/screens/Onboarding/OnboardingScreen.tsx` - Add Custom mode flow
+- `src/screens/Onboarding/Step1CollectionMode.tsx` - Show Custom option
+- `src/screens/BinderList/BinderListScreen.tsx` - Quick-create Custom binder option
+
+**Custom Mode Onboarding Flow (3 steps):**
+1. **Step 1**: Collection Mode - Select "Custom"
+2. **Step 2**: Layout Preference - Choose 3×3 or 4×3
+3. **Step 3**: Binder Name - Enter name
+
+**Note:** Custom mode skips set selection, region selection, and variant selection since users manually add any cards they want.
+
+**Testing:**
+- [ ] Custom mode appears as option in Step 1
+- [ ] Selecting Custom skips to layout preference
+- [ ] Can complete Custom binder creation
+- [ ] Custom binder saved to database correctly
+- [ ] Custom binder appears in binder list
+
+---
+
+#### Step 29B: Update BinderDetailScreen for Custom Mode
+- [ ] **Status**: Not started
+
+**What we're doing:** Show cards the user has added and provide "Add Card" button
+
+**Files to modify:**
+- `src/screens/BinderDetail/BinderDetailScreen.tsx` - Handle Custom mode display
+
+**What gets implemented:**
+- For Custom mode, load cards from `binder_cards` table (user's added cards)
+- Show "Add Card" floating action button (FAB)
+- Tapping FAB opens CardPickerModal
+- When user selects card, add it to binder
+- Progress shows "X cards" (no percentage since no fixed total)
+- Cards can be removed (tap to toggle, same as other modes)
+- Empty state: "No cards yet. Tap + to add cards."
+
+**Custom Mode Display Logic:**
+```typescript
+if (binder.collectionMode === 'custom') {
+  // Load only cards that user has added (from binder_cards table)
+  const cardIds = binder.cardIds;
+  const cards = await Promise.all(cardIds.map(id => getCardById(id)));
+  // Display these cards
+  // Show "Add Card" FAB
+}
+```
+
+**Testing:**
+- [ ] Custom binder shows only user-added cards
+- [ ] "Add Card" FAB appears for Custom binders
+- [ ] Tapping FAB opens card picker
+- [ ] Selected card is added to binder
+- [ ] Card appears in binder grid/list
+- [ ] Can remove card by tapping
+- [ ] Progress shows "X cards" format
+- [ ] Empty state shows when no cards
+- [ ] Cards persist after app restart
+
+**How to Test Step 29B:**
+1. **Create Custom binder:**
+   - Go through onboarding, select Custom
+   - Complete binder creation
+
+2. **Test empty state:**
+   - Open the Custom binder
+   - Should see empty state message
+   - Should see "Add Card" button
+
+3. **Test adding cards:**
+   - Tap "Add Card" button
+   - Search for a card (e.g., "Charizard")
+   - Select a card
+   - Verify card appears in binder
+
+4. **Test removing cards:**
+   - Tap on an owned card
+   - Verify card is removed (or marked as not owned)
+
+---
+
+### Step 30: Extra Cards in Master Set Binders
+- [ ] **Status**: Not started
+
+**What we're doing:** Allow users to add cards to a Master Set binder that aren't officially in that set
+
+**Use case:** User wants to track a promo Pikachu card alongside their Scarlet & Violet set, even though that Pikachu isn't in the set.
+
+---
+
+#### Step 30A: Update Database Schema for Extra Cards
+- [ ] **Status**: Not started
+
+**What we're doing:** Track which cards are "extra" (not part of official set)
+
+**Option 1: Add field to binder_cards table**
+```sql
+-- Add is_extra column to binder_cards table
+ALTER TABLE public.binder_cards
+ADD COLUMN IF NOT EXISTS is_extra BOOLEAN DEFAULT FALSE;
+
+-- Index for filtering extra cards
+CREATE INDEX IF NOT EXISTS idx_binder_cards_is_extra 
+ON public.binder_cards(binder_id, is_extra);
+```
+
+**Option 2: Store extra card IDs in binder table**
+```sql
+-- Add extra_card_ids array to binders table
+ALTER TABLE public.binders
+ADD COLUMN IF NOT EXISTS extra_card_ids TEXT[] DEFAULT '{}';
+```
+
+**Recommended:** Option 1 (is_extra field) - more flexible and follows existing pattern
+
+**Testing:**
+- [ ] SQL runs without errors
+- [ ] New column/field appears in table
+- [ ] Default value is correct (FALSE)
+- [ ] Can query extra cards for a binder
+
+---
+
+#### Step 30B: Update Card Services for Extra Cards
+- [ ] **Status**: Not started
+
+**What we're doing:** Update card services to handle extra cards
+
+**Files to modify:**
+- `src/services/supabase/cards.ts` - Add functions for extra cards
+- `src/types/binder.ts` - Update types if needed
+
+**Functions to add:**
+```typescript
+/**
+ * Add an extra card to a binder (card not officially in the set)
+ */
+export async function addExtraCardToBinder(
+  binderId: string,
+  cardId: string,
+  variant?: string
+): Promise<void>
+
+/**
+ * Get all extra cards in a binder
+ */
+export async function getExtraCardsInBinder(
+  binderId: string
+): Promise<string[]>
+
+/**
+ * Check if a card is an extra card in a binder
+ */
+export async function isExtraCard(
+  binderId: string,
+  cardId: string
+): Promise<boolean>
+```
+
+**Testing:**
+- [ ] addExtraCardToBinder() marks card as extra
+- [ ] getExtraCardsInBinder() returns only extra cards
+- [ ] isExtraCard() correctly identifies extra cards
+- [ ] Regular cards are not marked as extra
+- [ ] No TypeScript errors
+
+---
+
+#### Step 30C: Update BinderDetailScreen for Extra Cards
+- [ ] **Status**: Not started
+
+**What we're doing:** Display extra cards in Master Set binders and allow adding them
+
+**Files to modify:**
+- `src/screens/BinderDetail/BinderDetailScreen.tsx` - Handle extra cards display
+
+**UI Changes:**
+- Add "Add Extra Card" button (smaller than main FAB, maybe in header)
+- Extra cards section at the bottom of the card grid
+- Visual indicator for extra cards (badge or different border)
+- Progress tracking separate: "95/150 (63%) + 3 extras"
+
+**Display Logic:**
+```typescript
+if (binder.collectionMode === 'master-set') {
+  // Load official set cards
+  const setCards = await getCardsBySet(binder.set);
+  
+  // Load extra cards
+  const extraCardIds = await getExtraCardsInBinder(binder.id);
+  const extraCards = await Promise.all(extraCardIds.map(id => getCardById(id)));
+  
+  // Display: [setCards] then [extraCards section]
+}
+```
+
+**Testing:**
+- [ ] "Add Extra Card" button appears for Master Set binders
+- [ ] Extra cards appear in separate section
+- [ ] Extra cards have visual indicator
+- [ ] Progress shows "X/Y + Z extras" format
+- [ ] Can add extra cards via picker
+- [ ] Can remove extra cards
+- [ ] Extra cards don't affect main progress percentage
+
+**How to Test Step 30C:**
+1. **Open a Master Set binder:**
+   - Should see normal set cards
+   - Should see "Add Extra Card" button
+
+2. **Add an extra card:**
+   - Tap "Add Extra Card"
+   - Search for a card from a different set
+   - Select the card
+   - Verify card appears in "Extras" section
+
+3. **Check progress:**
+   - Progress should show main set completion
+   - Extra cards should be counted separately
+
+---
+
+### Step 31: Region Mode Card Selection
+- [ ] **Status**: Not started
+
+**What we're doing:** Allow users to select a specific TCG card image to represent each Pokémon in Region mode
+
+**Use case:** User taps Bulbasaur slot → sees all Bulbasaur TCG cards → selects their favorite → that card image replaces the generic Bulbasaur sprite.
+
+---
+
+#### Step 31A: Create Database Table for Region Card Selections
+- [ ] **Status**: Not started
+
+**What we're doing:** Store which TCG card the user selected for each Pokémon slot
+
+**SQL to run in Supabase:**
+```sql
+-- Create table for region card selections
+CREATE TABLE IF NOT EXISTS public.region_pokemon_cards (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  binder_id UUID NOT NULL REFERENCES public.binders(id) ON DELETE CASCADE,
+  pokedex_number INTEGER NOT NULL,
+  selected_card_id TEXT NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  
+  -- One selection per Pokémon per binder
+  UNIQUE(binder_id, pokedex_number)
+);
+
+-- Enable RLS
+ALTER TABLE public.region_pokemon_cards ENABLE ROW LEVEL SECURITY;
+
+-- RLS policies
+CREATE POLICY "Users can view own region card selections" ON public.region_pokemon_cards
+  FOR SELECT USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can insert own region card selections" ON public.region_pokemon_cards
+  FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can update own region card selections" ON public.region_pokemon_cards
+  FOR UPDATE USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can delete own region card selections" ON public.region_pokemon_cards
+  FOR DELETE USING (auth.uid() = user_id);
+
+-- Indexes
+CREATE INDEX IF NOT EXISTS idx_region_pokemon_cards_binder 
+ON public.region_pokemon_cards(binder_id);
+
+CREATE INDEX IF NOT EXISTS idx_region_pokemon_cards_user 
+ON public.region_pokemon_cards(user_id);
+
+-- Trigger for updated_at
+CREATE TRIGGER update_region_pokemon_cards_updated_at
+  BEFORE UPDATE ON public.region_pokemon_cards
+  FOR EACH ROW
+  EXECUTE FUNCTION update_updated_at_column();
+```
+
+**Testing:**
+- [ ] Table created successfully
+- [ ] RLS policies applied
+- [ ] Can insert a selection
+- [ ] Unique constraint prevents duplicate Pokémon selections per binder
+- [ ] Can query selections for a binder
+
+---
+
+#### Step 31B: Create Region Card Selection Service
+- [ ] **Status**: Not started
+
+**What we're doing:** Create service functions for managing region card selections
+
+**Files to create:**
+- `src/services/supabase/regionCards.ts` - Region card selection CRUD
+
+**Functions:**
+```typescript
+/**
+ * Get the selected card for a Pokémon in a Region binder
+ */
+export async function getSelectedCardForPokemon(
+  binderId: string,
+  pokedexNumber: number
+): Promise<string | null>
+
+/**
+ * Set the selected card for a Pokémon in a Region binder
+ */
+export async function setSelectedCardForPokemon(
+  binderId: string,
+  pokedexNumber: number,
+  cardId: string
+): Promise<void>
+
+/**
+ * Get all selected cards for a Region binder
+ * Returns Map<pokedexNumber, cardId>
+ */
+export async function getAllSelectedCardsForBinder(
+  binderId: string
+): Promise<Map<number, string>>
+
+/**
+ * Clear the selected card for a Pokémon (revert to default sprite)
+ */
+export async function clearSelectedCardForPokemon(
+  binderId: string,
+  pokedexNumber: number
+): Promise<void>
+```
+
+**Testing:**
+- [ ] getSelectedCardForPokemon() returns card ID or null
+- [ ] setSelectedCardForPokemon() saves selection
+- [ ] getAllSelectedCardsForBinder() returns all selections
+- [ ] clearSelectedCardForPokemon() removes selection
+- [ ] No TypeScript errors
+
+---
+
+#### Step 31C: Update Region Mode Display
+- [ ] **Status**: Not started
+
+**What we're doing:** Show selected TCG card images instead of generic sprites
+
+**Files to modify:**
+- `src/screens/BinderDetail/BinderDetailScreen.tsx` - Load and display selected cards
+- `src/services/api/pokemonApi.ts` - Update `getCardsByRegion()` to include selected cards
+
+**Display Logic:**
+```typescript
+// In BinderDetailScreen for Region mode:
+if (binder.collectionMode === 'region') {
+  // Get Pokemon list for region
+  const pokemonList = await getCardsByRegion(binder.region, binder.pokemonArtStyle);
+  
+  // Get selected cards for this binder
+  const selectedCards = await getAllSelectedCardsForBinder(binder.id);
+  
+  // For each Pokemon, check if user selected a card
+  const cardsWithSelections = await Promise.all(
+    pokemonList.map(async (pokemon) => {
+      const selectedCardId = selectedCards.get(pokemon.pokedexNumber);
+      
+      if (selectedCardId) {
+        // Load the selected TCG card
+        const tcgCard = await getCardById(selectedCardId);
+        return {
+          ...pokemon,
+          imageUrl: tcgCard?.imageUrl || pokemon.imageUrl,
+          selectedCard: tcgCard,
+        };
+      }
+      
+      return pokemon;
+    })
+  );
+}
+```
+
+**Testing:**
+- [ ] Region binder shows default sprites by default
+- [ ] Selected cards show TCG card image instead of sprite
+- [ ] Card selection persists after app restart
+- [ ] Performance is acceptable (loading not too slow)
+
+---
+
+#### Step 31D: Create Pokemon Card Picker Flow
+- [ ] **Status**: Not started
+
+**What we're doing:** When user taps a Pokémon, show all TCG cards for that Pokémon and let them select one
+
+**Files to modify:**
+- `src/screens/BinderDetail/BinderDetailScreen.tsx` - Handle tap on Region card
+- `src/components/CardPicker/CardPickerModal.tsx` - Pre-fill with Pokémon name
+
+**Flow:**
+1. User taps on Bulbasaur slot in Region binder
+2. CardPickerModal opens with title "Choose a Bulbasaur Card"
+3. Search is pre-filled with "Bulbasaur" and results auto-load
+4. User scrolls through all Bulbasaur cards from all sets
+5. User taps desired card
+6. Selection saved to database
+7. Binder updates to show selected card image
+
+**UI Changes:**
+- Long-press on Region card shows options: "Choose Card" / "View Details" / "Clear Selection"
+- Or: Regular tap opens card picker, dedicated button for card details
+- Visual indicator on cards that have custom selection (small badge/icon)
+
+**Testing:**
+- [ ] Tapping Region card opens card picker
+- [ ] Card picker pre-fills with Pokémon name
+- [ ] All cards for that Pokémon are shown
+- [ ] Selecting card saves to database
+- [ ] Binder display updates with new image
+- [ ] Can clear selection to revert to sprite
+- [ ] Visual indicator shows which Pokémon have custom cards
+
+**How to Test Step 31D:**
+1. **Open a Region binder:**
+   - Should see Pokémon with sprites (or art style you chose)
+
+2. **Select a custom card:**
+   - Tap on Pikachu
+   - Should see all Pikachu TCG cards
+   - Select a card
+   - Pikachu slot should now show that card's image
+
+3. **Clear selection:**
+   - Long-press on Pikachu (or find clear option)
+   - Clear the selection
+   - Should revert to default sprite
+
+4. **Verify persistence:**
+   - Close and reopen the binder
+   - Custom card selection should still be there
+
+---
+
+### Step 32: Polish & Integration
+- [ ] **Status**: Not started
+
+**What we're doing:** Final polish and integration of all custom card features
+
+---
+
+#### Step 32A: Unified Card Picker Experience
+- [ ] **Status**: Not started
+
+**What we're doing:** Ensure card picker works consistently across all features
+
+**Files to review/update:**
+- All files using CardPickerModal
+- Consistent styling and behavior
+
+**Checklist:**
+- [ ] Same animation for all uses
+- [ ] Same search behavior
+- [ ] Same result display
+- [ ] Proper keyboard handling
+- [ ] Works on all screen sizes
+
+---
+
+#### Step 32B: Performance Optimization
+- [ ] **Status**: Not started
+
+**What we're doing:** Optimize performance for large search results and many card selections
+
+**Optimizations:**
+- [ ] Cache search results
+- [ ] Lazy load card images in picker
+- [ ] Batch load region card selections
+- [ ] Use React.memo for card items
+- [ ] Virtualized list for search results
+
+---
+
+#### Step 32C: Error Handling & Edge Cases
+- [ ] **Status**: Not started
+
+**What we're doing:** Handle all error cases gracefully
+
+**Edge cases to handle:**
+- [ ] Card no longer exists in API (deleted set)
+- [ ] Network error during search
+- [ ] Rate limit hit during search
+- [ ] User tries to add same card twice
+- [ ] Very long Pokémon names in search
+- [ ] Special characters in search query
+- [ ] Empty search results
+
+---
+
+**Overall Testing Checklist for Phase 10:**
+- [ ] Global card search works correctly (Step 28)
+- [ ] Card picker modal works in all contexts (Step 28)
+- [ ] Custom binder mode fully functional (Step 29)
+- [ ] Can add/remove cards in Custom binders
+- [ ] Extra cards feature works in Master Set binders (Step 30)
+- [ ] Extra cards displayed separately with indicator
+- [ ] Region card selection works (Step 31)
+- [ ] Selected cards display correctly in Region binders
+- [ ] All features work offline (with cached data)
+- [ ] Performance is acceptable
+- [ ] No TypeScript errors
+- [ ] No console errors
+- [ ] All error states handled gracefully
+
+---
 

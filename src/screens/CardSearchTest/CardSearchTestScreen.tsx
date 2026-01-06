@@ -17,12 +17,14 @@ import { useNavigation } from '@react-navigation/native';
 import { searchCardsByName, type CardSearchOptions } from '../../services/api/pokemonApi';
 import type { Card } from '../../types';
 import { colors, spacing, typography, borderRadius, screenPadding } from '../../constants/theme';
+import { CardPickerModal } from '../../components/CardPicker';
 
 /**
- * Temporary test screen for global card search (Step 28A)
+ * Test screen for global card search (Step 28A & 28B)
  * 
- * This screen allows testing the searchCardsByName() function.
- * It will be removed or repurposed once the Card Picker Modal is built (Step 28B).
+ * This screen allows testing:
+ * - Step 28A: searchCardsByName() function (manual search)
+ * - Step 28B: CardPickerModal component (bottom sheet modal)
  */
 export default function CardSearchTestScreen() {
   const navigation = useNavigation();
@@ -35,6 +37,10 @@ export default function CardSearchTestScreen() {
     totalFound: number;
     duration: number;
   } | null>(null);
+  
+  // Step 28B: Modal state
+  const [showPickerModal, setShowPickerModal] = useState(false);
+  const [selectedCard, setSelectedCard] = useState<Card | null>(null);
 
   const handleSearch = useCallback(async () => {
     if (!query.trim()) {
@@ -83,6 +89,17 @@ export default function CardSearchTestScreen() {
     setError(null);
     setSearchStats(null);
   };
+
+  // Step 28B: Handle card selection from modal
+  const handleCardSelected = useCallback((card: Card) => {
+    console.log('[Test] Card selected from modal:', card.name);
+    setSelectedCard(card);
+    Alert.alert(
+      '✅ Card Selected!',
+      `You selected: ${card.name}\n\nSet: ${card.set}\nNumber: #${card.number}`,
+      [{ text: 'OK' }]
+    );
+  }, []);
 
   const renderCard = ({ item }: { item: Card }) => (
     <View style={styles.cardItem}>
@@ -147,8 +164,27 @@ export default function CardSearchTestScreen() {
         {/* Info Banner */}
         <View style={styles.infoBanner}>
           <Text style={styles.infoText}>
-            Step 28A Test Screen - Search cards by Pokémon name across all sets
+            Step 28A & 28B - Global Card Search & Card Picker Modal
           </Text>
+        </View>
+
+        {/* Step 28B: Modal Test Button */}
+        <View style={styles.modalTestSection}>
+          <TouchableOpacity
+            style={styles.modalTestButton}
+            onPress={() => setShowPickerModal(true)}
+          >
+            <Text style={styles.modalTestButtonText}>📱 Open Card Picker Modal</Text>
+          </TouchableOpacity>
+          {selectedCard && (
+            <View style={styles.selectedCardInfo}>
+              <Text style={styles.selectedCardLabel}>Last selected:</Text>
+              <Text style={styles.selectedCardName}>{selectedCard.name}</Text>
+              <Text style={styles.selectedCardDetails}>
+                #{selectedCard.number} • {selectedCard.set}
+              </Text>
+            </View>
+          )}
         </View>
 
         {/* Search Input */}
@@ -233,6 +269,15 @@ export default function CardSearchTestScreen() {
           </View>
         </View>
       </KeyboardAvoidingView>
+
+      {/* Step 28B: Card Picker Modal */}
+      <CardPickerModal
+        visible={showPickerModal}
+        onClose={() => setShowPickerModal(false)}
+        onSelectCard={handleCardSelected}
+        title="Test Card Picker"
+        pokemonOnly={pokemonOnly}
+      />
     </SafeAreaView>
   );
 }
@@ -283,6 +328,44 @@ const styles = StyleSheet.create({
     fontSize: typography.xs,
     color: colors.primary,
     textAlign: 'center',
+  },
+  modalTestSection: {
+    backgroundColor: colors.success + '15',
+    paddingHorizontal: screenPadding,
+    paddingVertical: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.success + '30',
+  },
+  modalTestButton: {
+    backgroundColor: colors.success,
+    paddingVertical: spacing.md,
+    borderRadius: borderRadius.md,
+    alignItems: 'center',
+  },
+  modalTestButtonText: {
+    color: colors.background,
+    fontSize: typography.base,
+    fontWeight: typography.semibold,
+  },
+  selectedCardInfo: {
+    marginTop: spacing.sm,
+    padding: spacing.sm,
+    backgroundColor: colors.background,
+    borderRadius: borderRadius.sm,
+  },
+  selectedCardLabel: {
+    fontSize: typography.xs,
+    color: colors.textTertiary,
+    marginBottom: 2,
+  },
+  selectedCardName: {
+    fontSize: typography.base,
+    fontWeight: typography.semibold,
+    color: colors.text,
+  },
+  selectedCardDetails: {
+    fontSize: typography.sm,
+    color: colors.textSecondary,
   },
   searchContainer: {
     flexDirection: 'row',

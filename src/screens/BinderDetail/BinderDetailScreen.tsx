@@ -65,13 +65,6 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
   // Pagination state for infinite scroll
   const [displayCount, setDisplayCount] = useState(PAGE_SIZE);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
-  
-  // Track if data was loaded from cache (fast load = cached)
-  // If cards loaded in < 2000ms, they likely came from cache
-  const [loadedFromCache, setLoadedFromCache] = useState(false);
-  
-  // Track card loading progress for display during initial load
-  const [loadingProgress, setLoadingProgress] = useState<string>('');
 
   // Update screen width on dimension changes
   useEffect(() => {
@@ -157,13 +150,8 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
 
       try {
         setLoading(true);
-        // Reset pagination and cache status when fetching new cards
+        // Reset pagination when fetching new cards
         setDisplayCount(PAGE_SIZE);
-        setLoadedFromCache(false);
-        setLoadingProgress('Fetching card data...');
-        
-        // Track load time to detect if data came from cache
-        const loadStartTime = Date.now();
         let allCards: Card[] = [];
 
         // Get all cards based on collection mode
@@ -171,7 +159,6 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
           console.log('[BinderDetail] ========================================');
           console.log('[BinderDetail] FETCHING CARDS FOR SET:', binder.set);
           console.log('[BinderDetail] ========================================');
-          setLoadingProgress(`Loading cards for ${binder.set}...`);
           allCards = await getCardsBySet(binder.set);
           console.log('[BinderDetail] ✓ Fetched', allCards.length, 'total cards from API');
           
@@ -423,14 +410,6 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
         }
 
         setCards(cardsWithOwnership);
-        
-        // Check if data came from cache (loaded in < 2000ms = cached)
-        // Using 2000ms threshold because cached data loads very fast, API calls take longer
-        const loadTime = Date.now() - loadStartTime;
-        const wasCached = loadTime < 2000;
-        setLoadedFromCache(wasCached);
-        setLoadingProgress('');
-        console.log('[BinderDetail] Load time:', loadTime + 'ms', wasCached ? '(from cache)' : '(fresh load)');
         
         // Start background prefetch for all card images
         // This continues even if the user leaves the screen
@@ -694,45 +673,6 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
           onOwnershipFilterChange={setOwnershipFilter}
         />
         
-        {/* Loading progress - show while fetching cards from API */}
-        {loading && (
-          <View style={styles.paginationProgress}>
-            <View style={styles.loadingRow}>
-              <ActivityIndicator size="small" color={colors.primary} />
-              <Text style={styles.loadingProgressText}>
-                {loadingProgress || 'Loading cards...'}
-              </Text>
-            </View>
-            <View style={styles.paginationBarContainer}>
-              <View style={styles.paginationBarIndeterminate} />
-            </View>
-          </View>
-        )}
-        
-        {/* Pagination progress - only show when NOT cached and still loading more */}
-        {!loading && !loadedFromCache && hasMoreCards && filteredCards.length > 0 && (
-          <View style={styles.paginationProgress}>
-            <Text style={styles.paginationText}>
-              Showing {displayedCards.length} of {filteredCards.length} cards ({Math.round((displayedCards.length / filteredCards.length) * 100)}%)
-            </Text>
-            <View style={styles.paginationBarContainer}>
-              <View 
-                style={[
-                  styles.paginationBar, 
-                  { width: `${Math.round((displayedCards.length / filteredCards.length) * 100)}%` }
-                ]} 
-              />
-            </View>
-          </View>
-        )}
-        
-        {/* Debug info - remove after testing */}
-        {__DEV__ && (
-          <Text style={styles.debugText}>
-            Debug: loading={String(loading)}, cached={String(loadedFromCache)}, hasMore={String(hasMoreCards)}, cards={filteredCards.length}
-          </Text>
-        )}
-        
         <Text style={styles.helpText}>Tap a card to view details, tap checkbox to mark owned</Text>
       </View>
     </View>
@@ -923,43 +863,6 @@ const styles = StyleSheet.create({
   },
   row: {
     marginHorizontal: -CARD_MARGIN,
-  },
-  // Pagination progress styles
-  paginationProgress: {
-    marginBottom: spacing.sm,
-  },
-  paginationText: {
-    fontSize: typography.sm,
-    color: colors.textSecondary,
-    marginBottom: spacing.xs,
-  },
-  paginationBarContainer: {
-    height: 4,
-    backgroundColor: colors.backgroundDark,
-    borderRadius: 2,
-    overflow: 'hidden',
-  },
-  paginationBar: {
-    height: '100%',
-    backgroundColor: colors.primary,
-    borderRadius: 2,
-  },
-  paginationBarIndeterminate: {
-    height: '100%',
-    width: '100%',
-    backgroundColor: colors.primary,
-    borderRadius: 2,
-    opacity: 0.6,
-  },
-  loadingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    marginBottom: spacing.xs,
-  },
-  loadingProgressText: {
-    fontSize: typography.sm,
-    color: colors.textSecondary,
   },
   // Footer styles
   footer: {

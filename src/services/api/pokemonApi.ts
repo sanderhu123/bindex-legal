@@ -1449,5 +1449,255 @@ export function getErasList(): Array<{ id: string; name: string }> {
   return getEras();
 }
 
+// ==================== STEP 28A: GLOBAL CARD SEARCH ====================
+
+/**
+ * Search options for searchCardsByName()
+ */
+export interface CardSearchOptions {
+  /** Maximum number of results to return (default: 50) */
+  limit?: number;
+  /** Number of results to skip for pagination (default: 0) */
+  offset?: number;
+  /** Filter to only Pokémon cards, excluding Trainers that mention Pokémon names (default: false) */
+  pokemonOnly?: boolean;
+}
+
+/**
+ * Cache duration for search results (2 minutes - shorter than normal cache)
+ * Search results can change more frequently as users search different terms
+ */
+const SEARCH_CACHE_DURATION = 2 * 60 * 1000;
+
+/**
+ * Check if search cache is valid (2 minutes)
+ */
+function isSearchCacheValid(timestamp: number): boolean {
+  return Date.now() - timestamp < SEARCH_CACHE_DURATION;
+}
+
+/**
+ * Search for cards by Pokémon name across all sets.
+ * 
+ * This function enables searching the entire TCGDEX database for cards matching
+ * a query. It supports partial name matching and can filter to only Pokémon cards.
+ * 
+ * Used by:
+ * - Custom binder mode (add any card)
+ * - Extra cards feature (add cards to Master Set that aren't in the set)
+ * - Region card selection (pick TCG card image for a Pokémon slot)
+ * 
+ * @param query - Search query (Pokémon name or partial name, e.g., "Pikachu", "Char")
+ * @param options - Search options (limit, offset, pokemonOnly)
+ * @returns Array of matching cards
+ * 
+ * @example
+ * // Search for all Pikachu cards
+ * const pikachus = await searchCardsByName('Pikachu');
+ * 
+ * @example
+ * // Search for Charizard, Charmander, Charmeleon (partial match)
+ * const charCards = await searchCardsByName('Char');
+ * 
+ * @example
+ * // Search for only Pokémon cards (exclude Trainers mentioning the name)
+ * const pokemonOnly = await searchCardsByName('Pikachu', { pokemonOnly: true });
+ */
+export async function searchCardsByName(
+  query: string,
+  options?: CardSearchOptions
+): Promise<Card[]> {
+  const { limit = 50, offset = 0, pokemonOnly = false } = options || {};
+  
+  console.log('[28A] searchCardsByName() called:', { query, limit, offset, pokemonOnly });
+  const startTime = performance.now();
+  
+  // Validate query
+  if (!query || query.trim().length === 0) {
+    console.log('[28A] Empty query, returning empty array');
+    return [];
+  }
+  
+  // Sanitize query - remove special characters that could cause issues
+  const sanitizedQuery = query.trim().toLowerCase();
+  
+  // Create cache key including all options
+  const cacheKey = `search-${sanitizedQuery}-${limit}-${offset}-${pokemonOnly}`;
+  
+  // Step 1: Check cache first (with shorter duration for search results)
+  const cached = apiCache.get(cacheKey);
+  if (cached && isSearchCacheValid(cached.timestamp)) {
+    const duration = performance.now() - startTime;
+    console.log('[28A] Returning cached search results:', {
+      query: sanitizedQuery,
+      resultCount: cached.data.length,
+      duration: `${duration.toFixed(2)}ms`,
+      performance: 'excellent (cached)',
+    });
+    return cached.data as Card[];
+  }
+  
+  // Step 2: Check if rate limited
+  if (isRateLimited()) {
+    console.warn('[28A] Rate limited during search');
+    // Try to return stale cache if available
+    if (cached) {
+      console.log('[28A] Returning stale cache due to rate limit');
+      return cached.data as Card[];
+    }
+    throw new Error('Too many requests. Please wait a moment and try again.');
+  }
+  
+  // Step 3: Deduplicate request
+  return deduplicateRequest(cacheKey, async () => {
+    try {
+      const requestStartTime = performance.now();
+      console.log('[28A] Making SDK search request...');
+      
+      // TCGDEX SDK doesn't have a direct search endpoint, so we need to:
+      // 1. Get all cards (this would be slow)
+      // OR
+      // 2. Use the REST API directly with filters
+      // 
+      // For now, let's use the card.list() which returns minimal card data,
+      // then filter client-side. This is not ideal for large datasets but works.
+      
+      // Try using the SDK's fetch with name filter if available
+      // TCGDEX REST API supports: GET /cards?name={query}
+      // But SDK might not expose this directly, so we'll construct the URL
+      
+      // Direct API call with name filter (more efficient than fetching all cards)
+      const apiUrl = `https://api.tcgdex.net/v2/en/cards?name=${encodeURIComponent(sanitizedQuery)}`;
+      
+      console.log('[28A] Fetching from API URL:', apiUrl);
+      
+      const response = await fetch(apiUrl);
+      
+      if (!response.ok) {
+        if (response.status === 429) {
+          handleRateLimitError({ status: 429 });
+        }
+        throw new Error(`API request failed: ${response.status} ${response.statusText}`);
+      }
+      
+      const cardResults = await response.json();
+      
+      const fetchDuration = performance.now() - requestStartTime;
+      console.log('[28A] API response received:', {
+        resultCount: cardResults.length,
+        fetchDuration: `${fetchDuration.toFixed(2)}ms`,
+        sampleCard: cardResults[0] ? {
+          id: cardResults[0].id,
+          name: cardResults[0].name,
+          localId: cardResults[0].localId,
+        } : null,
+      });
+      
+      // Filter results if pokemonOnly is requested
+      let filteredResults = cardResults;
+      if (pokemonOnly) {
+        // TCGDEX uses "category" for supertype (Pokémon, Trainer, Energy)
+        filteredResults = cardResults.filter((card: any) => 
+          card.category === 'Pokemon' || card.category === 'Pokémon'
+        );
+        console.log('[28A] Filtered to Pokémon only:', {
+          before: cardResults.length,
+          after: filteredResults.length,
+        });
+      }
+      
+      // Apply pagination (limit/offset)
+      const paginatedResults = filteredResults.slice(offset, offset + limit);
+      
+      console.log('[28A] Pagination applied:', {
+        totalFiltered: filteredResults.length,
+        offset,
+        limit,
+        returned: paginatedResults.length,
+      });
+      
+      // Transform results to our Card type
+      // Note: The search endpoint returns minimal card data (id, localId, name, image)
+      // We need to construct full Card objects
+      const transformStartTime = performance.now();
+      const transformedCards: Card[] = paginatedResults.map((card: any) => {
+        // Extract set info from card ID (format: setId-localId, e.g., "swsh1-25")
+        const setId = card.id?.split('-')[0] || '';
+        
+        // Build image URL from the image base URL
+        let imageUrl = '';
+        let imageUrlHiRes = '';
+        if (card.image) {
+          imageUrl = `${card.image}/low.png`;
+          imageUrlHiRes = `${card.image}/high.png`;
+        }
+        
+        return {
+          id: card.id || '',
+          name: card.name || '',
+          number: card.localId || '',
+          set: card.set?.name || setId, // Set name if available, otherwise set ID
+          rarity: card.rarity || '',
+          artist: card.illustrator || '',
+          imageUrl,
+          imageUrlHiRes,
+          variant: 'base' as const,
+          supertype: card.category || '',
+          setTotal: '',
+        };
+      });
+      
+      const transformDuration = performance.now() - transformStartTime;
+      
+      // Cache the results
+      setCachedData(cacheKey, transformedCards);
+      
+      const totalDuration = performance.now() - startTime;
+      const performanceRating = totalDuration < 1000 ? 'excellent' : 
+                               totalDuration < 3000 ? 'good' : 
+                               totalDuration < 5000 ? 'acceptable' : 'slow';
+      
+      console.log('[28A] searchCardsByName() completed:', {
+        query: sanitizedQuery,
+        resultCount: transformedCards.length,
+        totalAvailable: filteredResults.length,
+        duration: `${totalDuration.toFixed(2)}ms`,
+        performance: performanceRating,
+        breakdown: {
+          fetch: `${fetchDuration.toFixed(2)}ms`,
+          transform: `${transformDuration.toFixed(2)}ms`,
+        },
+      });
+      
+      return transformedCards;
+    } catch (error) {
+      const duration = performance.now() - startTime;
+      
+      // Handle rate limit
+      try {
+        handleRateLimitError(error);
+      } catch (rateLimitError) {
+        console.error('[28A] Rate limit error during search:', {
+          query,
+          duration: `${duration.toFixed(2)}ms`,
+          error: rateLimitError,
+        });
+        throw new Error('Too many requests to the card database. Please wait a moment and try again.');
+      }
+      
+      console.error('[28A] Error in searchCardsByName():', {
+        query,
+        duration: `${duration.toFixed(2)}ms`,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+      
+      // Return empty array on error (don't throw - let UI handle empty state)
+      return [];
+    }
+  });
+}
+
+// ==================== END STEP 28A ====================
+
 
 

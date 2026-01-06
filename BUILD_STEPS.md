@@ -2846,7 +2846,7 @@ This is the shared foundation that enables Custom binders, Extra Cards, and Regi
 ---
 
 #### Step 28A: Add Global Card Search API Function
-- [ ] **Status**: Not started
+- [x] **Status**: Completed
 
 **What we're doing:** Add a function to search cards by name across all sets in the TCGDEX API
 
@@ -2883,44 +2883,54 @@ export async function searchCardsByName(
 ```
 
 **Testing:**
-- [ ] searchCardsByName() returns cards matching the query
-- [ ] Search "Pikachu" returns all Pikachu cards from all sets
-- [ ] Search "Char" returns Charmander, Charmeleon, Charizard cards
-- [ ] pokemonOnly option filters out Trainer cards
-- [ ] Results are cached for repeated searches
-- [ ] Rate limiting is handled gracefully
-- [ ] Empty search returns empty array (no crash)
-- [ ] Special characters in search don't crash the app
-- [ ] Performance is acceptable (<3 seconds for results)
+- [x] searchCardsByName() returns cards matching the query (implemented)
+- [ ] Search "Pikachu" returns all Pikachu cards from all sets - Ready to test
+- [ ] Search "Char" returns Charmander, Charmeleon, Charizard cards - Ready to test
+- [ ] pokemonOnly option filters out Trainer cards - Ready to test
+- [x] Results are cached for repeated searches (implemented, 2-minute cache)
+- [x] Rate limiting is handled gracefully (implemented)
+- [x] Empty search returns empty array (no crash) (implemented)
+- [ ] Special characters in search don't crash the app - Ready to test
+- [ ] Performance is acceptable (<3 seconds for results) - Ready to test
+
+**What was implemented:**
+- ✅ `searchCardsByName()` function added to `src/services/api/pokemonApi.ts`
+- ✅ Uses TCGDEX REST API with name filter (`GET /cards?name={query}`)
+- ✅ Supports `limit`, `offset`, and `pokemonOnly` options
+- ✅ 2-minute cache duration for search results (shorter than normal cache)
+- ✅ Rate limiting detection and graceful handling
+- ✅ Request deduplication to prevent duplicate searches
+- ✅ Detailed logging with `[28A]` prefix for debugging
+- ✅ Transforms results to match our `Card` type
+- ✅ Temporary test screen at `src/screens/CardSearchTest/CardSearchTestScreen.tsx`
+- ✅ Test button "🔍 Search" added to BinderListScreen header
 
 **How to Test Step 28A:**
-1. **Unit test the function:**
-   - Call `searchCardsByName('Pikachu')` and verify results
-   - Call `searchCardsByName('Bulbasaur', { pokemonOnly: true })` and verify only Pokémon cards
-   - Call `searchCardsByName('xyz123')` and verify empty array returned
 
-2. **Check console logs:**
-   - Should see `[28A] searchCardsByName() called` with query
-   - Should see `[28A] Search results` with count
-   - Should see cache hit on repeated searches
+**Using the Test Screen (Recommended):**
+1. Open the app and log in
+2. Go to "My Binders" screen
+3. Tap the "🔍 Search" button in the header
+4. Enter a Pokémon name (e.g., "Pikachu", "Charizard", "Eevee")
+5. Tap "Search" or use the quick test buttons at the bottom
+6. Verify cards appear in the results list
+7. Toggle "Pokémon Only" to filter out Trainer cards
+8. Search stats show result count and duration
+
+**Console Testing:**
+1. Check browser/React Native debugger console
+2. Should see `[28A] searchCardsByName() called` with query
+3. Should see `[28A] API response received` with result count
+4. Should see `[28A] searchCardsByName() completed` with duration
+5. Repeated searches should show "(cached)" in performance rating
 
 **Logging & Debugging for Step 28A:**
 ```typescript
-export async function searchCardsByName(query: string, options?: SearchOptions): Promise<Card[]> {
-  console.log('[28A] searchCardsByName() called:', { query, options });
-  const startTime = performance.now();
-  
-  // ... implementation
-  
-  console.log('[28A] Search completed:', {
-    query,
-    resultCount: results.length,
-    duration: `${(performance.now() - startTime).toFixed(2)}ms`,
-    cached: wasCached,
-  });
-  
-  return results;
-}
+// Logs added to searchCardsByName():
+console.log('[28A] searchCardsByName() called:', { query, options });
+console.log('[28A] Fetching from API URL:', apiUrl);
+console.log('[28A] API response received:', { resultCount, fetchDuration });
+console.log('[28A] searchCardsByName() completed:', { query, resultCount, duration, performance });
 ```
 
 ---

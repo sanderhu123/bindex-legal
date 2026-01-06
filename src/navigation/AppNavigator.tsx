@@ -6,6 +6,7 @@ import BinderListScreen from '../screens/BinderList/BinderListScreen';
 import BinderDetailScreen from '../screens/BinderDetail/BinderDetailScreen';
 import CardListScreen from '../screens/CardList/CardListScreen';
 import CardDetailScreen from '../screens/CardDetail/CardDetailScreen';
+import CardSearchTestScreen from '../screens/CardSearchTest/CardSearchTestScreen';
 
 export type MainStackParamList = {
   NfcHandler: { tagId?: string } | undefined;
@@ -14,6 +15,7 @@ export type MainStackParamList = {
   BinderDetail: { binderId: string };
   CardList: undefined;
   CardDetail: { cardId: string; binderId: string };
+  CardSearchTest: undefined; // Temporary test screen for Step 28A
 };
 
 const Stack = createStackNavigator<MainStackParamList>();
@@ -49,6 +51,10 @@ export default function AppNavigator() {
       <Stack.Screen
         name="CardDetail"
         component={CardDetailScreen}
+      />
+      <Stack.Screen
+        name="CardSearchTest"
+        component={CardSearchTestScreen}
       />
     </Stack.Navigator>
   );

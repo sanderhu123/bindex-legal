@@ -209,6 +209,12 @@ export default function BinderListScreen() {
       <View style={styles.headerRow}>
         <Text style={styles.title}>My Binders</Text>
         <View style={styles.headerButtons}>
+          <TouchableOpacity 
+            style={styles.fixButton} 
+            onPress={() => navigation.navigate('CardSearchTest')}
+          >
+            <Text style={styles.fixButtonText}>🔍 Search</Text>
+          </TouchableOpacity>
           <TouchableOpacity style={styles.fixButton} onPress={handleFixBinders}>
             <Text style={styles.fixButtonText}>🔧 Fix</Text>
           </TouchableOpacity>

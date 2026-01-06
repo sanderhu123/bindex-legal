@@ -1,6 +1,7 @@
 import { supabase } from './client';
 import type { Binder, CollectionMode, VariantPlacement, LayoutPreference, PokemonArtStyle } from '../../types';
 import { getCardsBySet, getCardsByRegion, type Region } from '../api/pokemonApi';
+import { startBackgroundPrefetch } from '../imagePrefetch';
 
 /**
  * Database representation of a binder (matches database schema)
@@ -274,7 +275,54 @@ export async function createBinder(binder: {
     throw error;
   }
 
-  return rowToBinder(data as BinderRow, []);
+  const newBinder = rowToBinder(data as BinderRow, []);
+
+  // Pre-cache card images in the background after binder creation
+  // This makes the first binder open much faster
+  precacheBinderImages(newBinder).catch(err => {
+    console.error('[Binder] Error pre-caching images:', err);
+  });
+
+  return newBinder;
+}
+
+/**
+ * Pre-cache card images for a binder in the background.
+ * Called after binder creation to speed up first open.
+ */
+async function precacheBinderImages(binder: Binder): Promise<void> {
+  console.log('[Binder] Pre-caching images for new binder:', binder.name);
+
+  try {
+    let cards: { imageUrl?: string }[] = [];
+
+    if (binder.collectionMode === 'master-set' && binder.set) {
+      cards = await getCardsBySet(binder.set);
+      
+      // Apply variant filtering
+      if (binder.variantsToTrack && binder.variantsToTrack.length > 0) {
+        cards = cards.filter((card: any) => {
+          const cardVariant = card.variant || 'base';
+          return binder.variantsToTrack!.includes(cardVariant);
+        });
+      }
+    } else if (binder.collectionMode === 'region' && binder.region) {
+      cards = await getCardsByRegion(binder.region as Region, binder.pokemonArtStyle);
+    }
+
+    // Extract image URLs
+    const imageUrls = cards
+      .map(card => card.imageUrl)
+      .filter((url): url is string => !!url);
+
+    if (imageUrls.length > 0) {
+      console.log('[Binder] Starting background prefetch for', imageUrls.length, 'images');
+      const result = await startBackgroundPrefetch(binder.id, imageUrls, 5);
+      console.log('[Binder] Pre-cache complete:', result);
+    }
+  } catch (err) {
+    console.error('[Binder] Failed to pre-cache images:', err);
+  }
 }
 
 /**

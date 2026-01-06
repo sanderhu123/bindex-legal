@@ -1,12 +1,14 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { View, StyleSheet, Text, ScrollView, TouchableOpacity, Dimensions } from 'react-native';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { View, StyleSheet, Text, ScrollView, TouchableOpacity, Dimensions, FlatList, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { getBinderById } from '../../services/supabase/binders';
 import { addCardToBinder, removeCardFromBinder } from '../../services/supabase/cards';
 import { getCardsBySet, getCardsByRegion, type Region } from '../../services/api/pokemonApi';
+import { startBackgroundPrefetch } from '../../services/imagePrefetch';
+import { recordBinderAccess } from '../../services/cacheManager';
 import type { Binder, Card } from '../../types';
-import CardGrid from '../../components/Card/CardGrid';
+import CardItem from '../../components/Card/CardItem';
 import CardList from '../../components/Card/CardList';
 import { useCardSearch } from '../../hooks/useCardSearch';
 import { useCardFilter, type OwnershipFilter } from '../../hooks/useCardFilter';
@@ -21,6 +23,9 @@ import { colors, spacing, typography, borderRadius, screenPadding } from '../../
 
 const CONTAINER_PADDING = screenPadding; // Padding from container style (24px)
 const CARD_MARGIN = 2; // Margin between cards (margin: 2 means 2px on all sides, 4px gap between cards)
+
+/** Number of cards to load per page (for infinite scroll) */
+const PAGE_SIZE = 36; // 12 rows of 3, or 9 rows of 4
 
 /**
  * Calculate card width based on number of columns
@@ -56,6 +61,10 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
   const [searchQuery, setSearchQuery] = useState('');
   const [ownershipFilter, setOwnershipFilter] = useState<OwnershipFilter>('all');
   const [screenWidth, setScreenWidth] = useState(Dimensions.get('window').width);
+  
+  // Pagination state for infinite scroll
+  const [displayCount, setDisplayCount] = useState(PAGE_SIZE);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
 
   // Update screen width on dimension changes
   useEffect(() => {
@@ -86,6 +95,11 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
         console.log('[BinderDetail] variantsToTrack:', binderData.variantsToTrack);
         console.log('[BinderDetail] variantPlacement:', binderData.variantPlacement);
         console.log('[BinderDetail] ================================');
+        
+        // Record binder access for smart cache cleanup
+        recordBinderAccess(binderData.id).catch(err => {
+          console.error('[BinderDetail] Failed to record binder access:', err);
+        });
         
         setBinder(binderData);
       } catch (err) {
@@ -136,6 +150,8 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
 
       try {
         setLoading(true);
+        // Reset pagination when fetching new cards
+        setDisplayCount(PAGE_SIZE);
         let allCards: Card[] = [];
 
         // Get all cards based on collection mode
@@ -394,6 +410,24 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
         }
 
         setCards(cardsWithOwnership);
+        
+        // Start background prefetch for all card images
+        // This continues even if the user leaves the screen
+        if (cardsWithOwnership.length > 0 && binder.id) {
+          const imageUrls = cardsWithOwnership
+            .map(card => card.imageUrl)
+            .filter((url): url is string => !!url);
+          
+          if (imageUrls.length > 0) {
+            console.log('[BinderDetail] Starting background image prefetch for', imageUrls.length, 'images');
+            // Start prefetch in background (don't await - let it run independently)
+            startBackgroundPrefetch(binder.id, imageUrls, 5).then(result => {
+              console.log('[BinderDetail] Background prefetch complete:', result);
+            }).catch(err => {
+              console.error('[BinderDetail] Background prefetch error:', err);
+            });
+          }
+        }
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load cards');
       } finally {
@@ -421,7 +455,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
     const newIsOwned = !card.isOwned;
     const cardId = card.id;
     const cardVariant = card.variant;
-    const binderId = binder.id;
+    const currentBinderId = binder.id;
 
     // Optimistic update using functional setState to ensure we always use latest state
     // This prevents race conditions when tapping multiple cards quickly
@@ -450,9 +484,9 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
     // Sync with database in the background
     try {
       if (newIsOwned) {
-        await addCardToBinder(binderId, cardId, cardVariant);
+        await addCardToBinder(currentBinderId, cardId, cardVariant);
       } else {
-        await removeCardFromBinder(binderId, cardId, cardVariant);
+        await removeCardFromBinder(currentBinderId, cardId, cardVariant);
       }
     } catch (err) {
       // Revert on error using functional setState
@@ -496,6 +530,51 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
     ownershipFilter,
   });
 
+  // Reset pagination when filters change
+  useEffect(() => {
+    setDisplayCount(PAGE_SIZE);
+  }, [searchQuery, ownershipFilter]);
+
+  // Paginated cards for display
+  const displayedCards = useMemo(() => {
+    return filteredCards.slice(0, displayCount);
+  }, [filteredCards, displayCount]);
+
+  const hasMoreCards = displayCount < filteredCards.length;
+
+  // Load more cards handler for infinite scroll
+  const loadMoreCards = useCallback(() => {
+    if (isLoadingMore || !hasMoreCards) return;
+
+    setIsLoadingMore(true);
+    // Small delay to show loading indicator
+    setTimeout(() => {
+      setDisplayCount((prev) => Math.min(prev + PAGE_SIZE, filteredCards.length));
+      setIsLoadingMore(false);
+    }, 100);
+  }, [isLoadingMore, hasMoreCards, filteredCards.length]);
+
+  // Determine grid columns based on layout preference (default to 3)
+  const gridColumns = binder?.layoutPreference === '4x3' ? 4 : 3;
+  const cardWidth = Math.max(50, calculateCardWidth(screenWidth, gridColumns)); // Ensure minimum width of 50
+
+  // Render a single card for FlatList
+  const renderCard = useCallback(
+    ({ item }: { item: CardWithOwnership }) => (
+      <CardItem
+        card={item}
+        onPress={handleToggleCard}
+        binderId={binder?.id || ''}
+        width={cardWidth}
+        variant="grid"
+      />
+    ),
+    [handleToggleCard, binder?.id, cardWidth]
+  );
+
+  // Key extractor for FlatList
+  const keyExtractor = useCallback((item: CardWithOwnership) => item.id, []);
+
   if (loading && !binder) {
     return <LoadingScreen message="Loading binder..." />;
   }
@@ -534,14 +613,10 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
   const totalCount = binder.totalCards ?? cards.length;
   const progressPercentage = totalCount > 0 ? Math.round((ownedCount / totalCount) * 100) : 0;
 
-  // Determine grid columns based on layout preference (default to 3)
-  const gridColumns = binder.layoutPreference === '4x3' ? 4 : 3;
-  const cardWidth = Math.max(50, calculateCardWidth(screenWidth, gridColumns)); // Ensure minimum width of 50
-
-  return (
-    <SafeAreaView style={styles.safeArea}>
-      <ScrollView style={styles.container}>
-        <Text style={styles.title}>{binder.name}</Text>
+  // Header component for FlatList (binder info, progress, search, filters)
+  const ListHeaderComponent = () => (
+    <View style={styles.headerContainer}>
+      <Text style={styles.title}>{binder.name}</Text>
       <Text style={styles.subtitle}>Collection Mode: {collectionModeText}</Text>
       {binder.set && <Text style={styles.text}>Set: {binder.set}</Text>}
       {binder.region && <Text style={styles.text}>Region: {binder.region}</Text>}
@@ -598,34 +673,118 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
           onOwnershipFilterChange={setOwnershipFilter}
         />
         
-        <Text style={styles.helpText}>Tap a card to mark it as owned/unowned</Text>
-        {loading ? (
-          <LoadingSpinner message="Loading cards..." />
-        ) : filteredCards.length === 0 ? (
-          <EmptyState
-            title={searchQuery.trim() ? 'No cards match your search' : 'No cards found'}
-            message={
-              searchQuery.trim()
-                ? 'Try adjusting your search or filters'
-                : 'This binder doesn\'t have any cards yet'
-            }
-          />
-        ) : viewMode === 'grid' ? (
-          <CardGrid
-            cards={filteredCards}
-            onCardPress={handleToggleCard}
-            binderId={binder.id}
-            cardWidth={cardWidth}
-          />
-        ) : (
-          <CardList
-            cards={filteredCards}
-            onCardPress={handleToggleCard}
-            binderId={binder.id}
-          />
-        )}
+        {/* Progress indicator for pagination */}
+        <View style={styles.paginationProgress}>
+          <Text style={styles.paginationText}>
+            Showing {displayedCards.length} of {filteredCards.length} cards
+          </Text>
+          {filteredCards.length > 0 && (
+            <View style={styles.paginationBarContainer}>
+              <View 
+                style={[
+                  styles.paginationBar, 
+                  { width: `${Math.round((displayedCards.length / filteredCards.length) * 100)}%` }
+                ]} 
+              />
+            </View>
+          )}
+        </View>
+        
+        <Text style={styles.helpText}>Tap a card to view details, tap checkbox to mark owned</Text>
       </View>
-      </ScrollView>
+    </View>
+  );
+
+  // Footer component (loading indicator for pagination)
+  const ListFooterComponent = () => {
+    if (loading) {
+      return <LoadingSpinner message="Loading cards..." />;
+    }
+
+    if (!hasMoreCards && displayedCards.length > 0) {
+      return (
+        <View style={styles.footerComplete}>
+          <Text style={styles.footerCompleteText}>
+            All {filteredCards.length} cards loaded
+          </Text>
+        </View>
+      );
+    }
+
+    if (isLoadingMore) {
+      return (
+        <View style={styles.footer}>
+          <ActivityIndicator size="small" color={colors.primary} />
+          <Text style={styles.footerText}>Loading more cards...</Text>
+        </View>
+      );
+    }
+
+    return null;
+  };
+
+  // Empty state component
+  const ListEmptyComponent = () => {
+    if (loading) return null;
+    
+    return (
+      <EmptyState
+        title={searchQuery.trim() ? 'No cards match your search' : 'No cards found'}
+        message={
+          searchQuery.trim()
+            ? 'Try adjusting your search or filters'
+            : 'This binder doesn\'t have any cards yet'
+        }
+      />
+    );
+  };
+
+  // List view (using ScrollView as before)
+  if (viewMode === 'list') {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <ScrollView style={styles.container}>
+          <ListHeaderComponent />
+          {loading ? (
+            <LoadingSpinner message="Loading cards..." />
+          ) : filteredCards.length === 0 ? (
+            <ListEmptyComponent />
+          ) : (
+            <CardList
+              cards={filteredCards}
+              onCardPress={handleToggleCard}
+              binderId={binder.id}
+            />
+          )}
+        </ScrollView>
+      </SafeAreaView>
+    );
+  }
+
+  // Grid view with FlatList for infinite scroll
+  return (
+    <SafeAreaView style={styles.safeArea}>
+      <FlatList
+        data={displayedCards}
+        renderItem={renderCard}
+        keyExtractor={keyExtractor}
+        numColumns={gridColumns}
+        key={`grid-${gridColumns}`} // Force re-render when columns change
+        columnWrapperStyle={styles.row}
+        contentContainerStyle={styles.flatListContainer}
+        ListHeaderComponent={ListHeaderComponent}
+        ListFooterComponent={ListFooterComponent}
+        ListEmptyComponent={ListEmptyComponent}
+        onEndReached={loadMoreCards}
+        onEndReachedThreshold={0.5}
+        // Performance optimizations
+        removeClippedSubviews={true}
+        maxToRenderPerBatch={PAGE_SIZE}
+        windowSize={5}
+        initialNumToRender={PAGE_SIZE}
+        // Extra data to trigger re-render when cards ownership changes
+        extraData={[displayCount, cards]}
+      />
     </SafeAreaView>
   );
 }
@@ -640,6 +799,13 @@ const styles = StyleSheet.create({
     padding: screenPadding,
     paddingBottom: 80, // Extra space at bottom to see last row card numbers
     backgroundColor: colors.background,
+  },
+  flatListContainer: {
+    padding: screenPadding,
+    paddingBottom: 80,
+  },
+  headerContainer: {
+    marginBottom: spacing.md,
   },
   title: {
     fontSize: typography['3xl'],
@@ -711,9 +877,48 @@ const styles = StyleSheet.create({
   toggleButtonTextActive: {
     color: colors.background,
   },
+  row: {
+    marginHorizontal: -CARD_MARGIN,
+  },
+  // Pagination progress styles
+  paginationProgress: {
+    marginBottom: spacing.sm,
+  },
+  paginationText: {
+    fontSize: typography.sm,
+    color: colors.textSecondary,
+    marginBottom: spacing.xs,
+  },
+  paginationBarContainer: {
+    height: 4,
+    backgroundColor: colors.backgroundDark,
+    borderRadius: 2,
+    overflow: 'hidden',
+  },
+  paginationBar: {
+    height: '100%',
+    backgroundColor: colors.primary,
+    borderRadius: 2,
+  },
+  // Footer styles
+  footer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.lg,
+    gap: spacing.sm,
+  },
+  footerText: {
+    fontSize: typography.sm,
+    color: colors.textSecondary,
+  },
+  footerComplete: {
+    alignItems: 'center',
+    paddingVertical: spacing.lg,
+  },
+  footerCompleteText: {
+    fontSize: typography.sm,
+    color: colors.textTertiary,
+    fontStyle: 'italic',
+  },
 });
-
-
-
-
-

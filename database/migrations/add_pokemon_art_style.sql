@@ -14,3 +14,4 @@ COMMENT ON COLUMN public.binders.pokemon_art_style IS 'Pokemon art style prefere
 
 
 
+

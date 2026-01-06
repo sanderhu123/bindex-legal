@@ -8,6 +8,7 @@ import AuthNavigator from './src/navigation/AuthNavigator';
 import AppNavigator from './src/navigation/AppNavigator';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { initializePersistentCache } from './src/services/api/pokemonApi';
+import { performCacheCleanup } from './src/services/cacheManager';
 
 // Create React Query client with caching configuration
 const queryClient = new QueryClient({
@@ -32,17 +33,30 @@ function AppContent() {
   const { user, loading, initialized } = useAuth();
   const [cacheInitialized, setCacheInitialized] = useState(false);
 
-  // Initialize persistent cache on app startup
+  // Initialize persistent cache and perform cleanup on app startup
   useEffect(() => {
-    initializePersistentCache()
-      .then(() => {
+    async function initializeApp() {
+      try {
+        // Initialize persistent cache first
+        await initializePersistentCache();
         console.log('[App] Persistent cache initialized');
+
+        // Perform smart cache cleanup (removes cache for binders not opened in 30+ days)
+        const cleanupResult = await performCacheCleanup();
+        if (!cleanupResult.skipped) {
+          console.log('[App] Cache cleanup result:', {
+            cleanedBinders: cleanupResult.cleanedBinderIds.length,
+          });
+        }
+
         setCacheInitialized(true);
-      })
-      .catch((error) => {
+      } catch (error) {
         console.warn('[App] Failed to initialize cache:', error);
         setCacheInitialized(true); // Continue anyway
-      });
+      }
+    }
+
+    initializeApp();
   }, []);
 
   // Show loading screen while checking auth state or initializing cache

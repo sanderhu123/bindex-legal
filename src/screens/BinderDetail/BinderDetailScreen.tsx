@@ -67,8 +67,11 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   
   // Track if data was loaded from cache (fast load = cached)
-  // If cards loaded in < 500ms, they came from cache
+  // If cards loaded in < 2000ms, they likely came from cache
   const [loadedFromCache, setLoadedFromCache] = useState(false);
+  
+  // Track card loading progress for display during initial load
+  const [loadingProgress, setLoadingProgress] = useState<string>('');
 
   // Update screen width on dimension changes
   useEffect(() => {
@@ -157,6 +160,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
         // Reset pagination and cache status when fetching new cards
         setDisplayCount(PAGE_SIZE);
         setLoadedFromCache(false);
+        setLoadingProgress('Fetching card data...');
         
         // Track load time to detect if data came from cache
         const loadStartTime = Date.now();
@@ -167,6 +171,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
           console.log('[BinderDetail] ========================================');
           console.log('[BinderDetail] FETCHING CARDS FOR SET:', binder.set);
           console.log('[BinderDetail] ========================================');
+          setLoadingProgress(`Loading cards for ${binder.set}...`);
           allCards = await getCardsBySet(binder.set);
           console.log('[BinderDetail] ✓ Fetched', allCards.length, 'total cards from API');
           
@@ -419,10 +424,12 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
 
         setCards(cardsWithOwnership);
         
-        // Check if data came from cache (loaded in < 500ms = cached)
+        // Check if data came from cache (loaded in < 2000ms = cached)
+        // Using 2000ms threshold because cached data loads very fast, API calls take longer
         const loadTime = Date.now() - loadStartTime;
-        const wasCached = loadTime < 500;
+        const wasCached = loadTime < 2000;
         setLoadedFromCache(wasCached);
+        setLoadingProgress('');
         console.log('[BinderDetail] Load time:', loadTime + 'ms', wasCached ? '(from cache)' : '(fresh load)');
         
         // Start background prefetch for all card images
@@ -687,8 +694,21 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
           onOwnershipFilterChange={setOwnershipFilter}
         />
         
-        {/* Progress indicator for pagination - only show when NOT cached and still loading more */}
-        {!loadedFromCache && hasMoreCards && filteredCards.length > 0 && (
+        {/* Loading progress - show while fetching cards from API */}
+        {loading && loadingProgress && (
+          <View style={styles.paginationProgress}>
+            <View style={styles.loadingRow}>
+              <ActivityIndicator size="small" color={colors.primary} />
+              <Text style={styles.loadingProgressText}>{loadingProgress}</Text>
+            </View>
+            <View style={styles.paginationBarContainer}>
+              <View style={[styles.paginationBarIndeterminate]} />
+            </View>
+          </View>
+        )}
+        
+        {/* Pagination progress - only show when NOT cached and still loading more */}
+        {!loading && !loadedFromCache && hasMoreCards && filteredCards.length > 0 && (
           <View style={styles.paginationProgress}>
             <Text style={styles.paginationText}>
               Showing {displayedCards.length} of {filteredCards.length} cards ({Math.round((displayedCards.length / filteredCards.length) * 100)}%)
@@ -914,6 +934,23 @@ const styles = StyleSheet.create({
     height: '100%',
     backgroundColor: colors.primary,
     borderRadius: 2,
+  },
+  paginationBarIndeterminate: {
+    height: '100%',
+    width: '30%',
+    backgroundColor: colors.primary,
+    borderRadius: 2,
+    // Note: For animated indeterminate progress, would need Animated API
+  },
+  loadingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginBottom: spacing.xs,
+  },
+  loadingProgressText: {
+    fontSize: typography.sm,
+    color: colors.textSecondary,
   },
   // Footer styles
   footer: {

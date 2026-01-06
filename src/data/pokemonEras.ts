@@ -493,3 +493,54 @@ export function convertSetToPokemonSet(setDef: SetDefinition, eraName: string): 
   };
 }
 
+// ==================== SET RELEASE DATE LOOKUP ====================
+
+/**
+ * Build a lookup map from set name → release date
+ * Used for sorting search results by set release date
+ */
+const setReleaseDateMap: Map<string, string> = new Map();
+
+// Build the map once at module load time
+for (const era of POKEMON_ERAS) {
+  for (const set of era.sets) {
+    setReleaseDateMap.set(set.name.toLowerCase(), set.releaseDate);
+    // Also add by set ID for fallback
+    setReleaseDateMap.set(set.id.toLowerCase(), set.releaseDate);
+  }
+}
+
+/**
+ * Get the release date for a set by name or ID
+ * Returns null if set not found (will sort to end)
+ */
+export function getSetReleaseDate(setNameOrId: string): string | null {
+  if (!setNameOrId) return null;
+  const key = setNameOrId.toLowerCase();
+  return setReleaseDateMap.get(key) || null;
+}
+
+/**
+ * Sort cards by set release date (newest first)
+ * Cards from unknown sets are placed at the end
+ * 
+ * @param cards - Array of cards to sort
+ * @returns New sorted array (doesn't mutate original)
+ */
+export function sortCardsBySetDate<T extends { set?: string; id?: string }>(
+  cards: T[]
+): T[] {
+  return [...cards].sort((a, b) => {
+    // Try to get release date from set name first, then from card ID prefix
+    const dateA = getSetReleaseDate(a.set || '') || 
+                  getSetReleaseDate(a.id?.split('-')[0] || '') ||
+                  '1900-01-01'; // Unknown sets go to end
+    const dateB = getSetReleaseDate(b.set || '') || 
+                  getSetReleaseDate(b.id?.split('-')[0] || '') ||
+                  '1900-01-01';
+    
+    // Sort descending (newest first)
+    return dateB.localeCompare(dateA);
+  });
+}
+

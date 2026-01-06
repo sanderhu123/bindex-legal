@@ -695,14 +695,16 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
         />
         
         {/* Loading progress - show while fetching cards from API */}
-        {loading && loadingProgress && (
+        {loading && (
           <View style={styles.paginationProgress}>
             <View style={styles.loadingRow}>
               <ActivityIndicator size="small" color={colors.primary} />
-              <Text style={styles.loadingProgressText}>{loadingProgress}</Text>
+              <Text style={styles.loadingProgressText}>
+                {loadingProgress || 'Loading cards...'}
+              </Text>
             </View>
             <View style={styles.paginationBarContainer}>
-              <View style={[styles.paginationBarIndeterminate]} />
+              <View style={styles.paginationBarIndeterminate} />
             </View>
           </View>
         )}
@@ -722,6 +724,13 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
               />
             </View>
           </View>
+        )}
+        
+        {/* Debug info - remove after testing */}
+        {__DEV__ && (
+          <Text style={styles.debugText}>
+            Debug: loading={String(loading)}, cached={String(loadedFromCache)}, hasMore={String(hasMoreCards)}, cards={filteredCards.length}
+          </Text>
         )}
         
         <Text style={styles.helpText}>Tap a card to view details, tap checkbox to mark owned</Text>
@@ -937,10 +946,10 @@ const styles = StyleSheet.create({
   },
   paginationBarIndeterminate: {
     height: '100%',
-    width: '30%',
+    width: '100%',
     backgroundColor: colors.primary,
     borderRadius: 2,
-    // Note: For animated indeterminate progress, would need Animated API
+    opacity: 0.6,
   },
   loadingRow: {
     flexDirection: 'row',

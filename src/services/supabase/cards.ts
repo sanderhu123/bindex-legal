@@ -1,29 +1,90 @@
 import { supabase } from './client';
 
 /**
- * Helper to count actual cards in a binder and update owned_cards
+ * Helper to count actual cards in a binder and update owned_cards/total_cards
  * This avoids race conditions when adding/removing cards quickly
+ * 
+ * For Custom binders (with positions):
+ * - total_cards = number of filled slots
+ * - owned_cards = number of cards with is_owned = true
+ * 
+ * For Master Set/Region binders:
+ * - total_cards = fixed (set at creation, not updated here)
+ * - owned_cards = number of cards in binder_cards table
  */
 async function syncBinderCardCount(binderId: string): Promise<void> {
-  // Count actual cards in binder_cards table
-  const { count, error: countError } = await supabase
-    .from('binder_cards')
-    .select('*', { count: 'exact', head: true })
-    .eq('binder_id', binderId);
+  // First, check if this is a Custom binder (has cards with positions)
+  const { data: binderData, error: binderError } = await supabase
+    .from('binders')
+    .select('collection_mode')
+    .eq('id', binderId)
+    .single();
 
-  if (countError) {
-    console.error('Failed to count binder cards:', countError);
+  if (binderError) {
+    console.error('Failed to get binder mode:', binderError);
     return;
   }
 
-  // Update binder with actual count
-  const { error: updateError } = await supabase
-    .from('binders')
-    .update({ owned_cards: count || 0 })
-    .eq('id', binderId);
+  const isCustomBinder = binderData?.collection_mode === 'custom';
 
-  if (updateError) {
-    console.error('Failed to update owned_cards count:', updateError);
+  if (isCustomBinder) {
+    // Custom binder: count filled slots (total) and owned cards separately
+    const { count: filledCount, error: filledError } = await supabase
+      .from('binder_cards')
+      .select('*', { count: 'exact', head: true })
+      .eq('binder_id', binderId)
+      .not('position', 'is', null);
+
+    if (filledError) {
+      console.error('Failed to count filled slots:', filledError);
+      return;
+    }
+
+    const { count: ownedCount, error: ownedError } = await supabase
+      .from('binder_cards')
+      .select('*', { count: 'exact', head: true })
+      .eq('binder_id', binderId)
+      .not('position', 'is', null)
+      .eq('is_owned', true);
+
+    if (ownedError) {
+      console.error('Failed to count owned cards:', ownedError);
+      return;
+    }
+
+    // Update binder with both counts
+    const { error: updateError } = await supabase
+      .from('binders')
+      .update({ 
+        total_cards: filledCount || 0,
+        owned_cards: ownedCount || 0 
+      })
+      .eq('id', binderId);
+
+    if (updateError) {
+      console.error('Failed to update card counts:', updateError);
+    }
+  } else {
+    // Master Set / Region binder: count all cards as owned
+    const { count, error: countError } = await supabase
+      .from('binder_cards')
+      .select('*', { count: 'exact', head: true })
+      .eq('binder_id', binderId);
+
+    if (countError) {
+      console.error('Failed to count binder cards:', countError);
+      return;
+    }
+
+    // Update binder with owned count (total_cards is fixed for these modes)
+    const { error: updateError } = await supabase
+      .from('binders')
+      .update({ owned_cards: count || 0 })
+      .eq('id', binderId);
+
+    if (updateError) {
+      console.error('Failed to update owned_cards count:', updateError);
+    }
   }
 }
 

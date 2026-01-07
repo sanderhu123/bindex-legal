@@ -1,15 +1,16 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { View, StyleSheet, Text, ScrollView, TouchableOpacity, Dimensions, FlatList, ActivityIndicator } from 'react-native';
+import { View, StyleSheet, Text, ScrollView, TouchableOpacity, Dimensions, FlatList, ActivityIndicator, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { getBinderById } from '../../services/supabase/binders';
 import { addCardToBinder, removeCardFromBinder } from '../../services/supabase/cards';
-import { getCardsBySet, getCardsByRegion, type Region } from '../../services/api/pokemonApi';
+import { getCardsBySet, getCardsByRegion, getCardById, type Region } from '../../services/api/pokemonApi';
 import { startBackgroundPrefetch } from '../../services/imagePrefetch';
 import { recordBinderAccess } from '../../services/cacheManager';
 import type { Binder, Card } from '../../types';
 import CardItem from '../../components/Card/CardItem';
 import CardList from '../../components/Card/CardList';
+import { CardPickerModal } from '../../components/CardPicker';
 import { useCardSearch } from '../../hooks/useCardSearch';
 import { useCardFilter, type OwnershipFilter } from '../../hooks/useCardFilter';
 import SearchBar from '../../components/Search/SearchBar';
@@ -19,7 +20,7 @@ import LoadingScreen from '../../components/Loading/LoadingScreen';
 import LoadingSpinner from '../../components/Loading/LoadingSpinner';
 import EmptyState from '../../components/EmptyState/EmptyState';
 import ErrorScreen from '../../components/Error/ErrorScreen';
-import { colors, spacing, typography, borderRadius, screenPadding } from '../../constants/theme';
+import { colors, spacing, typography, borderRadius, screenPadding, shadows } from '../../constants/theme';
 
 const CONTAINER_PADDING = screenPadding; // Padding from container style (24px)
 const CARD_MARGIN = 2; // Margin between cards (margin: 2 means 2px on all sides, 4px gap between cards)
@@ -65,6 +66,9 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
   // Pagination state for infinite scroll
   const [displayCount, setDisplayCount] = useState(PAGE_SIZE);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
+  
+  // Card picker modal state (for Custom binders)
+  const [showCardPicker, setShowCardPicker] = useState(false);
 
   // Update screen width on dimension changes
   useEffect(() => {
@@ -197,9 +201,29 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
         } else if (binder.collectionMode === 'region' && binder.region) {
           allCards = await getCardsByRegion(binder.region as Region, binder.pokemonArtStyle);
         } else if (binder.collectionMode === 'custom') {
-          // For custom binders, we'll show only owned cards for now
-          // (We'll improve this later)
-          allCards = [];
+          // For Custom binders, load cards from binder.cardIds (user-added cards)
+          console.log('[BinderDetail] Custom mode - loading', binder.cardIds.length, 'user-added cards');
+          
+          if (binder.cardIds.length > 0) {
+            // Fetch all cards by their IDs in parallel
+            const cardPromises = binder.cardIds.map(async (cardId) => {
+              try {
+                const card = await getCardById(cardId);
+                return card;
+              } catch (err) {
+                console.warn('[BinderDetail] Failed to load card:', cardId, err);
+                return null;
+              }
+            });
+            
+            const loadedCards = await Promise.all(cardPromises);
+            // Filter out any cards that failed to load
+            allCards = loadedCards.filter((card): card is Card => card !== null);
+            console.log('[BinderDetail] Custom mode - loaded', allCards.length, 'cards successfully');
+          } else {
+            allCards = [];
+            console.log('[BinderDetail] Custom mode - no cards to load');
+          }
         }
 
         // Filter cards based on variants to track (Master Set mode only)
@@ -514,6 +538,54 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
     }
   }, [binder?.id]);
 
+  // Handle adding a card from the picker (Custom mode)
+  const handleAddCardFromPicker = useCallback(async (selectedCard: Card) => {
+    if (!binder) return;
+    
+    console.log('[BinderDetail] Adding card from picker:', selectedCard.id, selectedCard.name);
+    
+    // Check if card is already in binder
+    if (binder.cardIds.includes(selectedCard.id)) {
+      Alert.alert(
+        'Card Already Added',
+        `${selectedCard.name} is already in this binder.`,
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+    
+    try {
+      // Add card to database
+      await addCardToBinder(binder.id, selectedCard.id, selectedCard.variant);
+      
+      // Optimistically update UI
+      const newCard: CardWithOwnership = {
+        ...selectedCard,
+        isOwned: true,
+      };
+      
+      setCards((prevCards) => [...prevCards, newCard]);
+      setBinder((prevBinder) => {
+        if (!prevBinder) return prevBinder;
+        return {
+          ...prevBinder,
+          cardIds: [...prevBinder.cardIds, selectedCard.id],
+          ownedCards: (prevBinder.ownedCards || 0) + 1,
+          totalCards: (prevBinder.totalCards || 0) + 1,
+        };
+      });
+      
+      console.log('[BinderDetail] Card added successfully:', selectedCard.name);
+    } catch (err) {
+      console.error('[BinderDetail] Failed to add card:', err);
+      Alert.alert(
+        'Error',
+        'Failed to add card to binder. Please try again.',
+        [{ text: 'OK' }]
+      );
+    }
+  }, [binder]);
+
   // Update header title when binder loads
   useEffect(() => {
     if (binder) {
@@ -612,6 +684,9 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
   const ownedCount = binder.ownedCards ?? cards.filter(c => c.isOwned).length;
   const totalCount = binder.totalCards ?? cards.length;
   const progressPercentage = totalCount > 0 ? Math.round((ownedCount / totalCount) * 100) : 0;
+  
+  // Custom mode uses different progress format
+  const isCustomMode = binder.collectionMode === 'custom';
 
   // Header component for FlatList (binder info, progress, search, filters)
   const ListHeaderComponent = () => (
@@ -623,13 +698,23 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
       
       {/* Progress Summary */}
       <View style={styles.progressContainer}>
-        <ProgressBar
-          current={ownedCount}
-          total={totalCount}
-          percentage={progressPercentage}
-          format="full"
-          textSize="large"
-        />
+        {isCustomMode ? (
+          // Custom mode: show simple card count (no percentage)
+          <View style={styles.customProgress}>
+            <Text style={styles.customProgressText}>
+              📦 {cards.length} {cards.length === 1 ? 'card' : 'cards'} in collection
+            </Text>
+          </View>
+        ) : (
+          // Master Set / Region mode: show progress bar with percentage
+          <ProgressBar
+            current={ownedCount}
+            total={totalCount}
+            percentage={progressPercentage}
+            format="full"
+            textSize="large"
+          />
+        )}
       </View>
       {__DEV__ && binder && (
         <Text style={styles.debugText}>
@@ -710,6 +795,17 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
   const ListEmptyComponent = () => {
     if (loading) return null;
     
+    // Custom empty state for Custom binders
+    if (isCustomMode && !searchQuery.trim()) {
+      return (
+        <EmptyState
+          title="No cards yet"
+          message="Tap the + button below to add cards to your collection"
+          icon={<Text style={{ fontSize: 48 }}>➕</Text>}
+        />
+      );
+    }
+    
     return (
       <EmptyState
         title={searchQuery.trim() ? 'No cards match your search' : 'No cards found'}
@@ -740,6 +836,26 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
             />
           )}
         </ScrollView>
+        
+        {/* Floating Action Button for Custom mode - Add Card */}
+        {isCustomMode && (
+          <TouchableOpacity
+            style={styles.fab}
+            onPress={() => setShowCardPicker(true)}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.fabText}>+</Text>
+          </TouchableOpacity>
+        )}
+        
+        {/* Card Picker Modal */}
+        <CardPickerModal
+          visible={showCardPicker}
+          onClose={() => setShowCardPicker(false)}
+          onSelectCard={handleAddCardFromPicker}
+          title="Add Card"
+          pokemonOnly={false}
+        />
       </SafeAreaView>
     );
   }
@@ -768,6 +884,26 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
         initialNumToRender={PAGE_SIZE}
         // Extra data to trigger re-render when cards ownership changes
         extraData={[displayCount, cards]}
+      />
+      
+      {/* Floating Action Button for Custom mode - Add Card */}
+      {isCustomMode && (
+        <TouchableOpacity
+          style={styles.fab}
+          onPress={() => setShowCardPicker(true)}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.fabText}>+</Text>
+        </TouchableOpacity>
+      )}
+      
+      {/* Card Picker Modal */}
+      <CardPickerModal
+        visible={showCardPicker}
+        onClose={() => setShowCardPicker(false)}
+        onSelectCard={handleAddCardFromPicker}
+        title="Add Card"
+        pokemonOnly={false}
       />
     </SafeAreaView>
   );
@@ -884,5 +1020,40 @@ const styles = StyleSheet.create({
     fontSize: typography.sm,
     color: colors.textTertiary,
     fontStyle: 'italic',
+  },
+  // Custom progress display (for Custom mode)
+  customProgress: {
+    backgroundColor: colors.backgroundLight,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    borderRadius: borderRadius.md,
+    alignItems: 'center',
+  },
+  customProgressText: {
+    fontSize: typography.lg,
+    fontWeight: typography.semibold,
+    color: colors.text,
+  },
+  // Floating Action Button for adding cards (Custom mode)
+  fab: {
+    position: 'absolute',
+    right: spacing.lg,
+    bottom: spacing.xl + 40, // Extra space for safe area
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    ...shadows.lg,
+    // Elevation for Android
+    elevation: 8,
+  },
+  fabText: {
+    fontSize: 32,
+    fontWeight: typography.bold,
+    color: colors.background,
+    lineHeight: 36,
+    marginTop: -2, // Optical alignment
   },
 });

@@ -92,9 +92,13 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
   const [ownershipFilter, setOwnershipFilter] = useState<OwnershipFilter>('all');
   const [screenWidth, setScreenWidth] = useState(Dimensions.get('window').width);
   
-  // Pagination state for infinite scroll
+  // Pagination state for infinite scroll (only used for Custom mode)
+  // For Master Set and Region modes, we show all cards once loaded
   const [displayCount, setDisplayCount] = useState(PAGE_SIZE);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
+  
+  // Track if cards are fully loaded (for disabling pagination in non-Custom modes)
+  const [cardsFullyLoaded, setCardsFullyLoaded] = useState(false);
   
   // Card picker modal state (for Custom binders)
   const [showCardPicker, setShowCardPicker] = useState(false);
@@ -234,8 +238,9 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
 
       try {
         setLoading(true);
-        // Reset pagination when fetching new cards
+        // Reset pagination state when fetching new cards
         setDisplayCount(PAGE_SIZE);
+        setCardsFullyLoaded(false);
         let allCards: Card[] = [];
 
         // Get all cards based on collection mode
@@ -871,24 +876,55 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
     ownershipFilter,
   });
 
-  // Reset pagination when filters change
+  // Reset pagination when filters change (only affects Custom mode now)
   useEffect(() => {
     setDisplayCount(PAGE_SIZE);
   }, [searchQuery, ownershipFilter]);
 
-  // Paginated cards for display
+  // Once cards are fully loaded, show ALL cards at once (for Master Set and Region modes)
+  // This removes pagination for a better user experience - they can scroll freely
+  useEffect(() => {
+    const isNonCustomMode = binder && binder.collectionMode !== 'custom';
+    
+    if (!loading && isNonCustomMode && filteredCards.length > 0) {
+      // Cards are loaded - show all cards (no pagination needed)
+      setCardsFullyLoaded(true);
+      setDisplayCount(filteredCards.length);
+    }
+  }, [loading, binder, filteredCards.length]);
+
+  // For non-Custom modes: show all cards once loaded
+  // For Custom mode: use pagination (displayCount)
   const displayedCards = useMemo(() => {
+    const isNonCustomMode = binder && binder.collectionMode !== 'custom';
+    
+    // If cards are fully loaded in non-Custom mode, show all
+    if (cardsFullyLoaded && isNonCustomMode) {
+      return filteredCards;
+    }
+    
+    // Otherwise use pagination (during loading or for Custom mode)
     return filteredCards.slice(0, displayCount);
-  }, [filteredCards, displayCount]);
+  }, [filteredCards, displayCount, cardsFullyLoaded, binder]);
 
-  const hasMoreCards = displayCount < filteredCards.length;
+  // For non-Custom modes: no more cards once loaded
+  // For Custom mode: still uses pagination
+  const hasMoreCards = useMemo(() => {
+    const isNonCustomMode = binder && binder.collectionMode !== 'custom';
+    
+    // If cards are fully loaded in non-Custom mode, no more to load
+    if (cardsFullyLoaded && isNonCustomMode) {
+      return false;
+    }
+    
+    return displayCount < filteredCards.length;
+  }, [cardsFullyLoaded, binder, displayCount, filteredCards.length]);
 
-  // Load more cards handler for infinite scroll
+  // Load more cards handler - only used during initial loading or if pagination is still active
   const loadMoreCards = useCallback(() => {
     if (isLoadingMore || !hasMoreCards) return;
 
     setIsLoadingMore(true);
-    // Small delay to show loading indicator
     setTimeout(() => {
       setDisplayCount((prev) => Math.min(prev + PAGE_SIZE, filteredCards.length));
       setIsLoadingMore(false);

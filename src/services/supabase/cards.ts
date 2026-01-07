@@ -29,11 +29,16 @@ async function syncBinderCardCount(binderId: string): Promise<void> {
 
 /**
  * Add a card to a binder
+ * @param binderId - The binder ID
+ * @param cardId - The card ID
+ * @param variant - Optional variant (e.g., 'reverse-holo')
+ * @param position - Optional position for Custom binders (0-based slot index)
  */
 export async function addCardToBinder(
   binderId: string,
   cardId: string,
-  variant?: string
+  variant?: string,
+  position?: number
 ): Promise<void> {
   const { data: { user } } = await supabase.auth.getUser();
   
@@ -61,6 +66,7 @@ export async function addCardToBinder(
       binder_id: binderId,
       card_id: cardId,
       variant: variant || null,
+      position: position ?? null, // NULL for non-Custom binders
     }, {
       onConflict: 'binder_id,card_id,variant',
     });
@@ -237,6 +243,111 @@ export async function getBinderCardsWithVariants(binderId: string): Promise<Arra
     cardId: row.card_id,
     variant: row.variant,
   })) || [];
+}
+
+/**
+ * Get all binder cards with positions (for Custom binders)
+ * Returns a map of position -> cardId
+ */
+export async function getBinderCardsWithPositions(binderId: string): Promise<Map<number, {
+  cardId: string;
+  variant: string | null;
+}>> {
+  const { data: { user } } = await supabase.auth.getUser();
+  
+  if (!user) {
+    throw new Error('User not authenticated');
+  }
+
+  // Verify binder belongs to user
+  const { data: binder, error: binderError } = await supabase
+    .from('binders')
+    .select('id')
+    .eq('id', binderId)
+    .eq('user_id', user.id)
+    .single();
+
+  if (binderError || !binder) {
+    throw new Error('Binder not found or access denied');
+  }
+
+  const { data, error } = await supabase
+    .from('binder_cards')
+    .select('card_id, variant, position')
+    .eq('user_id', user.id)
+    .eq('binder_id', binderId)
+    .not('position', 'is', null);
+
+  if (error) {
+    throw error;
+  }
+
+  const positionMap = new Map<number, { cardId: string; variant: string | null }>();
+  
+  data?.forEach((row) => {
+    if (row.position !== null) {
+      positionMap.set(row.position, {
+        cardId: row.card_id,
+        variant: row.variant,
+      });
+    }
+  });
+
+  return positionMap;
+}
+
+/**
+ * Remove a card from a binder by position (for Custom binders)
+ */
+export async function removeCardByPosition(
+  binderId: string,
+  position: number
+): Promise<void> {
+  const { data: { user } } = await supabase.auth.getUser();
+  
+  if (!user) {
+    throw new Error('User not authenticated');
+  }
+
+  // Verify binder belongs to user
+  const { data: binder, error: binderError } = await supabase
+    .from('binders')
+    .select('id')
+    .eq('id', binderId)
+    .eq('user_id', user.id)
+    .single();
+
+  if (binderError || !binder) {
+    throw new Error('Binder not found or access denied');
+  }
+
+  // Delete the card at this position
+  const { error } = await supabase
+    .from('binder_cards')
+    .delete()
+    .eq('user_id', user.id)
+    .eq('binder_id', binderId)
+    .eq('position', position);
+
+  if (error) {
+    throw error;
+  }
+
+  // Sync the owned_cards count
+  await syncBinderCardCount(binderId);
+}
+
+/**
+ * Add a card at a specific position in a Custom binder
+ * This is a convenience wrapper that handles the position parameter
+ */
+export async function addCardAtPosition(
+  binderId: string,
+  cardId: string,
+  position: number,
+  variant?: string
+): Promise<void> {
+  return addCardToBinder(binderId, cardId, variant, position);
 }
 
 

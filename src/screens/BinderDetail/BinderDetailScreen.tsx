@@ -3,13 +3,14 @@ import { View, StyleSheet, Text, ScrollView, TouchableOpacity, Dimensions, FlatL
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { getBinderById } from '../../services/supabase/binders';
-import { addCardToBinder, removeCardFromBinder } from '../../services/supabase/cards';
+import { addCardToBinder, removeCardFromBinder, getBinderCardsWithPositions, addCardAtPosition, removeCardByPosition } from '../../services/supabase/cards';
 import { getCardsBySet, getCardsByRegion, getCardById, type Region } from '../../services/api/pokemonApi';
 import { startBackgroundPrefetch } from '../../services/imagePrefetch';
 import { recordBinderAccess } from '../../services/cacheManager';
 import type { Binder, Card } from '../../types';
 import CardItem from '../../components/Card/CardItem';
 import CardList from '../../components/Card/CardList';
+import EmptyCardSlot from '../../components/Card/EmptyCardSlot';
 import { CardPickerModal } from '../../components/CardPicker';
 import { useCardSearch } from '../../hooks/useCardSearch';
 import { useCardFilter, type OwnershipFilter } from '../../hooks/useCardFilter';
@@ -20,13 +21,17 @@ import LoadingScreen from '../../components/Loading/LoadingScreen';
 import LoadingSpinner from '../../components/Loading/LoadingSpinner';
 import EmptyState from '../../components/EmptyState/EmptyState';
 import ErrorScreen from '../../components/Error/ErrorScreen';
-import { colors, spacing, typography, borderRadius, screenPadding, shadows } from '../../constants/theme';
+import { colors, spacing, typography, borderRadius, screenPadding } from '../../constants/theme';
 
 const CONTAINER_PADDING = screenPadding; // Padding from container style (24px)
 const CARD_MARGIN = 2; // Margin between cards (margin: 2 means 2px on all sides, 4px gap between cards)
 
 /** Number of cards to load per page (for infinite scroll) */
 const PAGE_SIZE = 36; // 12 rows of 3, or 9 rows of 4
+
+/** Maximum slots for Custom binders based on layout */
+const CUSTOM_MAX_SLOTS_3X3 = 360; // 40 pages × 9 cards
+const CUSTOM_MAX_SLOTS_4X3 = 480; // 40 pages × 12 cards
 
 /**
  * Calculate card width based on number of columns
@@ -69,6 +74,12 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
   
   // Card picker modal state (for Custom binders)
   const [showCardPicker, setShowCardPicker] = useState(false);
+  
+  // Custom mode: position being filled (when card picker is open)
+  const [selectedPosition, setSelectedPosition] = useState<number | null>(null);
+  
+  // Custom mode: map of position -> card data
+  const [positionCards, setPositionCards] = useState<Map<number, CardWithOwnership>>(new Map());
 
   // Update screen width on dimension changes
   useEffect(() => {
@@ -201,28 +212,51 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
         } else if (binder.collectionMode === 'region' && binder.region) {
           allCards = await getCardsByRegion(binder.region as Region, binder.pokemonArtStyle);
         } else if (binder.collectionMode === 'custom') {
-          // For Custom binders, load cards from binder.cardIds (user-added cards)
-          console.log('[BinderDetail] Custom mode - loading', binder.cardIds.length, 'user-added cards');
+          // For Custom binders, load cards with their positions
+          console.log('[BinderDetail] Custom mode - loading cards with positions');
           
-          if (binder.cardIds.length > 0) {
-            // Fetch all cards by their IDs in parallel
-            const cardPromises = binder.cardIds.map(async (cardId) => {
-              try {
-                const card = await getCardById(cardId);
-                return card;
-              } catch (err) {
-                console.warn('[BinderDetail] Failed to load card:', cardId, err);
-                return null;
+          try {
+            // Get all cards with their positions from the database
+            const cardsWithPositionsMap = await getBinderCardsWithPositions(binder.id);
+            console.log('[BinderDetail] Custom mode - found', cardsWithPositionsMap.size, 'cards with positions');
+            
+            // Fetch card details for each position
+            const newPositionCards = new Map<number, CardWithOwnership>();
+            const cardPromises = Array.from(cardsWithPositionsMap.entries()).map(
+              async ([position, cardData]) => {
+                try {
+                  const card = await getCardById(cardData.cardId);
+                  if (card) {
+                    return { position, card };
+                  }
+                  return null;
+                } catch (err) {
+                  console.warn('[BinderDetail] Failed to load card at position', position, ':', err);
+                  return null;
+                }
+              }
+            );
+            
+            const results = await Promise.all(cardPromises);
+            
+            // Build the position map
+            results.forEach((result) => {
+              if (result) {
+                newPositionCards.set(result.position, {
+                  ...result.card,
+                  isOwned: true, // Cards in Custom binders are always "owned"
+                });
               }
             });
             
-            const loadedCards = await Promise.all(cardPromises);
-            // Filter out any cards that failed to load
-            allCards = loadedCards.filter((card): card is Card => card !== null);
-            console.log('[BinderDetail] Custom mode - loaded', allCards.length, 'cards successfully');
-          } else {
+            setPositionCards(newPositionCards);
+            console.log('[BinderDetail] Custom mode - loaded', newPositionCards.size, 'cards into grid');
+            
+            // allCards stays empty for Custom mode (we use positionCards instead)
             allCards = [];
-            console.log('[BinderDetail] Custom mode - no cards to load');
+          } catch (err) {
+            console.error('[BinderDetail] Error loading custom binder cards:', err);
+            allCards = [];
           }
         }
 
@@ -538,25 +572,15 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
     }
   }, [binder?.id]);
 
-  // Handle adding a card from the picker (Custom mode)
+  // Handle adding a card from the picker (Custom mode with position)
   const handleAddCardFromPicker = useCallback(async (selectedCard: Card) => {
-    if (!binder) return;
+    if (!binder || selectedPosition === null) return;
     
-    console.log('[BinderDetail] Adding card from picker:', selectedCard.id, selectedCard.name);
-    
-    // Check if card is already in binder
-    if (binder.cardIds.includes(selectedCard.id)) {
-      Alert.alert(
-        'Card Already Added',
-        `${selectedCard.name} is already in this binder.`,
-        [{ text: 'OK' }]
-      );
-      return;
-    }
+    console.log('[BinderDetail] Adding card from picker at position', selectedPosition, ':', selectedCard.id, selectedCard.name);
     
     try {
-      // Add card to database
-      await addCardToBinder(binder.id, selectedCard.id, selectedCard.variant);
+      // Add card at the selected position
+      await addCardAtPosition(binder.id, selectedCard.id, selectedPosition, selectedCard.variant);
       
       // Optimistically update UI
       const newCard: CardWithOwnership = {
@@ -564,18 +588,22 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
         isOwned: true,
       };
       
-      setCards((prevCards) => [...prevCards, newCard]);
+      setPositionCards((prev) => {
+        const updated = new Map(prev);
+        updated.set(selectedPosition, newCard);
+        return updated;
+      });
+      
       setBinder((prevBinder) => {
         if (!prevBinder) return prevBinder;
         return {
           ...prevBinder,
           cardIds: [...prevBinder.cardIds, selectedCard.id],
           ownedCards: (prevBinder.ownedCards || 0) + 1,
-          totalCards: (prevBinder.totalCards || 0) + 1,
         };
       });
       
-      console.log('[BinderDetail] Card added successfully:', selectedCard.name);
+      console.log('[BinderDetail] Card added successfully at position', selectedPosition);
     } catch (err) {
       console.error('[BinderDetail] Failed to add card:', err);
       Alert.alert(
@@ -583,8 +611,65 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
         'Failed to add card to binder. Please try again.',
         [{ text: 'OK' }]
       );
+    } finally {
+      setSelectedPosition(null);
     }
-  }, [binder]);
+  }, [binder, selectedPosition]);
+
+  // Handle opening card picker for a specific slot (Custom mode)
+  const handleEmptySlotPress = useCallback((position: number) => {
+    console.log('[BinderDetail] Empty slot tapped at position:', position);
+    setSelectedPosition(position);
+    setShowCardPicker(true);
+  }, []);
+
+  // Handle removing a card from a position (Custom mode)
+  const handleRemoveCardAtPosition = useCallback(async (position: number) => {
+    if (!binder) return;
+    
+    const card = positionCards.get(position);
+    if (!card) return;
+    
+    console.log('[BinderDetail] Removing card at position', position, ':', card.name);
+    
+    // Optimistically update UI
+    setPositionCards((prev) => {
+      const updated = new Map(prev);
+      updated.delete(position);
+      return updated;
+    });
+    
+    setBinder((prevBinder) => {
+      if (!prevBinder) return prevBinder;
+      return {
+        ...prevBinder,
+        cardIds: prevBinder.cardIds.filter((id) => id !== card.id),
+        ownedCards: Math.max(0, (prevBinder.ownedCards || 0) - 1),
+      };
+    });
+    
+    try {
+      await removeCardByPosition(binder.id, position);
+      console.log('[BinderDetail] Card removed successfully from position', position);
+    } catch (err) {
+      console.error('[BinderDetail] Failed to remove card:', err);
+      // Revert on error
+      setPositionCards((prev) => {
+        const updated = new Map(prev);
+        updated.set(position, card);
+        return updated;
+      });
+      setBinder((prevBinder) => {
+        if (!prevBinder) return prevBinder;
+        return {
+          ...prevBinder,
+          cardIds: [...prevBinder.cardIds, card.id],
+          ownedCards: (prevBinder.ownedCards || 0) + 1,
+        };
+      });
+      Alert.alert('Error', 'Failed to remove card. Please try again.');
+    }
+  }, [binder, positionCards]);
 
   // Update header title when binder loads
   useEffect(() => {
@@ -647,6 +732,64 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
   // Key extractor for FlatList
   const keyExtractor = useCallback((item: CardWithOwnership) => item.id, []);
 
+  // === CUSTOM MODE: Positional grid with slots ===
+  
+  // Calculate max slots based on layout preference
+  const customMaxSlots = gridColumns === 4 ? CUSTOM_MAX_SLOTS_4X3 : CUSTOM_MAX_SLOTS_3X3;
+  
+  // Generate array of slot positions for Custom mode (paginated)
+  const customSlots = useMemo(() => {
+    if (!binder || binder.collectionMode !== 'custom') return [];
+    // Return array of position numbers [0, 1, 2, ..., displayCount-1]
+    return Array.from({ length: Math.min(displayCount, customMaxSlots) }, (_, i) => i);
+  }, [binder, displayCount, customMaxSlots]);
+
+  const hasMoreCustomSlots = displayCount < customMaxSlots;
+
+  // Load more slots for Custom mode
+  const loadMoreCustomSlots = useCallback(() => {
+    if (isLoadingMore || !hasMoreCustomSlots) return;
+
+    setIsLoadingMore(true);
+    setTimeout(() => {
+      setDisplayCount((prev) => Math.min(prev + PAGE_SIZE, customMaxSlots));
+      setIsLoadingMore(false);
+    }, 100);
+  }, [isLoadingMore, hasMoreCustomSlots, customMaxSlots]);
+
+  // Render a slot (either card or empty slot) for Custom mode
+  const renderCustomSlot = useCallback(
+    ({ item: position }: { item: number }) => {
+      const card = positionCards.get(position);
+      
+      if (card) {
+        // Slot has a card - render it with a remove handler
+        return (
+          <CardItem
+            card={card}
+            onPress={() => handleRemoveCardAtPosition(position)}
+            binderId={binder?.id || ''}
+            width={cardWidth}
+            variant="grid"
+          />
+        );
+      }
+      
+      // Empty slot - render placeholder
+      return (
+        <EmptyCardSlot
+          position={position}
+          width={cardWidth}
+          onPress={handleEmptySlotPress}
+        />
+      );
+    },
+    [positionCards, handleRemoveCardAtPosition, handleEmptySlotPress, binder?.id, cardWidth]
+  );
+
+  // Key extractor for Custom mode slots
+  const customSlotKeyExtractor = useCallback((position: number) => `slot-${position}`, []);
+
   if (loading && !binder) {
     return <LoadingScreen message="Loading binder..." />;
   }
@@ -699,10 +842,10 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
       {/* Progress Summary */}
       <View style={styles.progressContainer}>
         {isCustomMode ? (
-          // Custom mode: show simple card count (no percentage)
+          // Custom mode: show card count with total slots
           <View style={styles.customProgress}>
             <Text style={styles.customProgressText}>
-              📦 {cards.length} {cards.length === 1 ? 'card' : 'cards'} in collection
+              📦 {positionCards.size} / {customMaxSlots} cards
             </Text>
           </View>
         ) : (
@@ -724,41 +867,52 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
       
       <View style={styles.cardsContainer}>
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Cards:</Text>
-          <View style={styles.viewToggle}>
-            <TouchableOpacity
-              style={[styles.toggleButton, viewMode === 'grid' && styles.toggleButtonActive]}
-              onPress={() => setViewMode('grid')}
-            >
-              <Text style={[styles.toggleButtonText, viewMode === 'grid' && styles.toggleButtonTextActive]}>
-                Grid
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.toggleButton, viewMode === 'list' && styles.toggleButtonActive]}
-              onPress={() => setViewMode('list')}
-            >
-              <Text style={[styles.toggleButtonText, viewMode === 'list' && styles.toggleButtonTextActive]}>
-                List
-              </Text>
-            </TouchableOpacity>
-          </View>
+          <Text style={styles.sectionTitle}>{isCustomMode ? 'Card Slots:' : 'Cards:'}</Text>
+          {/* View toggle - only show for non-Custom modes */}
+          {!isCustomMode && (
+            <View style={styles.viewToggle}>
+              <TouchableOpacity
+                style={[styles.toggleButton, viewMode === 'grid' && styles.toggleButtonActive]}
+                onPress={() => setViewMode('grid')}
+              >
+                <Text style={[styles.toggleButtonText, viewMode === 'grid' && styles.toggleButtonTextActive]}>
+                  Grid
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.toggleButton, viewMode === 'list' && styles.toggleButtonActive]}
+                onPress={() => setViewMode('list')}
+              >
+                <Text style={[styles.toggleButtonText, viewMode === 'list' && styles.toggleButtonTextActive]}>
+                  List
+                </Text>
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
         
-        {/* Search Input */}
-        <SearchBar
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-          placeholder="Search by name or number..."
-        />
+        {/* Search and Filter - only show for non-Custom modes */}
+        {!isCustomMode && (
+          <>
+            <SearchBar
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholder="Search by name or number..."
+            />
+            
+            <FilterPanel
+              ownershipFilter={ownershipFilter}
+              onOwnershipFilterChange={setOwnershipFilter}
+            />
+          </>
+        )}
         
-        {/* Filter Panel */}
-        <FilterPanel
-          ownershipFilter={ownershipFilter}
-          onOwnershipFilterChange={setOwnershipFilter}
-        />
-        
-        <Text style={styles.helpText}>Tap a card to view details, tap checkbox to mark owned</Text>
+        <Text style={styles.helpText}>
+          {isCustomMode 
+            ? 'Tap an empty slot to add a card, tap a card to remove it'
+            : 'Tap a card to view details, tap checkbox to mark owned'
+          }
+        </Text>
       </View>
     </View>
   );
@@ -769,6 +923,31 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
       return <LoadingSpinner message="Loading cards..." />;
     }
 
+    // Custom mode footer
+    if (isCustomMode) {
+      if (!hasMoreCustomSlots && customSlots.length > 0) {
+        return (
+          <View style={styles.footerComplete}>
+            <Text style={styles.footerCompleteText}>
+              All {customMaxSlots} slots loaded
+            </Text>
+          </View>
+        );
+      }
+
+      if (isLoadingMore) {
+        return (
+          <View style={styles.footer}>
+            <ActivityIndicator size="small" color={colors.primary} />
+            <Text style={styles.footerText}>Loading more slots...</Text>
+          </View>
+        );
+      }
+
+      return null;
+    }
+
+    // Non-Custom mode footer
     if (!hasMoreCards && displayedCards.length > 0) {
       return (
         <View style={styles.footerComplete}>
@@ -791,20 +970,12 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
     return null;
   };
 
-  // Empty state component
+  // Empty state component (not used for Custom mode since it always shows slots)
   const ListEmptyComponent = () => {
     if (loading) return null;
     
-    // Custom empty state for Custom binders
-    if (isCustomMode && !searchQuery.trim()) {
-      return (
-        <EmptyState
-          title="No cards yet"
-          message="Tap the + button below to add cards to your collection"
-          icon={<Text style={{ fontSize: 48 }}>➕</Text>}
-        />
-      );
-    }
+    // Custom mode always has slots, so this shouldn't show
+    if (isCustomMode) return null;
     
     return (
       <EmptyState
@@ -819,7 +990,8 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
   };
 
   // List view (using ScrollView as before)
-  if (viewMode === 'list') {
+  // Note: Custom mode only supports grid view (always falls through to grid)
+  if (viewMode === 'list' && !isCustomMode) {
     return (
       <SafeAreaView style={styles.safeArea}>
         <ScrollView style={styles.container}>
@@ -836,31 +1008,50 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
             />
           )}
         </ScrollView>
+      </SafeAreaView>
+    );
+  }
+
+  // Grid view with FlatList for infinite scroll
+  // Custom mode uses slots (positions), other modes use cards
+  if (isCustomMode) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <FlatList
+          data={customSlots}
+          renderItem={renderCustomSlot}
+          keyExtractor={customSlotKeyExtractor}
+          numColumns={gridColumns}
+          key={`custom-grid-${gridColumns}`}
+          columnWrapperStyle={styles.row}
+          contentContainerStyle={styles.flatListContainer}
+          ListHeaderComponent={ListHeaderComponent}
+          ListFooterComponent={ListFooterComponent}
+          onEndReached={loadMoreCustomSlots}
+          onEndReachedThreshold={0.5}
+          removeClippedSubviews={false}
+          maxToRenderPerBatch={PAGE_SIZE}
+          windowSize={11}
+          initialNumToRender={PAGE_SIZE}
+          extraData={[displayCount, positionCards]}
+        />
         
-        {/* Floating Action Button for Custom mode - Add Card */}
-        {isCustomMode && (
-          <TouchableOpacity
-            style={styles.fab}
-            onPress={() => setShowCardPicker(true)}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.fabText}>+</Text>
-          </TouchableOpacity>
-        )}
-        
-        {/* Card Picker Modal */}
+        {/* Card Picker Modal for adding cards at a position */}
         <CardPickerModal
           visible={showCardPicker}
-          onClose={() => setShowCardPicker(false)}
+          onClose={() => {
+            setShowCardPicker(false);
+            setSelectedPosition(null);
+          }}
           onSelectCard={handleAddCardFromPicker}
-          title="Add Card"
+          title={selectedPosition !== null ? `Add Card to Slot ${selectedPosition + 1}` : 'Add Card'}
           pokemonOnly={false}
         />
       </SafeAreaView>
     );
   }
 
-  // Grid view with FlatList for infinite scroll
+  // Non-Custom mode: regular card grid
   return (
     <SafeAreaView style={styles.safeArea}>
       <FlatList
@@ -884,26 +1075,6 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
         initialNumToRender={PAGE_SIZE}
         // Extra data to trigger re-render when cards ownership changes
         extraData={[displayCount, cards]}
-      />
-      
-      {/* Floating Action Button for Custom mode - Add Card */}
-      {isCustomMode && (
-        <TouchableOpacity
-          style={styles.fab}
-          onPress={() => setShowCardPicker(true)}
-          activeOpacity={0.8}
-        >
-          <Text style={styles.fabText}>+</Text>
-        </TouchableOpacity>
-      )}
-      
-      {/* Card Picker Modal */}
-      <CardPickerModal
-        visible={showCardPicker}
-        onClose={() => setShowCardPicker(false)}
-        onSelectCard={handleAddCardFromPicker}
-        title="Add Card"
-        pokemonOnly={false}
       />
     </SafeAreaView>
   );
@@ -1033,27 +1204,5 @@ const styles = StyleSheet.create({
     fontSize: typography.lg,
     fontWeight: typography.semibold,
     color: colors.text,
-  },
-  // Floating Action Button for adding cards (Custom mode)
-  fab: {
-    position: 'absolute',
-    right: spacing.lg,
-    bottom: spacing.xl + 40, // Extra space for safe area
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: colors.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
-    ...shadows.lg,
-    // Elevation for Android
-    elevation: 8,
-  },
-  fabText: {
-    fontSize: 32,
-    fontWeight: typography.bold,
-    color: colors.background,
-    lineHeight: 36,
-    marginTop: -2, // Optical alignment
   },
 });

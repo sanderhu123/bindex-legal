@@ -3288,56 +3288,78 @@ export async function toggleExtraCardOwnership(
 ---
 
 #### Step 30C: Update BinderDetailScreen for Extra Cards
-- [ ] **Status**: Not started
+- [x] **Status**: Completed
 
 **What we're doing:** Display extra cards in Master Set binders and allow adding them
 
-**Files to modify:**
+**Files created:**
+- `src/components/Card/ExtraCardItem.tsx` - Extra card component with "EXTRA" badge
+
+**Files modified:**
 - `src/screens/BinderDetail/BinderDetailScreen.tsx` - Handle extra cards display
 
 **UI Changes:**
-- Add "Add Extra Card" button (smaller than main FAB, maybe in header)
-- Extra cards section at the bottom of the card grid
-- Visual indicator for extra cards (badge or different border)
-- Progress tracking separate: "95/150 (63%) + 3 extras"
+- ✅ Add "Add Extra Card" button below progress bar (dashed gold border)
+- ✅ Extra cards section at the bottom of the card grid (after all set cards load)
+- ✅ Visual indicator for extra cards (gold "EXTRA" badge + gold border)
+- ✅ Progress tracking shows: "X/Y (Z%) + W extras" format
 
-**Display Logic:**
-```typescript
-if (binder.collectionMode === 'master-set') {
-  // Load official set cards
-  const setCards = await getCardsBySet(binder.set);
-  
-  // Load extra cards
-  const extraCardIds = await getExtraCardsInBinder(binder.id);
-  const extraCards = await Promise.all(extraCardIds.map(id => getCardById(id)));
-  
-  // Display: [setCards] then [extraCards section]
-}
-```
+**What was implemented:**
+- ✅ ExtraCardItem component with gold border and "EXTRA" badge
+- ✅ Load extra cards from database (uses getExtraCardsWithVariants)
+- ✅ Display extra cards in dedicated section after regular cards
+- ✅ "Add Extra Card" button opens CardPickerModal
+- ✅ Can toggle extra card ownership (tap checkbox)
+- ✅ Can remove extra cards (long-press → confirm dialog)
+- ✅ Progress bar shows "+ W extras" if extra cards exist
+- ✅ Extra cards don't affect main set completion percentage
 
 **Testing:**
-- [ ] "Add Extra Card" button appears for Master Set binders
-- [ ] Extra cards appear in separate section
-- [ ] Extra cards have visual indicator
-- [ ] Progress shows "X/Y + Z extras" format
-- [ ] Can add extra cards via picker
-- [ ] Can remove extra cards
-- [ ] Extra cards don't affect main progress percentage
+- [x] "Add Extra Card" button appears for Master Set binders (implemented)
+- [x] Extra cards appear in separate section (implemented)
+- [x] Extra cards have visual indicator (gold badge + border)
+- [x] Progress shows "X/Y + Z extras" format (implemented)
+- [x] Can add extra cards via picker (implemented)
+- [x] Can remove extra cards (implemented - long-press)
+- [x] Extra cards don't affect main progress percentage (implemented)
+- [ ] Run database migration first - **Required before testing**
+- [ ] Test adding extra card from different set - Ready to test
+- [ ] Test removing extra card - Ready to test
+- [ ] Test toggling extra card ownership - Ready to test
 
 **How to Test Step 30C:**
-1. **Open a Master Set binder:**
+
+1. **Run the database migration first:**
+   - Go to Supabase Dashboard → SQL Editor
+   - Run the SQL from `database/migrations/add_is_extra_to_binder_cards.sql`
+   - Verify the `is_extra` column is added
+
+2. **Open a Master Set binder:**
    - Should see normal set cards
-   - Should see "Add Extra Card" button
+   - Should see "Add Extra Card" button (gold dashed border)
+   - Progress bar shows only set cards initially
 
-2. **Add an extra card:**
-   - Tap "Add Extra Card"
-   - Search for a card from a different set
+3. **Add an extra card:**
+   - Tap "➕ Add Extra Card" button
+   - Search for a card from a different set (e.g., search "Pikachu")
    - Select the card
-   - Verify card appears in "Extras" section
+   - Scroll to bottom to see "Extra Cards" section
+   - Card should appear with gold "EXTRA" badge
+   - Progress should update to show "+ 1 extra"
 
-3. **Check progress:**
-   - Progress should show main set completion
-   - Extra cards should be counted separately
+4. **Toggle extra card ownership:**
+   - Tap the checkbox on the extra card
+   - Card should toggle between owned (bright) and missing (faded)
+
+5. **Remove an extra card:**
+   - Long-press on an extra card
+   - Confirm the removal dialog
+   - Card should disappear from extras section
+   - Progress updates accordingly
+
+6. **Check progress:**
+   - Main progress (X/Y) should NOT include extra cards
+   - Extra cards show separately as "+ W extras"
 
 ---
 

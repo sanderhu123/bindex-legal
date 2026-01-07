@@ -3,7 +3,18 @@ import { View, StyleSheet, Text, ScrollView, TouchableOpacity, Dimensions, FlatL
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { getBinderById } from '../../services/supabase/binders';
-import { addCardToBinder, removeCardFromBinder, getBinderCardsWithPositions, addCardAtPosition, removeCardByPosition, toggleCardOwnershipAtPosition } from '../../services/supabase/cards';
+import { 
+  addCardToBinder, 
+  removeCardFromBinder, 
+  getBinderCardsWithPositions, 
+  addCardAtPosition, 
+  removeCardByPosition, 
+  toggleCardOwnershipAtPosition,
+  getExtraCardsWithVariants,
+  addExtraCardToBinder,
+  removeExtraCardFromBinder,
+  toggleExtraCardOwnership,
+} from '../../services/supabase/cards';
 import { getCardsBySet, getCardsByRegion, getCardById, type Region } from '../../services/api/pokemonApi';
 import { startBackgroundPrefetch } from '../../services/imagePrefetch';
 import { recordBinderAccess } from '../../services/cacheManager';
@@ -11,6 +22,7 @@ import type { Binder, Card } from '../../types';
 import CardItem from '../../components/Card/CardItem';
 import CardList from '../../components/Card/CardList';
 import EmptyCardSlot from '../../components/Card/EmptyCardSlot';
+import ExtraCardItem from '../../components/Card/ExtraCardItem';
 import { CardPickerModal } from '../../components/CardPicker';
 import { useCardSearch } from '../../hooks/useCardSearch';
 import { useCardFilter, type OwnershipFilter } from '../../hooks/useCardFilter';
@@ -80,6 +92,10 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
   
   // Custom mode: map of position -> card data
   const [positionCards, setPositionCards] = useState<Map<number, CardWithOwnership>>(new Map());
+  
+  // Extra cards for Master Set binders (cards not officially in the set)
+  const [extraCards, setExtraCards] = useState<CardWithOwnership[]>([]);
+  const [showExtraCardPicker, setShowExtraCardPicker] = useState(false);
 
   // Update screen width on dimension changes
   useEffect(() => {
@@ -495,6 +511,48 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
 
         setCards(cardsWithOwnership);
         
+        // Load extra cards for Master Set binders
+        if (binder.collectionMode === 'master-set') {
+          console.log('[BinderDetail] Loading extra cards for Master Set binder');
+          try {
+            const extraCardsData = await getExtraCardsWithVariants(binder.id);
+            console.log('[BinderDetail] Found', extraCardsData.length, 'extra cards');
+            
+            if (extraCardsData.length > 0) {
+              // Fetch card details for each extra card
+              const extraCardsWithDetails = await Promise.all(
+                extraCardsData.map(async (extraCardInfo) => {
+                  try {
+                    const card = await getCardById(extraCardInfo.cardId);
+                    if (card) {
+                      return {
+                        ...card,
+                        isOwned: extraCardInfo.isOwned,
+                      } as CardWithOwnership;
+                    }
+                    return null;
+                  } catch (err) {
+                    console.warn('[BinderDetail] Failed to load extra card:', extraCardInfo.cardId, err);
+                    return null;
+                  }
+                })
+              );
+              
+              // Filter out nulls and set state
+              const validExtraCards = extraCardsWithDetails.filter((c): c is CardWithOwnership => c !== null);
+              setExtraCards(validExtraCards);
+              console.log('[BinderDetail] Loaded', validExtraCards.length, 'extra cards with details');
+            } else {
+              setExtraCards([]);
+            }
+          } catch (err) {
+            console.error('[BinderDetail] Failed to load extra cards:', err);
+            setExtraCards([]);
+          }
+        } else {
+          setExtraCards([]);
+        }
+        
         // Start background prefetch for all card images
         // This continues even if the user leaves the screen
         if (cardsWithOwnership.length > 0 && binder.id) {
@@ -700,6 +758,80 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
     }
   }, [binder, positionCards]);
 
+  // === EXTRA CARDS HANDLERS (Master Set mode) ===
+  
+  // Handle adding an extra card from the picker
+  const handleAddExtraCard = useCallback(async (selectedCard: Card) => {
+    if (!binder) return;
+    
+    console.log('[BinderDetail] Adding extra card:', selectedCard.id, selectedCard.name);
+    
+    try {
+      await addExtraCardToBinder(binder.id, selectedCard.id, selectedCard.variant);
+      
+      // Optimistically update UI - extra cards start as owned
+      const newExtraCard: CardWithOwnership = {
+        ...selectedCard,
+        isOwned: true,
+      };
+      
+      setExtraCards((prev) => [...prev, newExtraCard]);
+      console.log('[BinderDetail] Extra card added successfully');
+    } catch (err) {
+      console.error('[BinderDetail] Failed to add extra card:', err);
+      Alert.alert(
+        'Error',
+        err instanceof Error ? err.message : 'Failed to add extra card. Please try again.',
+        [{ text: 'OK' }]
+      );
+    }
+  }, [binder]);
+
+  // Handle removing an extra card
+  const handleRemoveExtraCard = useCallback(async (card: CardWithOwnership) => {
+    if (!binder) return;
+    
+    console.log('[BinderDetail] Removing extra card:', card.id, card.name);
+    
+    // Optimistically update UI
+    setExtraCards((prev) => prev.filter((c) => c.id !== card.id));
+    
+    try {
+      await removeExtraCardFromBinder(binder.id, card.id, card.variant);
+      console.log('[BinderDetail] Extra card removed successfully');
+    } catch (err) {
+      console.error('[BinderDetail] Failed to remove extra card:', err);
+      // Revert on error
+      setExtraCards((prev) => [...prev, card]);
+      Alert.alert('Error', 'Failed to remove extra card. Please try again.');
+    }
+  }, [binder]);
+
+  // Handle toggling ownership of an extra card
+  const handleToggleExtraCardOwnership = useCallback(async (card: CardWithOwnership) => {
+    if (!binder) return;
+    
+    const newIsOwned = !card.isOwned;
+    console.log('[BinderDetail] Toggling extra card ownership:', card.name, '→', newIsOwned ? 'owned' : 'missing');
+    
+    // Optimistically update UI
+    setExtraCards((prev) =>
+      prev.map((c) => (c.id === card.id ? { ...c, isOwned: newIsOwned } : c))
+    );
+    
+    try {
+      await toggleExtraCardOwnership(binder.id, card.id, card.variant);
+      console.log('[BinderDetail] Extra card ownership toggled');
+    } catch (err) {
+      console.error('[BinderDetail] Failed to toggle extra card ownership:', err);
+      // Revert on error
+      setExtraCards((prev) =>
+        prev.map((c) => (c.id === card.id ? { ...c, isOwned: !newIsOwned } : c))
+      );
+      Alert.alert('Error', 'Failed to update card. Please try again.');
+    }
+  }, [binder]);
+
   // Update header title when binder loads
   useEffect(() => {
     if (binder) {
@@ -862,6 +994,11 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
   
   // Custom mode uses different progress format
   const isCustomMode = binder.collectionMode === 'custom';
+  
+  // Master Set mode can have extra cards
+  const isMasterSetMode = binder.collectionMode === 'master-set';
+  const extraCardsCount = extraCards.length;
+  const ownedExtraCardsCount = extraCards.filter(c => c.isOwned).length;
 
   // Header component for FlatList (binder info, progress, search, filters)
   const ListHeaderComponent = () => (
@@ -892,15 +1029,34 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
           </>
         ) : (
           // Master Set / Region mode: show progress bar with percentage
-          <ProgressBar
-            current={ownedCount}
-            total={totalCount}
-            percentage={progressPercentage}
-            format="full"
-            textSize="large"
-          />
+          <>
+            <ProgressBar
+              current={ownedCount}
+              total={totalCount}
+              percentage={progressPercentage}
+              format="full"
+              textSize="large"
+            />
+            {/* Extra cards count for Master Set binders */}
+            {isMasterSetMode && extraCardsCount > 0 && (
+              <Text style={styles.extraCardsInfo}>
+                + {ownedExtraCardsCount}/{extraCardsCount} extra cards
+              </Text>
+            )}
+          </>
         )}
       </View>
+      
+      {/* Add Extra Card button for Master Set binders */}
+      {isMasterSetMode && (
+        <TouchableOpacity
+          style={styles.addExtraButton}
+          onPress={() => setShowExtraCardPicker(true)}
+        >
+          <Text style={styles.addExtraButtonIcon}>➕</Text>
+          <Text style={styles.addExtraButtonText}>Add Extra Card</Text>
+        </TouchableOpacity>
+      )}
       {__DEV__ && binder && (
         <Text style={styles.debugText}>
           Debug: Binder has {binder.cardIds.length} card IDs
@@ -959,6 +1115,43 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
     </View>
   );
 
+  // Extra cards section component (for Master Set binders)
+  const ExtraCardsSection = () => {
+    if (!isMasterSetMode || extraCards.length === 0) return null;
+    
+    return (
+      <View style={styles.extraCardsSection}>
+        <View style={styles.extraCardsSectionHeader}>
+          <Text style={styles.extraCardsSectionTitle}>
+            Extra Cards ({ownedExtraCardsCount}/{extraCardsCount})
+          </Text>
+          <Text style={styles.extraCardsSectionSubtitle}>
+            Cards not in the official set
+          </Text>
+        </View>
+        <View style={styles.extraCardsGrid}>
+          {extraCards.map((card) => (
+            <ExtraCardItem
+              key={card.id}
+              card={card}
+              width={cardWidth}
+              onToggleOwnership={handleToggleExtraCardOwnership}
+              onRemove={handleRemoveExtraCard}
+              onPress={() => {
+                navigation.navigate('CardDetail', {
+                  cardId: card.id,
+                  binderId: binder?.id,
+                  isOwned: card.isOwned,
+                  isExtraCard: true,
+                });
+              }}
+            />
+          ))}
+        </View>
+      </View>
+    );
+  };
+
   // Footer component (loading indicator for pagination)
   const ListFooterComponent = () => {
     if (loading) {
@@ -992,11 +1185,16 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
     // Non-Custom mode footer
     if (!hasMoreCards && displayedCards.length > 0) {
       return (
-        <View style={styles.footerComplete}>
-          <Text style={styles.footerCompleteText}>
-            All {filteredCards.length} cards loaded
-          </Text>
-        </View>
+        <>
+          {/* Extra cards section appears after all regular cards */}
+          <ExtraCardsSection />
+          <View style={styles.footerComplete}>
+            <Text style={styles.footerCompleteText}>
+              All {filteredCards.length} cards loaded
+              {isMasterSetMode && extraCardsCount > 0 ? ` + ${extraCardsCount} extras` : ''}
+            </Text>
+          </View>
+        </>
       );
     }
 
@@ -1116,8 +1314,19 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
         windowSize={11} // Larger window = more cards kept in memory = smoother scrolling
         initialNumToRender={PAGE_SIZE}
         // Extra data to trigger re-render when cards ownership changes
-        extraData={[displayCount, cards]}
+        extraData={[displayCount, cards, extraCards]}
       />
+      
+      {/* Card Picker Modal for adding extra cards (Master Set mode) */}
+      {isMasterSetMode && (
+        <CardPickerModal
+          visible={showExtraCardPicker}
+          onClose={() => setShowExtraCardPicker(false)}
+          onSelectCard={handleAddExtraCard}
+          title="Add Extra Card"
+          pokemonOnly={false}
+        />
+      )}
     </SafeAreaView>
   );
 }
@@ -1240,5 +1449,62 @@ const styles = StyleSheet.create({
     color: colors.textTertiary,
     textAlign: 'center',
     marginTop: spacing.xs,
+  },
+  // Extra cards info text (below progress bar for Master Set)
+  extraCardsInfo: {
+    fontSize: typography.sm,
+    color: colors.warning,
+    textAlign: 'center',
+    marginTop: spacing.xs,
+    fontWeight: typography.medium,
+  },
+  // Add Extra Card button
+  addExtraButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.warning + '20', // 20% opacity warning color
+    borderWidth: 1,
+    borderColor: colors.warning,
+    borderStyle: 'dashed',
+    borderRadius: borderRadius.md,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    marginTop: spacing.md,
+  },
+  addExtraButtonIcon: {
+    fontSize: typography.base,
+    marginRight: spacing.xs,
+  },
+  addExtraButtonText: {
+    fontSize: typography.base,
+    fontWeight: typography.medium,
+    color: colors.warning,
+  },
+  // Extra cards section
+  extraCardsSection: {
+    marginTop: spacing.xl,
+    paddingTop: spacing.lg,
+    borderTopWidth: 2,
+    borderTopColor: colors.warning,
+  },
+  extraCardsSectionHeader: {
+    marginBottom: spacing.md,
+  },
+  extraCardsSectionTitle: {
+    fontSize: typography.lg,
+    fontWeight: typography.semibold,
+    color: colors.warning,
+    marginBottom: spacing.xs,
+  },
+  extraCardsSectionSubtitle: {
+    fontSize: typography.sm,
+    color: colors.textTertiary,
+    fontStyle: 'italic',
+  },
+  extraCardsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginHorizontal: -CARD_MARGIN,
   },
 });

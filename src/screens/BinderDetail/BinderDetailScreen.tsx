@@ -45,6 +45,9 @@ const PAGE_SIZE = 36; // 12 rows of 3, or 9 rows of 4
 const CUSTOM_MAX_SLOTS_3X3 = 360; // 40 pages × 9 cards
 const CUSTOM_MAX_SLOTS_4X3 = 480; // 40 pages × 12 cards
 
+/** Number of empty slots to show at end of Master Set binders for adding extra cards */
+const EXTRA_CARD_SLOTS = 9; // 1 page worth (3x3)
+
 /**
  * Calculate card width based on number of columns
  * Grid has negative horizontal margin that extends it CARD_MARGIN beyond container padding
@@ -66,6 +69,22 @@ interface BinderDetailScreenProps {
 interface CardWithOwnership extends Card {
   isOwned: boolean;
 }
+
+/** Extra card with ownership and extra flag */
+interface ExtraCardWithOwnership extends CardWithOwnership {
+  isExtra: true;
+}
+
+/** 
+ * Master Set grid item types:
+ * - Regular set card
+ * - Extra card (not in official set)
+ * - Empty slot for adding extra cards
+ */
+type MasterSetGridItem = 
+  | { type: 'card'; card: CardWithOwnership }
+  | { type: 'extra'; card: ExtraCardWithOwnership }
+  | { type: 'empty-slot'; slotIndex: number };
 
 type ViewMode = 'grid' | 'list';
 
@@ -707,6 +726,12 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
     setShowCardPicker(true);
   }, []);
 
+  // Handle opening card picker for extra card slot (Master Set mode)
+  const handleExtraSlotPress = useCallback((slotIndex: number) => {
+    console.log('[BinderDetail] Extra card slot tapped:', slotIndex);
+    setShowExtraCardPicker(true);
+  }, []);
+
   // Handle toggling owned/missing status for a card at a position (Custom mode)
   const handleToggleCustomCardOwnership = useCallback(async (position: number) => {
     if (!binder) return;
@@ -892,6 +917,89 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
 
   // Key extractor for FlatList
   const keyExtractor = useCallback((item: CardWithOwnership) => item.id, []);
+
+  // === MASTER SET MODE: Combined grid with regular cards, extra cards, and empty slots ===
+  
+  // Create combined data for Master Set mode: regular cards + extra cards + empty slots
+  const masterSetGridItems = useMemo((): MasterSetGridItem[] => {
+    if (!binder || binder.collectionMode !== 'master-set') return [];
+    
+    const items: MasterSetGridItem[] = [];
+    
+    // Add regular cards (paginated)
+    displayedCards.forEach((card) => {
+      items.push({ type: 'card', card });
+    });
+    
+    // Add extra cards at the end of regular cards
+    extraCards.forEach((card) => {
+      items.push({ type: 'extra', card: { ...card, isExtra: true } as ExtraCardWithOwnership });
+    });
+    
+    // Add empty slots for adding more extra cards
+    for (let i = 0; i < EXTRA_CARD_SLOTS; i++) {
+      items.push({ type: 'empty-slot', slotIndex: i });
+    }
+    
+    return items;
+  }, [binder, displayedCards, extraCards]);
+
+  // Render function for Master Set grid items
+  const renderMasterSetGridItem = useCallback(
+    ({ item }: { item: MasterSetGridItem }) => {
+      if (item.type === 'card') {
+        // Regular set card
+        return (
+          <CardItem
+            card={item.card}
+            onPress={handleToggleCard}
+            binderId={binder?.id || ''}
+            width={cardWidth}
+            variant="grid"
+          />
+        );
+      }
+      
+      if (item.type === 'extra') {
+        // Extra card (not in official set)
+        return (
+          <ExtraCardItem
+            card={item.card}
+            width={cardWidth}
+            onToggleOwnership={handleToggleExtraCardOwnership}
+            onRemove={handleRemoveExtraCard}
+            onPress={() => {
+              navigation.navigate('CardDetail', {
+                cardId: item.card.id,
+                binderId: binder?.id,
+                isOwned: item.card.isOwned,
+                isExtraCard: true,
+              });
+            }}
+          />
+        );
+      }
+      
+      // Empty slot for adding extra cards
+      return (
+        <EmptyCardSlot
+          position={item.slotIndex}
+          width={cardWidth}
+          onPress={() => handleExtraSlotPress(item.slotIndex)}
+          label="Add Extra"
+          hideSlotNumber={true}
+        />
+      );
+    },
+    [binder?.id, cardWidth, handleToggleCard, handleToggleExtraCardOwnership, handleRemoveExtraCard, handleExtraSlotPress, navigation]
+  );
+
+  // Key extractor for Master Set grid items
+  const masterSetKeyExtractor = useCallback((item: MasterSetGridItem, index: number) => {
+    if (item.type === 'card') return `card-${item.card.id}`;
+    if (item.type === 'extra') return `extra-${item.card.id}`;
+    return `empty-slot-${item.slotIndex}`;
+  }, []);
 
   // === CUSTOM MODE: Positional grid with slots ===
   
@@ -1115,43 +1223,6 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
     </View>
   );
 
-  // Extra cards section component (for Master Set binders)
-  const ExtraCardsSection = () => {
-    if (!isMasterSetMode || extraCards.length === 0) return null;
-    
-    return (
-      <View style={styles.extraCardsSection}>
-        <View style={styles.extraCardsSectionHeader}>
-          <Text style={styles.extraCardsSectionTitle}>
-            Extra Cards ({ownedExtraCardsCount}/{extraCardsCount})
-          </Text>
-          <Text style={styles.extraCardsSectionSubtitle}>
-            Cards not in the official set
-          </Text>
-        </View>
-        <View style={styles.extraCardsGrid}>
-          {extraCards.map((card) => (
-            <ExtraCardItem
-              key={card.id}
-              card={card}
-              width={cardWidth}
-              onToggleOwnership={handleToggleExtraCardOwnership}
-              onRemove={handleRemoveExtraCard}
-              onPress={() => {
-                navigation.navigate('CardDetail', {
-                  cardId: card.id,
-                  binderId: binder?.id,
-                  isOwned: card.isOwned,
-                  isExtraCard: true,
-                });
-              }}
-            />
-          ))}
-        </View>
-      </View>
-    );
-  };
-
   // Footer component (loading indicator for pagination)
   const ListFooterComponent = () => {
     if (loading) {
@@ -1185,16 +1256,14 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
     // Non-Custom mode footer
     if (!hasMoreCards && displayedCards.length > 0) {
       return (
-        <>
-          {/* Extra cards section appears after all regular cards */}
-          <ExtraCardsSection />
-          <View style={styles.footerComplete}>
-            <Text style={styles.footerCompleteText}>
-              All {filteredCards.length} cards loaded
-              {isMasterSetMode && extraCardsCount > 0 ? ` + ${extraCardsCount} extras` : ''}
-            </Text>
-          </View>
-        </>
+        <View style={styles.footerComplete}>
+          <Text style={styles.footerCompleteText}>
+            {isMasterSetMode 
+              ? `${filteredCards.length} set cards${extraCardsCount > 0 ? ` + ${extraCardsCount} extras` : ''}`
+              : `All ${filteredCards.length} cards loaded`
+            }
+          </Text>
+        </View>
       );
     }
 
@@ -1291,7 +1360,43 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
     );
   }
 
-  // Non-Custom mode: regular card grid
+  // Master Set mode: combined grid with regular cards, extra cards, and empty slots
+  if (isMasterSetMode) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <FlatList
+          data={masterSetGridItems}
+          renderItem={renderMasterSetGridItem}
+          keyExtractor={masterSetKeyExtractor}
+          numColumns={gridColumns}
+          key={`master-set-grid-${gridColumns}`}
+          columnWrapperStyle={styles.row}
+          contentContainerStyle={styles.flatListContainer}
+          ListHeaderComponent={ListHeaderComponent}
+          ListFooterComponent={ListFooterComponent}
+          ListEmptyComponent={ListEmptyComponent}
+          onEndReached={loadMoreCards}
+          onEndReachedThreshold={0.5}
+          removeClippedSubviews={false}
+          maxToRenderPerBatch={PAGE_SIZE}
+          windowSize={11}
+          initialNumToRender={PAGE_SIZE}
+          extraData={[displayCount, cards, extraCards]}
+        />
+        
+        {/* Card Picker Modal for adding extra cards */}
+        <CardPickerModal
+          visible={showExtraCardPicker}
+          onClose={() => setShowExtraCardPicker(false)}
+          onSelectCard={handleAddExtraCard}
+          title="Add Extra Card"
+          pokemonOnly={false}
+        />
+      </SafeAreaView>
+    );
+  }
+
+  // Region mode: regular card grid (no extra cards support)
   return (
     <SafeAreaView style={styles.safeArea}>
       <FlatList
@@ -1314,19 +1419,8 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
         windowSize={11} // Larger window = more cards kept in memory = smoother scrolling
         initialNumToRender={PAGE_SIZE}
         // Extra data to trigger re-render when cards ownership changes
-        extraData={[displayCount, cards, extraCards]}
+        extraData={[displayCount, cards]}
       />
-      
-      {/* Card Picker Modal for adding extra cards (Master Set mode) */}
-      {isMasterSetMode && (
-        <CardPickerModal
-          visible={showExtraCardPicker}
-          onClose={() => setShowExtraCardPicker(false)}
-          onSelectCard={handleAddExtraCard}
-          title="Add Extra Card"
-          pokemonOnly={false}
-        />
-      )}
     </SafeAreaView>
   );
 }
@@ -1481,30 +1575,4 @@ const styles = StyleSheet.create({
     fontWeight: typography.medium,
     color: colors.warning,
   },
-  // Extra cards section
-  extraCardsSection: {
-    marginTop: spacing.xl,
-    paddingTop: spacing.lg,
-    borderTopWidth: 2,
-    borderTopColor: colors.warning,
-  },
-  extraCardsSectionHeader: {
-    marginBottom: spacing.md,
-  },
-  extraCardsSectionTitle: {
-    fontSize: typography.lg,
-    fontWeight: typography.semibold,
-    color: colors.warning,
-    marginBottom: spacing.xs,
-  },
-  extraCardsSectionSubtitle: {
-    fontSize: typography.sm,
-    color: colors.textTertiary,
-    fontStyle: 'italic',
-  },
-  extraCardsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginHorizontal: -CARD_MARGIN,
-  },
-});
+  });

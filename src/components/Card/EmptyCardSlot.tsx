@@ -9,16 +9,26 @@ interface EmptyCardSlotProps {
   width?: number;
   /** Callback when the slot is tapped */
   onPress: (position: number) => void;
+  /** Custom label text (default: "Add Card") */
+  label?: string;
+  /** Whether to hide the slot number (default: false) */
+  hideSlotNumber?: boolean;
 }
 
 /**
- * Empty card slot component for Custom binders
+ * Empty card slot component for Custom binders and Master Set extra cards
  * 
- * Shows a "+" icon with "Add Card" text below.
+ * Shows a "+" icon with "Add Card" or custom label text below.
  * Used to represent empty positions in the card grid.
  * Tapping opens the card picker to add a card at this position.
  */
-export default function EmptyCardSlot({ position, width, onPress }: EmptyCardSlotProps) {
+export default function EmptyCardSlot({ 
+  position, 
+  width, 
+  onPress,
+  label = 'Add Card',
+  hideSlotNumber = false,
+}: EmptyCardSlotProps) {
   const handlePress = () => {
     onPress(position);
   };
@@ -42,13 +52,15 @@ export default function EmptyCardSlot({ position, width, onPress }: EmptyCardSlo
       <View style={imageContainerStyle}>
         <View style={styles.slotContent}>
           <Text style={styles.plusIcon}>+</Text>
-          <Text style={styles.addCardText}>Add Card</Text>
+          <Text style={styles.addCardText}>{label}</Text>
         </View>
       </View>
-      {/* Slot number display (like card number) */}
-      <View style={styles.slotInfo}>
-        <Text style={styles.slotNumber}>Slot {position + 1}</Text>
-      </View>
+      {/* Slot number display (like card number) - can be hidden for extra card slots */}
+      {!hideSlotNumber && (
+        <View style={styles.slotInfo}>
+          <Text style={styles.slotNumber}>Slot {position + 1}</Text>
+        </View>
+      )}
     </TouchableOpacity>
   );
 }

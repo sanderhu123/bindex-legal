@@ -3307,8 +3307,9 @@ export async function toggleExtraCardOwnership(
 **What was implemented:**
 - ✅ ExtraCardItem component with gold border and "EXTRA" badge
 - ✅ Load extra cards from database (uses getExtraCardsWithVariants)
-- ✅ Display extra cards in dedicated section after regular cards
-- ✅ "Add Extra Card" button opens CardPickerModal
+- ✅ Extra cards appear in main grid AFTER regular set cards (not in separate section)
+- ✅ 9 empty "Add Extra" slots at the end of the grid for adding more extra cards
+- ✅ "Add Extra Card" button opens CardPickerModal (additional way to add)
 - ✅ Can toggle extra card ownership (tap checkbox)
 - ✅ Can remove extra cards (long-press → confirm dialog)
 - ✅ Progress bar shows "+ W extras" if extra cards exist

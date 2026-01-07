@@ -3,7 +3,7 @@ import { View, StyleSheet, Text, ScrollView, Dimensions, TouchableOpacity } from
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { getCardById } from '../../services/api/pokemonApi';
 import { getBinderById } from '../../services/supabase/binders';
-import { addCardToBinder, removeCardFromBinder } from '../../services/supabase/cards';
+import { addCardToBinder, removeCardFromBinder, toggleCardOwnershipAtPosition } from '../../services/supabase/cards';
 import CardImage from '../../components/Card/CardImage';
 import CardDetails from '../../components/Card/CardDetails';
 import LoadingScreen from '../../components/Loading/LoadingScreen';
@@ -21,7 +21,7 @@ interface CardDetailScreenProps {
  * Displays full details of a single card
  */
 export default function CardDetailScreen({ navigation, route }: CardDetailScreenProps) {
-  const { cardId, binderId, isOwned: initialOwnedParam } = route.params || {};
+  const { cardId, binderId, isOwned: initialOwnedParam, position, collectionMode } = route.params || {};
   const [card, setCard] = useState<Card | null>(null);
   const [binder, setBinder] = useState<Binder | null>(null);
   const [loading, setLoading] = useState(true);
@@ -114,25 +114,46 @@ export default function CardDetailScreen({ navigation, route }: CardDetailScreen
     setIsOwned(newIsOwned);
     setIsUpdating(true);
 
-    // Update binder state optimistically (including ownedCards for sync)
-    const updatedCardIds = newIsOwned
-      ? [...binder.cardIds, card.id]
-      : binder.cardIds.filter((id) => id !== card.id);
-    const updatedOwnedCards = newIsOwned
-      ? binder.ownedCards + 1
-      : binder.ownedCards - 1;
-    setBinder({ 
-      ...binder, 
-      cardIds: updatedCardIds,
-      ownedCards: updatedOwnedCards
-    });
+    // Determine if this is a Custom binder (has position)
+    const isCustomBinder = collectionMode === 'custom' && position !== undefined && position !== null;
+
+    // Update binder state optimistically
+    if (isCustomBinder) {
+      // Custom binders: only update ownedCards count (cards already exist at positions)
+      const updatedOwnedCards = newIsOwned
+        ? (binder.ownedCards || 0) + 1
+        : Math.max(0, (binder.ownedCards || 0) - 1);
+      setBinder({ 
+        ...binder, 
+        ownedCards: updatedOwnedCards
+      });
+    } else {
+      // Master Set/Region binders: update cardIds and ownedCards
+      const updatedCardIds = newIsOwned
+        ? [...binder.cardIds, card.id]
+        : binder.cardIds.filter((id) => id !== card.id);
+      const updatedOwnedCards = newIsOwned
+        ? (binder.ownedCards || 0) + 1
+        : Math.max(0, (binder.ownedCards || 0) - 1);
+      setBinder({ 
+        ...binder, 
+        cardIds: updatedCardIds,
+        ownedCards: updatedOwnedCards
+      });
+    }
 
     // Sync with database
     try {
-      if (newIsOwned) {
-        await addCardToBinder(binder.id, card.id, card.variant);
+      if (isCustomBinder) {
+        // Custom binders: toggle ownership status at the position
+        await toggleCardOwnershipAtPosition(binder.id, position);
       } else {
-        await removeCardFromBinder(binder.id, card.id, card.variant);
+        // Master Set/Region binders: add or remove from binder
+        if (newIsOwned) {
+          await addCardToBinder(binder.id, card.id, card.variant);
+        } else {
+          await removeCardFromBinder(binder.id, card.id, card.variant);
+        }
       }
     } catch (err) {
       // Rollback on error

@@ -768,6 +768,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
       
       if (card) {
         // Slot has a card - render it with toggle ownership handler
+        // Pass position and collectionMode so CardDetail can toggle ownership correctly
         return (
           <CardItem
             card={card}
@@ -775,6 +776,8 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
             binderId={binder?.id || ''}
             width={cardWidth}
             variant="grid"
+            position={position}
+            collectionMode="custom"
           />
         );
       }

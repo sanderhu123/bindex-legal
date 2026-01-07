@@ -17,6 +17,8 @@ interface CardItemProps {
   binderId: string;
   width?: number;
   variant?: 'grid' | 'list';
+  position?: number; // For Custom binders (slot position)
+  collectionMode?: 'master-set' | 'region' | 'custom'; // Binder type
 }
 
 type NavigationProp = StackNavigationProp<MainStackParamList, 'CardDetail'>;
@@ -34,7 +36,7 @@ function getVariantBadge(variant?: string) {
   return badges[variant] || null;
 }
 
-export default function CardItem({ card, onPress, binderId, width, variant = 'grid' }: CardItemProps) {
+export default function CardItem({ card, onPress, binderId, width, variant = 'grid', position, collectionMode }: CardItemProps) {
   const navigation = useNavigation<NavigationProp>();
   const badge = getVariantBadge(card.variant);
 
@@ -45,6 +47,9 @@ export default function CardItem({ card, onPress, binderId, width, variant = 'gr
       binderId: binderId,
       // Pass current ownership so detail screen shows the latest optimistic state
       isOwned: card.isOwned,
+      // Pass position and collectionMode for Custom binders
+      position: position,
+      collectionMode: collectionMode,
     });
   };
 

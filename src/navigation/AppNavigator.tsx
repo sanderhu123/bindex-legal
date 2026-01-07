@@ -14,7 +14,13 @@ export type MainStackParamList = {
   BinderList: undefined;
   BinderDetail: { binderId: string };
   CardList: undefined;
-  CardDetail: { cardId: string; binderId: string };
+  CardDetail: { 
+    cardId: string; 
+    binderId: string; 
+    isOwned?: boolean; // Pass current state for optimistic display
+    position?: number; // For Custom binders (slot position)
+    collectionMode?: 'master-set' | 'region' | 'custom'; // Binder type
+  };
   CardSearchTest: undefined; // Temporary test screen for Step 28A
 };
 

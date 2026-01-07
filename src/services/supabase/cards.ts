@@ -420,6 +420,7 @@ export async function addCardAtPosition(
 
 /**
  * Toggle the owned/missing status of a card at a position (for Custom binders)
+ * Uses fast increment/decrement instead of full recount for instant progress updates
  * @returns The new isOwned status
  */
 export async function toggleCardOwnershipAtPosition(
@@ -432,10 +433,10 @@ export async function toggleCardOwnershipAtPosition(
     throw new Error('User not authenticated');
   }
 
-  // Verify binder belongs to user
+  // Verify binder belongs to user and get current owned_cards count
   const { data: binder, error: binderError } = await supabase
     .from('binders')
-    .select('id')
+    .select('id, owned_cards')
     .eq('id', binderId)
     .eq('user_id', user.id)
     .single();
@@ -458,8 +459,10 @@ export async function toggleCardOwnershipAtPosition(
   }
 
   // Toggle the status
-  const newIsOwned = !(currentCard.is_owned ?? true);
+  const wasOwned = currentCard.is_owned ?? true;
+  const newIsOwned = !wasOwned;
 
+  // Update the card's ownership status
   const { error: updateError } = await supabase
     .from('binder_cards')
     .update({ is_owned: newIsOwned })
@@ -471,8 +474,22 @@ export async function toggleCardOwnershipAtPosition(
     throw updateError;
   }
 
-  // Sync the owned_cards count
-  await syncBinderCardCount(binderId);
+  // Fast update: increment or decrement owned_cards by 1 (instead of full recount)
+  // This is much faster than calling syncBinderCardCount which makes 4 DB calls
+  const currentOwnedCards = binder.owned_cards || 0;
+  const newOwnedCards = newIsOwned 
+    ? currentOwnedCards + 1 
+    : Math.max(0, currentOwnedCards - 1);
+
+  const { error: binderUpdateError } = await supabase
+    .from('binders')
+    .update({ owned_cards: newOwnedCards })
+    .eq('id', binderId);
+
+  if (binderUpdateError) {
+    console.error('Failed to update owned_cards count:', binderUpdateError);
+    // Don't throw - the card ownership was already updated successfully
+  }
 
   return newIsOwned;
 }

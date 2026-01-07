@@ -3020,11 +3020,11 @@ interface CardPickerModalProps {
 ---
 
 ### Step 29: Custom Binder Mode
-- [ ] **Status**: In Progress
+- [x] **Status**: Completed
 
 **What we're doing:** Fully implement the Custom binder mode where users can add any cards from any set
 
-**Current state:** Custom mode onboarding flow completed, BinderDetailScreen needs update to show "Add Card" functionality.
+**Current state:** Both onboarding flow and BinderDetailScreen fully implemented.
 
 ---
 
@@ -3058,43 +3058,44 @@ interface CardPickerModalProps {
 ---
 
 #### Step 29B: Update BinderDetailScreen for Custom Mode
-- [ ] **Status**: Not started
+- [x] **Status**: Completed
 
 **What we're doing:** Show cards the user has added and provide "Add Card" button
 
-**Files to modify:**
+**Files modified:**
 - `src/screens/BinderDetail/BinderDetailScreen.tsx` - Handle Custom mode display
 
-**What gets implemented:**
-- For Custom mode, load cards from `binder_cards` table (user's added cards)
-- Show "Add Card" floating action button (FAB)
-- Tapping FAB opens CardPickerModal
-- When user selects card, add it to binder
-- Progress shows "X cards" (no percentage since no fixed total)
-- Cards can be removed (tap to toggle, same as other modes)
-- Empty state: "No cards yet. Tap + to add cards."
+**What was implemented:**
+- ✅ For Custom mode, load cards from `binder.cardIds` using `getCardById()`
+- ✅ Show "Add Card" floating action button (FAB) - only for Custom mode
+- ✅ Tapping FAB opens CardPickerModal
+- ✅ When user selects card, add it to binder with optimistic UI update
+- ✅ Progress shows "📦 X cards in collection" format (no percentage)
+- ✅ Cards can be removed (tap to toggle, same as other modes)
+- ✅ Custom empty state: "No cards yet. Tap the + button below to add cards."
+- ✅ Duplicate detection (alert if card already in binder)
 
 **Custom Mode Display Logic:**
 ```typescript
 if (binder.collectionMode === 'custom') {
-  // Load only cards that user has added (from binder_cards table)
-  const cardIds = binder.cardIds;
-  const cards = await Promise.all(cardIds.map(id => getCardById(id)));
-  // Display these cards
-  // Show "Add Card" FAB
+  // Load only cards that user has added (from binder.cardIds)
+  const cardPromises = binder.cardIds.map(id => getCardById(id));
+  const loadedCards = await Promise.all(cardPromises);
+  allCards = loadedCards.filter(card => card !== null);
 }
 ```
 
 **Testing:**
-- [ ] Custom binder shows only user-added cards
-- [ ] "Add Card" FAB appears for Custom binders
-- [ ] Tapping FAB opens card picker
-- [ ] Selected card is added to binder
-- [ ] Card appears in binder grid/list
-- [ ] Can remove card by tapping
-- [ ] Progress shows "X cards" format
-- [ ] Empty state shows when no cards
-- [ ] Cards persist after app restart
+- [x] Custom binder shows only user-added cards (implemented)
+- [x] "Add Card" FAB appears for Custom binders (implemented)
+- [x] Tapping FAB opens card picker (implemented)
+- [x] Selected card is added to binder (implemented)
+- [x] Card appears in binder grid/list (implemented)
+- [x] Can remove card by tapping (existing functionality)
+- [x] Progress shows "X cards" format (implemented)
+- [x] Empty state shows when no cards (implemented)
+- [ ] Cards persist after app restart - Ready to test
+- [ ] Duplicate detection works correctly - Ready to test
 
 **How to Test Step 29B:**
 1. **Create Custom binder:**
@@ -3103,18 +3104,27 @@ if (binder.collectionMode === 'custom') {
 
 2. **Test empty state:**
    - Open the Custom binder
-   - Should see empty state message
-   - Should see "Add Card" button
+   - Should see empty state message with ➕ icon
+   - Should see "Add Card" FAB button (+ button at bottom right)
 
 3. **Test adding cards:**
-   - Tap "Add Card" button
+   - Tap the + FAB button
+   - CardPickerModal opens
    - Search for a card (e.g., "Charizard")
    - Select a card
-   - Verify card appears in binder
+   - Verify card appears in binder grid
+   - Progress updates to show "📦 1 card in collection"
 
-4. **Test removing cards:**
+4. **Test duplicate detection:**
+   - Tap + button again
+   - Search for the same card you already added
+   - Try to add it
+   - Should see alert "Card Already Added"
+
+5. **Test removing cards:**
    - Tap on an owned card
-   - Verify card is removed (or marked as not owned)
+   - Verify card is removed from binder
+   - Progress updates accordingly
 
 ---
 

@@ -1,7 +1,8 @@
 -- ============================================
--- Migration: Add position column to binder_cards
+-- Migration: Add position and is_owned columns to binder_cards
 -- ============================================
 -- Purpose: Support positional card placement in Custom binders
+--          and track owned/missing status per card
 -- Run this in Supabase SQL Editor
 -- ============================================
 
@@ -10,6 +11,12 @@
 -- Position is 0-359 (3x3 layout) or 0-479 (4x3 layout) for Custom binders
 ALTER TABLE public.binder_cards
 ADD COLUMN IF NOT EXISTS position INTEGER;
+
+-- Add is_owned column to track owned/missing status
+-- TRUE = owned (bright), FALSE = missing (dimmed)
+-- For Custom binders: allows marking cards as "missing" while keeping them in a slot
+ALTER TABLE public.binder_cards
+ADD COLUMN IF NOT EXISTS is_owned BOOLEAN DEFAULT TRUE;
 
 -- Add index for fast position lookups (used when loading Custom binder cards)
 CREATE INDEX IF NOT EXISTS idx_binder_cards_position 

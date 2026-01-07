@@ -3,7 +3,7 @@ import { View, StyleSheet, Text, ScrollView, TouchableOpacity, Dimensions, FlatL
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { getBinderById } from '../../services/supabase/binders';
-import { addCardToBinder, removeCardFromBinder, getBinderCardsWithPositions, addCardAtPosition, removeCardByPosition } from '../../services/supabase/cards';
+import { addCardToBinder, removeCardFromBinder, getBinderCardsWithPositions, addCardAtPosition, removeCardByPosition, toggleCardOwnershipAtPosition } from '../../services/supabase/cards';
 import { getCardsBySet, getCardsByRegion, getCardById, type Region } from '../../services/api/pokemonApi';
 import { startBackgroundPrefetch } from '../../services/imagePrefetch';
 import { recordBinderAccess } from '../../services/cacheManager';
@@ -239,12 +239,13 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
             
             const results = await Promise.all(cardPromises);
             
-            // Build the position map
+            // Build the position map with ownership status from database
             results.forEach((result) => {
               if (result) {
+                const positionData = cardsWithPositionsMap.get(result.position);
                 newPositionCards.set(result.position, {
                   ...result.card,
-                  isOwned: true, // Cards in Custom binders are always "owned"
+                  isOwned: positionData?.isOwned ?? true, // Use stored ownership status
                 });
               }
             });
@@ -623,19 +624,20 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
     setShowCardPicker(true);
   }, []);
 
-  // Handle removing a card from a position (Custom mode)
-  const handleRemoveCardAtPosition = useCallback(async (position: number) => {
+  // Handle toggling owned/missing status for a card at a position (Custom mode)
+  const handleToggleCustomCardOwnership = useCallback(async (position: number) => {
     if (!binder) return;
     
     const card = positionCards.get(position);
     if (!card) return;
     
-    console.log('[BinderDetail] Removing card at position', position, ':', card.name);
+    const newIsOwned = !card.isOwned;
+    console.log('[BinderDetail] Toggling card ownership at position', position, ':', card.name, '→', newIsOwned ? 'owned' : 'missing');
     
     // Optimistically update UI
     setPositionCards((prev) => {
       const updated = new Map(prev);
-      updated.delete(position);
+      updated.set(position, { ...card, isOwned: newIsOwned });
       return updated;
     });
     
@@ -643,31 +645,33 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
       if (!prevBinder) return prevBinder;
       return {
         ...prevBinder,
-        cardIds: prevBinder.cardIds.filter((id) => id !== card.id),
-        ownedCards: Math.max(0, (prevBinder.ownedCards || 0) - 1),
+        ownedCards: newIsOwned 
+          ? (prevBinder.ownedCards || 0) + 1 
+          : Math.max(0, (prevBinder.ownedCards || 0) - 1),
       };
     });
     
     try {
-      await removeCardByPosition(binder.id, position);
-      console.log('[BinderDetail] Card removed successfully from position', position);
+      await toggleCardOwnershipAtPosition(binder.id, position);
+      console.log('[BinderDetail] Card ownership toggled at position', position);
     } catch (err) {
-      console.error('[BinderDetail] Failed to remove card:', err);
+      console.error('[BinderDetail] Failed to toggle card ownership:', err);
       // Revert on error
       setPositionCards((prev) => {
         const updated = new Map(prev);
-        updated.set(position, card);
+        updated.set(position, card); // Revert to original
         return updated;
       });
       setBinder((prevBinder) => {
         if (!prevBinder) return prevBinder;
         return {
           ...prevBinder,
-          cardIds: [...prevBinder.cardIds, card.id],
-          ownedCards: (prevBinder.ownedCards || 0) + 1,
+          ownedCards: card.isOwned 
+            ? (prevBinder.ownedCards || 0) + 1 
+            : Math.max(0, (prevBinder.ownedCards || 0) - 1),
         };
       });
-      Alert.alert('Error', 'Failed to remove card. Please try again.');
+      Alert.alert('Error', 'Failed to update card. Please try again.');
     }
   }, [binder, positionCards]);
 
@@ -763,11 +767,11 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
       const card = positionCards.get(position);
       
       if (card) {
-        // Slot has a card - render it with a remove handler
+        // Slot has a card - render it with toggle ownership handler
         return (
           <CardItem
             card={card}
-            onPress={() => handleRemoveCardAtPosition(position)}
+            onPress={() => handleToggleCustomCardOwnership(position)}
             binderId={binder?.id || ''}
             width={cardWidth}
             variant="grid"
@@ -784,7 +788,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
         />
       );
     },
-    [positionCards, handleRemoveCardAtPosition, handleEmptySlotPress, binder?.id, cardWidth]
+    [positionCards, handleToggleCustomCardOwnership, handleEmptySlotPress, binder?.id, cardWidth]
   );
 
   // Key extractor for Custom mode slots
@@ -842,10 +846,10 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
       {/* Progress Summary */}
       <View style={styles.progressContainer}>
         {isCustomMode ? (
-          // Custom mode: show card count with total slots
+          // Custom mode: show owned cards / filled slots / total slots
           <View style={styles.customProgress}>
             <Text style={styles.customProgressText}>
-              📦 {positionCards.size} / {customMaxSlots} cards
+              📦 {Array.from(positionCards.values()).filter(c => c.isOwned).length} owned / {positionCards.size} filled / {customMaxSlots} slots
             </Text>
           </View>
         ) : (
@@ -909,7 +913,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
         
         <Text style={styles.helpText}>
           {isCustomMode 
-            ? 'Tap an empty slot to add a card, tap a card to remove it'
+            ? 'Tap an empty slot to add a card, tap checkbox to mark owned/missing'
             : 'Tap a card to view details, tap checkbox to mark owned'
           }
         </Text>

@@ -247,11 +247,12 @@ export async function getBinderCardsWithVariants(binderId: string): Promise<Arra
 
 /**
  * Get all binder cards with positions (for Custom binders)
- * Returns a map of position -> cardId
+ * Returns a map of position -> cardId with ownership status
  */
 export async function getBinderCardsWithPositions(binderId: string): Promise<Map<number, {
   cardId: string;
   variant: string | null;
+  isOwned: boolean;
 }>> {
   const { data: { user } } = await supabase.auth.getUser();
   
@@ -273,7 +274,7 @@ export async function getBinderCardsWithPositions(binderId: string): Promise<Map
 
   const { data, error } = await supabase
     .from('binder_cards')
-    .select('card_id, variant, position')
+    .select('card_id, variant, position, is_owned')
     .eq('user_id', user.id)
     .eq('binder_id', binderId)
     .not('position', 'is', null);
@@ -282,13 +283,14 @@ export async function getBinderCardsWithPositions(binderId: string): Promise<Map
     throw error;
   }
 
-  const positionMap = new Map<number, { cardId: string; variant: string | null }>();
+  const positionMap = new Map<number, { cardId: string; variant: string | null; isOwned: boolean }>();
   
   data?.forEach((row) => {
     if (row.position !== null) {
       positionMap.set(row.position, {
         cardId: row.card_id,
         variant: row.variant,
+        isOwned: row.is_owned ?? true, // Default to true if column doesn't exist yet
       });
     }
   });
@@ -348,6 +350,65 @@ export async function addCardAtPosition(
   variant?: string
 ): Promise<void> {
   return addCardToBinder(binderId, cardId, variant, position);
+}
+
+/**
+ * Toggle the owned/missing status of a card at a position (for Custom binders)
+ * @returns The new isOwned status
+ */
+export async function toggleCardOwnershipAtPosition(
+  binderId: string,
+  position: number
+): Promise<boolean> {
+  const { data: { user } } = await supabase.auth.getUser();
+  
+  if (!user) {
+    throw new Error('User not authenticated');
+  }
+
+  // Verify binder belongs to user
+  const { data: binder, error: binderError } = await supabase
+    .from('binders')
+    .select('id')
+    .eq('id', binderId)
+    .eq('user_id', user.id)
+    .single();
+
+  if (binderError || !binder) {
+    throw new Error('Binder not found or access denied');
+  }
+
+  // Get current ownership status
+  const { data: currentCard, error: fetchError } = await supabase
+    .from('binder_cards')
+    .select('is_owned')
+    .eq('user_id', user.id)
+    .eq('binder_id', binderId)
+    .eq('position', position)
+    .single();
+
+  if (fetchError || !currentCard) {
+    throw new Error('Card not found at this position');
+  }
+
+  // Toggle the status
+  const newIsOwned = !(currentCard.is_owned ?? true);
+
+  const { error: updateError } = await supabase
+    .from('binder_cards')
+    .update({ is_owned: newIsOwned })
+    .eq('user_id', user.id)
+    .eq('binder_id', binderId)
+    .eq('position', position);
+
+  if (updateError) {
+    throw updateError;
+  }
+
+  // Sync the owned_cards count
+  await syncBinderCardCount(binderId);
+
+  return newIsOwned;
 }
 
 

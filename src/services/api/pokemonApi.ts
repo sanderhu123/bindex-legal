@@ -2,7 +2,7 @@ import type { Card } from '../../types';
 import type { PokemonArtStyle } from '../../types';
 import { mockCards, mockSets, type MockSet } from '../../data/mockupCards';
 import { getPokemonByRegion } from '../../data/pokemonRegions';
-import { getEras, getSetsByEra, convertSetToPokemonSet } from '../../data/pokemonEras';
+import { getEras, getSetsByEra, convertSetToPokemonSet, sortCardsBySetDate } from '../../data/pokemonEras';
 import { getSpecialVariantsForCard, hasSpecialVariants } from '../../data/cardVariants';
 import TCGdex from '@tcgdex/sdk';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -1470,6 +1470,12 @@ export interface CardSearchOptions {
 const SEARCH_CACHE_DURATION = 2 * 60 * 1000;
 
 /**
+ * Cache for sorted search results - stores the FULL sorted list for each query
+ * This allows stable pagination without re-fetching and re-sorting
+ */
+const sortedSearchCache = new Map<string, { cards: Card[]; timestamp: number }>();
+
+/**
  * Check if search cache is valid (2 minutes)
  */
 function isSearchCacheValid(timestamp: number): boolean {
@@ -1521,52 +1527,52 @@ export async function searchCardsByName(
   // Sanitize query - remove special characters that could cause issues
   const sanitizedQuery = query.trim().toLowerCase();
   
-  // Create cache key including all options
-  const cacheKey = `search-${sanitizedQuery}-${limit}-${offset}-${pokemonOnly}`;
+  // Create cache key for the FULL sorted list (does not include limit/offset)
+  // This allows stable pagination from the same sorted list
+  const sortedCacheKey = `sorted-search-${sanitizedQuery}-${pokemonOnly}`;
   
-  // Step 1: Check cache first (with shorter duration for search results)
-  const cached = apiCache.get(cacheKey);
-  if (cached && isSearchCacheValid(cached.timestamp)) {
+  // Step 1: Check if we have a cached sorted list for this query
+  const cachedSorted = sortedSearchCache.get(sortedCacheKey);
+  if (cachedSorted && isSearchCacheValid(cachedSorted.timestamp)) {
+    // We have the full sorted list - return the requested page
+    const paginatedResults = cachedSorted.cards.slice(offset, offset + limit);
     const duration = performance.now() - startTime;
-    console.log('[28A] Returning cached search results:', {
+    
+    console.log('[28A] Returning from sorted cache:', {
       query: sanitizedQuery,
-      resultCount: cached.data.length,
+      totalCached: cachedSorted.cards.length,
+      offset,
+      limit,
+      returned: paginatedResults.length,
       duration: `${duration.toFixed(2)}ms`,
       performance: 'excellent (cached)',
     });
-    return cached.data as Card[];
+    
+    return paginatedResults;
   }
   
   // Step 2: Check if rate limited
   if (isRateLimited()) {
     console.warn('[28A] Rate limited during search');
     // Try to return stale cache if available
-    if (cached) {
+    if (cachedSorted) {
+      const paginatedResults = cachedSorted.cards.slice(offset, offset + limit);
       console.log('[28A] Returning stale cache due to rate limit');
-      return cached.data as Card[];
+      return paginatedResults;
     }
     throw new Error('Too many requests. Please wait a moment and try again.');
   }
   
-  // Step 3: Deduplicate request
-  return deduplicateRequest(cacheKey, async () => {
+  // Step 3: Fetch ALL results, sort them, cache them, then return requested page
+  // We use a deduplicated request for the full fetch
+  const fullFetchCacheKey = `full-fetch-${sanitizedQuery}-${pokemonOnly}`;
+  
+  return deduplicateRequest(fullFetchCacheKey, async () => {
     try {
       const requestStartTime = performance.now();
-      console.log('[28A] Making SDK search request...');
+      console.log('[28A] Fetching ALL results for stable sorting...');
       
-      // TCGDEX SDK doesn't have a direct search endpoint, so we need to:
-      // 1. Get all cards (this would be slow)
-      // OR
-      // 2. Use the REST API directly with filters
-      // 
-      // For now, let's use the card.list() which returns minimal card data,
-      // then filter client-side. This is not ideal for large datasets but works.
-      
-      // Try using the SDK's fetch with name filter if available
-      // TCGDEX REST API supports: GET /cards?name={query}
-      // But SDK might not expose this directly, so we'll construct the URL
-      
-      // Direct API call with name filter (more efficient than fetching all cards)
+      // Direct API call with name filter (fetches ALL matching cards)
       const apiUrl = `https://api.tcgdex.net/v2/en/cards?name=${encodeURIComponent(sanitizedQuery)}`;
       
       console.log('[28A] Fetching from API URL:', apiUrl);
@@ -1606,21 +1612,9 @@ export async function searchCardsByName(
         });
       }
       
-      // Apply pagination (limit/offset)
-      const paginatedResults = filteredResults.slice(offset, offset + limit);
-      
-      console.log('[28A] Pagination applied:', {
-        totalFiltered: filteredResults.length,
-        offset,
-        limit,
-        returned: paginatedResults.length,
-      });
-      
-      // Transform results to our Card type
-      // Note: The search endpoint returns minimal card data (id, localId, name, image)
-      // We need to construct full Card objects
+      // Transform ALL results to our Card type FIRST
       const transformStartTime = performance.now();
-      const transformedCards: Card[] = paginatedResults.map((card: any) => {
+      const allTransformedCards: Card[] = filteredResults.map((card: any) => {
         // Extract set info from card ID (format: setId-localId, e.g., "swsh1-25")
         const setId = card.id?.split('-')[0] || '';
         
@@ -1649,8 +1643,29 @@ export async function searchCardsByName(
       
       const transformDuration = performance.now() - transformStartTime;
       
-      // Cache the results
-      setCachedData(cacheKey, transformedCards);
+      // SORT ALL cards by set release date (newest first) ONCE
+      const sortStartTime = performance.now();
+      const allSortedCards = sortCardsBySetDate(allTransformedCards);
+      const sortDuration = performance.now() - sortStartTime;
+      
+      console.log('[28A] All cards sorted by release date:', {
+        totalCards: allSortedCards.length,
+        sortDuration: `${sortDuration.toFixed(2)}ms`,
+        newestCard: allSortedCards[0] ? { id: allSortedCards[0].id, set: allSortedCards[0].set } : null,
+        oldestCard: allSortedCards[allSortedCards.length - 1] ? { 
+          id: allSortedCards[allSortedCards.length - 1].id, 
+          set: allSortedCards[allSortedCards.length - 1].set 
+        } : null,
+      });
+      
+      // Cache the FULL sorted list for stable pagination
+      sortedSearchCache.set(sortedCacheKey, {
+        cards: allSortedCards,
+        timestamp: Date.now(),
+      });
+      
+      // Return only the requested page
+      const paginatedResults = allSortedCards.slice(offset, offset + limit);
       
       const totalDuration = performance.now() - startTime;
       const performanceRating = totalDuration < 1000 ? 'excellent' : 
@@ -1659,17 +1674,20 @@ export async function searchCardsByName(
       
       console.log('[28A] searchCardsByName() completed:', {
         query: sanitizedQuery,
-        resultCount: transformedCards.length,
-        totalAvailable: filteredResults.length,
+        totalAvailable: allSortedCards.length,
+        offset,
+        limit,
+        returned: paginatedResults.length,
         duration: `${totalDuration.toFixed(2)}ms`,
         performance: performanceRating,
         breakdown: {
           fetch: `${fetchDuration.toFixed(2)}ms`,
           transform: `${transformDuration.toFixed(2)}ms`,
+          sort: `${sortDuration.toFixed(2)}ms`,
         },
       });
       
-      return transformedCards;
+      return paginatedResults;
     } catch (error) {
       const duration = performance.now() - startTime;
       

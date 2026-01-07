@@ -114,3 +114,4 @@ After running this script successfully, proceed to **Step 7: Set Up Supabase Cli
 
 
 
+

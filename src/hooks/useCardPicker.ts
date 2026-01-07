@@ -1,6 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { searchCardsByName, type CardSearchOptions } from '../services/api/pokemonApi';
-import { sortCardsBySetDate } from '../data/pokemonEras';
 import type { Card } from '../types';
 
 /**
@@ -112,27 +111,26 @@ export function useCardPicker(options?: UseCardPickerOptions): UseCardPickerRetu
         pokemonOnly,
       };
 
+      // API now returns cards already sorted by set release date (newest first)
+      // and properly paginated from a cached sorted list
       const cards = await searchCardsByName(searchQuery, searchOptions);
-
-      // Sort by set release date (newest first) - this is the default sort
-      const sortedCards = sortCardsBySetDate(cards);
 
       console.log('[useCardPicker] Search complete:', { 
         query: searchQuery, 
-        resultsCount: sortedCards.length,
+        resultsCount: cards.length,
         offset: searchOffset,
-        sortedBy: 'set-date-newest',
+        note: 'Cards pre-sorted by API (newest first)',
       });
 
       // Update results
       if (searchOffset === 0) {
         // New search - replace results
-        setResults(sortedCards);
-        setTotalFound(sortedCards.length);
+        setResults(cards);
+        setTotalFound(cards.length);
       } else {
-        // Pagination - append and re-sort to maintain order
-        setResults(prev => sortCardsBySetDate([...prev, ...sortedCards]));
-        setTotalFound(prev => prev + sortedCards.length);
+        // Pagination - just append (API already returns in correct sorted order)
+        setResults(prev => [...prev, ...cards]);
+        setTotalFound(prev => prev + cards.length);
       }
 
       // Check if there might be more results

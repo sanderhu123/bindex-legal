@@ -137,14 +137,39 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
         return;
       }
 
-      // Update binder counts/cardIds without re-fetching card list
+      // Update binder counts/cardIds
       setBinder((prev) => prev ? { ...prev, ...latestBinder } : latestBinder);
-      setCards((prevCards) =>
-        prevCards.map((card) => ({
-          ...card,
-          isOwned: latestBinder.cardIds.includes(card.id),
-        }))
-      );
+
+      // For Custom binders: refresh positionCards with latest ownership status from database
+      if (latestBinder.collectionMode === 'custom') {
+        const cardsWithPositionsMap = await getBinderCardsWithPositions(binderId);
+        
+        // Update positionCards with latest ownership status
+        setPositionCards((prevPositionCards) => {
+          const updatedMap = new Map(prevPositionCards);
+          
+          // Update ownership status for each position from database
+          cardsWithPositionsMap.forEach((dbData, position) => {
+            const existingCard = prevPositionCards.get(position);
+            if (existingCard) {
+              updatedMap.set(position, {
+                ...existingCard,
+                isOwned: dbData.isOwned,
+              });
+            }
+          });
+          
+          return updatedMap;
+        });
+      } else {
+        // For Master Set/Region binders: update based on cardIds
+        setCards((prevCards) =>
+          prevCards.map((card) => ({
+            ...card,
+            isOwned: latestBinder.cardIds.includes(card.id),
+          }))
+        );
+      }
     } catch (err) {
       console.error('Failed to refresh binder ownership:', err);
     }

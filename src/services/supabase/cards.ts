@@ -494,6 +494,355 @@ export async function toggleCardOwnershipAtPosition(
   return newIsOwned;
 }
 
+// ============================================================================
+// EXTRA CARDS FUNCTIONS (Step 30B)
+// Extra cards are cards added to a Master Set binder that aren't officially 
+// part of that set (e.g., promo cards, cards from other sets)
+// ============================================================================
+
+/**
+ * Add an extra card to a binder (card not officially in the set)
+ * Extra cards are marked with is_extra = true in the database
+ * 
+ * @param binderId - The binder ID
+ * @param cardId - The card ID to add
+ * @param variant - Optional variant (e.g., 'reverse-holo')
+ */
+export async function addExtraCardToBinder(
+  binderId: string,
+  cardId: string,
+  variant?: string
+): Promise<void> {
+  console.log('[30B] addExtraCardToBinder() called:', { binderId, cardId, variant });
+  
+  const { data: { user } } = await supabase.auth.getUser();
+  
+  if (!user) {
+    throw new Error('User not authenticated');
+  }
+
+  // Verify binder belongs to user
+  const { data: binder, error: binderError } = await supabase
+    .from('binders')
+    .select('id, collection_mode')
+    .eq('id', binderId)
+    .eq('user_id', user.id)
+    .single();
+
+  if (binderError || !binder) {
+    throw new Error('Binder not found or access denied');
+  }
+
+  // Extra cards are typically for Master Set binders
+  // But we'll allow them for any non-custom binder
+  if (binder.collection_mode === 'custom') {
+    console.warn('[30B] Extra cards should not be used with Custom binders - use addCardAtPosition instead');
+  }
+
+  // Check if this exact card+variant already exists in the binder
+  const { data: existingCard, error: checkError } = await supabase
+    .from('binder_cards')
+    .select('id, is_extra')
+    .eq('user_id', user.id)
+    .eq('binder_id', binderId)
+    .eq('card_id', cardId)
+    .eq('variant', variant || null)
+    .single();
+
+  if (existingCard && !checkError) {
+    // Card already exists
+    if (existingCard.is_extra) {
+      console.log('[30B] Card is already an extra card in this binder');
+      return; // Already an extra card, nothing to do
+    } else {
+      // Card exists as a regular card - can't add as extra
+      throw new Error('This card is already part of the official set');
+    }
+  }
+
+  // Insert the extra card
+  const { error } = await supabase
+    .from('binder_cards')
+    .insert({
+      user_id: user.id,
+      binder_id: binderId,
+      card_id: cardId,
+      variant: variant || null,
+      is_owned: true, // Extra cards start as owned (user is adding them intentionally)
+      is_extra: true, // Mark as extra card
+      position: null, // No position for extra cards (not positional like Custom binders)
+    });
+
+  if (error) {
+    console.error('[30B] Failed to add extra card:', error);
+    throw error;
+  }
+
+  console.log('[30B] Extra card added successfully');
+  
+  // Note: We don't sync binder card counts for extra cards
+  // Extra cards are tracked separately and don't affect the main completion percentage
+}
+
+/**
+ * Get all extra card IDs in a binder
+ * Returns only the card IDs that are marked as extra (is_extra = true)
+ * 
+ * @param binderId - The binder ID
+ * @returns Array of card IDs that are extra cards
+ */
+export async function getExtraCardsInBinder(binderId: string): Promise<string[]> {
+  console.log('[30B] getExtraCardsInBinder() called:', { binderId });
+  
+  const { data: { user } } = await supabase.auth.getUser();
+  
+  if (!user) {
+    throw new Error('User not authenticated');
+  }
+
+  // Verify binder belongs to user
+  const { data: binder, error: binderError } = await supabase
+    .from('binders')
+    .select('id')
+    .eq('id', binderId)
+    .eq('user_id', user.id)
+    .single();
+
+  if (binderError || !binder) {
+    throw new Error('Binder not found or access denied');
+  }
+
+  // Get all cards marked as extra
+  const { data, error } = await supabase
+    .from('binder_cards')
+    .select('card_id')
+    .eq('user_id', user.id)
+    .eq('binder_id', binderId)
+    .eq('is_extra', true);
+
+  if (error) {
+    console.error('[30B] Failed to get extra cards:', error);
+    throw error;
+  }
+
+  const extraCardIds = data?.map((row) => row.card_id) || [];
+  console.log('[30B] Found extra cards:', { count: extraCardIds.length });
+  
+  return extraCardIds;
+}
+
+/**
+ * Get all extra cards with their variants in a binder
+ * Returns full details including card ID, variant, and ownership status
+ * 
+ * @param binderId - The binder ID
+ * @returns Array of extra card details
+ */
+export async function getExtraCardsWithVariants(binderId: string): Promise<Array<{
+  cardId: string;
+  variant: string | null;
+  isOwned: boolean;
+}>> {
+  console.log('[30B] getExtraCardsWithVariants() called:', { binderId });
+  
+  const { data: { user } } = await supabase.auth.getUser();
+  
+  if (!user) {
+    throw new Error('User not authenticated');
+  }
+
+  // Verify binder belongs to user
+  const { data: binder, error: binderError } = await supabase
+    .from('binders')
+    .select('id')
+    .eq('id', binderId)
+    .eq('user_id', user.id)
+    .single();
+
+  if (binderError || !binder) {
+    throw new Error('Binder not found or access denied');
+  }
+
+  // Get all extra cards with their details
+  const { data, error } = await supabase
+    .from('binder_cards')
+    .select('card_id, variant, is_owned')
+    .eq('user_id', user.id)
+    .eq('binder_id', binderId)
+    .eq('is_extra', true);
+
+  if (error) {
+    console.error('[30B] Failed to get extra cards with variants:', error);
+    throw error;
+  }
+
+  const extraCards = data?.map((row) => ({
+    cardId: row.card_id,
+    variant: row.variant,
+    isOwned: row.is_owned ?? true,
+  })) || [];
+  
+  console.log('[30B] Found extra cards with variants:', { count: extraCards.length });
+  
+  return extraCards;
+}
+
+/**
+ * Check if a card is an extra card in a binder
+ * 
+ * @param binderId - The binder ID
+ * @param cardId - The card ID to check
+ * @param variant - Optional variant to check
+ * @returns true if the card is marked as extra, false otherwise
+ */
+export async function isExtraCard(
+  binderId: string,
+  cardId: string,
+  variant?: string
+): Promise<boolean> {
+  console.log('[30B] isExtraCard() called:', { binderId, cardId, variant });
+  
+  const { data: { user } } = await supabase.auth.getUser();
+  
+  if (!user) {
+    return false;
+  }
+
+  // Query for the specific card with is_extra check
+  let query = supabase
+    .from('binder_cards')
+    .select('is_extra')
+    .eq('user_id', user.id)
+    .eq('binder_id', binderId)
+    .eq('card_id', cardId)
+    .eq('is_extra', true)
+    .limit(1);
+
+  if (variant !== undefined) {
+    query = query.eq('variant', variant || null);
+  }
+
+  const { data, error } = await query;
+
+  if (error || !data || data.length === 0) {
+    console.log('[30B] Card is not an extra card');
+    return false;
+  }
+
+  console.log('[30B] Card is an extra card');
+  return true;
+}
+
+/**
+ * Remove an extra card from a binder
+ * Only removes cards that are marked as extra (is_extra = true)
+ * 
+ * @param binderId - The binder ID
+ * @param cardId - The card ID to remove
+ * @param variant - Optional variant to remove
+ */
+export async function removeExtraCardFromBinder(
+  binderId: string,
+  cardId: string,
+  variant?: string
+): Promise<void> {
+  console.log('[30B] removeExtraCardFromBinder() called:', { binderId, cardId, variant });
+  
+  const { data: { user } } = await supabase.auth.getUser();
+  
+  if (!user) {
+    throw new Error('User not authenticated');
+  }
+
+  // Verify binder belongs to user
+  const { data: binder, error: binderError } = await supabase
+    .from('binders')
+    .select('id')
+    .eq('id', binderId)
+    .eq('user_id', user.id)
+    .single();
+
+  if (binderError || !binder) {
+    throw new Error('Binder not found or access denied');
+  }
+
+  // Delete only the extra card (is_extra = true)
+  const { error } = await supabase
+    .from('binder_cards')
+    .delete()
+    .eq('user_id', user.id)
+    .eq('binder_id', binderId)
+    .eq('card_id', cardId)
+    .eq('variant', variant || null)
+    .eq('is_extra', true);
+
+  if (error) {
+    console.error('[30B] Failed to remove extra card:', error);
+    throw error;
+  }
+
+  console.log('[30B] Extra card removed successfully');
+}
+
+/**
+ * Toggle the ownership status of an extra card
+ * 
+ * @param binderId - The binder ID
+ * @param cardId - The card ID
+ * @param variant - Optional variant
+ * @returns The new ownership status
+ */
+export async function toggleExtraCardOwnership(
+  binderId: string,
+  cardId: string,
+  variant?: string
+): Promise<boolean> {
+  console.log('[30B] toggleExtraCardOwnership() called:', { binderId, cardId, variant });
+  
+  const { data: { user } } = await supabase.auth.getUser();
+  
+  if (!user) {
+    throw new Error('User not authenticated');
+  }
+
+  // Get current ownership status
+  const { data: currentCard, error: fetchError } = await supabase
+    .from('binder_cards')
+    .select('is_owned')
+    .eq('user_id', user.id)
+    .eq('binder_id', binderId)
+    .eq('card_id', cardId)
+    .eq('variant', variant || null)
+    .eq('is_extra', true)
+    .single();
+
+  if (fetchError || !currentCard) {
+    throw new Error('Extra card not found in binder');
+  }
+
+  // Toggle the status
+  const wasOwned = currentCard.is_owned ?? true;
+  const newIsOwned = !wasOwned;
+
+  // Update the card's ownership status
+  const { error: updateError } = await supabase
+    .from('binder_cards')
+    .update({ is_owned: newIsOwned })
+    .eq('user_id', user.id)
+    .eq('binder_id', binderId)
+    .eq('card_id', cardId)
+    .eq('variant', variant || null)
+    .eq('is_extra', true);
+
+  if (updateError) {
+    console.error('[30B] Failed to toggle extra card ownership:', updateError);
+    throw updateError;
+  }
+
+  console.log('[30B] Extra card ownership toggled:', { newIsOwned });
+  return newIsOwned;
+}
+
 
 
 

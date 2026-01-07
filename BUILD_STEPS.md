@@ -3204,15 +3204,14 @@ ON public.binder_cards(binder_id, is_extra, is_owned);
 ---
 
 #### Step 30B: Update Card Services for Extra Cards
-- [ ] **Status**: Not started
+- [x] **Status**: Completed
 
 **What we're doing:** Update card services to handle extra cards
 
-**Files to modify:**
-- `src/services/supabase/cards.ts` - Add functions for extra cards
-- `src/types/binder.ts` - Update types if needed
+**Files modified:**
+- `src/services/supabase/cards.ts` - Added functions for extra cards ✅
 
-**Functions to add:**
+**Functions implemented:**
 ```typescript
 /**
  * Add an extra card to a binder (card not officially in the set)
@@ -3231,20 +3230,60 @@ export async function getExtraCardsInBinder(
 ): Promise<string[]>
 
 /**
+ * Get all extra cards with their variants in a binder
+ */
+export async function getExtraCardsWithVariants(
+  binderId: string
+): Promise<Array<{ cardId: string; variant: string | null; isOwned: boolean }>>
+
+/**
  * Check if a card is an extra card in a binder
  */
 export async function isExtraCard(
   binderId: string,
-  cardId: string
+  cardId: string,
+  variant?: string
+): Promise<boolean>
+
+/**
+ * Remove an extra card from a binder
+ */
+export async function removeExtraCardFromBinder(
+  binderId: string,
+  cardId: string,
+  variant?: string
+): Promise<void>
+
+/**
+ * Toggle the ownership status of an extra card
+ */
+export async function toggleExtraCardOwnership(
+  binderId: string,
+  cardId: string,
+  variant?: string
 ): Promise<boolean>
 ```
 
+**What was implemented:**
+- ✅ `addExtraCardToBinder()` - Adds card with `is_extra = true` flag
+- ✅ `getExtraCardsInBinder()` - Returns card IDs where `is_extra = true`
+- ✅ `getExtraCardsWithVariants()` - Returns full details (cardId, variant, isOwned)
+- ✅ `isExtraCard()` - Checks if a specific card is marked as extra
+- ✅ `removeExtraCardFromBinder()` - Removes only extra cards (not regular set cards)
+- ✅ `toggleExtraCardOwnership()` - Toggles owned/missing status for extra cards
+- ✅ Logging with `[30B]` prefix for debugging
+- ✅ Extra cards don't affect main completion percentage (tracked separately)
+- ✅ Validation to prevent adding regular set cards as extra
+
 **Testing:**
-- [ ] addExtraCardToBinder() marks card as extra
-- [ ] getExtraCardsInBinder() returns only extra cards
-- [ ] isExtraCard() correctly identifies extra cards
-- [ ] Regular cards are not marked as extra
-- [ ] No TypeScript errors
+- [x] addExtraCardToBinder() marks card as extra (implemented)
+- [x] getExtraCardsInBinder() returns only extra cards (implemented)
+- [x] isExtraCard() correctly identifies extra cards (implemented)
+- [x] Regular cards are not marked as extra (validation added)
+- [x] No TypeScript errors
+- [ ] Test adding extra card to Master Set binder - Ready to test (requires Step 30A migration)
+- [ ] Test removing extra card - Ready to test
+- [ ] Test toggling extra card ownership - Ready to test
 
 ---
 

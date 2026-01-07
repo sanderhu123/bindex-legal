@@ -3161,11 +3161,14 @@ WHERE position IS NOT NULL;
 ---
 
 #### Step 30A: Update Database Schema for Extra Cards
-- [ ] **Status**: Not started
+- [x] **Status**: Completed
 
 **What we're doing:** Track which cards are "extra" (not part of official set)
 
-**Option 1: Add field to binder_cards table**
+**Files created:**
+- `database/migrations/add_is_extra_to_binder_cards.sql` - Migration script for is_extra column
+
+**Database Changes (Run in Supabase SQL Editor):**
 ```sql
 -- Add is_extra column to binder_cards table
 ALTER TABLE public.binder_cards
@@ -3174,22 +3177,29 @@ ADD COLUMN IF NOT EXISTS is_extra BOOLEAN DEFAULT FALSE;
 -- Index for filtering extra cards
 CREATE INDEX IF NOT EXISTS idx_binder_cards_is_extra 
 ON public.binder_cards(binder_id, is_extra);
+
+-- Composite index for extra + owned queries
+CREATE INDEX IF NOT EXISTS idx_binder_cards_extra_owned 
+ON public.binder_cards(binder_id, is_extra, is_owned);
 ```
 
-**Option 2: Store extra card IDs in binder table**
-```sql
--- Add extra_card_ids array to binders table
-ALTER TABLE public.binders
-ADD COLUMN IF NOT EXISTS extra_card_ids TEXT[] DEFAULT '{}';
-```
-
-**Recommended:** Option 1 (is_extra field) - more flexible and follows existing pattern
+**What gets created:**
+- `binder_cards.is_extra` - Boolean column marking cards not officially in the set (default: FALSE)
+- `idx_binder_cards_is_extra` - Index for fast extra card filtering
+- `idx_binder_cards_extra_owned` - Composite index for extra + owned queries
 
 **Testing:**
-- [ ] SQL runs without errors
-- [ ] New column/field appears in table
-- [ ] Default value is correct (FALSE)
-- [ ] Can query extra cards for a binder
+- [x] Migration file created with SQL
+- [ ] SQL runs without errors in Supabase - **Required before testing**
+- [ ] New column appears in binder_cards table - Ready to test
+- [ ] Default value is correct (FALSE) - Ready to test
+- [ ] Can query extra cards for a binder - Ready to test
+
+**How to Run Migration:**
+1. Go to Supabase Dashboard → SQL Editor
+2. Copy the SQL from `database/migrations/add_is_extra_to_binder_cards.sql`
+3. Run the migration
+4. Run the verification queries to confirm it worked
 
 ---
 

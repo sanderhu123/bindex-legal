@@ -846,12 +846,22 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
       {/* Progress Summary */}
       <View style={styles.progressContainer}>
         {isCustomMode ? (
-          // Custom mode: show owned cards / filled slots / total slots
-          <View style={styles.customProgress}>
-            <Text style={styles.customProgressText}>
-              📦 {Array.from(positionCards.values()).filter(c => c.isOwned).length} owned / {positionCards.size} filled / {customMaxSlots} slots
+          // Custom mode: progress bar showing owned / filled, plus slot info
+          <>
+            <ProgressBar
+              current={Array.from(positionCards.values()).filter(c => c.isOwned).length}
+              total={positionCards.size}
+              percentage={positionCards.size > 0 
+                ? Math.round((Array.from(positionCards.values()).filter(c => c.isOwned).length / positionCards.size) * 100) 
+                : 0
+              }
+              format="full"
+              textSize="large"
+            />
+            <Text style={styles.customSlotInfo}>
+              {positionCards.size} / {customMaxSlots} slots filled
             </Text>
-          </View>
+          </>
         ) : (
           // Master Set / Region mode: show progress bar with percentage
           <ProgressBar
@@ -1196,17 +1206,11 @@ const styles = StyleSheet.create({
     color: colors.textTertiary,
     fontStyle: 'italic',
   },
-  // Custom progress display (for Custom mode)
-  customProgress: {
-    backgroundColor: colors.backgroundLight,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
-    borderRadius: borderRadius.md,
-    alignItems: 'center',
-  },
-  customProgressText: {
-    fontSize: typography.lg,
-    fontWeight: typography.semibold,
-    color: colors.text,
+  // Custom mode slot info text (below progress bar)
+  customSlotInfo: {
+    fontSize: typography.sm,
+    color: colors.textTertiary,
+    textAlign: 'center',
+    marginTop: spacing.xs,
   },
 });

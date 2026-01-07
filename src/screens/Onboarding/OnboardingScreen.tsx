@@ -73,9 +73,13 @@ export default function OnboardingScreen() {
 
   const handleBack = () => {
     if (currentStep > 1) {
+      // For custom mode: step 1 → 2 (layout) → 3 (binder name)
       // For region mode: step 1 → 2 → 3 (art style) → 4 (layout) → 5 (binder name)
       // For master-set mode: step 1 → 2 → 3 (variants) → 4 (variant placement) → 5 (layout) → 6 (binder name)
-      if (state.collectionMode === 'region' && currentStep === 5) {
+      if (state.collectionMode === 'custom') {
+        // Custom mode: simple step-by-step back
+        setCurrentStep(currentStep - 1);
+      } else if (state.collectionMode === 'region' && currentStep === 5) {
         setCurrentStep(4); // Go back from step 5 (binder name) to step 4 (layout)
       } else if (state.collectionMode === 'region' && currentStep === 4) {
         setCurrentStep(3); // Go back from step 4 (layout) to step 3 (art style)
@@ -89,9 +93,11 @@ export default function OnboardingScreen() {
     }
   };
 
-  // Calculate total steps (5 for region, 6 for master-set)
+  // Calculate total steps (3 for custom, 5 for region, 6 for master-set)
   const getTotalSteps = (): number => {
-    return state.collectionMode === 'region' ? 5 : 6;
+    if (state.collectionMode === 'custom') return 3;
+    if (state.collectionMode === 'region') return 5;
+    return 6; // master-set
   };
 
   // Get the actual step number for display
@@ -106,15 +112,20 @@ export default function OnboardingScreen() {
       case 1:
         return state.collectionMode !== null;
       case 2:
+        // Step 2: Set selection (Master Set), Region selection (Region), or Layout (Custom)
         if (state.collectionMode === 'master-set') {
           return state.selectedSetId !== null;
         } else if (state.collectionMode === 'region') {
           return state.selectedRegion !== null;
+        } else if (state.collectionMode === 'custom') {
+          return state.layoutPreference !== null;
         }
         return false;
       case 3:
-        // Step 3: Pokemon Art Style for Region, Variants for Master Set
-        if (state.collectionMode === 'region') {
+        // Step 3: Art Style (Region), Variants (Master Set), or Binder Name (Custom)
+        if (state.collectionMode === 'custom') {
+          return state.binderName !== null && state.binderName.trim() !== '';
+        } else if (state.collectionMode === 'region') {
           return state.pokemonArtStyle !== null; // User must select art style
         }
         // For Master Set, variants are optional (can proceed with empty array)
@@ -145,8 +156,8 @@ export default function OnboardingScreen() {
       return;
     }
 
-    // Determine the last step based on collection mode
-    const lastStep = state.collectionMode === 'region' ? 5 : 6;
+    // Determine the last step based on collection mode (3 for custom, 5 for region, 6 for master-set)
+    const lastStep = getTotalSteps();
     
     if (currentStep === lastStep) {
       // Last step - finish
@@ -167,16 +178,26 @@ export default function OnboardingScreen() {
       // Use custom binder name from user input
       const binderName = state.binderName?.trim() || 'My Binder';
 
-      // Prepare variants array (always include 'base' for master-set, just 'base' for region)
-      const variantsToTrack = state.collectionMode === 'master-set' 
-        ? ['base', ...state.selectedVariants]
-        : ['base']; // Region mode only has base cards
+      // Prepare variants array based on collection mode
+      // - master-set: include 'base' + selected variants
+      // - region: only 'base'
+      // - custom: empty array (custom binders don't track variants - user adds any cards)
+      let variantsToTrack: string[];
+      if (state.collectionMode === 'master-set') {
+        variantsToTrack = ['base', ...state.selectedVariants];
+      } else if (state.collectionMode === 'region') {
+        variantsToTrack = ['base'];
+      } else {
+        variantsToTrack = []; // Custom mode - no variant tracking
+      }
 
-      console.log('[Questionnaire] ===== SAVING BINDER WITH VARIANTS =====');
+      console.log('[Questionnaire] ===== SAVING BINDER =====');
       console.log('[Questionnaire] Collection Mode:', state.collectionMode);
       console.log('[Questionnaire] Selected Variants (from state):', state.selectedVariants);
       console.log('[Questionnaire] Variants to Track (final array):', variantsToTrack);
       console.log('[Questionnaire] Set:', state.selectedSetName);
+      console.log('[Questionnaire] Region:', state.selectedRegion);
+      console.log('[Questionnaire] Layout:', state.layoutPreference);
       console.log('[Questionnaire] ==========================================');
 
       // Create binder
@@ -185,7 +206,7 @@ export default function OnboardingScreen() {
         collectionMode: state.collectionMode!,
         set: state.collectionMode === 'master-set' ? state.selectedSetName || undefined : undefined,
         region: state.collectionMode === 'region' ? state.selectedRegion || undefined : undefined,
-        variantsToTrack,
+        variantsToTrack: variantsToTrack.length > 0 ? variantsToTrack : undefined,
         variantPlacement: state.collectionMode === 'master-set' ? (state.variantPlacement || undefined) : undefined,
         layoutPreference: state.layoutPreference || undefined,
         pokemonArtStyle: state.collectionMode === 'region' ? (state.pokemonArtStyle || undefined) : undefined,
@@ -194,6 +215,7 @@ export default function OnboardingScreen() {
 
       console.log('[Questionnaire] ===== BINDER CREATED =====');
       console.log('[Questionnaire] Binder ID:', binder.id);
+      console.log('[Questionnaire] Binder collectionMode:', binder.collectionMode);
       console.log('[Questionnaire] Binder variantsToTrack:', binder.variantsToTrack);
       console.log('[Questionnaire] ===========================');
 
@@ -216,6 +238,7 @@ export default function OnboardingScreen() {
           />
         );
       case 2:
+        // Step 2: Set selection (Master Set), Region selection (Region), or Layout (Custom)
         if (state.collectionMode === 'master-set') {
           return (
             <Step2MasterSet
@@ -231,11 +254,26 @@ export default function OnboardingScreen() {
               onChange={(region) => setState({ ...state, selectedRegion: region })}
             />
           );
+        } else if (state.collectionMode === 'custom') {
+          return (
+            <Step4Layout
+              value={state.layoutPreference}
+              onChange={(layout) => setState({ ...state, layoutPreference: layout })}
+            />
+          );
         }
         return null;
       case 3:
-        // Step 3: Pokemon Art Style for Region, Variants for Master Set
-        if (state.collectionMode === 'region') {
+        // Step 3: Binder Name (Custom), Art Style (Region), or Variants (Master Set)
+        if (state.collectionMode === 'custom') {
+          return (
+            <Step5BinderName
+              value={state.binderName}
+              onChange={(name) => setState({ ...state, binderName: name })}
+              defaultName="My Custom Binder"
+            />
+          );
+        } else if (state.collectionMode === 'region') {
           return (
             <Step3PokemonArtStyle
               value={state.pokemonArtStyle}
@@ -349,9 +387,7 @@ export default function OnboardingScreen() {
           disabled={!canProceedToNextStep()}
         >
           <Text style={styles.nextButtonText}>
-            {(state.collectionMode === 'region' && currentStep === 5) || 
-             (state.collectionMode === 'master-set' && currentStep === 6)
-              ? 'Create Binder' : 'Next'}
+            {currentStep === getTotalSteps() ? 'Create Binder' : 'Next'}
           </Text>
         </TouchableOpacity>
       </View>

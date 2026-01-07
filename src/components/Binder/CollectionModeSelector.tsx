@@ -11,18 +11,25 @@ export default function CollectionModeSelector({
   value,
   onChange,
 }: CollectionModeSelectorProps) {
-  const modes: { key: CollectionMode; label: string; description: string }[] = [
+  const modes: { key: CollectionMode; label: string; description: string; icon: string }[] = [
     {
       key: 'master-set',
       label: 'Master Set',
       description: 'Track one specific set (e.g. Base Set, Scarlet & Violet).',
+      icon: '📦',
     },
     {
       key: 'region',
       label: 'Region',
       description: 'Track cards by Pokédex region (Kanto, Johto, etc.).',
+      icon: '🗺️',
     },
-    // Custom binders are created separately in Step 13
+    {
+      key: 'custom',
+      label: 'Custom',
+      description: 'Create your own collection with any cards from any set.',
+      icon: '✨',
+    },
   ];
 
   return (
@@ -35,7 +42,10 @@ export default function CollectionModeSelector({
             style={[styles.option, isSelected && styles.optionSelected]}
             onPress={() => onChange(mode.key)}
           >
-            <Text style={styles.optionLabel}>{mode.label}</Text>
+            <View style={styles.optionHeader}>
+              <Text style={styles.optionIcon}>{mode.icon}</Text>
+              <Text style={styles.optionLabel}>{mode.label}</Text>
+            </View>
             <Text style={styles.optionDescription}>{mode.description}</Text>
           </TouchableOpacity>
         );
@@ -57,14 +67,23 @@ const styles = StyleSheet.create({
     borderColor: '#007AFF',
     backgroundColor: '#E5F0FF',
   },
+  optionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  optionIcon: {
+    fontSize: 20,
+    marginRight: 8,
+  },
   optionLabel: {
     fontSize: 16,
     fontWeight: '600',
-    marginBottom: 4,
   },
   optionDescription: {
     fontSize: 14,
     color: '#666',
+    marginLeft: 28, // Align with text after icon
   },
 });
 

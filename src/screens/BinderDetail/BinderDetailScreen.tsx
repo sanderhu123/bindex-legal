@@ -583,10 +583,10 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
       // Add card at the selected position
       await addCardAtPosition(binder.id, selectedCard.id, selectedPosition, selectedCard.variant);
       
-      // Optimistically update UI
+      // Optimistically update UI - new cards in Custom binders start as "missing" (unowned)
       const newCard: CardWithOwnership = {
         ...selectedCard,
-        isOwned: true,
+        isOwned: false, // Default to missing, user can mark as owned
       };
       
       setPositionCards((prev) => {
@@ -600,11 +600,11 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
         return {
           ...prevBinder,
           cardIds: [...prevBinder.cardIds, selectedCard.id],
-          ownedCards: (prevBinder.ownedCards || 0) + 1,
+          // Don't increment ownedCards since card starts as missing
         };
       });
       
-      console.log('[BinderDetail] Card added successfully at position', selectedPosition);
+      console.log('[BinderDetail] Card added successfully at position', selectedPosition, '(starts as missing)');
     } catch (err) {
       console.error('[BinderDetail] Failed to add card:', err);
       Alert.alert(
@@ -913,7 +913,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
         
         <Text style={styles.helpText}>
           {isCustomMode 
-            ? 'Tap an empty slot to add a card, tap checkbox to mark owned/missing'
+            ? 'Tap an empty slot to add a card (starts as missing), tap checkbox to mark owned'
             : 'Tap a card to view details, tap checkbox to mark owned'
           }
         </Text>

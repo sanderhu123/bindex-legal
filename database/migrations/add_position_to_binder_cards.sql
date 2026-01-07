@@ -14,9 +14,10 @@ ADD COLUMN IF NOT EXISTS position INTEGER;
 
 -- Add is_owned column to track owned/missing status
 -- TRUE = owned (bright), FALSE = missing (dimmed)
--- For Custom binders: allows marking cards as "missing" while keeping them in a slot
+-- For Custom binders: cards start as "missing" until user marks them as owned
+-- For Master Set/Region: cards are owned when added (existing behavior)
 ALTER TABLE public.binder_cards
-ADD COLUMN IF NOT EXISTS is_owned BOOLEAN DEFAULT TRUE;
+ADD COLUMN IF NOT EXISTS is_owned BOOLEAN DEFAULT FALSE;
 
 -- Add index for fast position lookups (used when loading Custom binder cards)
 CREATE INDEX IF NOT EXISTS idx_binder_cards_position 

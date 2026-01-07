@@ -59,6 +59,10 @@ export async function addCardToBinder(
   }
 
   // Insert card (or update if exists)
+  // For Custom binders (with position), cards start as "missing" (is_owned: false)
+  // For Master Set/Region binders, cards are "owned" when added (is_owned: true)
+  const isCustomBinder = position !== undefined && position !== null;
+  
   const { error } = await supabase
     .from('binder_cards')
     .upsert({
@@ -66,7 +70,8 @@ export async function addCardToBinder(
       binder_id: binderId,
       card_id: cardId,
       variant: variant || null,
-      position: position ?? null, // NULL for non-Custom binders
+      position: position ?? null,
+      is_owned: !isCustomBinder, // false for Custom, true for others
     }, {
       onConflict: 'binder_id,card_id,variant',
     });

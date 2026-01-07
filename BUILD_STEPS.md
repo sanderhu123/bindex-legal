@@ -3058,73 +3058,96 @@ interface CardPickerModalProps {
 ---
 
 #### Step 29B: Update BinderDetailScreen for Custom Mode
-- [x] **Status**: Completed
+- [x] **Status**: Completed (Revised - Positional Grid)
 
-**What we're doing:** Show cards the user has added and provide "Add Card" button
+**What we're doing:** Show a predefined grid of card slots that users can tap to add cards
 
-**Files modified:**
-- `src/screens/BinderDetail/BinderDetailScreen.tsx` - Handle Custom mode display
+**Files created/modified:**
+- `database/migrations/add_position_to_binder_cards.sql` - Add position column migration
+- `src/components/Card/EmptyCardSlot.tsx` - Empty slot component with "+" icon and "Add Card" text
+- `src/services/supabase/cards.ts` - Added position-aware functions
+- `src/screens/BinderDetail/BinderDetailScreen.tsx` - Positional grid implementation
 
 **What was implemented:**
-- ✅ For Custom mode, load cards from `binder.cardIds` using `getCardById()`
-- ✅ Show "Add Card" floating action button (FAB) - only for Custom mode
-- ✅ Tapping FAB opens CardPickerModal
-- ✅ When user selects card, add it to binder with optimistic UI update
-- ✅ Progress shows "📦 X cards in collection" format (no percentage)
-- ✅ Cards can be removed (tap to toggle, same as other modes)
-- ✅ Custom empty state: "No cards yet. Tap the + button below to add cards."
-- ✅ Duplicate detection (alert if card already in binder)
+- ✅ **Positional Grid**: 360 slots for 3×3 layout, 480 slots for 4×3 layout
+- ✅ **EmptyCardSlot Component**: Shows "+" icon with "Add Card" text and slot number
+- ✅ **Position-Based Storage**: Cards stored with position in `binder_cards` table
+- ✅ Cards stay in their assigned position (slot 5 is always slot 5)
+- ✅ Removing a card leaves an empty slot (no shifting)
+- ✅ Progress shows "📦 X / Y cards" format (e.g., "📦 5 / 360 cards")
+- ✅ Tap empty slot → opens CardPickerModal with slot number in title
+- ✅ Tap filled slot → removes the card from that position
+- ✅ No search/filter for Custom mode (slots-based grid)
+- ✅ Grid-only view (no list view for Custom mode)
 
-**Custom Mode Display Logic:**
-```typescript
-if (binder.collectionMode === 'custom') {
-  // Load only cards that user has added (from binder.cardIds)
-  const cardPromises = binder.cardIds.map(id => getCardById(id));
-  const loadedCards = await Promise.all(cardPromises);
-  allCards = loadedCards.filter(card => card !== null);
-}
+**Database Changes (Run in Supabase SQL Editor):**
+```sql
+-- Add position column to binder_cards table
+ALTER TABLE public.binder_cards
+ADD COLUMN IF NOT EXISTS position INTEGER;
+
+-- Add index for fast position lookups
+CREATE INDEX IF NOT EXISTS idx_binder_cards_position 
+ON public.binder_cards(binder_id, position) 
+WHERE position IS NOT NULL;
+
+-- Add unique constraint for one card per position
+CREATE UNIQUE INDEX IF NOT EXISTS idx_binder_cards_unique_position 
+ON public.binder_cards(binder_id, position) 
+WHERE position IS NOT NULL;
 ```
 
+**New Card Service Functions:**
+- `getBinderCardsWithPositions(binderId)` - Get Map<position, cardData>
+- `addCardAtPosition(binderId, cardId, position, variant)` - Add card at specific slot
+- `removeCardByPosition(binderId, position)` - Remove card from slot
+
 **Testing:**
-- [x] Custom binder shows only user-added cards (implemented)
-- [x] "Add Card" FAB appears for Custom binders (implemented)
-- [x] Tapping FAB opens card picker (implemented)
-- [x] Selected card is added to binder (implemented)
-- [x] Card appears in binder grid/list (implemented)
-- [x] Can remove card by tapping (existing functionality)
-- [x] Progress shows "X cards" format (implemented)
-- [x] Empty state shows when no cards (implemented)
+- [x] Positional grid implemented (slots 0-359 or 0-479)
+- [x] EmptyCardSlot component created
+- [x] Position-aware card services created
+- [x] Tap empty slot opens card picker (implemented)
+- [x] Tap filled slot removes card (implemented)
+- [x] Progress shows "X / Y cards" format (implemented)
+- [ ] Run database migration in Supabase - **Required before testing**
+- [ ] Cards stay in assigned positions - Ready to test
+- [ ] Removed card leaves empty slot - Ready to test
 - [ ] Cards persist after app restart - Ready to test
-- [ ] Duplicate detection works correctly - Ready to test
 
 **How to Test Step 29B:**
-1. **Create Custom binder:**
+
+1. **Run the database migration:**
+   - Go to Supabase Dashboard → SQL Editor
+   - Run the SQL from `database/migrations/add_position_to_binder_cards.sql`
+
+2. **Create Custom binder:**
    - Go through onboarding, select Custom
+   - Choose 3×3 or 4×3 layout
    - Complete binder creation
 
-2. **Test empty state:**
+3. **Test empty grid:**
    - Open the Custom binder
-   - Should see empty state message with ➕ icon
-   - Should see "Add Card" FAB button (+ button at bottom right)
+   - Should see grid of empty slots with "+" and "Add Card"
+   - Each slot shows "Slot 1", "Slot 2", etc.
+   - Progress shows "📦 0 / 360 cards" (or 480 for 4×3)
 
-3. **Test adding cards:**
-   - Tap the + FAB button
-   - CardPickerModal opens
+4. **Test adding cards:**
+   - Tap any empty slot (e.g., Slot 5)
+   - CardPickerModal opens with title "Add Card to Slot 5"
    - Search for a card (e.g., "Charizard")
    - Select a card
-   - Verify card appears in binder grid
-   - Progress updates to show "📦 1 card in collection"
-
-4. **Test duplicate detection:**
-   - Tap + button again
-   - Search for the same card you already added
-   - Try to add it
-   - Should see alert "Card Already Added"
+   - Card appears in that specific slot
+   - Progress updates to "📦 1 / 360 cards"
 
 5. **Test removing cards:**
-   - Tap on an owned card
-   - Verify card is removed from binder
-   - Progress updates accordingly
+   - Tap on a filled slot (card)
+   - Card is removed, slot becomes empty again
+   - Progress decreases
+
+6. **Test position persistence:**
+   - Add cards to slots 1, 5, and 10
+   - Close and reopen the binder
+   - Cards should still be in slots 1, 5, and 10 (not shifted)
 
 ---
 

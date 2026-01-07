@@ -808,14 +808,14 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
     try {
       await addExtraCardToBinder(binder.id, selectedCard.id, selectedCard.variant);
       
-      // Optimistically update UI - extra cards start as owned
+      // Optimistically update UI - new cards start as missing (not owned yet)
       const newExtraCard: CardWithOwnership = {
         ...selectedCard,
-        isOwned: true,
+        isOwned: false,
       };
       
       setExtraCards((prev) => [...prev, newExtraCard]);
-      console.log('[BinderDetail] Extra card added successfully');
+      console.log('[BinderDetail] Card added successfully (starts as missing)');
     } catch (err) {
       console.error('[BinderDetail] Failed to add extra card:', err);
       Alert.alert(

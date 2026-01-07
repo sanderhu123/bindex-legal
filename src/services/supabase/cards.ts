@@ -568,7 +568,7 @@ export async function addExtraCardToBinder(
       binder_id: binderId,
       card_id: cardId,
       variant: variant || null,
-      is_owned: true, // Extra cards start as owned (user is adding them intentionally)
+      is_owned: false, // New cards start as missing (user can mark as owned later)
       is_extra: true, // Mark as extra card
       position: null, // No position for extra cards (not positional like Custom binders)
     });

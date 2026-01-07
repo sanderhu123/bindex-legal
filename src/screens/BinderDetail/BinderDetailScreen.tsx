@@ -197,6 +197,22 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
             isOwned: latestBinder.cardIds.includes(card.id),
           }))
         );
+        
+        // For Master Set binders: also refresh extra cards ownership
+        if (latestBinder.collectionMode === 'master-set') {
+          const extraCardsData = await getExtraCardsWithVariants(binderId);
+          
+          // Update extraCards with latest ownership status from database
+          setExtraCards((prevExtraCards) =>
+            prevExtraCards.map((card) => {
+              // Find matching extra card data from database
+              const dbData = extraCardsData.find(
+                (ec) => ec.cardId === card.id && ec.variant === (card.variant || null)
+              );
+              return dbData ? { ...card, isOwned: dbData.isOwned } : card;
+            })
+          );
+        }
       }
     } catch (err) {
       console.error('Failed to refresh binder ownership:', err);
@@ -806,25 +822,34 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
   }, [binder]);
 
   // Handle toggling ownership of an extra card (card added by user, not in official set)
+  // Works similar to handleToggleCard but updates extraCards state instead of cards state
   const handleToggleExtraCardOwnership = useCallback(async (card: CardWithOwnership) => {
     if (!binder) return;
     
     const newIsOwned = !card.isOwned;
+    const cardId = card.id;
+    const cardVariant = card.variant;
+    const currentBinderId = binder.id;
+    
     console.log('[BinderDetail] Toggling extra card ownership:', card.name, '→', newIsOwned ? 'owned' : 'missing');
     
-    // Optimistically update UI
+    // Optimistically update UI - update extraCards state
     setExtraCards((prev) =>
-      prev.map((c) => (c.id === card.id ? { ...c, isOwned: newIsOwned } : c))
+      prev.map((c) => (c.id === cardId ? { ...c, isOwned: newIsOwned } : c))
     );
     
+    // Note: We don't update binder.ownedCards here because extra cards are counted
+    // separately in the progress calculation (see ownedCount/totalCount calculation above)
+    // The progress bar will update automatically when extraCards state changes
+    
     try {
-      await toggleExtraCardOwnership(binder.id, card.id, card.variant);
+      await toggleExtraCardOwnership(currentBinderId, cardId, cardVariant);
       console.log('[BinderDetail] Extra card ownership toggled');
     } catch (err) {
       console.error('[BinderDetail] Failed to toggle extra card ownership:', err);
       // Revert on error
       setExtraCards((prev) =>
-        prev.map((c) => (c.id === card.id ? { ...c, isOwned: !newIsOwned } : c))
+        prev.map((c) => (c.id === cardId ? { ...c, isOwned: !newIsOwned } : c))
       );
       Alert.alert('Error', 'Failed to update card. Please try again.');
     }
@@ -1226,7 +1251,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
         <View style={styles.footerComplete}>
           <Text style={styles.footerCompleteText}>
             {isMasterSetMode 
-              ? `${filteredCards.length} set cards${extraCardsCount > 0 ? ` + ${extraCardsCount} extras` : ''}`
+              ? `All ${filteredCards.length + extraCardsCount} cards loaded`
               : `All ${filteredCards.length} cards loaded`
             }
           </Text>

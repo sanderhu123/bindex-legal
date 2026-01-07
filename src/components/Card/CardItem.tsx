@@ -19,6 +19,7 @@ interface CardItemProps {
   variant?: 'grid' | 'list';
   position?: number; // For Custom binders (slot position)
   collectionMode?: 'master-set' | 'region' | 'custom'; // Binder type
+  isExtraCard?: boolean; // For cards added by user (not in official set)
 }
 
 type NavigationProp = StackNavigationProp<MainStackParamList, 'CardDetail'>;
@@ -36,7 +37,7 @@ function getVariantBadge(variant?: string) {
   return badges[variant] || null;
 }
 
-export default function CardItem({ card, onPress, binderId, width, variant = 'grid', position, collectionMode }: CardItemProps) {
+export default function CardItem({ card, onPress, binderId, width, variant = 'grid', position, collectionMode, isExtraCard }: CardItemProps) {
   const navigation = useNavigation<NavigationProp>();
   const badge = getVariantBadge(card.variant);
 
@@ -50,6 +51,8 @@ export default function CardItem({ card, onPress, binderId, width, variant = 'gr
       // Pass position and collectionMode for Custom binders
       position: position,
       collectionMode: collectionMode,
+      // Pass isExtraCard for cards added by user (not in official set)
+      isExtraCard: isExtraCard,
     });
   };
 

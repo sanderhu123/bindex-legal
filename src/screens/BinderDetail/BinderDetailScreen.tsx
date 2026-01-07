@@ -12,7 +12,6 @@ import {
   toggleCardOwnershipAtPosition,
   getExtraCardsWithVariants,
   addExtraCardToBinder,
-  removeExtraCardFromBinder,
   toggleExtraCardOwnership,
 } from '../../services/supabase/cards';
 import { getCardsBySet, getCardsByRegion, getCardById, type Region } from '../../services/api/pokemonApi';
@@ -22,7 +21,6 @@ import type { Binder, Card } from '../../types';
 import CardItem from '../../components/Card/CardItem';
 import CardList from '../../components/Card/CardList';
 import EmptyCardSlot from '../../components/Card/EmptyCardSlot';
-import ExtraCardItem from '../../components/Card/ExtraCardItem';
 import { CardPickerModal } from '../../components/CardPicker';
 import { useCardSearch } from '../../hooks/useCardSearch';
 import { useCardFilter, type OwnershipFilter } from '../../hooks/useCardFilter';
@@ -70,20 +68,15 @@ interface CardWithOwnership extends Card {
   isOwned: boolean;
 }
 
-/** Extra card with ownership and extra flag */
-interface ExtraCardWithOwnership extends CardWithOwnership {
-  isExtra: true;
-}
-
 /** 
  * Master Set grid item types:
  * - Regular set card
- * - Extra card (not in official set)
- * - Empty slot for adding extra cards
+ * - Extra card (added by user, not in official set - but displayed the same way)
+ * - Empty slot for adding cards
  */
 type MasterSetGridItem = 
   | { type: 'card'; card: CardWithOwnership }
-  | { type: 'extra'; card: ExtraCardWithOwnership }
+  | { type: 'extra'; card: CardWithOwnership }
   | { type: 'empty-slot'; slotIndex: number };
 
 type ViewMode = 'grid' | 'list';
@@ -812,27 +805,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
     }
   }, [binder]);
 
-  // Handle removing an extra card
-  const handleRemoveExtraCard = useCallback(async (card: CardWithOwnership) => {
-    if (!binder) return;
-    
-    console.log('[BinderDetail] Removing extra card:', card.id, card.name);
-    
-    // Optimistically update UI
-    setExtraCards((prev) => prev.filter((c) => c.id !== card.id));
-    
-    try {
-      await removeExtraCardFromBinder(binder.id, card.id, card.variant);
-      console.log('[BinderDetail] Extra card removed successfully');
-    } catch (err) {
-      console.error('[BinderDetail] Failed to remove extra card:', err);
-      // Revert on error
-      setExtraCards((prev) => [...prev, card]);
-      Alert.alert('Error', 'Failed to remove extra card. Please try again.');
-    }
-  }, [binder]);
-
-  // Handle toggling ownership of an extra card
+  // Handle toggling ownership of an extra card (card added by user, not in official set)
   const handleToggleExtraCardOwnership = useCallback(async (card: CardWithOwnership) => {
     if (!binder) return;
     
@@ -934,12 +907,12 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
     // Only add extra cards and empty slots when ALL regular cards have been loaded
     // This prevents empty slots from flashing while scrolling through paginated cards
     if (!hasMoreCards) {
-      // Add extra cards at the end of regular cards
+      // Add extra cards at the end of regular cards (displayed the same as regular cards)
       extraCards.forEach((card) => {
-        items.push({ type: 'extra', card: { ...card, isExtra: true } as ExtraCardWithOwnership });
+        items.push({ type: 'extra', card });
       });
       
-      // Add empty slots for adding more extra cards
+      // Add empty slots for adding more cards
       for (let i = 0; i < EXTRA_CARD_SLOTS; i++) {
         items.push({ type: 'empty-slot', slotIndex: i });
       }
@@ -965,37 +938,32 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
       }
       
       if (item.type === 'extra') {
-        // Extra card (not in official set)
+        // Extra card (added by user, displayed the same as regular cards)
         return (
-          <ExtraCardItem
+          <CardItem
             card={item.card}
+            onPress={handleToggleExtraCardOwnership}
+            binderId={binder?.id || ''}
             width={cardWidth}
-            onToggleOwnership={handleToggleExtraCardOwnership}
-            onRemove={handleRemoveExtraCard}
-            onPress={() => {
-              navigation.navigate('CardDetail', {
-                cardId: item.card.id,
-                binderId: binder?.id,
-                isOwned: item.card.isOwned,
-                isExtraCard: true,
-              });
-            }}
+            variant="grid"
+            collectionMode="master-set"
+            isExtraCard={true}
           />
         );
       }
       
-      // Empty slot for adding extra cards
+      // Empty slot for adding cards
       return (
         <EmptyCardSlot
           position={item.slotIndex}
           width={cardWidth}
           onPress={() => handleExtraSlotPress(item.slotIndex)}
-          label="Add Extra"
+          label="Add Card"
           hideSlotNumber={true}
         />
       );
     },
-    [binder?.id, cardWidth, handleToggleCard, handleToggleExtraCardOwnership, handleRemoveExtraCard, handleExtraSlotPress, navigation]
+    [binder?.id, cardWidth, handleToggleCard, handleToggleExtraCardOwnership, handleExtraSlotPress, navigation]
   );
 
   // Key extractor for Master Set grid items
@@ -1100,17 +1068,20 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
 
   // Progress uses cached values from binder for consistency with BinderList
   // Fallback to counting cards if cached value not available (shouldn't happen)
-  const ownedCount = binder.ownedCards ?? cards.filter(c => c.isOwned).length;
-  const totalCount = binder.totalCards ?? cards.length;
+  // For Master Set: include extra cards in the count (they're treated as regular cards)
+  const baseOwnedCount = binder.ownedCards ?? cards.filter(c => c.isOwned).length;
+  const baseTotalCount = binder.totalCards ?? cards.length;
+  const extraCardsCount = extraCards.length;
+  const ownedExtraCardsCount = extraCards.filter(c => c.isOwned).length;
+  
+  // Include extra cards in the main count for Master Set binders
+  const isMasterSetMode = binder.collectionMode === 'master-set';
+  const ownedCount = isMasterSetMode ? baseOwnedCount + ownedExtraCardsCount : baseOwnedCount;
+  const totalCount = isMasterSetMode ? baseTotalCount + extraCardsCount : baseTotalCount;
   const progressPercentage = totalCount > 0 ? Math.round((ownedCount / totalCount) * 100) : 0;
   
   // Custom mode uses different progress format
   const isCustomMode = binder.collectionMode === 'custom';
-  
-  // Master Set mode can have extra cards
-  const isMasterSetMode = binder.collectionMode === 'master-set';
-  const extraCardsCount = extraCards.length;
-  const ownedExtraCardsCount = extraCards.filter(c => c.isOwned).length;
 
   // Header component for FlatList (binder info, progress, search, filters)
   const ListHeaderComponent = () => (
@@ -1141,32 +1112,24 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
           </>
         ) : (
           // Master Set / Region mode: show progress bar with percentage
-          <>
-            <ProgressBar
-              current={ownedCount}
-              total={totalCount}
-              percentage={progressPercentage}
-              format="full"
-              textSize="large"
-            />
-            {/* Extra cards count for Master Set binders */}
-            {isMasterSetMode && extraCardsCount > 0 && (
-              <Text style={styles.extraCardsInfo}>
-                + {ownedExtraCardsCount}/{extraCardsCount} extra cards
-              </Text>
-            )}
-          </>
+          <ProgressBar
+            current={ownedCount}
+            total={totalCount}
+            percentage={progressPercentage}
+            format="full"
+            textSize="large"
+          />
         )}
       </View>
       
-      {/* Add Extra Card button for Master Set binders */}
+      {/* Add Card button for Master Set binders */}
       {isMasterSetMode && (
         <TouchableOpacity
-          style={styles.addExtraButton}
+          style={styles.addCardButton}
           onPress={() => setShowExtraCardPicker(true)}
         >
-          <Text style={styles.addExtraButtonIcon}>➕</Text>
-          <Text style={styles.addExtraButtonText}>Add Extra Card</Text>
+          <Text style={styles.addCardButtonIcon}>➕</Text>
+          <Text style={styles.addCardButtonText}>Add Card</Text>
         </TouchableOpacity>
       )}
       {__DEV__ && binder && (
@@ -1388,12 +1351,12 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
           extraData={[displayCount, cards, extraCards]}
         />
         
-        {/* Card Picker Modal for adding extra cards */}
+        {/* Card Picker Modal for adding cards */}
         <CardPickerModal
           visible={showExtraCardPicker}
           onClose={() => setShowExtraCardPicker(false)}
           onSelectCard={handleAddExtraCard}
-          title="Add Extra Card"
+          title="Add Card"
           pokemonOnly={false}
         />
       </SafeAreaView>
@@ -1548,35 +1511,27 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: spacing.xs,
   },
-  // Extra cards info text (below progress bar for Master Set)
-  extraCardsInfo: {
-    fontSize: typography.sm,
-    color: colors.warning,
-    textAlign: 'center',
-    marginTop: spacing.xs,
-    fontWeight: typography.medium,
-  },
-  // Add Extra Card button
-  addExtraButton: {
+  // Add Card button for Master Set binders
+  addCardButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.warning + '20', // 20% opacity warning color
+    backgroundColor: colors.primary + '20', // 20% opacity primary color
     borderWidth: 1,
-    borderColor: colors.warning,
+    borderColor: colors.primary,
     borderStyle: 'dashed',
     borderRadius: borderRadius.md,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
     marginTop: spacing.md,
   },
-  addExtraButtonIcon: {
+  addCardButtonIcon: {
     fontSize: typography.base,
     marginRight: spacing.xs,
   },
-  addExtraButtonText: {
+  addCardButtonText: {
     fontSize: typography.base,
     fontWeight: typography.medium,
-    color: colors.warning,
+    color: colors.primary,
   },
   });

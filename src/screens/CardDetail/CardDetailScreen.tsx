@@ -3,7 +3,7 @@ import { View, StyleSheet, Text, ScrollView, Dimensions, TouchableOpacity } from
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { getCardById } from '../../services/api/pokemonApi';
 import { getBinderById } from '../../services/supabase/binders';
-import { addCardToBinder, removeCardFromBinder, toggleCardOwnershipAtPosition } from '../../services/supabase/cards';
+import { addCardToBinder, removeCardFromBinder, toggleCardOwnershipAtPosition, toggleExtraCardOwnership } from '../../services/supabase/cards';
 import CardImage from '../../components/Card/CardImage';
 import CardDetails from '../../components/Card/CardDetails';
 import LoadingScreen from '../../components/Loading/LoadingScreen';
@@ -21,7 +21,7 @@ interface CardDetailScreenProps {
  * Displays full details of a single card
  */
 export default function CardDetailScreen({ navigation, route }: CardDetailScreenProps) {
-  const { cardId, binderId, isOwned: initialOwnedParam, position, collectionMode } = route.params || {};
+  const { cardId, binderId, isOwned: initialOwnedParam, position, collectionMode, isExtraCard } = route.params || {};
   const [card, setCard] = useState<Card | null>(null);
   const [binder, setBinder] = useState<Binder | null>(null);
   const [loading, setLoading] = useState(true);
@@ -114,12 +114,22 @@ export default function CardDetailScreen({ navigation, route }: CardDetailScreen
     setIsOwned(newIsOwned);
     setIsUpdating(true);
 
-    // Determine if this is a Custom binder (has position)
+    // Determine binder type
     const isCustomBinder = collectionMode === 'custom' && position !== undefined && position !== null;
 
     // Update binder state optimistically
     if (isCustomBinder) {
       // Custom binders: only update ownedCards count (cards already exist at positions)
+      const updatedOwnedCards = newIsOwned
+        ? (binder.ownedCards || 0) + 1
+        : Math.max(0, (binder.ownedCards || 0) - 1);
+      setBinder({ 
+        ...binder, 
+        ownedCards: updatedOwnedCards
+      });
+    } else if (isExtraCard) {
+      // Extra cards (added by user): only update ownedCards count, cardIds stay the same
+      // Extra cards are tracked separately and already exist in binder_cards table
       const updatedOwnedCards = newIsOwned
         ? (binder.ownedCards || 0) + 1
         : Math.max(0, (binder.ownedCards || 0) - 1);
@@ -147,6 +157,9 @@ export default function CardDetailScreen({ navigation, route }: CardDetailScreen
       if (isCustomBinder) {
         // Custom binders: toggle ownership status at the position
         await toggleCardOwnershipAtPosition(binder.id, position);
+      } else if (isExtraCard) {
+        // Extra cards (added by user): toggle ownership using extra card function
+        await toggleExtraCardOwnership(binder.id, card.id, card.variant);
       } else {
         // Master Set/Region binders: add or remove from binder
         if (newIsOwned) {

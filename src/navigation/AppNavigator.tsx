@@ -20,6 +20,7 @@ export type MainStackParamList = {
     isOwned?: boolean; // Pass current state for optimistic display
     position?: number; // For Custom binders (slot position)
     collectionMode?: 'master-set' | 'region' | 'custom'; // Binder type
+    isExtraCard?: boolean; // For cards added by user (not in official set)
   };
   CardSearchTest: undefined; // Temporary test screen for Step 28A
 };

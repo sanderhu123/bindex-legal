@@ -931,18 +931,22 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
       items.push({ type: 'card', card });
     });
     
-    // Add extra cards at the end of regular cards
-    extraCards.forEach((card) => {
-      items.push({ type: 'extra', card: { ...card, isExtra: true } as ExtraCardWithOwnership });
-    });
-    
-    // Add empty slots for adding more extra cards
-    for (let i = 0; i < EXTRA_CARD_SLOTS; i++) {
-      items.push({ type: 'empty-slot', slotIndex: i });
+    // Only add extra cards and empty slots when ALL regular cards have been loaded
+    // This prevents empty slots from flashing while scrolling through paginated cards
+    if (!hasMoreCards) {
+      // Add extra cards at the end of regular cards
+      extraCards.forEach((card) => {
+        items.push({ type: 'extra', card: { ...card, isExtra: true } as ExtraCardWithOwnership });
+      });
+      
+      // Add empty slots for adding more extra cards
+      for (let i = 0; i < EXTRA_CARD_SLOTS; i++) {
+        items.push({ type: 'empty-slot', slotIndex: i });
+      }
     }
     
     return items;
-  }, [binder, displayedCards, extraCards]);
+  }, [binder, displayedCards, extraCards, hasMoreCards]);
 
   // Render function for Master Set grid items
   const renderMasterSetGridItem = useCallback(

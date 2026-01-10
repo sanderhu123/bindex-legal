@@ -1277,9 +1277,6 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
   // Render a Region Pokemon card with tap-to-pick and long-press menu
   const renderRegionCard = useCallback(
     ({ item }: { item: CardWithOwnership }) => {
-      // Check if this Pokemon has a custom card selected
-      const hasCustomCard = !!(item as any).selectedCardId;
-      
       return (
         <TouchableOpacity
           style={[styles.regionCardItem, { width: cardWidth }]}
@@ -1303,12 +1300,6 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
             >
               <Text style={styles.checkbox}>{item.isOwned ? '☑' : '☐'}</Text>
             </TouchableOpacity>
-            {/* Custom card indicator badge */}
-            {hasCustomCard && (
-              <View style={styles.customCardBadge}>
-                <Text style={styles.customCardBadgeText}>✨</Text>
-              </View>
-            )}
           </View>
           <CardDetails
             card={item}
@@ -1896,20 +1887,5 @@ const styles = StyleSheet.create({
   },
   checkbox: {
     fontSize: 20,
-  },
-  customCardBadge: {
-    position: 'absolute',
-    bottom: 4,
-    left: 4,
-    backgroundColor: 'rgba(255, 215, 0, 0.9)', // Gold background
-    borderRadius: 4,
-    padding: 2,
-    minWidth: 20,
-    minHeight: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  customCardBadgeText: {
-    fontSize: 12,
   },
   });

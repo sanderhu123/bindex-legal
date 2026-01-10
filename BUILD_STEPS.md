@@ -3557,7 +3557,7 @@ if (binder.collectionMode === 'region') {
 ---
 
 #### Step 31D: Create Pokemon Card Picker Flow
-- [ ] **Status**: Not started
+- [x] **Status**: Complete
 
 **What we're doing:** When user taps a Pokémon, show all TCG cards for that Pokémon and let them select one
 
@@ -3580,13 +3580,13 @@ if (binder.collectionMode === 'region') {
 - Visual indicator on cards that have custom selection (small badge/icon)
 
 **Testing:**
-- [ ] Tapping Region card opens card picker
-- [ ] Card picker pre-fills with Pokémon name
-- [ ] All cards for that Pokémon are shown
-- [ ] Selecting card saves to database
-- [ ] Binder display updates with new image
-- [ ] Can clear selection to revert to sprite
-- [ ] Visual indicator shows which Pokémon have custom cards
+- [x] Tapping Region card opens card picker
+- [x] Card picker pre-fills with Pokémon name
+- [x] All cards for that Pokémon are shown
+- [x] Selecting card saves to database
+- [x] Binder display updates with new image
+- [x] Can clear selection to revert to sprite
+- [x] Visual indicator shows which Pokémon have custom cards
 
 **How to Test Step 31D:**
 1. **Open a Region binder:**

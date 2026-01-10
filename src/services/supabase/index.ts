@@ -4,6 +4,8 @@ export * from './client';
 export * from './auth';
 export * from './binders';
 export * from './cards';
+export * from './regionCards';
+
 
 
 

@@ -3412,14 +3412,14 @@ export async function toggleExtraCardOwnership(
 ---
 
 #### Step 31B: Create Region Card Selection Service
-- [ ] **Status**: Not started
+- [x] **Status**: Completed
 
 **What we're doing:** Create service functions for managing region card selections
 
-**Files to create:**
-- `src/services/supabase/regionCards.ts` - Region card selection CRUD
+**Files created:**
+- `src/services/supabase/regionCards.ts` - Region card selection CRUD ✅
 
-**Functions:**
+**Functions implemented:**
 ```typescript
 /**
  * Get the selected card for a Pokémon in a Region binder
@@ -3453,14 +3453,58 @@ export async function clearSelectedCardForPokemon(
   binderId: string,
   pokedexNumber: number
 ): Promise<void>
+
+/**
+ * Batch set multiple card selections at once (bonus function)
+ */
+export async function setMultipleSelectedCards(
+  binderId: string,
+  selections: Array<{ pokedexNumber: number; cardId: string }>
+): Promise<void>
+
+/**
+ * Clear all card selections for a binder (bonus function)
+ */
+export async function clearAllSelectionsForBinder(
+  binderId: string
+): Promise<void>
+
+/**
+ * Check if a specific Pokémon has a custom card selected
+ */
+export async function hasSelectedCard(
+  binderId: string,
+  pokedexNumber: number
+): Promise<boolean>
+
+/**
+ * Get the count of custom card selections for a binder
+ */
+export async function getSelectionCount(binderId: string): Promise<number>
 ```
 
+**What was implemented:**
+- ✅ `getSelectedCardForPokemon()` - Returns card ID or null for a Pokémon slot
+- ✅ `setSelectedCardForPokemon()` - Saves/updates card selection (upsert)
+- ✅ `getAllSelectedCardsForBinder()` - Returns Map<pokedexNumber, cardId>
+- ✅ `clearSelectedCardForPokemon()` - Removes selection for single Pokémon
+- ✅ `setMultipleSelectedCards()` - Batch upsert for bulk operations
+- ✅ `clearAllSelectionsForBinder()` - Clears all selections (for binder reset/delete)
+- ✅ `hasSelectedCard()` - Quick check if Pokémon has custom card
+- ✅ `getSelectionCount()` - Count of custom selections in binder
+- ✅ All functions verify user authentication and binder ownership
+- ✅ All functions verify binder is Region mode (where applicable)
+- ✅ Detailed logging with `[31B]` prefix for debugging
+- ✅ Proper error handling (returns null/empty instead of crashing for read ops)
+- ✅ Exported from `src/services/supabase/index.ts`
+
 **Testing:**
-- [ ] getSelectedCardForPokemon() returns card ID or null
-- [ ] setSelectedCardForPokemon() saves selection
-- [ ] getAllSelectedCardsForBinder() returns all selections
-- [ ] clearSelectedCardForPokemon() removes selection
-- [ ] No TypeScript errors
+- [x] getSelectedCardForPokemon() returns card ID or null (implemented)
+- [x] setSelectedCardForPokemon() saves selection with upsert (implemented)
+- [x] getAllSelectedCardsForBinder() returns all selections as Map (implemented)
+- [x] clearSelectedCardForPokemon() removes selection (implemented)
+- [x] No TypeScript errors ✅
+- [ ] Test with real data after running Step 31A migration - Ready to test
 
 ---
 

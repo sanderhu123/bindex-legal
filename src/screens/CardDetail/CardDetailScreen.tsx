@@ -23,7 +23,7 @@ interface CardDetailScreenProps {
  * Displays full details of a single card
  */
 export default function CardDetailScreen({ navigation, route }: CardDetailScreenProps) {
-  const { cardId, binderId, isOwned: initialOwnedParam, position, collectionMode, isExtraCard, pokedexNumber, pokemonName } = route.params || {};
+  const { cardId, binderId, isOwned: initialOwnedParam, position, collectionMode, isExtraCard, pokedexNumber, pokemonName, regionCardData } = route.params || {};
   const [card, setCard] = useState<Card | null>(null);
   const [binder, setBinder] = useState<Binder | null>(null);
   const [loading, setLoading] = useState(true);
@@ -38,8 +38,8 @@ export default function CardDetailScreen({ navigation, route }: CardDetailScreen
   // Fetch card and binder data
   useEffect(() => {
     async function fetchData() {
-      if (!cardId || !binderId) {
-        setError('Missing card ID or binder ID');
+      if (!binderId) {
+        setError('Missing binder ID');
         setLoading(false);
         return;
       }
@@ -48,6 +48,30 @@ export default function CardDetailScreen({ navigation, route }: CardDetailScreen
         setLoading(true);
         setError(null);
 
+        // For Region mode with passed card data, use it directly (no API fetch needed)
+        if (isRegionMode && regionCardData) {
+          console.log('[CardDetail] Using passed Region card data:', regionCardData.name);
+          const binderData = await getBinderById(binderId);
+          
+          if (!binderData) {
+            setError('Binder not found');
+            setLoading(false);
+            return;
+          }
+          
+          setCard(regionCardData as Card);
+          setBinder(binderData);
+          setLoading(false);
+          return;
+        }
+
+        // For other modes, fetch card from API
+        if (!cardId) {
+          setError('Missing card ID');
+          setLoading(false);
+          return;
+        }
+
         // Fetch card and binder in parallel
         const [cardData, binderData] = await Promise.all([
           getCardById(cardId),
@@ -55,7 +79,7 @@ export default function CardDetailScreen({ navigation, route }: CardDetailScreen
         ]);
 
         if (!cardData) {
-          setError('Card not found');
+          setError(`Unable to load card '${cardId}'`);
           setLoading(false);
           return;
         }
@@ -83,7 +107,7 @@ export default function CardDetailScreen({ navigation, route }: CardDetailScreen
     }
 
     fetchData();
-  }, [cardId, binderId, initialOwnedParam]);
+  }, [cardId, binderId, initialOwnedParam, isRegionMode, regionCardData]);
 
   // Update header title when card loads
   useEffect(() => {

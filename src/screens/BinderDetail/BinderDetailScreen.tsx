@@ -925,7 +925,8 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
   const handleRegionCardTap = useCallback((pokemon: CardWithOwnership) => {
     console.log('[BinderDetail] Region card tapped:', pokemon.name, 'Pokedex #' + pokemon.pokedexNumber);
     
-    // Navigate to CardDetail with Region-specific params
+    // For Region mode, pass the full card data since the ID isn't a real TCG card ID
+    // The CardDetail screen will use this data directly instead of fetching from API
     navigation.navigate('CardDetail', {
       cardId: pokemon.id,
       binderId: binder?.id || '',
@@ -933,8 +934,21 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
       collectionMode: 'region',
       pokedexNumber: pokemon.pokedexNumber,
       pokemonName: pokemon.name,
+      // Pass full card data for Region mode (avoids API fetch for sprite-based cards)
+      regionCardData: {
+        id: pokemon.id,
+        name: pokemon.name,
+        number: pokemon.pokedexNumber?.toString() || '',
+        set: binder?.region || '',
+        rarity: '',
+        artist: '',
+        imageUrl: pokemon.imageUrl,
+        imageUrlHiRes: pokemon.imageUrlHiRes || pokemon.imageUrl,
+        pokedexNumber: pokemon.pokedexNumber,
+        selectedCardId: (pokemon as any).selectedCardId,
+      },
     });
-  }, [binder?.id, navigation]);
+  }, [binder?.id, binder?.region, navigation]);
 
 
   // Update header title when binder loads

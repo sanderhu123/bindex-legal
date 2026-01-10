@@ -1,9 +1,11 @@
-import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, Text, ScrollView, Dimensions, TouchableOpacity } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, StyleSheet, Text, ScrollView, Dimensions, TouchableOpacity, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { getCardById } from '../../services/api/pokemonApi';
 import { getBinderById } from '../../services/supabase/binders';
 import { addCardToBinder, removeCardFromBinder, toggleCardOwnershipAtPosition, toggleExtraCardOwnership } from '../../services/supabase/cards';
+import { setSelectedCardForPokemon, clearSelectedCardForPokemon } from '../../services/supabase/regionCards';
+import { CardPickerModal } from '../../components/CardPicker';
 import CardImage from '../../components/Card/CardImage';
 import CardDetails from '../../components/Card/CardDetails';
 import LoadingScreen from '../../components/Loading/LoadingScreen';
@@ -21,13 +23,17 @@ interface CardDetailScreenProps {
  * Displays full details of a single card
  */
 export default function CardDetailScreen({ navigation, route }: CardDetailScreenProps) {
-  const { cardId, binderId, isOwned: initialOwnedParam, position, collectionMode, isExtraCard } = route.params || {};
+  const { cardId, binderId, isOwned: initialOwnedParam, position, collectionMode, isExtraCard, pokedexNumber, pokemonName } = route.params || {};
   const [card, setCard] = useState<Card | null>(null);
   const [binder, setBinder] = useState<Binder | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isOwned, setIsOwned] = useState<boolean>(!!initialOwnedParam);
   const [isUpdating, setIsUpdating] = useState(false);
+  
+  // Region mode: card picker state
+  const [showCardPicker, setShowCardPicker] = useState(false);
+  const isRegionMode = collectionMode === 'region';
 
   // Fetch card and binder data
   useEffect(() => {
@@ -179,6 +185,61 @@ export default function CardDetailScreen({ navigation, route }: CardDetailScreen
     }
   };
 
+  // Handle selecting a new card for Region mode
+  const handleRegionCardSelected = useCallback(async (selectedCard: Card) => {
+    if (!binder || !pokedexNumber) {
+      console.warn('[CardDetail] Missing data for Region card selection');
+      return;
+    }
+    
+    console.log('[CardDetail] Region card selected:', selectedCard.name, 'for Pokedex #' + pokedexNumber);
+    
+    try {
+      // Save the selection to the database
+      await setSelectedCardForPokemon(binder.id, pokedexNumber, selectedCard.id);
+      console.log('[CardDetail] Card selection saved');
+      
+      // Update the current card to show the new image
+      setCard({
+        ...selectedCard,
+        pokedexNumber: pokedexNumber,
+      });
+      
+      Alert.alert('Success', `Now showing ${selectedCard.name} for ${pokemonName || 'this Pokémon'}`);
+    } catch (err) {
+      console.error('[CardDetail] Failed to save card selection:', err);
+      Alert.alert('Error', 'Failed to save card selection. Please try again.');
+    }
+  }, [binder, pokedexNumber, pokemonName]);
+
+  // Handle clearing the card selection (revert to default sprite)
+  const handleClearSelection = useCallback(async () => {
+    if (!binder || !pokedexNumber) return;
+    
+    Alert.alert(
+      'Clear Selection',
+      `Revert ${pokemonName || 'this Pokémon'} to the default sprite?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Clear',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await clearSelectedCardForPokemon(binder.id, pokedexNumber);
+              console.log('[CardDetail] Card selection cleared');
+              // Navigate back to refresh the binder view
+              navigation.goBack();
+            } catch (err) {
+              console.error('[CardDetail] Failed to clear card selection:', err);
+              Alert.alert('Error', 'Failed to clear selection. Please try again.');
+            }
+          },
+        },
+      ]
+    );
+  }, [binder, pokedexNumber, pokemonName, navigation]);
+
   // Calculate image size to fit on screen without scrolling
   const screenDimensions = Dimensions.get('window');
   const screenWidth = screenDimensions.width;
@@ -253,7 +314,43 @@ export default function CardDetailScreen({ navigation, route }: CardDetailScreen
             )}
           </TouchableOpacity>
         </View>
+
+        {/* Region Mode: Choose Card Button */}
+        {isRegionMode && pokedexNumber && (
+          <View style={styles.regionButtonContainer}>
+            <TouchableOpacity
+              style={styles.chooseCardButton}
+              onPress={() => setShowCardPicker(true)}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.chooseCardButtonText}>Choose Different Card</Text>
+            </TouchableOpacity>
+            
+            {/* Only show Clear if there's a custom selection (card has selectedCardId) */}
+            {card?.selectedCardId && (
+              <TouchableOpacity
+                style={styles.clearSelectionButton}
+                onPress={handleClearSelection}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.clearSelectionButtonText}>Clear Selection</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
       </ScrollView>
+
+      {/* Region Mode: Card Picker Modal */}
+      {isRegionMode && (
+        <CardPickerModal
+          visible={showCardPicker}
+          onClose={() => setShowCardPicker(false)}
+          onSelectCard={handleRegionCardSelected}
+          title={pokemonName ? `Choose a ${pokemonName} Card` : 'Choose Card'}
+          initialQuery={pokemonName || ''}
+          pokemonOnly={true}
+        />
+      )}
     </SafeAreaView>
   );
 }
@@ -309,6 +406,42 @@ const styles = StyleSheet.create({
   },
   toggleButtonText: {
     color: colors.background,
+    fontSize: typography.base,
+    fontWeight: typography.semibold,
+  },
+  // Region mode buttons
+  regionButtonContainer: {
+    width: '100%',
+    marginTop: spacing.md,
+    gap: spacing.sm,
+  },
+  chooseCardButton: {
+    paddingVertical: spacing.md - 2,
+    paddingHorizontal: spacing.lg,
+    borderRadius: borderRadius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 48,
+    backgroundColor: colors.secondary || '#6366f1',
+  },
+  chooseCardButtonText: {
+    color: colors.background,
+    fontSize: typography.base,
+    fontWeight: typography.semibold,
+  },
+  clearSelectionButton: {
+    paddingVertical: spacing.md - 2,
+    paddingHorizontal: spacing.lg,
+    borderRadius: borderRadius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 48,
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: colors.error || '#ef4444',
+  },
+  clearSelectionButtonText: {
+    color: colors.error || '#ef4444',
     fontSize: typography.base,
     fontWeight: typography.semibold,
   },

@@ -15,11 +15,7 @@ import {
   toggleExtraCardOwnership,
 } from '../../services/supabase/cards';
 import { getCardsBySet, getCardsByRegion, getCardById, type Region } from '../../services/api/pokemonApi';
-import { 
-  getAllSelectedCardsForBinder, 
-  setSelectedCardForPokemon, 
-  clearSelectedCardForPokemon 
-} from '../../services/supabase/regionCards';
+import { getAllSelectedCardsForBinder } from '../../services/supabase/regionCards';
 import { startBackgroundPrefetch } from '../../services/imagePrefetch';
 import { recordBinderAccess } from '../../services/cacheManager';
 import type { Binder, Card } from '../../types';
@@ -120,9 +116,6 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
   const [extraCards, setExtraCards] = useState<CardWithOwnership[]>([]);
   const [showExtraCardPicker, setShowExtraCardPicker] = useState(false);
   
-  // Region mode: card picker state for selecting TCG cards for Pokemon slots
-  const [showRegionCardPicker, setShowRegionCardPicker] = useState(false);
-  const [selectedPokemon, setSelectedPokemon] = useState<CardWithOwnership | null>(null);
 
   // Update screen width on dimension changes
   useEffect(() => {
@@ -926,116 +919,23 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
     }
   }, [binder]);
 
-  // === REGION MODE: Card picker handlers ===
+  // === REGION MODE: Navigation to card detail ===
   
-  // Handle tapping a Region Pokemon slot to open the card picker
+  // Handle tapping a Region Pokemon slot - navigate to card detail
   const handleRegionCardTap = useCallback((pokemon: CardWithOwnership) => {
     console.log('[BinderDetail] Region card tapped:', pokemon.name, 'Pokedex #' + pokemon.pokedexNumber);
-    setSelectedPokemon(pokemon);
-    setShowRegionCardPicker(true);
-  }, []);
+    
+    // Navigate to CardDetail with Region-specific params
+    navigation.navigate('CardDetail', {
+      cardId: pokemon.id,
+      binderId: binder?.id || '',
+      isOwned: pokemon.isOwned,
+      collectionMode: 'region',
+      pokedexNumber: pokemon.pokedexNumber,
+      pokemonName: pokemon.name,
+    });
+  }, [binder?.id, navigation]);
 
-  // Handle long-press on a Region Pokemon slot to show options menu
-  const handleRegionCardLongPress = useCallback((pokemon: CardWithOwnership) => {
-    console.log('[BinderDetail] Region card long-pressed:', pokemon.name);
-    
-    // Check if this Pokemon has a custom card selected
-    const hasCustomCard = !!(pokemon as any).selectedCardId;
-    
-    const options = [
-      {
-        text: 'Choose Card',
-        onPress: () => {
-          setSelectedPokemon(pokemon);
-          setShowRegionCardPicker(true);
-        },
-      },
-      {
-        text: 'View Details',
-        onPress: () => {
-          // Navigate to card detail screen
-          navigation.navigate('CardDetail', {
-            cardId: pokemon.id,
-            binderId: binder?.id || '',
-            isOwned: pokemon.isOwned,
-          });
-        },
-      },
-    ];
-    
-    // Add "Clear Selection" option only if there's a custom card selected
-    if (hasCustomCard) {
-      options.push({
-        text: 'Clear Selection',
-        onPress: async () => {
-          if (!binder || !pokemon.pokedexNumber) return;
-          
-          try {
-            await clearSelectedCardForPokemon(binder.id, pokemon.pokedexNumber);
-            console.log('[BinderDetail] Cleared selection for', pokemon.name);
-            
-            // Refresh binder to show default sprite
-            // Trigger re-fetch by updating binder state
-            const updatedBinder = await getBinderById(binder.id);
-            setBinder(updatedBinder);
-          } catch (err) {
-            console.error('[BinderDetail] Failed to clear selection:', err);
-            Alert.alert('Error', 'Failed to clear card selection. Please try again.');
-          }
-        },
-      });
-    }
-    
-    options.push({ text: 'Cancel', onPress: () => {} });
-    
-    Alert.alert(
-      pokemon.name,
-      hasCustomCard ? 'This Pokémon has a custom card selected' : 'Choose a TCG card to represent this Pokémon',
-      options.map((opt) => ({
-        text: opt.text,
-        onPress: opt.onPress,
-        style: opt.text === 'Cancel' ? 'cancel' : opt.text === 'Clear Selection' ? 'destructive' : 'default',
-      }))
-    );
-  }, [binder, navigation]);
-
-  // Handle selecting a card from the Region card picker
-  const handleRegionCardSelected = useCallback(async (selectedCard: Card) => {
-    if (!binder || !selectedPokemon || !selectedPokemon.pokedexNumber) {
-      console.warn('[BinderDetail] Missing data for Region card selection');
-      return;
-    }
-    
-    console.log('[BinderDetail] Region card selected:', selectedCard.name, 'for', selectedPokemon.name);
-    
-    try {
-      // Save the selection to the database
-      await setSelectedCardForPokemon(binder.id, selectedPokemon.pokedexNumber, selectedCard.id);
-      console.log('[BinderDetail] Card selection saved');
-      
-      // Update the cards state to show the new image immediately
-      setCards((prevCards) =>
-        prevCards.map((card) => {
-          if (card.pokedexNumber === selectedPokemon.pokedexNumber) {
-            return {
-              ...card,
-              imageUrl: selectedCard.imageUrl,
-              imageUrlHiRes: selectedCard.imageUrlHiRes,
-              selectedCardId: selectedCard.id, // Mark as having custom selection
-            };
-          }
-          return card;
-        })
-      );
-      
-      console.log('[BinderDetail] UI updated with new card image');
-    } catch (err) {
-      console.error('[BinderDetail] Failed to save card selection:', err);
-      Alert.alert('Error', 'Failed to save card selection. Please try again.');
-    } finally {
-      setSelectedPokemon(null);
-    }
-  }, [binder, selectedPokemon]);
 
   // Update header title when binder loads
   useEffect(() => {
@@ -1274,16 +1174,14 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
 
   // === REGION MODE: Custom render function for Pokemon cards ===
   
-  // Render a Region Pokemon card with tap-to-pick and long-press menu
+  // Render a Region Pokemon card - tap navigates to card detail
   const renderRegionCard = useCallback(
     ({ item }: { item: CardWithOwnership }) => {
       return (
         <TouchableOpacity
           style={[styles.regionCardItem, { width: cardWidth }]}
           onPress={() => handleRegionCardTap(item)}
-          onLongPress={() => handleRegionCardLongPress(item)}
           activeOpacity={0.7}
-          delayLongPress={400}
         >
           <View style={styles.regionCardImageContainer}>
             <CardImage
@@ -1312,7 +1210,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
         </TouchableOpacity>
       );
     },
-    [cardWidth, handleRegionCardTap, handleRegionCardLongPress, handleToggleCard]
+    [cardWidth, handleRegionCardTap, handleToggleCard]
   );
 
   if (loading && !binder) {
@@ -1671,19 +1569,6 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
           windowSize={11}
           initialNumToRender={PAGE_SIZE}
           extraData={[displayCount, cards]}
-        />
-        
-        {/* Card Picker Modal for selecting TCG card for a Pokemon slot */}
-        <CardPickerModal
-          visible={showRegionCardPicker}
-          onClose={() => {
-            setShowRegionCardPicker(false);
-            setSelectedPokemon(null);
-          }}
-          onSelectCard={handleRegionCardSelected}
-          title={selectedPokemon ? `Choose a ${selectedPokemon.name} Card` : 'Choose Card'}
-          initialQuery={selectedPokemon?.name || ''}
-          pokemonOnly={true}
         />
       </SafeAreaView>
     );

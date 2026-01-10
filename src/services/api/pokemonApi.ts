@@ -1603,12 +1603,20 @@ export async function searchCardsByName(
       let filteredResults = cardResults;
       if (pokemonOnly) {
         // TCGDEX uses "category" for supertype (Pokémon, Trainer, Energy)
-        filteredResults = cardResults.filter((card: any) => 
-          card.category === 'Pokemon' || card.category === 'Pokémon'
-        );
+        // Note: The lightweight list response may not include "category", so we also check
+        // if category is undefined (assume it's a Pokemon card if not specified)
+        // Trainer cards that mention Pokemon names in their text will still be included,
+        // but that's acceptable for a more reliable search experience
+        filteredResults = cardResults.filter((card: any) => {
+          // If no category, include the card (assume Pokemon since we searched by name)
+          if (!card.category) return true;
+          // Otherwise, check if it's a Pokemon card
+          return card.category === 'Pokemon' || card.category === 'Pokémon';
+        });
         console.log('[28A] Filtered to Pokémon only:', {
           before: cardResults.length,
           after: filteredResults.length,
+          note: 'Cards without category field are included (assumed Pokemon)',
         });
       }
       

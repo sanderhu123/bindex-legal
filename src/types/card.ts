@@ -19,5 +19,6 @@ export interface Card {
   variant?: CardVariant; // Card variant (defaults to 'base' if not specified)
   supertype?: string; // Card supertype (Pokémon, Trainer, Energy)
   setTotal?: string; // Total cards in set (e.g., "197")
+  selectedCardId?: string; // For Region mode: ID of the custom TCG card selected for this Pokemon slot
 }
 

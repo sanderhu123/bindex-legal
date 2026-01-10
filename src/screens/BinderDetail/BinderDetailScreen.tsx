@@ -15,6 +15,7 @@ import {
   toggleExtraCardOwnership,
 } from '../../services/supabase/cards';
 import { getCardsBySet, getCardsByRegion, getCardById, type Region } from '../../services/api/pokemonApi';
+import { getAllSelectedCardsForBinder } from '../../services/supabase/regionCards';
 import { startBackgroundPrefetch } from '../../services/imagePrefetch';
 import { recordBinderAccess } from '../../services/cacheManager';
 import type { Binder, Card } from '../../types';
@@ -284,7 +285,62 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
             console.log(`  ${index + 1}. ${card.name} (${card.number}) - variant: ${card.variant}, rarity: ${card.rarity}, id: ${card.id}`);
           });
         } else if (binder.collectionMode === 'region' && binder.region) {
-          allCards = await getCardsByRegion(binder.region as Region, binder.pokemonArtStyle);
+          // Step 31C: Load Region cards with custom card selections
+          console.log('[BinderDetail] Loading Region binder:', binder.region);
+          
+          // Get base Pokemon list for region (with sprites/art based on art style)
+          const pokemonList = await getCardsByRegion(binder.region as Region, binder.pokemonArtStyle);
+          console.log('[BinderDetail] Got', pokemonList.length, 'Pokemon for region');
+          
+          // Get all selected cards for this binder (Pokemon that have custom TCG card selections)
+          const selectedCards = await getAllSelectedCardsForBinder(binder.id);
+          console.log('[BinderDetail] Found', selectedCards.size, 'custom card selections');
+          
+          // If user has custom card selections, load the TCG card images
+          if (selectedCards.size > 0) {
+            // Load TCG card details for all selected cards in parallel
+            const cardsWithSelections = await Promise.all(
+              pokemonList.map(async (pokemon) => {
+                // Get Pokedex number from the pokemon (it's stored in pokedexNumber field)
+                const pokedexNumber = pokemon.pokedexNumber;
+                
+                if (!pokedexNumber) {
+                  return pokemon;
+                }
+                
+                // Check if user selected a custom card for this Pokemon
+                const selectedCardId = selectedCards.get(pokedexNumber);
+                
+                if (selectedCardId) {
+                  try {
+                    // Load the selected TCG card
+                    const tcgCard = await getCardById(selectedCardId);
+                    
+                    if (tcgCard?.imageUrl) {
+                      console.log('[BinderDetail] Using custom card for', pokemon.name, ':', selectedCardId);
+                      return {
+                        ...pokemon,
+                        imageUrl: tcgCard.imageUrl,
+                        imageUrlHiRes: tcgCard.imageUrlHiRes,
+                        // Store the selected card ID so we know this has a custom selection
+                        selectedCardId: selectedCardId,
+                      };
+                    }
+                  } catch (err) {
+                    console.warn('[BinderDetail] Failed to load selected card for', pokemon.name, ':', err);
+                    // Fall back to default sprite
+                  }
+                }
+                
+                return pokemon;
+              })
+            );
+            
+            allCards = cardsWithSelections;
+          } else {
+            // No custom selections, use default sprites
+            allCards = pokemonList;
+          }
         } else if (binder.collectionMode === 'custom') {
           // For Custom binders, load cards with their positions
           console.log('[BinderDetail] Custom mode - loading cards with positions');

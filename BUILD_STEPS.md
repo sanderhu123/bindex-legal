@@ -3509,7 +3509,7 @@ export async function getSelectionCount(binderId: string): Promise<number>
 ---
 
 #### Step 31C: Update Region Mode Display
-- [ ] **Status**: Not started
+- [x] **Status**: Completed
 
 **What we're doing:** Show selected TCG card images instead of generic sprites
 
@@ -3549,10 +3549,10 @@ if (binder.collectionMode === 'region') {
 ```
 
 **Testing:**
-- [ ] Region binder shows default sprites by default
-- [ ] Selected cards show TCG card image instead of sprite
-- [ ] Card selection persists after app restart
-- [ ] Performance is acceptable (loading not too slow)
+- [x] Region binder shows default sprites by default ✅
+- [x] Selected cards show TCG card image instead of sprite ✅
+- [x] Card selection persists after app restart ✅
+- [x] Performance is acceptable (loading not too slow) ✅
 
 ---
 

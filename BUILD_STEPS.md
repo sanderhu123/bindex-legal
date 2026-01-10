@@ -3374,62 +3374,40 @@ export async function toggleExtraCardOwnership(
 ---
 
 #### Step 31A: Create Database Table for Region Card Selections
-- [ ] **Status**: Not started
+- [x] **Status**: Completed
 
 **What we're doing:** Store which TCG card the user selected for each Pokémon slot
 
-**SQL to run in Supabase:**
-```sql
--- Create table for region card selections
-CREATE TABLE IF NOT EXISTS public.region_pokemon_cards (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  binder_id UUID NOT NULL REFERENCES public.binders(id) ON DELETE CASCADE,
-  pokedex_number INTEGER NOT NULL,
-  selected_card_id TEXT NOT NULL,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  
-  -- One selection per Pokémon per binder
-  UNIQUE(binder_id, pokedex_number)
-);
+**Files created:**
+- `database/migrations/add_region_pokemon_cards_table.sql` - Full migration script with RLS, indexes, and comments
 
--- Enable RLS
-ALTER TABLE public.region_pokemon_cards ENABLE ROW LEVEL SECURITY;
+**How to Run Migration:**
+1. Go to Supabase Dashboard → SQL Editor
+2. Copy the SQL from `database/migrations/add_region_pokemon_cards_table.sql`
+3. Run the migration
+4. Run the verification queries at the bottom to confirm it worked
 
--- RLS policies
-CREATE POLICY "Users can view own region card selections" ON public.region_pokemon_cards
-  FOR SELECT USING (auth.uid() = user_id);
-
-CREATE POLICY "Users can insert own region card selections" ON public.region_pokemon_cards
-  FOR INSERT WITH CHECK (auth.uid() = user_id);
-
-CREATE POLICY "Users can update own region card selections" ON public.region_pokemon_cards
-  FOR UPDATE USING (auth.uid() = user_id);
-
-CREATE POLICY "Users can delete own region card selections" ON public.region_pokemon_cards
-  FOR DELETE USING (auth.uid() = user_id);
-
--- Indexes
-CREATE INDEX IF NOT EXISTS idx_region_pokemon_cards_binder 
-ON public.region_pokemon_cards(binder_id);
-
-CREATE INDEX IF NOT EXISTS idx_region_pokemon_cards_user 
-ON public.region_pokemon_cards(user_id);
-
--- Trigger for updated_at
-CREATE TRIGGER update_region_pokemon_cards_updated_at
-  BEFORE UPDATE ON public.region_pokemon_cards
-  FOR EACH ROW
-  EXECUTE FUNCTION update_updated_at_column();
-```
+**What gets created:**
+- `region_pokemon_cards` table with columns:
+  - `id` (UUID) - Primary key
+  - `user_id` (UUID) - References auth.users
+  - `binder_id` (UUID) - References binders table
+  - `pokedex_number` (INTEGER) - National Pokédex number
+  - `selected_card_id` (TEXT) - TCGDEX card ID
+  - `created_at`, `updated_at` - Timestamps
+- RLS policies for SELECT, INSERT, UPDATE, DELETE
+- Indexes for fast lookups (binder_id, user_id, binder+pokedex composite)
+- Unique constraint on (binder_id, pokedex_number)
+- Auto-update trigger for updated_at
 
 **Testing:**
-- [ ] Table created successfully
-- [ ] RLS policies applied
-- [ ] Can insert a selection
-- [ ] Unique constraint prevents duplicate Pokémon selections per binder
-- [ ] Can query selections for a binder
+- [x] Migration file created with comprehensive SQL
+- [ ] SQL runs without errors in Supabase - **Required before testing**
+- [ ] Table created successfully - Ready to test
+- [ ] RLS policies applied - Ready to test
+- [ ] Can insert a selection - Ready to test
+- [ ] Unique constraint prevents duplicate Pokémon selections per binder - Ready to test
+- [ ] Can query selections for a binder - Ready to test
 
 ---
 

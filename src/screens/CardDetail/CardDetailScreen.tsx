@@ -116,7 +116,63 @@ export default function CardDetailScreen({ navigation, route }: CardDetailScreen
     }
   }, [card, navigation]);
 
-  // Loading state
+  // Handle selecting a new card for Region mode
+  // NOTE: All hooks must be defined before any early returns!
+  const handleRegionCardSelected = useCallback(async (selectedCard: Card) => {
+    if (!binder || !pokedexNumber) {
+      console.warn('[CardDetail] Missing data for Region card selection');
+      return;
+    }
+    
+    console.log('[CardDetail] Region card selected:', selectedCard.name, 'for Pokedex #' + pokedexNumber);
+    
+    try {
+      // Save the selection to the database
+      await setSelectedCardForPokemon(binder.id, pokedexNumber, selectedCard.id);
+      console.log('[CardDetail] Card selection saved');
+      
+      // Update the current card to show the new image
+      setCard({
+        ...selectedCard,
+        pokedexNumber: pokedexNumber,
+      });
+      
+      Alert.alert('Success', `Now showing ${selectedCard.name} for ${pokemonName || 'this Pokémon'}`);
+    } catch (err) {
+      console.error('[CardDetail] Failed to save card selection:', err);
+      Alert.alert('Error', 'Failed to save card selection. Please try again.');
+    }
+  }, [binder, pokedexNumber, pokemonName]);
+
+  // Handle clearing the card selection (revert to default sprite)
+  const handleClearSelection = useCallback(async () => {
+    if (!binder || !pokedexNumber) return;
+    
+    Alert.alert(
+      'Clear Selection',
+      `Revert ${pokemonName || 'this Pokémon'} to the default sprite?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Clear',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await clearSelectedCardForPokemon(binder.id, pokedexNumber);
+              console.log('[CardDetail] Card selection cleared');
+              // Navigate back to refresh the binder view
+              navigation.goBack();
+            } catch (err) {
+              console.error('[CardDetail] Failed to clear card selection:', err);
+              Alert.alert('Error', 'Failed to clear selection. Please try again.');
+            }
+          },
+        },
+      ]
+    );
+  }, [binder, pokedexNumber, pokemonName, navigation]);
+
+  // Loading state - AFTER all hooks are defined
   if (loading) {
     return <LoadingScreen message="Loading card..." />;
   }
@@ -208,61 +264,6 @@ export default function CardDetailScreen({ navigation, route }: CardDetailScreen
       setIsUpdating(false);
     }
   };
-
-  // Handle selecting a new card for Region mode
-  const handleRegionCardSelected = useCallback(async (selectedCard: Card) => {
-    if (!binder || !pokedexNumber) {
-      console.warn('[CardDetail] Missing data for Region card selection');
-      return;
-    }
-    
-    console.log('[CardDetail] Region card selected:', selectedCard.name, 'for Pokedex #' + pokedexNumber);
-    
-    try {
-      // Save the selection to the database
-      await setSelectedCardForPokemon(binder.id, pokedexNumber, selectedCard.id);
-      console.log('[CardDetail] Card selection saved');
-      
-      // Update the current card to show the new image
-      setCard({
-        ...selectedCard,
-        pokedexNumber: pokedexNumber,
-      });
-      
-      Alert.alert('Success', `Now showing ${selectedCard.name} for ${pokemonName || 'this Pokémon'}`);
-    } catch (err) {
-      console.error('[CardDetail] Failed to save card selection:', err);
-      Alert.alert('Error', 'Failed to save card selection. Please try again.');
-    }
-  }, [binder, pokedexNumber, pokemonName]);
-
-  // Handle clearing the card selection (revert to default sprite)
-  const handleClearSelection = useCallback(async () => {
-    if (!binder || !pokedexNumber) return;
-    
-    Alert.alert(
-      'Clear Selection',
-      `Revert ${pokemonName || 'this Pokémon'} to the default sprite?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Clear',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await clearSelectedCardForPokemon(binder.id, pokedexNumber);
-              console.log('[CardDetail] Card selection cleared');
-              // Navigate back to refresh the binder view
-              navigation.goBack();
-            } catch (err) {
-              console.error('[CardDetail] Failed to clear card selection:', err);
-              Alert.alert('Error', 'Failed to clear selection. Please try again.');
-            }
-          },
-        },
-      ]
-    );
-  }, [binder, pokedexNumber, pokemonName, navigation]);
 
   // Calculate image size to fit on screen without scrolling
   const screenDimensions = Dimensions.get('window');

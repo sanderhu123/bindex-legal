@@ -56,6 +56,7 @@ This guide walks you through building the app step-by-step. We'll build it incre
 - **Step 30**: Extra Cards in Master Set Binders - Not started
 - **Step 31**: Region Mode Card Selection - Not started
 - **Step 32**: Polish & Integration for Phase 10 - Not started
+- **Step 33**: Binder Position System (Physical Binder Organizer) - Not started
 - **Step 25**: Build for Production - Not started
 - **Step 26**: Deploy to App Stores - Not started
 
@@ -1780,6 +1781,56 @@ Each step uses a unique log prefix to make debugging easier:
 
 ---
 
+**How NFC Premium Activation Works (End-to-End Flow):**
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  YOUR WORKFLOW (Before Shipping)                                             │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  1. Order NFC tags from manufacturer                                         │
+│     └── Ask for: CSV with tag UIDs + tags encoded with Firebase link         │
+│                                                                              │
+│  2. Import tag UIDs to database                                              │
+│     └── INSERT INTO premium_tags (nfc_tag_id, batch_id) VALUES (...)         │
+│                                                                              │
+│  3. Stick tags on binders → Ship to customers                                │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  CUSTOMER EXPERIENCE                                                         │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  Customer taps NFC tag on binder                                             │
+│          ↓                                                                   │
+│  App installed?                                                              │
+│     NO → Firebase Dynamic Link redirects to App Store / Play Store           │
+│          Customer downloads app                                              │
+│     YES → App opens directly                                                 │
+│          ↓                                                                   │
+│  App reads tag hardware ID                                                   │
+│          ↓                                                                   │
+│  Is tag ID in premium_tags table?                                            │
+│     NO → "This tag is not recognized" (random tag rejected!)                 │
+│     YES → Is tag already used?                                               │
+│              YES → "This tag was already used"                               │
+│              NO → ✅ PREMIUM ACTIVATED!                                      │
+│                    - User profile → premium_status = 'lifetime'              │
+│                    - Tag → is_used = true                                    │
+│                                                                              │
+│  Customer now has lifetime premium access 🎉                                 │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+**Security:**
+- Only tags you register in `premium_tags` table work
+- Each tag can only activate premium ONCE
+- Random NFC tags purchased elsewhere won't work
+
+---
+
 #### Step 27A: Update Database Schema for Premium
 - [ ] **Status**: Not started
 
@@ -1805,16 +1856,45 @@ ADD COLUMN IF NOT EXISTS premium_activated BOOLEAN DEFAULT FALSE;
 CREATE INDEX IF NOT EXISTS idx_user_profiles_premium_status 
 ON public.user_profiles(premium_status);
 
+-- ============================================
+-- PREMIUM TAGS TABLE (NFC Tag Validation)
+-- ============================================
+-- This table stores pre-registered NFC tag IDs from binders you sell.
+-- Only tags in this table can activate premium (prevents random tags from working).
+
+CREATE TABLE IF NOT EXISTS public.premium_tags (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  nfc_tag_id TEXT UNIQUE NOT NULL,           -- Hardware ID from NFC tag (e.g., "04A3B21FC82E80")
+  is_used BOOLEAN DEFAULT FALSE,              -- Has this tag been used to activate premium?
+  used_by UUID REFERENCES public.user_profiles(id), -- Which user activated with this tag?
+  used_at TIMESTAMP WITH TIME ZONE,           -- When was premium activated?
+  batch_id TEXT,                              -- Optional: track inventory batches (e.g., "batch-2024-01")
+  order_id TEXT,                              -- Optional: link to Shopify order ID
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Create indexes for fast lookups
+CREATE INDEX IF NOT EXISTS idx_premium_tags_nfc_tag_id 
+ON public.premium_tags(nfc_tag_id);
+
+CREATE INDEX IF NOT EXISTS idx_premium_tags_is_used 
+ON public.premium_tags(is_used);
+
+-- Enable RLS (Row Level Security)
+ALTER TABLE public.premium_tags ENABLE ROW LEVEL SECURITY;
+
+-- Policy: Only authenticated users can read premium_tags (to check if tag is valid)
+CREATE POLICY "Users can check if tag is valid" ON public.premium_tags
+  FOR SELECT
+  USING (auth.role() = 'authenticated');
+
+-- Policy: Only service role can insert/update premium_tags (you manage this via admin/scripts)
+-- Note: Regular users cannot add tags - only your backend/admin can
+
 -- Verification query
 SELECT column_name, data_type, column_default 
 FROM information_schema.columns 
-WHERE table_name = 'user_profiles' 
-AND column_name IN ('premium_status', 'premium_activated_at', 'premium_source');
-
-SELECT column_name, data_type, column_default 
-FROM information_schema.columns 
-WHERE table_name = 'binders' 
-AND column_name = 'premium_activated';
+WHERE table_name = 'premium_tags';
 ```
 
 **What gets created:**
@@ -1822,14 +1902,507 @@ AND column_name = 'premium_activated';
 - `user_profiles.premium_activated_at` - When premium was activated
 - `user_profiles.premium_source` - How they got premium ('nfc-binder')
 - `binders.premium_activated` - Has this binder activated premium for someone (prevents reuse)
+- `premium_tags` table - **Pre-registered NFC tags that can activate premium**
+
+**Why `premium_tags` table is important:**
+- Without this, ANY NFC tag could activate premium (security hole!)
+- Only tags you sell should grant premium access
+- You register tag IDs before shipping binders
+- When user taps tag, app checks if tag ID is in this table
 
 **Testing:**
 - [ ] SQL runs without errors in Supabase
 - [ ] New columns appear in user_profiles table
 - [ ] New column appears in binders table
+- [ ] **premium_tags table created**
 - [ ] Default values are correct (free, FALSE)
 - [ ] Check constraints work
-- [ ] Index created successfully
+- [ ] Indexes created successfully
+- [ ] RLS policies created
+
+---
+
+#### Step 27A-2: Set Up Firebase Dynamic Links
+- [ ] **Status**: Not started
+
+**What we're doing:** Create smart links that redirect users to the correct app store (iOS or Android) when they tap an NFC tag without having the app installed.
+
+**Why this is needed:**
+- When someone taps your NFC tag, the tag contains a URL
+- If the app isn't installed, the URL should redirect to App Store (iOS) or Play Store (Android)
+- Firebase Dynamic Links handles this automatically (free!)
+
+**Step-by-Step Setup:**
+
+**1. Create Firebase Project (or use existing):**
+- Go to [Firebase Console](https://console.firebase.google.com)
+- Click "Add project" or select existing project
+- Follow the setup wizard
+
+**2. Enable Dynamic Links:**
+- In Firebase Console, go to **Engage → Dynamic Links**
+- Click "Get Started"
+- Set up your URL prefix:
+  - Option A: Use Firebase subdomain (free): `yourapp.page.link`
+  - Option B: Use custom domain (requires domain ownership)
+- For now, use the free subdomain: `pokemontcgtracker.page.link` (or your app name)
+
+**3. Create Your NFC Dynamic Link:**
+- Click "New Dynamic Link"
+- Configure:
+  - **Short URL**: `pokemontcgtracker.page.link/nfc`
+  - **Deep link URL**: `https://pokemontcgtracker.app/nfc` (or your app's scheme)
+  - **iOS behavior**: 
+    - Select "Open App Store page for your app"
+    - Enter your App Store ID (get this after publishing)
+  - **Android behavior**:
+    - Select "Open Google Play page for your app"
+    - Enter your package name: `com.yourcompany.pokemontcgtracker`
+  - **When app is installed**: Open the deep link in the app
+
+**4. Get Your Final Link:**
+- After creating, you'll get a link like: `https://pokemontcgtracker.page.link/nfc`
+- This is the URL you'll encode on NFC tags
+
+**What the link does:**
+| User's Device | App Installed? | What Happens |
+|---------------|----------------|--------------|
+| iPhone | No | Opens App Store |
+| iPhone | Yes | Opens app directly |
+| Android | No | Opens Play Store |
+| Android | Yes | Opens app directly |
+| Desktop | N/A | Shows fallback page |
+
+**Testing:**
+- [ ] Firebase project created
+- [ ] Dynamic Links enabled
+- [ ] URL prefix configured
+- [ ] Dynamic link created
+- [ ] Link opens App Store on iOS (when app not installed)
+- [ ] Link opens Play Store on Android (when app not installed)
+- [ ] Link opens app directly when installed
+
+**Notes:**
+- You'll need your App Store ID and Play Store package name
+- These are available after you submit your app to the stores
+- For testing, you can set up the link now and update the store IDs later
+
+---
+
+#### Step 27A-3: Set Up Universal Links & App Links
+- [ ] **Status**: Not started
+
+**What we're doing:** Configure iOS Universal Links and Android App Links so the app opens directly when users tap NFC tags (instead of opening browser first).
+
+**Why this is needed:**
+- Without this: User taps NFC → Browser opens → Redirects to app (slow, clunky)
+- With this: User taps NFC → App opens directly (fast, seamless)
+
+**Prerequisites:**
+- You need a domain you control (e.g., `pokemontcgtracker.app` or use Firebase Hosting)
+- Your app must be published (or use a test version)
+
+**For iOS - Universal Links:**
+
+**1. Create `apple-app-site-association` file:**
+
+Create a JSON file (no `.json` extension) with this content:
+
+```json
+{
+  "applinks": {
+    "apps": [],
+    "details": [
+      {
+        "appID": "TEAMID.com.yourcompany.pokemontcgtracker",
+        "paths": ["/nfc/*", "/nfc"]
+      }
+    ]
+  }
+}
+```
+
+Replace:
+- `TEAMID` with your Apple Developer Team ID (find in Apple Developer Portal)
+- `com.yourcompany.pokemontcgtracker` with your app's bundle ID
+
+**2. Host the file:**
+- Upload to: `https://yourdomain.com/.well-known/apple-app-site-association`
+- Must be served over HTTPS
+- Must NOT have `.json` extension
+- Must have `Content-Type: application/json`
+
+**3. Update `app.json`:**
+- Ensure `ios.associatedDomains` is configured:
+
+```json
+{
+  "expo": {
+    "ios": {
+      "associatedDomains": ["applinks:yourdomain.com"]
+    }
+  }
+}
+```
+
+**For Android - App Links:**
+
+**1. Create `assetlinks.json` file:**
+
+```json
+[{
+  "relation": ["delegate_permission/common.handle_all_urls"],
+  "target": {
+    "namespace": "android_app",
+    "package_name": "com.yourcompany.pokemontcgtracker",
+    "sha256_cert_fingerprints": [
+      "YOUR_APP_SIGNING_FINGERPRINT"
+    ]
+  }
+}]
+```
+
+To get your fingerprint:
+```bash
+# For debug builds:
+keytool -list -v -keystore ~/.android/debug.keystore -alias androiddebugkey -storepass android -keypass android
+
+# For production (EAS builds):
+# Get from Expo dashboard → Project → Credentials → Android
+```
+
+**2. Host the file:**
+- Upload to: `https://yourdomain.com/.well-known/assetlinks.json`
+- Must be served over HTTPS
+
+**3. Update `app.json`:**
+- Ensure `android.intentFilters` is configured:
+
+```json
+{
+  "expo": {
+    "android": {
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "https",
+              "host": "yourdomain.com",
+              "pathPrefix": "/nfc"
+            }
+          ],
+          "category": ["BROWSABLE", "DEFAULT"]
+        }
+      ]
+    }
+  }
+}
+```
+
+**Where to Host These Files:**
+
+| Option | Difficulty | Cost |
+|--------|------------|------|
+| Firebase Hosting | Easy | Free |
+| Vercel | Easy | Free |
+| Netlify | Easy | Free |
+| Your own server | Medium | Varies |
+
+**Quick Setup with Firebase Hosting:**
+```bash
+# Install Firebase CLI
+npm install -g firebase-tools
+
+# Login
+firebase login
+
+# Initialize hosting
+firebase init hosting
+
+# Create .well-known folder and add files
+# Then deploy:
+firebase deploy --only hosting
+```
+
+**Testing:**
+- [ ] `apple-app-site-association` file hosted correctly
+- [ ] `assetlinks.json` file hosted correctly
+- [ ] iOS app opens directly from NFC link
+- [ ] Android app opens directly from NFC link
+- [ ] app.json updated with associated domains / intent filters
+
+**Notes:**
+- This step is optional for initial launch
+- The app will still work via Firebase Dynamic Links
+- Universal/App Links provide a better user experience
+- You can add this later after the app is published
+
+---
+
+#### Step 27A-4: NFC Tag Preparation Workflow
+- [ ] **Status**: Not started
+
+**What we're doing:** Document the workflow for preparing NFC tags before shipping binders to customers.
+
+**Overview:**
+Before you ship a binder with an NFC tag, you need to:
+1. Get the tag's unique hardware ID
+2. Register it in your `premium_tags` database table
+3. Encode the tag with your Firebase Dynamic Link URL
+
+**Option A: Manufacturer Provides Tag IDs (Recommended)**
+
+This is the easiest approach for bulk orders:
+
+**1. Order NFC Tags with UID List:**
+- Order NTAG215 or NTAG216 tags in bulk (100+ recommended)
+- Ask the manufacturer:
+  > "Please provide a CSV/spreadsheet with all tag UIDs (unique IDs)."
+  > "Please encode this URL on all tags: `https://pokemontcgtracker.page.link/nfc`"
+
+**2. Import Tag IDs to Database:**
+
+When you receive the CSV, import to Supabase:
+
+```sql
+-- Bulk insert tag IDs from manufacturer's CSV
+-- Replace with actual values from your CSV
+INSERT INTO premium_tags (nfc_tag_id, batch_id) VALUES
+  ('04A3B21FC82E80', 'batch-2024-01'),
+  ('04A3B21FC82E81', 'batch-2024-01'),
+  ('04A3B21FC82E82', 'batch-2024-01'),
+  -- ... more tags
+  ('04A3B21FC82E99', 'batch-2024-01');
+```
+
+Or use a script to import from CSV:
+
+```javascript
+// Example Node.js script to import tags
+const { createClient } = require('@supabase/supabase-js');
+const fs = require('fs');
+
+const supabase = createClient('YOUR_SUPABASE_URL', 'YOUR_SERVICE_ROLE_KEY');
+
+async function importTags(csvPath, batchId) {
+  const csv = fs.readFileSync(csvPath, 'utf8');
+  const lines = csv.split('\n').filter(line => line.trim());
+  
+  // Skip header row if present
+  const tagIds = lines.slice(1).map(line => line.split(',')[0].trim());
+  
+  const records = tagIds.map(nfc_tag_id => ({
+    nfc_tag_id,
+    batch_id: batchId,
+  }));
+  
+  const { data, error } = await supabase
+    .from('premium_tags')
+    .insert(records);
+    
+  if (error) {
+    console.error('Error importing tags:', error);
+  } else {
+    console.log(`Imported ${records.length} tags`);
+  }
+}
+
+importTags('./tags.csv', 'batch-2024-01');
+```
+
+**3. Ship Binders:**
+- Stick one pre-encoded tag on each binder
+- Ship to customer
+- Done!
+
+**Option B: Manual Tag Registration (Small Batches)**
+
+For small orders or DIY:
+
+**1. Get an NFC Reader/Writer:**
+- Buy a USB NFC reader (~$20-30 on Amazon)
+- Or use the "NFC Tools" app on your phone
+
+**2. For Each Tag:**
+```
+1. Scan tag → Get hardware ID (e.g., "04:A3:B2:1F:C8:2E:80")
+2. Add to database:
+   INSERT INTO premium_tags (nfc_tag_id) VALUES ('04A3B21FC82E80');
+3. Write URL to tag: https://pokemontcgtracker.page.link/nfc
+4. Stick tag on binder
+5. Ship
+```
+
+**3. Use NFC Tools App to Write URL:**
+- Open NFC Tools app
+- Go to "Write" tab
+- Add record → URL
+- Enter: `https://pokemontcgtracker.page.link/nfc`
+- Tap tag to write
+
+**Where to Buy NFC Tags:**
+
+| Supplier | UID List? | Pre-Encoding? | Min Order |
+|----------|-----------|---------------|-----------|
+| GoToTags (US) | Yes | Yes | 50 |
+| NFC Direct (UK) | Yes | Yes | 100 |
+| RapidNFC | Yes | Yes | 50 |
+| Alibaba suppliers | Ask | Ask | 500+ |
+| Amazon | No | No | 10 |
+
+**What to Tell Your Supplier:**
+> "I need [quantity] NTAG215 NFC stickers.
+> 
+> Please:
+> 1. Encode this URL on all tags: `https://pokemontcgtracker.page.link/nfc`
+> 2. Send me a CSV file with all tag UIDs (unique hardware IDs)
+> 
+> Thank you!"
+
+**Tag Types:**
+- **NTAG213**: 144 bytes storage (enough for URL)
+- **NTAG215**: 504 bytes storage (recommended)
+- **NTAG216**: 888 bytes storage (overkill but works)
+
+All three will work. NTAG215 is the sweet spot.
+
+**Testing:**
+- [ ] Received CSV of tag IDs from manufacturer (or scanned manually)
+- [ ] Tag IDs imported to `premium_tags` table
+- [ ] Tags encoded with Firebase Dynamic Link URL
+- [ ] Tapping tag (without app) redirects to app store
+- [ ] Tapping tag (with app) opens app
+
+---
+
+#### Step 27A-5: Create Tag Validation Service
+- [ ] **Status**: Not started
+
+**What we're doing:** Create a service to validate NFC tags against the `premium_tags` table before activating premium.
+
+**Files to create:**
+
+**Create `src/services/premium/tagValidation.ts`:**
+
+```typescript
+import { supabase } from '../supabase/client';
+
+/**
+ * Result of tag validation
+ */
+export interface TagValidationResult {
+  isValid: boolean;        // Is this a valid pre-registered tag?
+  isUsed: boolean;         // Has this tag already been used?
+  usedBy?: string;         // User ID who used it (if used)
+  error?: string;          // Error message if validation failed
+}
+
+/**
+ * Validate an NFC tag ID against the premium_tags table
+ * 
+ * @param nfcTagId - The hardware ID of the NFC tag
+ * @returns Validation result
+ */
+export async function validatePremiumTag(nfcTagId: string): Promise<TagValidationResult> {
+  try {
+    console.log('[TagValidation] Checking tag:', nfcTagId);
+
+    // Look up tag in premium_tags table
+    const { data: tag, error } = await supabase
+      .from('premium_tags')
+      .select('id, nfc_tag_id, is_used, used_by')
+      .eq('nfc_tag_id', nfcTagId)
+      .single();
+
+    if (error) {
+      if (error.code === 'PGRST116') {
+        // Tag not found in table - not a valid premium tag
+        console.log('[TagValidation] Tag not found in premium_tags table');
+        return {
+          isValid: false,
+          isUsed: false,
+          error: 'This NFC tag is not recognized. Only tags from official binders can activate premium.',
+        };
+      }
+      throw error;
+    }
+
+    // Tag found - check if already used
+    if (tag.is_used) {
+      console.log('[TagValidation] Tag already used by:', tag.used_by);
+      return {
+        isValid: true,
+        isUsed: true,
+        usedBy: tag.used_by,
+        error: 'This tag has already been used to activate premium.',
+      };
+    }
+
+    // Tag is valid and not used
+    console.log('[TagValidation] Tag is valid and available');
+    return {
+      isValid: true,
+      isUsed: false,
+    };
+  } catch (error: any) {
+    console.error('[TagValidation] Error validating tag:', error);
+    return {
+      isValid: false,
+      isUsed: false,
+      error: 'Failed to validate tag. Please try again.',
+    };
+  }
+}
+
+/**
+ * Mark a tag as used after successful premium activation
+ * 
+ * @param nfcTagId - The hardware ID of the NFC tag
+ * @param userId - The user ID who activated premium
+ */
+export async function markTagAsUsed(nfcTagId: string, userId: string): Promise<boolean> {
+  try {
+    console.log('[TagValidation] Marking tag as used:', nfcTagId);
+
+    const { error } = await supabase
+      .from('premium_tags')
+      .update({
+        is_used: true,
+        used_by: userId,
+        used_at: new Date().toISOString(),
+      })
+      .eq('nfc_tag_id', nfcTagId);
+
+    if (error) {
+      console.error('[TagValidation] Error marking tag as used:', error);
+      return false;
+    }
+
+    console.log('[TagValidation] Tag marked as used successfully');
+    return true;
+  } catch (error) {
+    console.error('[TagValidation] Error in markTagAsUsed:', error);
+    return false;
+  }
+}
+```
+
+**Update `src/services/premium/index.ts`:**
+
+```typescript
+export { activatePremiumFromNFC } from './activation';
+export { validatePremiumTag, markTagAsUsed } from './tagValidation';
+export type { TagValidationResult } from './tagValidation';
+```
+
+**Testing:**
+- [ ] validatePremiumTag() returns `isValid: false` for unknown tags
+- [ ] validatePremiumTag() returns `isValid: true, isUsed: false` for new registered tags
+- [ ] validatePremiumTag() returns `isValid: true, isUsed: true` for already-used tags
+- [ ] markTagAsUsed() updates the database correctly
+- [ ] No TypeScript errors
 
 ---
 
@@ -2136,7 +2709,11 @@ export function showPremiumUpsell(featureName: string = 'This feature') {
 #### Step 27E: Create Premium Activation Service
 - [ ] **Status**: Not started
 
-**What we're doing:** Handle NFC premium activation when user taps their new binder
+**What we're doing:** Handle NFC premium activation when user taps their new binder. **This now includes tag validation** to ensure only tags you sold can activate premium.
+
+**⚠️ IMPORTANT:** This step depends on:
+- Step 27A (database with `premium_tags` table)
+- Step 27A-5 (tag validation service)
 
 **Files to create:**
 
@@ -2146,9 +2723,13 @@ export function showPremiumUpsell(featureName: string = 'This feature') {
 import { supabase } from '../supabase/client';
 import { getCurrentUser } from '../supabase/auth';
 import { isPremiumActive } from '../../types/user';
+import { validatePremiumTag, markTagAsUsed } from './tagValidation';
 
 /**
  * Activate premium for a user via NFC binder purchase
+ * 
+ * SECURITY: Only tags registered in the `premium_tags` table can activate premium.
+ * This prevents random NFC tags from granting free premium access.
  * 
  * @param nfcTagId - The NFC tag ID from the binder
  * @returns Object with success status and message
@@ -2161,6 +2742,9 @@ export async function activatePremiumFromNFC(nfcTagId: string): Promise<{
   try {
     console.log('[Premium] Attempting to activate premium from NFC:', nfcTagId);
 
+    // ========================================
+    // Step 1: Check if user is logged in
+    // ========================================
     const user = await getCurrentUser();
     if (!user) {
       return {
@@ -2169,7 +2753,9 @@ export async function activatePremiumFromNFC(nfcTagId: string): Promise<{
       };
     }
 
-    // Check if user already has premium
+    // ========================================
+    // Step 2: Check if user already has premium
+    // ========================================
     if (isPremiumActive(user)) {
       console.log('[Premium] User already has premium');
       return {
@@ -2179,42 +2765,33 @@ export async function activatePremiumFromNFC(nfcTagId: string): Promise<{
       };
     }
 
-    // Check if this NFC tag exists in binders table
-    const { data: binder, error: binderError } = await supabase
-      .from('binders')
-      .select('id, premium_activated, user_id')
-      .eq('nfc_tag_id', nfcTagId)
-      .single();
-
-    if (binderError || !binder) {
-      console.log('[Premium] Binder not found for NFC tag:', nfcTagId);
-      // This is okay - binder will be created during questionnaire
+    // ========================================
+    // Step 3: VALIDATE TAG (Security Check!)
+    // ========================================
+    // This is the critical security check - only tags registered
+    // in the premium_tags table can activate premium
+    const tagValidation = await validatePremiumTag(nfcTagId);
+    
+    if (!tagValidation.isValid) {
+      console.log('[Premium] Tag validation failed:', tagValidation.error);
       return {
         success: false,
-        message: 'Binder not found. Complete setup first.',
+        message: tagValidation.error || 'This NFC tag cannot activate premium.',
       };
     }
 
-    // Check if this binder has already activated premium
-    if (binder.premium_activated) {
-      console.log('[Premium] This binder already activated premium');
+    if (tagValidation.isUsed) {
+      console.log('[Premium] Tag already used by:', tagValidation.usedBy);
       return {
         success: false,
         message: 'This binder has already been used to activate premium.',
       };
     }
 
-    // Check if binder belongs to current user
-    if (binder.user_id !== user.id) {
-      console.log('[Premium] Binder belongs to different user');
-      return {
-        success: false,
-        message: 'This binder belongs to another user.',
-      };
-    }
-
-    // Activate premium!
-    console.log('[Premium] Activating premium for user:', user.id);
+    // ========================================
+    // Step 4: Activate Premium!
+    // ========================================
+    console.log('[Premium] Tag validated! Activating premium for user:', user.id);
 
     // Update user profile to premium
     const { error: profileError } = await supabase
@@ -2234,15 +2811,27 @@ export async function activatePremiumFromNFC(nfcTagId: string): Promise<{
       };
     }
 
-    // Mark binder as having activated premium
-    const { error: binderUpdateError } = await supabase
-      .from('binders')
-      .update({ premium_activated: true })
-      .eq('id', binder.id);
+    // ========================================
+    // Step 5: Mark tag as used (prevent reuse)
+    // ========================================
+    await markTagAsUsed(nfcTagId, user.id);
 
-    if (binderUpdateError) {
-      console.error('[Premium] Error marking binder as activated:', binderUpdateError);
-      // Continue anyway - user has premium now
+    // ========================================
+    // Step 6: Also mark binder if it exists
+    // ========================================
+    // (Optional - for backwards compatibility with binder-based tracking)
+    const { data: binder } = await supabase
+      .from('binders')
+      .select('id')
+      .eq('nfc_tag_id', nfcTagId)
+      .eq('user_id', user.id)
+      .single();
+
+    if (binder) {
+      await supabase
+        .from('binders')
+        .update({ premium_activated: true })
+        .eq('id', binder.id);
     }
 
     console.log('[Premium] Premium activated successfully!');
@@ -2264,16 +2853,26 @@ export async function activatePremiumFromNFC(nfcTagId: string): Promise<{
 
 ```typescript
 export { activatePremiumFromNFC } from './activation';
+export { validatePremiumTag, markTagAsUsed } from './tagValidation';
+export type { TagValidationResult } from './tagValidation';
 ```
 
 **Testing:**
-- [ ] activatePremiumFromNFC() activates premium for valid binder
-- [ ] Returns error if binder already used to activate premium
-- [ ] Returns error if binder belongs to another user
+- [ ] activatePremiumFromNFC() activates premium for valid registered tag
+- [ ] **Returns error for unregistered/random NFC tags** (security!)
+- [ ] Returns error if tag already used to activate premium
+- [ ] Returns error if user already has premium
 - [ ] Returns success message on successful activation
-- [ ] User profile updated correctly in database
-- [ ] Binder marked as premium_activated in database
+- [ ] User profile updated correctly in database (`premium_status = 'lifetime'`)
+- [ ] Tag marked as used in `premium_tags` table
+- [ ] Binder marked as `premium_activated` in database (if binder exists)
 - [ ] No TypeScript errors
+
+**How to Test Tag Validation:**
+1. Try with a random NFC tag (not in `premium_tags` table) → Should fail with "not recognized" message
+2. Add a tag ID to `premium_tags` table manually
+3. Try again with that tag → Should succeed
+4. Try same tag again → Should fail with "already used" message
 
 ---
 
@@ -2590,15 +3189,39 @@ Add premium badge near user's name or in header:
 ---
 
 **Overall Testing for Step 27:**
-- [ ] Database schema updated correctly
+
+**Database:**
+- [ ] Database schema updated correctly (user_profiles + binders)
+- [ ] `premium_tags` table created with RLS policies
+- [ ] Tag IDs can be imported to `premium_tags` table
 - [ ] TypeScript types updated and working
+
+**Premium Gates:**
 - [ ] Premium status persists across app restarts
 - [ ] Free users limited to 3 binders
 - [ ] Premium users can create unlimited binders
-- [ ] NFC activation works (requires physical device + NFC tag)
 - [ ] Premium gates show appropriate alerts
 - [ ] Store URL opens correctly
 - [ ] Premium screen displays correctly
+
+**NFC Tag Validation (Security):**
+- [ ] Random/unregistered NFC tags are REJECTED
+- [ ] Only tags in `premium_tags` table can activate premium
+- [ ] Already-used tags are rejected with clear message
+- [ ] Tag marked as used after successful activation
+
+**NFC Premium Activation:**
+- [ ] NFC activation works (requires physical device + registered NFC tag)
+- [ ] User profile updated to `premium_status = 'lifetime'`
+- [ ] Binder marked as `premium_activated = true`
+
+**Firebase Dynamic Links:**
+- [ ] Dynamic link created and working
+- [ ] Link redirects to App Store on iOS (when app not installed)
+- [ ] Link redirects to Play Store on Android (when app not installed)
+- [ ] Link opens app directly when installed
+
+**General:**
 - [ ] No TypeScript errors
 - [ ] No console errors
 - [ ] App doesn't crash on premium checks
@@ -3678,6 +4301,633 @@ if (binder.collectionMode === 'region') {
 - [ ] No TypeScript errors
 - [ ] No console errors
 - [ ] All error states handled gracefully
+
+---
+
+### Step 33: Binder Position System (Physical Binder Organizer)
+- [ ] **Status**: Not started
+
+**What we're doing:** Adding features to help users see where cards belong in their physical binder (which page and which slot). This includes a dedicated "Binder View" mode, position info in card details, and optional page headers in the grid view.
+
+**Overview of Features:**
+1. **Binder Page View** - New view mode showing one binder page at a time
+2. **Jump to Page** - Tap page number to navigate to a specific page
+3. **Position in Card Details** - Show "Page X, Slot Y" when viewing card details
+4. **Page Headers Toggle** - Optional page separators in grid view
+
+**Position Calculation:**
+- Page = `Math.floor(cardIndex / cardsPerPage) + 1`
+- Slot = `(cardIndex % cardsPerPage) + 1`
+- Cards per page: 9 (for 3×3 layout) or 12 (for 4×3 layout)
+
+---
+
+#### Step 33A: Create Binder Page View Component
+- [ ] **Status**: Not started
+
+**What we're doing:** Create the main component that displays one binder page at a time with slot numbers visible on each card.
+
+**Files to create:**
+- `src/components/Binder/BinderPageView.tsx` - Main page view component
+
+**Component Structure:**
+```tsx
+interface BinderPageViewProps {
+  cards: CardWithOwnership[];
+  currentPage: number;
+  totalPages: number;
+  cardsPerPage: number; // 9 or 12
+  columns: number; // 3 or 4
+  cardWidth: number;
+  binderId: string;
+  onPageChange: (page: number) => void;
+  onCardPress: (card: CardWithOwnership) => void;
+}
+```
+
+**Visual Layout (3×3 example):**
+```
+┌───────────┬───────────┬─────────────┐
+│    ①      │    ②      │    ③       │
+│  [Card]   │  [Card]   │  [Card]    │
+├───────────┼───────────┼─────────────┤
+│    ④      │    ⑤      │    ⑥       │
+│  [Card]   │  [Card]   │  [Card]    │
+├───────────┼───────────┼─────────────┤
+│    ⑦      │    ⑧      │    ⑨       │
+│  [Card]   │  [Card]   │  [Card]    │
+└───────────┴───────────┴─────────────┘
+```
+
+**Implementation Details:**
+- Display slot number badge (①②③ etc.) on each card position
+- Show card image with ownership indicator (same as grid view)
+- Handle tap to toggle ownership
+- Empty slots (for Custom binders) show slot number with "Add Card" placeholder
+
+**Testing:**
+- [ ] Component renders without errors
+- [ ] Correct number of cards per page (9 or 12)
+- [ ] Slot numbers visible on each card
+- [ ] Cards display correctly (image, ownership indicator)
+- [ ] Tap toggles ownership
+- [ ] Empty slots handled correctly for Custom binders
+
+---
+
+#### Step 33B: Create Page Navigator Component
+- [ ] **Status**: Not started
+
+**What we're doing:** Create the navigation bar that shows current page and allows navigation between pages.
+
+**Files to create:**
+- `src/components/Binder/PageNavigator.tsx` - Navigation bar component
+
+**Component Structure:**
+```tsx
+interface PageNavigatorProps {
+  currentPage: number;
+  totalPages: number;
+  onPreviousPage: () => void;
+  onNextPage: () => void;
+  onJumpToPage: () => void; // Opens jump modal
+}
+```
+
+**Visual Layout:**
+```
+┌─────────────────────────────────────┐
+│    ◄     Page 5 of 42     ►         │
+└─────────────────────────────────────┘
+```
+
+**Implementation Details:**
+- Left arrow button (◄) - Go to previous page (disabled on page 1)
+- Right arrow button (►) - Go to next page (disabled on last page)
+- Center text "Page X of Y" - Tappable to open jump-to-page modal
+- Swipe left/right gesture support (optional enhancement)
+
+**Testing:**
+- [ ] Component renders with correct page info
+- [ ] Left arrow navigates to previous page
+- [ ] Right arrow navigates to next page
+- [ ] Arrows disabled at first/last page
+- [ ] Tapping page number triggers onJumpToPage callback
+- [ ] Styling matches app theme
+
+---
+
+#### Step 33C: Create Jump to Page Modal
+- [ ] **Status**: Not started
+
+**What we're doing:** Create a modal that lets users type a page number to jump directly to that page.
+
+**Files to create:**
+- `src/components/Binder/JumpToPageModal.tsx` - Modal for entering page number
+
+**Component Structure:**
+```tsx
+interface JumpToPageModalProps {
+  visible: boolean;
+  currentPage: number;
+  totalPages: number;
+  onClose: () => void;
+  onJump: (pageNumber: number) => void;
+}
+```
+
+**Visual Layout:**
+```
+┌─────────────────────────────────────┐
+│         Jump to Page                │
+├─────────────────────────────────────┤
+│                                     │
+│    Enter page number (1-42):        │
+│    ┌─────────────────────────┐      │
+│    │          12             │      │
+│    └─────────────────────────┘      │
+│                                     │
+│    [Cancel]           [Go]          │
+└─────────────────────────────────────┘
+```
+
+**Implementation Details:**
+- Text input for page number (numeric keyboard)
+- Validate input is within range (1 to totalPages)
+- Show error message if invalid number entered
+- "Cancel" button closes modal
+- "Go" button jumps to page and closes modal
+- Pressing Enter/Submit also jumps to page
+
+**Testing:**
+- [ ] Modal opens and closes correctly
+- [ ] Input accepts only numbers
+- [ ] Valid page numbers work
+- [ ] Invalid numbers show error (too low, too high, not a number)
+- [ ] Cancel closes modal without navigation
+- [ ] Go button navigates to entered page
+- [ ] Keyboard dismisses after navigation
+
+---
+
+#### Step 33D: Add Binder View Mode to BinderDetailScreen
+- [ ] **Status**: Not started
+
+**What we're doing:** Add "Binder" as a third view mode option (alongside Grid and List).
+
+**Files to modify:**
+- `src/screens/BinderDetail/BinderDetailScreen.tsx` - Add Binder view mode
+
+**Changes:**
+
+1. **Update ViewMode type:**
+```tsx
+type ViewMode = 'grid' | 'list' | 'binder';
+```
+
+2. **Add view toggle button:**
+```tsx
+<View style={styles.viewToggle}>
+  <TouchableOpacity
+    style={[styles.toggleButton, viewMode === 'grid' && styles.toggleButtonActive]}
+    onPress={() => setViewMode('grid')}
+  >
+    <Text>Grid</Text>
+  </TouchableOpacity>
+  <TouchableOpacity
+    style={[styles.toggleButton, viewMode === 'list' && styles.toggleButtonActive]}
+    onPress={() => setViewMode('list')}
+  >
+    <Text>List</Text>
+  </TouchableOpacity>
+  <TouchableOpacity
+    style={[styles.toggleButton, viewMode === 'binder' && styles.toggleButtonActive]}
+    onPress={() => setViewMode('binder')}
+  >
+    <Text>Binder</Text>
+  </TouchableOpacity>
+</View>
+```
+
+3. **Add state for page navigation:**
+```tsx
+const [currentPage, setCurrentPage] = useState(1);
+const [showJumpModal, setShowJumpModal] = useState(false);
+
+// Calculate total pages based on cards and layout
+const cardsPerPage = gridColumns === 4 ? 12 : 9;
+const totalPages = Math.ceil(filteredCards.length / cardsPerPage);
+
+// Get cards for current page
+const pageCards = useMemo(() => {
+  const startIndex = (currentPage - 1) * cardsPerPage;
+  const endIndex = startIndex + cardsPerPage;
+  return filteredCards.slice(startIndex, endIndex);
+}, [filteredCards, currentPage, cardsPerPage]);
+```
+
+4. **Render Binder view when selected:**
+```tsx
+if (viewMode === 'binder') {
+  return (
+    <SafeAreaView style={styles.safeArea}>
+      <ScrollView>
+        <ListHeaderComponent />
+        <PageNavigator
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPreviousPage={() => setCurrentPage(p => Math.max(1, p - 1))}
+          onNextPage={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+          onJumpToPage={() => setShowJumpModal(true)}
+        />
+        <BinderPageView
+          cards={pageCards}
+          currentPage={currentPage}
+          totalPages={totalPages}
+          cardsPerPage={cardsPerPage}
+          columns={gridColumns}
+          cardWidth={cardWidth}
+          binderId={binder.id}
+          onPageChange={setCurrentPage}
+          onCardPress={handleToggleCard}
+        />
+      </ScrollView>
+      <JumpToPageModal
+        visible={showJumpModal}
+        currentPage={currentPage}
+        totalPages={totalPages}
+        onClose={() => setShowJumpModal(false)}
+        onJump={(page) => {
+          setCurrentPage(page);
+          setShowJumpModal(false);
+        }}
+      />
+    </SafeAreaView>
+  );
+}
+```
+
+**Testing:**
+- [ ] Three view mode buttons visible (Grid, List, Binder)
+- [ ] Binder mode shows page navigator
+- [ ] Correct cards displayed for current page
+- [ ] Page navigation works (arrows)
+- [ ] Jump to page works
+- [ ] Works for Master Set binders
+- [ ] Works for Region binders
+- [ ] Works for Custom binders
+- [ ] Switching between view modes preserves position (optional)
+
+**How to Test Step 33D:**
+
+1. **Open any binder:**
+   - Should see view toggle with Grid, List, Binder options
+
+2. **Switch to Binder view:**
+   - Tap "Binder" button
+   - Should see page navigator at top
+   - Should see 9 cards (3×3) or 12 cards (4×3) per page
+   - Each card should have slot number visible
+
+3. **Test navigation:**
+   - Tap right arrow (►) to go to next page
+   - Tap left arrow (◄) to go back
+   - Verify arrows disable at first/last page
+
+4. **Test jump to page:**
+   - Tap "Page X of Y" text
+   - Modal should open
+   - Enter valid page number
+   - Should jump to that page
+
+5. **Test card interaction:**
+   - Tap card to toggle ownership
+   - Ownership change should persist
+
+---
+
+#### Step 33E: Add Position Info to Card Details
+- [ ] **Status**: Not started
+
+**What we're doing:** Show the card's binder position (Page X, Slot Y) when viewing card details.
+
+**Files to modify:**
+- `src/screens/CardDetail/CardDetailScreen.tsx` - Add position display
+- `src/screens/BinderDetail/BinderDetailScreen.tsx` - Pass card index when navigating
+
+**Changes to BinderDetailScreen:**
+
+When navigating to CardDetail, pass the card's index:
+```tsx
+// Find card index in the full sorted list
+const cardIndex = cards.findIndex(c => c.id === card.id);
+
+navigation.navigate('CardDetail', {
+  cardId: card.id,
+  binderId: binder.id,
+  isOwned: card.isOwned,
+  cardIndex: cardIndex, // NEW
+  cardsPerPage: cardsPerPage, // NEW (9 or 12)
+});
+```
+
+**Changes to CardDetailScreen:**
+
+1. **Receive new params:**
+```tsx
+const cardIndex = route.params?.cardIndex;
+const cardsPerPage = route.params?.cardsPerPage || 9;
+```
+
+2. **Calculate position:**
+```tsx
+const binderPosition = useMemo(() => {
+  if (cardIndex === undefined || cardIndex < 0) return null;
+  
+  const page = Math.floor(cardIndex / cardsPerPage) + 1;
+  const slot = (cardIndex % cardsPerPage) + 1;
+  
+  return { page, slot };
+}, [cardIndex, cardsPerPage]);
+```
+
+3. **Display position:**
+```tsx
+{binderPosition && (
+  <View style={styles.positionContainer}>
+    <Text style={styles.positionIcon}>📍</Text>
+    <Text style={styles.positionText}>
+      Page {binderPosition.page}, Slot {binderPosition.slot}
+    </Text>
+  </View>
+)}
+```
+
+**Visual Layout:**
+```
+┌─────────────────────────────────────┐
+│          [Card Image]               │
+│                                     │
+│  Charizard                          │
+│  #006/165 · Rare Holo               │
+│  Prismatic Evolutions               │
+│                                     │
+│  📍 Page 1, Slot 6                  │  ← NEW
+│                                     │
+│  Artist: Mitsuhiro Arita            │
+└─────────────────────────────────────┘
+```
+
+**Testing:**
+- [ ] Position displays correctly for Master Set cards
+- [ ] Position displays correctly for Region cards
+- [ ] Position displays correctly for Custom binder cards
+- [ ] Position calculation is accurate (verify manually)
+- [ ] No position shown when cardIndex not provided
+- [ ] Styling matches app theme
+
+**How to Test Step 33E:**
+
+1. **Open a Master Set binder:**
+   - Tap on any card to view details
+   - Should see "📍 Page X, Slot Y" below card info
+
+2. **Verify position accuracy:**
+   - Note the position shown (e.g., "Page 2, Slot 5")
+   - Go back to binder, switch to Binder view
+   - Navigate to Page 2
+   - Verify the card is in Slot 5
+
+3. **Test with different layouts:**
+   - Test with 3×3 layout binder (9 cards per page)
+   - Test with 4×3 layout binder (12 cards per page)
+   - Verify positions are correct for both
+
+---
+
+#### Step 33F: Add Page Headers Toggle to Grid View
+- [ ] **Status**: Not started
+
+**What we're doing:** Add a toggle in the filter panel that shows/hides page separator headers in the grid view.
+
+**Files to create:**
+- `src/components/Binder/PageHeader.tsx` - Page header/separator component
+
+**Files to modify:**
+- `src/components/Filter/FilterPanel.tsx` - Add toggle for page breaks
+- `src/screens/BinderDetail/BinderDetailScreen.tsx` - Implement sectioned grid
+
+**PageHeader Component:**
+```tsx
+interface PageHeaderProps {
+  pageNumber: number;
+}
+
+export default function PageHeader({ pageNumber }: PageHeaderProps) {
+  return (
+    <View style={styles.container}>
+      <View style={styles.line} />
+      <Text style={styles.text}>📖 Page {pageNumber}</Text>
+      <View style={styles.line} />
+    </View>
+  );
+}
+```
+
+**Visual Layout:**
+```
+─────────── 📖 Page 1 ───────────
+[Card] [Card] [Card]
+[Card] [Card] [Card]
+[Card] [Card] [Card]
+
+─────────── 📖 Page 2 ───────────
+[Card] [Card] [Card]
+...
+```
+
+**Changes to FilterPanel:**
+
+Add toggle below ownership filter:
+```tsx
+interface FilterPanelProps {
+  ownershipFilter: OwnershipFilter;
+  onOwnershipFilterChange: (filter: OwnershipFilter) => void;
+  showPageBreaks?: boolean; // NEW
+  onShowPageBreaksChange?: (show: boolean) => void; // NEW
+}
+
+// In render:
+{onShowPageBreaksChange && (
+  <TouchableOpacity
+    style={styles.toggleRow}
+    onPress={() => onShowPageBreaksChange(!showPageBreaks)}
+  >
+    <Text style={styles.toggleLabel}>Show page breaks</Text>
+    <Text style={styles.toggleIcon}>
+      {showPageBreaks ? '☑' : '☐'}
+    </Text>
+  </TouchableOpacity>
+)}
+```
+
+**Changes to BinderDetailScreen:**
+
+1. **Add state:**
+```tsx
+const [showPageBreaks, setShowPageBreaks] = useState(false);
+```
+
+2. **Pass to FilterPanel:**
+```tsx
+<FilterPanel
+  ownershipFilter={ownershipFilter}
+  onOwnershipFilterChange={setOwnershipFilter}
+  showPageBreaks={showPageBreaks}
+  onShowPageBreaksChange={setShowPageBreaks}
+/>
+```
+
+3. **Use SectionList when page breaks enabled:**
+```tsx
+// Group cards by page
+const cardSections = useMemo(() => {
+  if (!showPageBreaks) return null;
+  
+  const sections: { title: string; data: CardWithOwnership[] }[] = [];
+  let currentPage = 1;
+  
+  for (let i = 0; i < filteredCards.length; i += cardsPerPage) {
+    sections.push({
+      title: `Page ${currentPage}`,
+      data: filteredCards.slice(i, i + cardsPerPage),
+    });
+    currentPage++;
+  }
+  
+  return sections;
+}, [filteredCards, showPageBreaks, cardsPerPage]);
+
+// Render with SectionList when enabled
+if (viewMode === 'grid' && showPageBreaks && cardSections) {
+  return (
+    <SectionList
+      sections={cardSections}
+      renderSectionHeader={({ section }) => (
+        <PageHeader pageNumber={parseInt(section.title.split(' ')[1])} />
+      )}
+      renderItem={({ item }) => (
+        <CardItem card={item} ... />
+      )}
+      ...
+    />
+  );
+}
+```
+
+**Testing:**
+- [ ] Toggle appears in filter panel (only in Grid mode)
+- [ ] Toggle default is OFF (no page breaks)
+- [ ] Turning ON shows page headers between pages
+- [ ] Turning OFF removes page headers
+- [ ] Page headers show correct page numbers
+- [ ] Cards still render correctly with headers
+- [ ] Performance acceptable with many pages
+- [ ] Toggle state resets when leaving binder (or persists - choose behavior)
+
+**How to Test Step 33F:**
+
+1. **Open a Master Set binder in Grid view:**
+   - Scroll down to filter area
+   - Should see "☐ Show page breaks" toggle
+
+2. **Enable page breaks:**
+   - Tap the toggle (should show ☑)
+   - Grid should now show page headers
+   - "📖 Page 1" before first 9 cards
+   - "📖 Page 2" before next 9 cards, etc.
+
+3. **Verify accuracy:**
+   - Count cards between headers
+   - Should be exactly 9 (3×3) or 12 (4×3) cards per page
+
+4. **Disable page breaks:**
+   - Tap toggle again
+   - Headers should disappear
+   - Grid returns to normal continuous view
+
+5. **Test with filters:**
+   - Apply ownership filter (e.g., "Missing")
+   - Page breaks should still work correctly with filtered cards
+
+---
+
+#### Step 33G: Handle Variants in Position System
+- [ ] **Status**: Not started
+
+**What we're doing:** Ensure variant cards (base, reverse-holo, etc.) each have their own position displayed correctly.
+
+**Implementation Details:**
+
+When `variantPlacement` is "grouped":
+- Pikachu (base) → Page 1, Slot 1
+- Pikachu (reverse-holo) → Page 1, Slot 2
+- Raichu (base) → Page 1, Slot 3
+- etc.
+
+When `variantPlacement` is "end":
+- All base cards first with positions 1, 2, 3...
+- All variants at end with their own positions
+
+**No new files needed** - the existing position calculation already works because:
+- Cards are already sorted with variants in correct positions
+- `cardIndex` reflects the actual position in the sorted list
+- Each variant is a separate card with its own index
+
+**Testing:**
+- [ ] Base card shows correct position
+- [ ] Reverse-holo variant shows different position (next slot)
+- [ ] "Grouped" placement: variants adjacent to base card
+- [ ] "End" placement: all variants at end with correct positions
+- [ ] Card detail shows correct position for each variant
+
+**How to Test Step 33G:**
+
+1. **Create Master Set binder with variants:**
+   - Select both "base" and "reverse-holo" variants
+   - Choose "grouped" placement
+
+2. **Check positions in Binder view:**
+   - Card #1 base should be Slot 1
+   - Card #1 reverse-holo should be Slot 2
+   - Card #2 base should be Slot 3
+   - etc.
+
+3. **Check Card Details:**
+   - Tap base card → shows "Page 1, Slot 1"
+   - Tap reverse-holo of same card → shows "Page 1, Slot 2"
+
+4. **Test "end" placement:**
+   - Create binder with "end" variant placement
+   - All base cards should have positions 1, 2, 3...
+   - Variants at end should have positions continuing the sequence
+
+---
+
+**Overall Testing Checklist for Step 33:**
+- [ ] Binder view mode works (Step 33A-D)
+- [ ] Page navigation works (arrows and jump)
+- [ ] Position shows in Card Details (Step 33E)
+- [ ] Page headers toggle works in Grid view (Step 33F)
+- [ ] Variants have correct positions (Step 33G)
+- [ ] Works for Master Set binders
+- [ ] Works for Region binders
+- [ ] Works for Custom binders
+- [ ] Works with 3×3 layout
+- [ ] Works with 4×3 layout
+- [ ] No TypeScript errors
+- [ ] No console errors
+- [ ] Performance acceptable
 
 ---
 

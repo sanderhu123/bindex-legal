@@ -15,7 +15,7 @@ import {
   toggleExtraCardOwnership,
 } from '../../services/supabase/cards';
 import { getCardsBySet, getCardsByRegion, getCardById, type Region } from '../../services/api/pokemonApi';
-import { getAllSelectedCardsForBinder } from '../../services/supabase/regionCards';
+import { getAllSelectedCardsForBinder, setSelectedCardForPokemon } from '../../services/supabase/regionCards';
 import { startBackgroundPrefetch } from '../../services/imagePrefetch';
 import { recordBinderAccess } from '../../services/cacheManager';
 import type { Binder, Card } from '../../types';
@@ -919,36 +919,86 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
     }
   }, [binder]);
 
-  // === REGION MODE: Navigation to card detail ===
+  // === REGION MODE: Navigation based on card selection state ===
   
-  // Handle tapping a Region Pokemon slot - navigate to card detail
+  // State for Region card picker (when no card selected yet)
+  const [showRegionCardPicker, setShowRegionCardPicker] = useState(false);
+  const [selectedPokemonForPicker, setSelectedPokemonForPicker] = useState<CardWithOwnership | null>(null);
+  
+  // Handle tapping a Region Pokemon slot
+  // - If no card selected: open card picker directly
+  // - If card selected: navigate to card detail
   const handleRegionCardTap = useCallback((pokemon: CardWithOwnership) => {
-    console.log('[BinderDetail] Region card tapped:', pokemon.name, 'Pokedex #' + pokemon.pokedexNumber);
+    const hasCustomCard = !!(pokemon as any).selectedCardId;
+    console.log('[BinderDetail] Region card tapped:', pokemon.name, 'hasCustomCard:', hasCustomCard);
     
-    // For Region mode, pass the full card data since the ID isn't a real TCG card ID
-    // The CardDetail screen will use this data directly instead of fetching from API
-    navigation.navigate('CardDetail', {
-      cardId: pokemon.id,
-      binderId: binder?.id || '',
-      isOwned: pokemon.isOwned,
-      collectionMode: 'region',
-      pokedexNumber: pokemon.pokedexNumber,
-      pokemonName: pokemon.name,
-      // Pass full card data for Region mode (avoids API fetch for sprite-based cards)
-      regionCardData: {
-        id: pokemon.id,
-        name: pokemon.name,
-        number: pokemon.pokedexNumber?.toString() || '',
-        set: binder?.region || '',
-        rarity: '',
-        artist: '',
-        imageUrl: pokemon.imageUrl,
-        imageUrlHiRes: pokemon.imageUrlHiRes || pokemon.imageUrl,
+    if (!hasCustomCard) {
+      // No custom card selected - open the card picker directly
+      setSelectedPokemonForPicker(pokemon);
+      setShowRegionCardPicker(true);
+    } else {
+      // Custom card selected - navigate to card detail
+      navigation.navigate('CardDetail', {
+        cardId: pokemon.id,
+        binderId: binder?.id || '',
+        isOwned: pokemon.isOwned,
+        collectionMode: 'region',
         pokedexNumber: pokemon.pokedexNumber,
-        selectedCardId: (pokemon as any).selectedCardId,
-      },
-    });
+        pokemonName: pokemon.name,
+        // Pass full card data for Region mode (avoids API fetch for sprite-based cards)
+        regionCardData: {
+          id: pokemon.id,
+          name: pokemon.name,
+          number: pokemon.pokedexNumber?.toString() || '',
+          set: binder?.region || '',
+          rarity: '',
+          artist: '',
+          imageUrl: pokemon.imageUrl,
+          imageUrlHiRes: pokemon.imageUrlHiRes || pokemon.imageUrl,
+          pokedexNumber: pokemon.pokedexNumber,
+          selectedCardId: (pokemon as any).selectedCardId,
+        },
+      });
+    }
   }, [binder?.id, binder?.region, navigation]);
+
+  // Handle selecting a card from the Region card picker
+  const handleRegionCardSelected = useCallback(async (selectedCard: Card) => {
+    if (!binder || !selectedPokemonForPicker || !selectedPokemonForPicker.pokedexNumber) {
+      console.warn('[BinderDetail] Missing data for Region card selection');
+      return;
+    }
+    
+    console.log('[BinderDetail] Region card selected:', selectedCard.name, 'for', selectedPokemonForPicker.name);
+    
+    try {
+      // Save the selection to the database
+      await setSelectedCardForPokemon(binder.id, selectedPokemonForPicker.pokedexNumber, selectedCard.id);
+      console.log('[BinderDetail] Card selection saved');
+      
+      // Update the cards state to show the new image immediately
+      setCards((prevCards) =>
+        prevCards.map((card) => {
+          if (card.pokedexNumber === selectedPokemonForPicker.pokedexNumber) {
+            return {
+              ...card,
+              imageUrl: selectedCard.imageUrl,
+              imageUrlHiRes: selectedCard.imageUrlHiRes,
+              selectedCardId: selectedCard.id, // Mark as having custom selection
+            };
+          }
+          return card;
+        })
+      );
+      
+      console.log('[BinderDetail] UI updated with new card image');
+    } catch (err) {
+      console.error('[BinderDetail] Failed to save card selection:', err);
+      Alert.alert('Error', 'Failed to save card selection. Please try again.');
+    } finally {
+      setSelectedPokemonForPicker(null);
+    }
+  }, [binder, selectedPokemonForPicker]);
 
 
   // Update header title when binder loads
@@ -1583,6 +1633,19 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
           windowSize={11}
           initialNumToRender={PAGE_SIZE}
           extraData={[displayCount, cards]}
+        />
+        
+        {/* Card Picker Modal for selecting TCG card for Pokemon without custom selection */}
+        <CardPickerModal
+          visible={showRegionCardPicker}
+          onClose={() => {
+            setShowRegionCardPicker(false);
+            setSelectedPokemonForPicker(null);
+          }}
+          onSelectCard={handleRegionCardSelected}
+          title={selectedPokemonForPicker ? `Choose a ${selectedPokemonForPicker.name} Card` : 'Choose Card'}
+          initialQuery={selectedPokemonForPicker?.name || ''}
+          pokemonOnly={true}
         />
       </SafeAreaView>
     );

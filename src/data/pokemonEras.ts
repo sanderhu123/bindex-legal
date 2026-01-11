@@ -23,19 +23,17 @@ function getSetLogoUrl(setId: string, seriesSlug: string): string {
     return '';
   }
   
-  // Convert set ID for URL (e.g., 'sm3.5' -> 'sm35')
-  const urlSetId = convertSetIdForUrl(setId);
-  
   // Use the actual series slug if available, otherwise fall back to provided one
   const series = actualSeriesSlug || seriesSlug;
   
+  // NOTE: Logos keep the dot in set IDs (e.g., 'sm3.5'), unlike card images which remove it
   // Sets without a series slug - try direct path
   if (!series) {
-    return `https://assets.tcgdex.net/en/${urlSetId}/logo.png`;
+    return `https://assets.tcgdex.net/en/${setId}/logo.png`;
   }
   
   // Standard logo URL pattern
-  return `https://assets.tcgdex.net/en/${series}/${urlSetId}/logo.png`;
+  return `https://assets.tcgdex.net/en/${series}/${setId}/logo.png`;
 }
 
 /**
@@ -49,10 +47,8 @@ function getSetSymbolUrl(setId: string): string {
     return '';
   }
   
-  // Convert set ID for URL (e.g., 'sm3.5' -> 'sm35')
-  const urlSetId = convertSetIdForUrl(setId);
-  
-  return `https://assets.tcgdex.net/univ/${seriesSlug}/${urlSetId}/symbol.png`;
+  // NOTE: Symbols keep the dot in set IDs (e.g., 'sm3.5'), unlike card images which remove it
+  return `https://assets.tcgdex.net/univ/${seriesSlug}/${setId}/symbol.png`;
 }
 
 /**

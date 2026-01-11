@@ -84,6 +84,49 @@ export function getTcgdexSetId(appSetId: string): string {
   return appSetId;
 }
 
+/**
+ * Clean card number for TCGDEX asset URLs.
+ * 
+ * Promo cards often have card numbers like "SM198", "SWSH123", "SVP196"
+ * but TCGDEX expects just the numeric part: "198", "123", "196"
+ * 
+ * @param cardNumber - The card number (e.g., 'SM198', 'SWSH123', '25')
+ * @param setId - The set ID (e.g., 'smp', 'swshp', 'base1')
+ * @returns The cleaned card number for TCGDEX URLs
+ */
+export function cleanCardNumberForTcgdex(cardNumber: string, setId: string): string {
+  // Only clean promo card numbers that have set prefixes
+  const promoSets = ['mep', 'svp', 'swshp', 'smp', 'xyp', 'bwp', 'hgssp', 'dpp', 'np', 'basep'];
+  
+  if (!promoSets.includes(setId.toLowerCase())) {
+    // Not a promo set, return as-is
+    return cardNumber;
+  }
+  
+  // Remove common promo prefixes (case-insensitive)
+  // Examples: SM198 → 198, SWSH123 → 123, SVP196 → 196
+  const prefixPatterns = [
+    /^MEP/i,     // Mega Evolution Promos
+    /^SVP?/i,    // SV/SVP Promos
+    /^SWSH/i,    // SWSH Promos
+    /^SM/i,      // SM Promos
+    /^XY/i,      // XY Promos
+    /^BW/i,      // BW Promos
+    /^HGSS/i,    // HGSS Promos
+    /^DP/i,      // DP Promos
+  ];
+  
+  let cleaned = cardNumber;
+  for (const pattern of prefixPatterns) {
+    if (pattern.test(cleaned)) {
+      cleaned = cleaned.replace(pattern, '');
+      break;
+    }
+  }
+  
+  return cleaned || cardNumber; // Return original if cleaning results in empty string
+}
+
 export function getSeriesSlugFromId(setId: string): string {
   // === DECIMAL-POINT MINI-SETS ===
   // Sets with decimal points in their ID (sm3.5, sm7.5, swsh3.5, sv03.5, etc.)
@@ -122,23 +165,23 @@ export function getSeriesSlugFromId(setId: string): string {
   if (setId === 'lc') return '';
   
   // === PROMO SETS ===
-  // Black Star Promos use their set ID directly in the URL path (no series prefix)
-  // URL format: https://assets.tcgdex.net/en/{promoSetId}/{cardNumber}/...
-  // Example: https://assets.tcgdex.net/en/svp/196/high.png
-  if (setId === 'mep') return '';      // Mega Evolution Promos
-  if (setId === 'svp') return '';      // SV Black Star Promos
-  if (setId === 'swshp') return '';    // SWSH Black Star Promos
-  if (setId === 'smp') return '';      // SM Black Star Promos
-  if (setId === 'xyp') return '';      // XY Black Star Promos
-  if (setId === 'bwp') return '';      // BW Black Star Promos
-  if (setId === 'hgssp') return '';    // HGSS Black Star Promos
-  if (setId === 'dpp') return '';      // DP Black Star Promos
-  if (setId === 'np') return '';       // Nintendo Black Star Promos
-  if (setId === 'basep') return '';    // Wizards Black Star Promos
+  // Black Star Promos need their parent series in the URL
+  // URL format: https://assets.tcgdex.net/en/{series}/{promoSetId}/{cardNumber}/...
+  // Example: https://assets.tcgdex.net/en/sv/svp/196/high.png
+  if (setId === 'mep') return 'me';      // Mega Evolution Promos → ME series
+  if (setId === 'svp') return 'sv';      // SV Black Star Promos → SV series
+  if (setId === 'swshp') return 'swsh';  // SWSH Black Star Promos → SWSH series
+  if (setId === 'smp') return 'sm';      // SM Black Star Promos → SM series
+  if (setId === 'xyp') return 'xy';      // XY Black Star Promos → XY series
+  if (setId === 'bwp') return 'bw';      // BW Black Star Promos → BW series
+  if (setId === 'hgssp') return 'hgss';  // HGSS Black Star Promos → HGSS series
+  if (setId === 'dpp') return 'dp';      // DP Black Star Promos → DP series
+  if (setId === 'np') return '';         // Nintendo Black Star Promos (no series)
+  if (setId === 'basep') return '';      // Wizards Black Star Promos (no series)
   
-  // McDonald's collections - URL format: https://assets.tcgdex.net/en/{mcdSetId}/{cardNumber}/...
-  // Note: TCGDEX uses mcd21, mcd19, etc. as set IDs (not 2021swsh, 2019sm, etc.)
-  // Return empty string so the URL is built without a series prefix
+  // McDonald's collections - standalone sets without series prefix
+  // URL format: https://assets.tcgdex.net/en/{mcdSetId}/{cardNumber}/...
+  // Example: https://assets.tcgdex.net/en/mcd21/1/high.png
   if (setId === '2021swsh' || setId === 'mcd21') return '';
   if (setId === '2019sm' || setId === 'mcd19') return '';
   if (setId === '2018sm' || setId === 'mcd18') return '';
@@ -149,15 +192,15 @@ export function getSeriesSlugFromId(setId: string): string {
   if (setId === '2012bw' || setId === 'mcd12') return '';
   if (setId === '2011bw' || setId === 'mcd11') return '';
   
-  // Other special promo sets - no series prefix
-  if (setId === 'fut2020') return '';  // Pokémon Futsal
-  if (setId === 'sma') return '';      // Yellow A Alternate (SM)
-  if (setId === 'xya') return '';      // Yellow A Alternate (XY)
-  if (setId === 'ru1') return '';      // Pokémon Rumble
-  if (setId === 'bog') return '';      // Best of Game
-  if (setId === 'wp') return '';       // W Promotional
-  if (setId === 'sp') return '';       // Sample
-  if (setId === 'jumbo') return '';    // Jumbo cards
+  // Other special promo sets - various series
+  if (setId === 'fut2020') return 'swsh';  // Pokémon Futsal → SWSH series
+  if (setId === 'sma') return 'sm';        // Yellow A Alternate (SM) → SM series
+  if (setId === 'xya') return 'xy';        // Yellow A Alternate (XY) → XY series
+  if (setId === 'ru1') return 'dp';        // Pokémon Rumble → DP series
+  if (setId === 'bog') return '';          // Best of Game (no series)
+  if (setId === 'wp') return '';           // W Promotional (no series)
+  if (setId === 'sp') return '';           // Sample (no series)
+  if (setId === 'jumbo') return '';        // Jumbo cards (no series)
   
   // === STANDARD SERIES (prefix matching) ===
   // Modern sets with series prefixes

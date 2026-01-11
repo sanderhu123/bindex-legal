@@ -2,7 +2,7 @@ import type { Card } from '../../types';
 import type { PokemonArtStyle } from '../../types';
 import { mockCards, mockSets, type MockSet } from '../../data/mockupCards';
 import { getPokemonByRegion } from '../../data/pokemonRegions';
-import { getEras, getSetsByEra, convertSetToPokemonSet, sortCardsBySetDate, getSeriesSlugFromId, getTcgdexSetId } from '../../data/pokemonEras';
+import { getEras, getSetsByEra, convertSetToPokemonSet, sortCardsBySetDate, getSeriesSlugFromId, getTcgdexSetId, cleanCardNumberForTcgdex } from '../../data/pokemonEras';
 import { getSpecialVariantsForCard, hasSpecialVariants } from '../../data/cardVariants';
 import TCGdex from '@tcgdex/sdk';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -834,21 +834,24 @@ async function transformTcgdexCardToCard(tcgdexCard: any): Promise<Card> {
       const tcgdexSetId = getTcgdexSetId(appSetId);
       // Get the series slug for this set (returns empty string for sets that don't need series)
       const seriesSlug = getSeriesSlugFromId(tcgdexSetId);
+      // Clean card number for promo sets (e.g., 'SM198' -> '198')
+      const cleanedCardNumber = cleanCardNumberForTcgdex(cardNumber, tcgdexSetId);
       
       if (seriesSlug) {
         // Modern sets: include series in path
-        imageUrl = `https://assets.tcgdex.net/en/${seriesSlug}/${tcgdexSetId}/${cardNumber}/low.png`;
-        imageUrlHiRes = `https://assets.tcgdex.net/en/${seriesSlug}/${tcgdexSetId}/${cardNumber}/high.png`;
+        imageUrl = `https://assets.tcgdex.net/en/${seriesSlug}/${tcgdexSetId}/${cleanedCardNumber}/low.png`;
+        imageUrlHiRes = `https://assets.tcgdex.net/en/${seriesSlug}/${tcgdexSetId}/${cleanedCardNumber}/high.png`;
       } else {
         // Classic/promo sets: no series in path
-        imageUrl = `https://assets.tcgdex.net/en/${tcgdexSetId}/${cardNumber}/low.png`;
-        imageUrlHiRes = `https://assets.tcgdex.net/en/${tcgdexSetId}/${cardNumber}/high.png`;
+        imageUrl = `https://assets.tcgdex.net/en/${tcgdexSetId}/${cleanedCardNumber}/low.png`;
+        imageUrlHiRes = `https://assets.tcgdex.net/en/${tcgdexSetId}/${cleanedCardNumber}/high.png`;
       }
       
       console.log('[24C] Fallback image URL constructed:', {
         appSetId,
         tcgdexSetId,
-        cardNumber,
+        originalCardNumber: cardNumber,
+        cleanedCardNumber,
         seriesSlug: seriesSlug || '(none - classic/promo set)',
         imageUrl,
       });

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { View, StyleSheet, Text, ScrollView, TouchableOpacity, Dimensions, FlatList, ActivityIndicator, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
@@ -14,7 +14,7 @@ import {
   addExtraCardToBinder,
   toggleExtraCardOwnership,
 } from '../../services/supabase/cards';
-import { getCardsBySet, getCardsByRegion, getCardById, type Region } from '../../services/api/pokemonApi';
+import { getCardsBySet, getCardsByRegion, getCardById, getPokemonImageUrl, type Region } from '../../services/api/pokemonApi';
 import { getAllSelectedCardsForBinder, setSelectedCardForPokemon } from '../../services/supabase/regionCards';
 import { startBackgroundPrefetch } from '../../services/imagePrefetch';
 import { recordBinderAccess } from '../../services/cacheManager';
@@ -116,6 +116,15 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
   const [extraCards, setExtraCards] = useState<CardWithOwnership[]>([]);
   const [showExtraCardPicker, setShowExtraCardPicker] = useState(false);
   
+  // Ref to access current cards without causing dependency issues
+  const cardsRef = useRef<CardWithOwnership[]>([]);
+  // Keep ref in sync with state
+  useEffect(() => {
+    cardsRef.current = cards;
+  }, [cards]);
+  
+  // Flag to prevent concurrent refreshes
+  const isRefreshingRef = useRef(false);
 
   // Update screen width on dimension changes
   useEffect(() => {
@@ -165,6 +174,13 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
   // Keep binder ownership in sync when returning from CardDetail
   const refreshOwnershipFromDb = useCallback(async () => {
     if (!binderId) return;
+    
+    // Prevent concurrent refreshes
+    if (isRefreshingRef.current) {
+      console.log('[BinderDetail] Refresh already in progress, skipping');
+      return;
+    }
+    isRefreshingRef.current = true;
 
     try {
       const latestBinder = await getBinderById(binderId);
@@ -197,8 +213,73 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
           
           return updatedMap;
         });
+      } else if (latestBinder.collectionMode === 'region') {
+        // For Region binders: refresh both ownership AND card selections/images
+        console.log('[BinderDetail] Refreshing Region binder card selections');
+        
+        // Use cardsRef to avoid dependency on cards state (which would cause infinite loop)
+        const currentCards = cardsRef.current;
+        if (currentCards.length === 0) {
+          console.log('[BinderDetail] No cards loaded yet, skipping refresh');
+          return;
+        }
+        
+        // Get latest card selections from database
+        const selectedCards = await getAllSelectedCardsForBinder(binderId);
+        console.log('[BinderDetail] Found', selectedCards.size, 'custom card selections on refresh');
+        
+        // Update cards with latest selections and ownership
+        const updatedCards = await Promise.all(
+          currentCards.map(async (card) => {
+            const pokedexNumber = card.pokedexNumber;
+            if (!pokedexNumber) return { ...card, isOwned: latestBinder.cardIds.includes(card.id) };
+            
+            const selectedCardId = selectedCards.get(pokedexNumber);
+            
+            // Check if this card already has the correct selection
+            const currentSelectedId = (card as any).selectedCardId;
+            if (selectedCardId === currentSelectedId) {
+              // No change needed, just update ownership
+              return { ...card, isOwned: latestBinder.cardIds.includes(card.id) };
+            }
+            
+            if (selectedCardId) {
+              // Has a custom card selection - load the TCG card image
+              try {
+                const tcgCard = await getCardById(selectedCardId);
+                if (tcgCard?.imageUrl) {
+                  return {
+                    ...card,
+                    imageUrl: tcgCard.imageUrl,
+                    imageUrlHiRes: tcgCard.imageUrlHiRes,
+                    selectedCardId: selectedCardId,
+                    isOwned: latestBinder.cardIds.includes(card.id),
+                  };
+                }
+              } catch (err) {
+                console.warn('[BinderDetail] Failed to load selected card on refresh:', err);
+              }
+            }
+            
+            // No selection (or loading failed) - use default sprite
+            const defaultImageUrl = latestBinder.pokemonArtStyle 
+              ? getPokemonImageUrl(pokedexNumber, latestBinder.pokemonArtStyle)
+              : undefined;
+            
+            return {
+              ...card,
+              imageUrl: defaultImageUrl,
+              imageUrlHiRes: defaultImageUrl,
+              selectedCardId: undefined,
+              isOwned: latestBinder.cardIds.includes(card.id),
+            };
+          })
+        );
+        
+        setCards(updatedCards);
+        console.log('[BinderDetail] Region cards refreshed with latest selections');
       } else {
-        // For Master Set/Region binders: update based on cardIds
+        // For Master Set binders: update based on cardIds
         setCards((prevCards) =>
           prevCards.map((card) => ({
             ...card,
@@ -206,24 +287,24 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
           }))
         );
         
-        // For Master Set binders: also refresh extra cards ownership
-        if (latestBinder.collectionMode === 'master-set') {
-          const extraCardsData = await getExtraCardsWithVariants(binderId);
-          
-          // Update extraCards with latest ownership status from database
-          setExtraCards((prevExtraCards) =>
-            prevExtraCards.map((card) => {
-              // Find matching extra card data from database
-              const dbData = extraCardsData.find(
-                (ec) => ec.cardId === card.id && ec.variant === (card.variant || null)
-              );
-              return dbData ? { ...card, isOwned: dbData.isOwned } : card;
-            })
-          );
-        }
+        // Also refresh extra cards ownership for Master Set binders
+        const extraCardsData = await getExtraCardsWithVariants(binderId);
+        
+        // Update extraCards with latest ownership status from database
+        setExtraCards((prevExtraCards) =>
+          prevExtraCards.map((card) => {
+            // Find matching extra card data from database
+            const dbData = extraCardsData.find(
+              (ec) => ec.cardId === card.id && ec.variant === (card.variant || null)
+            );
+            return dbData ? { ...card, isOwned: dbData.isOwned } : card;
+          })
+        );
       }
     } catch (err) {
       console.error('Failed to refresh binder ownership:', err);
+    } finally {
+      isRefreshingRef.current = false;
     }
   }, [binderId]);
 
@@ -327,6 +408,10 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
                         imageUrlHiRes: tcgCard.imageUrlHiRes,
                         // Store the selected card ID so we know this has a custom selection
                         selectedCardId: selectedCardId,
+                        // Store TCG card details for the detail view
+                        selectedCardRarity: tcgCard.rarity,
+                        selectedCardArtist: tcgCard.artist,
+                        selectedCardSet: tcgCard.set,
                       };
                     }
                   } catch (err) {
@@ -929,7 +1014,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
   // - If no card selected: open card picker directly
   // - If card selected: navigate to card detail
   const handleRegionCardTap = useCallback((pokemon: CardWithOwnership) => {
-    const hasCustomCard = !!(pokemon as any).selectedCardId;
+    const hasCustomCard = !!pokemon.selectedCardId;
     console.log('[BinderDetail] Region card tapped:', pokemon.name, 'hasCustomCard:', hasCustomCard);
     
     if (!hasCustomCard) {
@@ -938,6 +1023,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
       setShowRegionCardPicker(true);
     } else {
       // Custom card selected - navigate to card detail
+      // Use the stored TCG card details (rarity, artist, set) from when the card was loaded
       navigation.navigate('CardDetail', {
         cardId: pokemon.id,
         binderId: binder?.id || '',
@@ -945,18 +1031,18 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
         collectionMode: 'region',
         pokedexNumber: pokemon.pokedexNumber,
         pokemonName: pokemon.name,
-        // Pass full card data for Region mode (avoids API fetch for sprite-based cards)
+        // Pass full card data for Region mode with TCG card details
         regionCardData: {
           id: pokemon.id,
           name: pokemon.name,
           number: pokemon.pokedexNumber?.toString() || '',
-          set: binder?.region || '',
-          rarity: '',
-          artist: '',
+          set: pokemon.selectedCardSet || binder?.region || '',
+          rarity: pokemon.selectedCardRarity || '',
+          artist: pokemon.selectedCardArtist || '',
           imageUrl: pokemon.imageUrl,
           imageUrlHiRes: pokemon.imageUrlHiRes || pokemon.imageUrl,
           pokedexNumber: pokemon.pokedexNumber,
-          selectedCardId: (pokemon as any).selectedCardId,
+          selectedCardId: pokemon.selectedCardId,
         },
       });
     }
@@ -985,6 +1071,10 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
               imageUrl: selectedCard.imageUrl,
               imageUrlHiRes: selectedCard.imageUrlHiRes,
               selectedCardId: selectedCard.id, // Mark as having custom selection
+              // Store TCG card details for the detail view
+              selectedCardRarity: selectedCard.rarity,
+              selectedCardArtist: selectedCard.artist,
+              selectedCardSet: selectedCard.set,
             };
           }
           return card;

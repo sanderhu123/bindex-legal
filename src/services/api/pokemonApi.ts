@@ -2,7 +2,7 @@ import type { Card } from '../../types';
 import type { PokemonArtStyle } from '../../types';
 import { mockCards, mockSets, type MockSet } from '../../data/mockupCards';
 import { getPokemonByRegion } from '../../data/pokemonRegions';
-import { getEras, getSetsByEra, convertSetToPokemonSet, sortCardsBySetDate, getSeriesSlugFromId, getTcgdexSetId, cleanCardNumberForTcgdex } from '../../data/pokemonEras';
+import { getEras, getSetsByEra, convertSetToPokemonSet, sortCardsBySetDate, getSeriesSlugFromId, getTcgdexSetId, cleanCardNumberForTcgdex, convertSetIdForUrl } from '../../data/pokemonEras';
 import { getSpecialVariantsForCard, hasSpecialVariants } from '../../data/cardVariants';
 import TCGdex from '@tcgdex/sdk';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -826,35 +826,47 @@ async function transformTcgdexCardToCard(tcgdexCard: any): Promise<Card> {
   
   // If still no image, try to construct it manually from TCGDEX assets
   // Format: https://assets.tcgdex.net/{lang}/{series}/{set}/{card}/{quality}.{format}
-  // For older sets (base, gym, neo): https://assets.tcgdex.net/{lang}/{set}/{card}/{quality}.{format}
   if (!imageUrl && cardId) {
     const appSetId = tcgdexCard.set?.id || '';
     if (appSetId && cardNumber) {
-      // Convert app set ID to TCGDEX set ID (e.g., '2021swsh' -> 'mcd21')
-      const tcgdexSetId = getTcgdexSetId(appSetId);
-      // Get the series slug for this set (returns empty string for sets that don't need series)
-      const seriesSlug = getSeriesSlugFromId(tcgdexSetId);
-      // Clean card number for promo sets (e.g., 'SM198' -> '198')
-      const cleanedCardNumber = cleanCardNumberForTcgdex(cardNumber, tcgdexSetId);
+      // Get the series slug for this set
+      // Returns 'NO_IMAGES' if this set doesn't have images on TCGDEX
+      const seriesSlug = getSeriesSlugFromId(appSetId);
       
-      if (seriesSlug) {
-        // Modern sets: include series in path
-        imageUrl = `https://assets.tcgdex.net/en/${seriesSlug}/${tcgdexSetId}/${cleanedCardNumber}/low.png`;
-        imageUrlHiRes = `https://assets.tcgdex.net/en/${seriesSlug}/${tcgdexSetId}/${cleanedCardNumber}/high.png`;
+      // Skip fallback if this set doesn't have images on TCGDEX
+      if (seriesSlug === 'NO_IMAGES') {
+        console.log('[24C] Set has no images on TCGDEX, skipping fallback:', {
+          appSetId,
+          cardNumber,
+        });
       } else {
-        // Classic/promo sets: no series in path
-        imageUrl = `https://assets.tcgdex.net/en/${tcgdexSetId}/${cleanedCardNumber}/low.png`;
-        imageUrlHiRes = `https://assets.tcgdex.net/en/${tcgdexSetId}/${cleanedCardNumber}/high.png`;
+        // Convert set ID for URL (e.g., 'sm3.5' -> 'sm35')
+        const urlSetId = convertSetIdForUrl(appSetId);
+        // Also try app-to-TCGDEX mapping (e.g., if needed)
+        const tcgdexSetId = getTcgdexSetId(urlSetId);
+        // Clean card number for promo sets (e.g., 'SM198' -> '198')
+        const cleanedCardNumber = cleanCardNumberForTcgdex(cardNumber, tcgdexSetId);
+        
+        if (seriesSlug) {
+          // Modern sets: include series in path
+          imageUrl = `https://assets.tcgdex.net/en/${seriesSlug}/${tcgdexSetId}/${cleanedCardNumber}/low.png`;
+          imageUrlHiRes = `https://assets.tcgdex.net/en/${seriesSlug}/${tcgdexSetId}/${cleanedCardNumber}/high.png`;
+        } else {
+          // Sets without explicit series - use set ID directly
+          imageUrl = `https://assets.tcgdex.net/en/${tcgdexSetId}/${cleanedCardNumber}/low.png`;
+          imageUrlHiRes = `https://assets.tcgdex.net/en/${tcgdexSetId}/${cleanedCardNumber}/high.png`;
+        }
+        
+        console.log('[24C] Fallback image URL constructed:', {
+          appSetId,
+          urlSetId,
+          tcgdexSetId,
+          originalCardNumber: cardNumber,
+          cleanedCardNumber,
+          seriesSlug: seriesSlug || '(no series)',
+          imageUrl,
+        });
       }
-      
-      console.log('[24C] Fallback image URL constructed:', {
-        appSetId,
-        tcgdexSetId,
-        originalCardNumber: cardNumber,
-        cleanedCardNumber,
-        seriesSlug: seriesSlug || '(none - classic/promo set)',
-        imageUrl,
-      });
     }
   }
   

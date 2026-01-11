@@ -12,36 +12,47 @@ import type { PokemonSet } from '../services/api/pokemonApi';
 
 /**
  * Generate logo URL for a set from TCGDEX
- * Some sets have non-standard paths or missing logos, so we need special handling
+ * Uses the series slug from getSeriesSlugFromId to construct the correct path
  */
 function getSetLogoUrl(setId: string, seriesSlug: string): string {
-  // Special cases for sets with known working logo URLs or that use symbols instead
-  // These sets either don't have logos or have them in different locations
-  const specialCases: { [key: string]: string } = {
-    // Celebrations uses symbol instead of logo
-    'cel25': 'https://assets.tcgdex.net/en/swsh/cel25/symbol.png',
-    // Detective Pikachu uses symbol instead of logo
-    'det1': 'https://assets.tcgdex.net/en/sm/det1/symbol.png',
-    // Special promos and subsets
-    'col1': 'https://assets.tcgdex.net/en/hgss/col1/symbol.png',
-    'dv1': 'https://assets.tcgdex.net/en/bw/dv1/symbol.png',
-    'g1': 'https://assets.tcgdex.net/en/xy/g1/symbol.png',
-  };
+  // Get the actual series slug from our mapping (more reliable)
+  const actualSeriesSlug = getSeriesSlugFromId(setId);
   
-  // Check if this set has a special case
-  if (setId in specialCases) {
-    return specialCases[setId];
+  // If set has no images, return empty string
+  if (actualSeriesSlug === 'NO_IMAGES') {
+    return '';
+  }
+  
+  // Convert set ID for URL (e.g., 'sm3.5' -> 'sm35')
+  const urlSetId = convertSetIdForUrl(setId);
+  
+  // Use the actual series slug if available, otherwise fall back to provided one
+  const series = actualSeriesSlug || seriesSlug;
+  
+  // Sets without a series slug - try direct path
+  if (!series) {
+    return `https://assets.tcgdex.net/en/${urlSetId}/logo.png`;
   }
   
   // Standard logo URL pattern
-  return `https://assets.tcgdex.net/en/${seriesSlug}/${setId}/logo.png`;
+  return `https://assets.tcgdex.net/en/${series}/${urlSetId}/logo.png`;
 }
 
 /**
  * Generate symbol URL for a set from TCGDEX
  */
 function getSetSymbolUrl(setId: string): string {
-  return `https://assets.tcgdex.net/univ/${getSeriesSlugFromId(setId)}/${setId}/symbol.png`;
+  const seriesSlug = getSeriesSlugFromId(setId);
+  
+  // If set has no images, return empty string
+  if (seriesSlug === 'NO_IMAGES' || !seriesSlug) {
+    return '';
+  }
+  
+  // Convert set ID for URL (e.g., 'sm3.5' -> 'sm35')
+  const urlSetId = convertSetIdForUrl(setId);
+  
+  return `https://assets.tcgdex.net/univ/${seriesSlug}/${urlSetId}/symbol.png`;
 }
 
 /**
@@ -128,104 +139,155 @@ export function cleanCardNumberForTcgdex(cardNumber: string, setId: string): str
 }
 
 export function getSeriesSlugFromId(setId: string): string {
-  // === DECIMAL-POINT MINI-SETS ===
-  // Sets with decimal points in their ID (sm3.5, sm7.5, swsh3.5, sv03.5, etc.)
-  // These mini-sets use their full set ID directly in the URL without series prefix
-  // Example: https://assets.tcgdex.net/en/sm3.5/1/high.png
-  if (setId.includes('.')) {
-    return '';  // No series prefix for mini-sets
+  // === SETS WITHOUT CARD IMAGES ON TCGDEX ===
+  // These sets either don't have images, or only have set symbol/logo but no card images
+  // Return 'NO_IMAGES' as a special marker so the caller knows not to try fallback URLs
+  const noImageSets = [
+    // Sets with no images at all
+    'wp',           // W Promotional
+    'jumbo',        // Jumbo cards
+    'ex5.5',        // Poké Card Creator Pack
+    'exu',          // Unseen Forces Unown Collection
+    'rc',           // Radiant Collection
+    'xya',          // Yellow A Alternate (XY)
+    'svp',          // SVP Black Star Promos (no logo/symbol in API)
+    'mep',          // MEP Black Star Promos
+    'P-A',          // Promos-A
+    
+    // Sets with symbol but no card images
+    'bog',          // Best of Game (has symbol, no card images)
+    '2021swsh',     // McDonald's 2021 (has logo, no card images)
+    
+    // All McDonald's sets (verified: no card images on TCGDEX)
+    '2014xy',       // McDonald's 2014
+    '2015xy',       // McDonald's 2015
+    '2016xy',       // McDonald's 2016
+    '2017sm',       // McDonald's 2017
+    '2018sm',       // McDonald's 2018
+    '2019sm',       // McDonald's 2019
+    '2011bw',       // McDonald's 2011
+    '2012bw',       // McDonald's 2012
+    
+    // Trainer Kits (tk-*)
+    'tk-ex-latio', 'tk-ex-latia', 'tk-ex-p', 'tk-ex-m',
+    'tk-dp-l', 'tk-dp-m', 'tk-hs-g', 'tk-hs-r',
+    'tk-bw-z', 'tk-bw-e', 'tk-xy-sy', 'tk-xy-n',
+    'tk-xy-b', 'tk-xy-w', 'tk-xy-latia', 'tk-xy-latio',
+    'tk-xy-p', 'tk-xy-su', 'tk-sm-l', 'tk-sm-r',
+  ];
+  if (noImageSets.includes(setId)) {
+    return 'NO_IMAGES';
   }
   
-  // === SPECIAL SETS (must be checked before prefix matching) ===
-  // These sets have IDs that don't follow the standard prefix pattern
-  // or need to be mapped to their parent series
+  // === DECIMAL-POINT MINI-SETS ===
+  // These need their dot removed for the URL (sm3.5 → sm35)
+  // BUT they still use their parent series (sm, swsh, sv, etc.)
+  // The set ID conversion is handled by convertSetIdForUrl()
+  // Here we just return the correct series
+  if (setId.includes('.')) {
+    // Extract series from before the number
+    if (setId.startsWith('sm')) return 'sm';
+    if (setId.startsWith('swsh')) return 'swsh';
+    if (setId.startsWith('sv')) return 'sv';
+    if (setId.startsWith('xy')) return 'xy';
+    if (setId.startsWith('bw')) return 'bw';
+    if (setId.startsWith('ex')) return 'ex';
+  }
+  
+  // === SPECIAL SETS WITH CONFIRMED IMAGES ===
+  // Based on TCGDEX API logo/symbol URLs
   
   // Sword & Shield era special sets
-  if (setId === 'cel25') return 'swsh';  // Celebrations → Sword & Shield
+  if (setId === 'cel25') return 'swsh';     // Celebrations → swsh series
+  if (setId === 'fut2020') return 'swsh';   // Pokémon Futsal → swsh series
   
   // Sun & Moon era special sets
-  if (setId === 'det1') return 'sm';     // Detective Pikachu → Sun & Moon
-  if (setId === 'sm115') return 'sm';    // Hidden Fates → Sun & Moon
+  if (setId === 'det1') return 'sm';        // Detective Pikachu → sm series
+  if (setId === 'sm115') return 'sm';       // Hidden Fates → sm series
+  if (setId === 'sma') return 'sm';         // Yellow A Alternate → sm series
   
   // XY era special sets
-  if (setId === 'g1') return 'xy';       // Generations → XY
-  if (setId === 'dc1') return 'xy';      // Double Crisis → XY
+  if (setId === 'g1') return 'xy';          // Generations → xy series
+  if (setId === 'dc1') return 'xy';         // Double Crisis → xy series
   
   // Black & White era special sets
-  if (setId === 'dv1') return 'bw';      // Dragon Vault → Black & White
-  if (setId === 'rc') return 'bw';       // Radiant Collection → Black & White
+  if (setId === 'dv1') return 'bw';         // Dragon Vault → bw series
   
-  // HeartGold & SoulSilver era special sets
-  if (setId === 'col1') return 'hgss';   // Call of Legends → HGSS
+  // Call of Legends has its own series
+  if (setId === 'col1') return 'col';       // Call of Legends → col series
   
   // Neo era special sets
-  if (setId === 'si1') return 'neo';     // Southern Islands → Neo
+  if (setId === 'si1') return 'neo';        // Southern Islands → neo series
   
-  // Legendary Collection (standalone, no series prefix needed)
-  if (setId === 'lc') return '';
+  // E-Card era special sets
+  if (setId === 'sp') return 'ecard';       // Sample → ecard series
   
-  // === PROMO SETS ===
-  // Black Star Promos need their parent series in the URL
-  // URL format: https://assets.tcgdex.net/en/{series}/{promoSetId}/{cardNumber}/...
-  // Example: https://assets.tcgdex.net/en/sv/svp/196/high.png
-  if (setId === 'mep') return 'me';      // Mega Evolution Promos → ME series
-  if (setId === 'svp') return 'sv';      // SV Black Star Promos → SV series
-  if (setId === 'swshp') return 'swsh';  // SWSH Black Star Promos → SWSH series
-  if (setId === 'smp') return 'sm';      // SM Black Star Promos → SM series
-  if (setId === 'xyp') return 'xy';      // XY Black Star Promos → XY series
-  if (setId === 'bwp') return 'bw';      // BW Black Star Promos → BW series
-  if (setId === 'hgssp') return 'hgss';  // HGSS Black Star Promos → HGSS series
-  if (setId === 'dpp') return 'dp';      // DP Black Star Promos → DP series
-  if (setId === 'np') return '';         // Nintendo Black Star Promos (no series)
-  if (setId === 'basep') return '';      // Wizards Black Star Promos (no series)
+  // Platinum era special sets
+  if (setId === 'ru1') return 'pl';         // Pokémon Rumble → pl series
   
-  // McDonald's collections - standalone sets without series prefix
-  // URL format: https://assets.tcgdex.net/en/{mcdSetId}/{cardNumber}/...
-  // Example: https://assets.tcgdex.net/en/mcd21/1/high.png
-  if (setId === '2021swsh' || setId === 'mcd21') return '';
-  if (setId === '2019sm' || setId === 'mcd19') return '';
-  if (setId === '2018sm' || setId === 'mcd18') return '';
-  if (setId === '2017sm' || setId === 'mcd17') return '';
-  if (setId === '2016xy' || setId === 'mcd16') return '';
-  if (setId === '2015xy' || setId === 'mcd15') return '';
-  if (setId === '2014xy' || setId === 'mcd14') return '';
-  if (setId === '2012bw' || setId === 'mcd12') return '';
-  if (setId === '2011bw' || setId === 'mcd11') return '';
+  // Legendary Collection has its own series
+  if (setId === 'lc') return 'lc';          // Legendary Collection → lc series
   
-  // Other special promo sets - various series
-  if (setId === 'fut2020') return 'swsh';  // Pokémon Futsal → SWSH series
-  if (setId === 'sma') return 'sm';        // Yellow A Alternate (SM) → SM series
-  if (setId === 'xya') return 'xy';        // Yellow A Alternate (XY) → XY series
-  if (setId === 'ru1') return 'dp';        // Pokémon Rumble → DP series
-  if (setId === 'bog') return '';          // Best of Game (no series)
-  if (setId === 'wp') return '';           // W Promotional (no series)
-  if (setId === 'sp') return '';           // Sample (no series)
-  if (setId === 'jumbo') return '';        // Jumbo cards (no series)
+  // Note: McDonald's sets are in noImageSets - no card images available
+  
+  // === PROMO SETS WITH IMAGES ===
+  // Based on TCGDEX API logo/symbol URLs showing series path
+  if (setId === 'swshp') return 'swsh';     // SWSH Black Star Promos → swsh series
+  if (setId === 'smp') return 'sm';         // SM Black Star Promos → sm series
+  if (setId === 'xyp') return 'xy';         // XY Black Star Promos → xy series
+  if (setId === 'bwp') return 'bw';         // BW Black Star Promos → bw series
+  if (setId === 'hgssp') return 'hgss';     // HGSS Black Star Promos → hgss series
+  if (setId === 'dpp') return 'dp';         // DP Black Star Promos → dp series
+  if (setId === 'np') return 'pop';         // Nintendo Black Star Promos → pop series
+  if (setId === 'basep') return 'base';     // Wizards Black Star Promos → base series
+  
+  // === TCGP (Pokemon TCG Pocket) sets ===
+  if (setId === 'A1' || setId === 'A1a' || setId === 'A2' || 
+      setId === 'A2a' || setId === 'A2b' || setId === 'A3' ||
+      setId === 'A3a' || setId === 'A3b' || setId === 'A4' ||
+      setId === 'A4a' || setId === 'B1' || setId === 'B1a') {
+    return 'tcgp';
+  }
   
   // === STANDARD SERIES (prefix matching) ===
-  // Modern sets with series prefixes
-  if (setId.startsWith('me')) return 'me';     // Mega Evolution era
-  if (setId.startsWith('sv')) return 'sv';     // Scarlet & Violet era
-  if (setId.startsWith('swsh')) return 'swsh'; // Sword & Shield era
-  if (setId.startsWith('sm')) return 'sm';     // Sun & Moon era
-  if (setId.startsWith('xy')) return 'xy';     // XY era
-  if (setId.startsWith('bw')) return 'bw';     // Black & White era
-  if (setId.startsWith('hgss')) return 'hgss'; // HeartGold & SoulSilver era
-  if (setId.startsWith('pl')) return 'pl';     // Platinum era
-  if (setId.startsWith('dp')) return 'dp';     // Diamond & Pearl era
-  if (setId.startsWith('ex')) return 'ex';     // EX era
+  if (setId.startsWith('me')) return 'me';       // Mega Evolution era
+  if (setId.startsWith('sv')) return 'sv';       // Scarlet & Violet era
+  if (setId.startsWith('swsh')) return 'swsh';   // Sword & Shield era
+  if (setId.startsWith('sm')) return 'sm';       // Sun & Moon era
+  if (setId.startsWith('xy')) return 'xy';       // XY era
+  if (setId.startsWith('bw')) return 'bw';       // Black & White era
+  if (setId.startsWith('hgss')) return 'hgss';   // HeartGold & SoulSilver era
+  if (setId.startsWith('pl')) return 'pl';       // Platinum era
+  if (setId.startsWith('dp')) return 'dp';       // Diamond & Pearl era
+  if (setId.startsWith('ex')) return 'ex';       // EX era
   if (setId.startsWith('ecard')) return 'ecard'; // E-Card era
-  if (setId.startsWith('pop')) return 'pop';   // POP Series
+  if (setId.startsWith('pop')) return 'pop';     // POP Series
   
-  // === CLASSIC SETS (no series prefix needed in TCGDEX URLs) ===
-  // These older sets use URLs like: assets.tcgdex.net/en/base1/21/high.png
-  if (setId.startsWith('neo')) return '';      // Neo era - no prefix
-  if (setId.startsWith('gym')) return '';      // Gym era - no prefix
-  if (setId.startsWith('base')) return '';     // Base era - no prefix
+  // === CLASSIC SETS (have their own series names) ===
+  if (setId.startsWith('neo')) return 'neo';     // Neo era
+  if (setId.startsWith('gym')) return 'gym';     // Gym era
+  if (setId.startsWith('base')) return 'base';   // Base era
   
-  // Fallback: return empty string (URL will be constructed without series)
-  // This handles unknown sets gracefully
+  // Fallback: return empty string
   return '';
+}
+
+/**
+ * Convert set ID to the format used in TCGDEX URLs.
+ * 
+ * - Removes dots from mini-set IDs (sm3.5 → sm35)
+ * - Maps app set IDs to TCGDEX set IDs where different
+ * 
+ * @param setId - The set ID (e.g., 'sm3.5', '2021swsh')
+ * @returns The set ID formatted for TCGDEX URLs
+ */
+export function convertSetIdForUrl(setId: string): string {
+  // Remove dots from mini-set IDs
+  if (setId.includes('.')) {
+    return setId.replace('.', '');
+  }
+  
+  return setId;
 }
 
 /**

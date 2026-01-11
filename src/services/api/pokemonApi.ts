@@ -1247,7 +1247,7 @@ export async function getCardsBySet(setIdentifier: string): Promise<Card[]> {
 /**
  * Generate Pokemon image URL based on Pokédex number and art style
  */
-function getPokemonImageUrl(pokedexNumber: number, artStyle: PokemonArtStyle): string {
+export function getPokemonImageUrl(pokedexNumber: number, artStyle: PokemonArtStyle): string {
   const baseUrl = 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon';
   
   switch (artStyle) {
@@ -1461,6 +1461,19 @@ export interface CardSearchOptions {
   offset?: number;
   /** Filter to only Pokémon cards, excluding Trainers that mention Pokémon names (default: false) */
   pokemonOnly?: boolean;
+  /** 
+   * Use exact word matching for names (default: false)
+   * When true, searching "Pidgeot" will NOT match "Pidgeotto"
+   * but will still match "Pidgeot EX", "Pidgeot V", etc.
+   */
+  exactMatch?: boolean;
+}
+
+/**
+ * Escapes special regex characters in a string
+ */
+function escapeRegExp(string: string): string {
+  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 /**
@@ -1513,9 +1526,9 @@ export async function searchCardsByName(
   query: string,
   options?: CardSearchOptions
 ): Promise<Card[]> {
-  const { limit = 50, offset = 0, pokemonOnly = false } = options || {};
+  const { limit = 50, offset = 0, pokemonOnly = false, exactMatch = false } = options || {};
   
-  console.log('[28A] searchCardsByName() called:', { query, limit, offset, pokemonOnly });
+  console.log('[28A] searchCardsByName() called:', { query, limit, offset, pokemonOnly, exactMatch });
   const startTime = performance.now();
   
   // Validate query
@@ -1529,7 +1542,7 @@ export async function searchCardsByName(
   
   // Create cache key for the FULL sorted list (does not include limit/offset)
   // This allows stable pagination from the same sorted list
-  const sortedCacheKey = `sorted-search-${sanitizedQuery}-${pokemonOnly}`;
+  const sortedCacheKey = `sorted-search-${sanitizedQuery}-${pokemonOnly}-${exactMatch}`;
   
   // Step 1: Check if we have a cached sorted list for this query
   const cachedSorted = sortedSearchCache.get(sortedCacheKey);
@@ -1617,6 +1630,27 @@ export async function searchCardsByName(
           before: cardResults.length,
           after: filteredResults.length,
           note: 'Cards without category field are included (assumed Pokemon)',
+        });
+      }
+      
+      // Filter for exact word match if requested
+      // This prevents "Pidgeot" from matching "Pidgeotto"
+      if (exactMatch) {
+        const beforeCount = filteredResults.length;
+        const escapedQuery = escapeRegExp(sanitizedQuery);
+        // Match the query as a complete word (case-insensitive)
+        // "Pidgeot" matches "Pidgeot", "Pidgeot EX", "Pidgeot V" but NOT "Pidgeotto"
+        const wordBoundaryRegex = new RegExp(`\\b${escapedQuery}\\b`, 'i');
+        
+        filteredResults = filteredResults.filter((card: any) => {
+          return wordBoundaryRegex.test(card.name || '');
+        });
+        
+        console.log('[28A] Filtered for exact name match:', {
+          query: sanitizedQuery,
+          before: beforeCount,
+          after: filteredResults.length,
+          note: 'Using word boundary matching',
         });
       }
       

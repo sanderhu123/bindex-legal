@@ -35,6 +35,11 @@ export interface CardPickerModalProps {
   initialQuery?: string;
   /** Filter to only show Pokémon cards (exclude Trainers) */
   pokemonOnly?: boolean;
+  /** 
+   * Use exact word matching for names (default: true when initialQuery is provided)
+   * When true, searching "Pidgeot" will NOT match "Pidgeotto"
+   */
+  exactMatch?: boolean;
 }
 
 /**
@@ -69,7 +74,12 @@ export function CardPickerModal({
   title = 'Search Cards',
   initialQuery = '',
   pokemonOnly = false,
+  exactMatch,
 }: CardPickerModalProps) {
+  
+  // Default exactMatch to true when initialQuery is provided (region mode)
+  // This prevents "Pidgeot" from matching "Pidgeotto" cards
+  const useExactMatch = exactMatch ?? (initialQuery.length > 0);
   
   // Use the card picker hook
   const {
@@ -86,6 +96,7 @@ export function CardPickerModal({
     initialQuery,
     pokemonOnly,
     pageSize: 30,
+    exactMatch: useExactMatch,
   });
 
   /**

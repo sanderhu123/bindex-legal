@@ -14,6 +14,11 @@ export interface UseCardPickerOptions {
   pokemonOnly?: boolean;
   /** Maximum results per page (default: 30) */
   pageSize?: number;
+  /** 
+   * Use exact word matching for names (default: false)
+   * When true, searching "Pidgeot" will NOT match "Pidgeotto"
+   */
+  exactMatch?: boolean;
 }
 
 /**
@@ -63,6 +68,7 @@ export function useCardPicker(options?: UseCardPickerOptions): UseCardPickerRetu
     initialQuery = '',
     pokemonOnly = false,
     pageSize = 30,
+    exactMatch = false,
   } = options || {};
 
   // State
@@ -109,6 +115,7 @@ export function useCardPicker(options?: UseCardPickerOptions): UseCardPickerRetu
         limit: pageSize,
         offset: searchOffset,
         pokemonOnly,
+        exactMatch,
       };
 
       // API now returns cards already sorted by set release date (newest first)
@@ -156,7 +163,7 @@ export function useCardPicker(options?: UseCardPickerOptions): UseCardPickerRetu
     } finally {
       setLoading(false);
     }
-  }, [pokemonOnly, pageSize]);
+  }, [pokemonOnly, pageSize, exactMatch]);
 
   /**
    * Debounced query setter

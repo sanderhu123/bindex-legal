@@ -53,6 +53,37 @@ function getSetSymbolUrl(setId: string): string {
  * @param setId - The set ID (e.g., 'swsh3', 'cel25', 'base1')
  * @returns The series slug for the asset URL, or empty string if no series needed
  */
+/**
+ * Convert app set ID to TCGDEX set ID.
+ * 
+ * Some sets in the app use different IDs than TCGDEX uses.
+ * This function maps app set IDs to the correct TCGDEX set IDs.
+ * 
+ * @param appSetId - The set ID used in the app (e.g., '2021swsh')
+ * @returns The TCGDEX set ID (e.g., 'mcd21')
+ */
+export function getTcgdexSetId(appSetId: string): string {
+  // McDonald's collections - app uses year+era format, TCGDEX uses mcdYY format
+  const mcdonaldsMapping: Record<string, string> = {
+    '2021swsh': 'mcd21',
+    '2019sm': 'mcd19',
+    '2018sm': 'mcd18',
+    '2017sm': 'mcd17',
+    '2016xy': 'mcd16',
+    '2015xy': 'mcd15',
+    '2014xy': 'mcd14',
+    '2012bw': 'mcd12',
+    '2011bw': 'mcd11',
+  };
+  
+  if (appSetId in mcdonaldsMapping) {
+    return mcdonaldsMapping[appSetId];
+  }
+  
+  // All other sets use the same ID in app and TCGDEX
+  return appSetId;
+}
+
 export function getSeriesSlugFromId(setId: string): string {
   // === DECIMAL-POINT MINI-SETS ===
   // Sets with decimal points in their ID (sm3.5, sm7.5, swsh3.5, sv03.5, etc.)

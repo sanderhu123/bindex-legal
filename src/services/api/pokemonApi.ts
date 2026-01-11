@@ -2,7 +2,7 @@ import type { Card } from '../../types';
 import type { PokemonArtStyle } from '../../types';
 import { mockCards, mockSets, type MockSet } from '../../data/mockupCards';
 import { getPokemonByRegion } from '../../data/pokemonRegions';
-import { getEras, getSetsByEra, convertSetToPokemonSet, sortCardsBySetDate, getSeriesSlugFromId } from '../../data/pokemonEras';
+import { getEras, getSetsByEra, convertSetToPokemonSet, sortCardsBySetDate, getSeriesSlugFromId, getTcgdexSetId } from '../../data/pokemonEras';
 import { getSpecialVariantsForCard, hasSpecialVariants } from '../../data/cardVariants';
 import TCGdex from '@tcgdex/sdk';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -828,25 +828,28 @@ async function transformTcgdexCardToCard(tcgdexCard: any): Promise<Card> {
   // Format: https://assets.tcgdex.net/{lang}/{series}/{set}/{card}/{quality}.{format}
   // For older sets (base, gym, neo): https://assets.tcgdex.net/{lang}/{set}/{card}/{quality}.{format}
   if (!imageUrl && cardId) {
-    const setId = tcgdexCard.set?.id || '';
-    if (setId && cardNumber) {
+    const appSetId = tcgdexCard.set?.id || '';
+    if (appSetId && cardNumber) {
+      // Convert app set ID to TCGDEX set ID (e.g., '2021swsh' -> 'mcd21')
+      const tcgdexSetId = getTcgdexSetId(appSetId);
       // Get the series slug for this set (returns empty string for sets that don't need series)
-      const seriesSlug = getSeriesSlugFromId(setId);
+      const seriesSlug = getSeriesSlugFromId(tcgdexSetId);
       
       if (seriesSlug) {
         // Modern sets: include series in path
-        imageUrl = `https://assets.tcgdex.net/en/${seriesSlug}/${setId}/${cardNumber}/low.png`;
-        imageUrlHiRes = `https://assets.tcgdex.net/en/${seriesSlug}/${setId}/${cardNumber}/high.png`;
+        imageUrl = `https://assets.tcgdex.net/en/${seriesSlug}/${tcgdexSetId}/${cardNumber}/low.png`;
+        imageUrlHiRes = `https://assets.tcgdex.net/en/${seriesSlug}/${tcgdexSetId}/${cardNumber}/high.png`;
       } else {
-        // Classic sets (base, gym, neo): no series in path
-        imageUrl = `https://assets.tcgdex.net/en/${setId}/${cardNumber}/low.png`;
-        imageUrlHiRes = `https://assets.tcgdex.net/en/${setId}/${cardNumber}/high.png`;
+        // Classic/promo sets: no series in path
+        imageUrl = `https://assets.tcgdex.net/en/${tcgdexSetId}/${cardNumber}/low.png`;
+        imageUrlHiRes = `https://assets.tcgdex.net/en/${tcgdexSetId}/${cardNumber}/high.png`;
       }
       
       console.log('[24C] Fallback image URL constructed:', {
-        setId,
+        appSetId,
+        tcgdexSetId,
         cardNumber,
-        seriesSlug: seriesSlug || '(none - classic set)',
+        seriesSlug: seriesSlug || '(none - classic/promo set)',
         imageUrl,
       });
     }

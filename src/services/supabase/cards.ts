@@ -172,13 +172,23 @@ export async function removeCardFromBinder(
   }
 
   // Delete the card
-  const { error } = await supabase
+  // Note: We must use .is('variant', null) for null values, not .eq('variant', null)
+  // because SQL requires IS NULL for null comparisons, not = NULL
+  let query = supabase
     .from('binder_cards')
     .delete()
     .eq('user_id', user.id)
     .eq('binder_id', binderId)
-    .eq('card_id', cardId)
-    .eq('variant', variant || null);
+    .eq('card_id', cardId);
+  
+  // Handle variant matching correctly for null values
+  if (variant) {
+    query = query.eq('variant', variant);
+  } else {
+    query = query.is('variant', null);
+  }
+
+  const { error } = await query;
 
   if (error) {
     throw error;
@@ -540,14 +550,21 @@ export async function addExtraCardToBinder(
   }
 
   // Check if this exact card+variant already exists in the binder
-  const { data: existingCard, error: checkError } = await supabase
+  // Note: Must use .is('variant', null) for null values
+  let checkQuery = supabase
     .from('binder_cards')
     .select('id, is_extra')
     .eq('user_id', user.id)
     .eq('binder_id', binderId)
-    .eq('card_id', cardId)
-    .eq('variant', variant || null)
-    .single();
+    .eq('card_id', cardId);
+  
+  if (variant) {
+    checkQuery = checkQuery.eq('variant', variant);
+  } else {
+    checkQuery = checkQuery.is('variant', null);
+  }
+  
+  const { data: existingCard, error: checkError } = await checkQuery.single();
 
   if (existingCard && !checkError) {
     // Card already exists
@@ -709,6 +726,7 @@ export async function isExtraCard(
   }
 
   // Query for the specific card with is_extra check
+  // Note: Must use .is('variant', null) for null values
   let query = supabase
     .from('binder_cards')
     .select('is_extra')
@@ -719,7 +737,11 @@ export async function isExtraCard(
     .limit(1);
 
   if (variant !== undefined) {
-    query = query.eq('variant', variant || null);
+    if (variant) {
+      query = query.eq('variant', variant);
+    } else {
+      query = query.is('variant', null);
+    }
   }
 
   const { data, error } = await query;
@@ -767,14 +789,22 @@ export async function removeExtraCardFromBinder(
   }
 
   // Delete only the extra card (is_extra = true)
-  const { error } = await supabase
+  // Note: Must use .is('variant', null) for null values
+  let deleteQuery = supabase
     .from('binder_cards')
     .delete()
     .eq('user_id', user.id)
     .eq('binder_id', binderId)
     .eq('card_id', cardId)
-    .eq('variant', variant || null)
     .eq('is_extra', true);
+  
+  if (variant) {
+    deleteQuery = deleteQuery.eq('variant', variant);
+  } else {
+    deleteQuery = deleteQuery.is('variant', null);
+  }
+
+  const { error } = await deleteQuery;
 
   if (error) {
     console.error('[30B] Failed to remove extra card:', error);
@@ -806,15 +836,22 @@ export async function toggleExtraCardOwnership(
   }
 
   // Get current ownership status
-  const { data: currentCard, error: fetchError } = await supabase
+  // Note: Must use .is('variant', null) for null values
+  let fetchQuery = supabase
     .from('binder_cards')
     .select('is_owned')
     .eq('user_id', user.id)
     .eq('binder_id', binderId)
     .eq('card_id', cardId)
-    .eq('variant', variant || null)
-    .eq('is_extra', true)
-    .single();
+    .eq('is_extra', true);
+  
+  if (variant) {
+    fetchQuery = fetchQuery.eq('variant', variant);
+  } else {
+    fetchQuery = fetchQuery.is('variant', null);
+  }
+
+  const { data: currentCard, error: fetchError } = await fetchQuery.single();
 
   if (fetchError || !currentCard) {
     throw new Error('Extra card not found in binder');
@@ -825,14 +862,22 @@ export async function toggleExtraCardOwnership(
   const newIsOwned = !wasOwned;
 
   // Update the card's ownership status
-  const { error: updateError } = await supabase
+  // Note: Must use .is('variant', null) for null values
+  let updateQuery = supabase
     .from('binder_cards')
     .update({ is_owned: newIsOwned })
     .eq('user_id', user.id)
     .eq('binder_id', binderId)
     .eq('card_id', cardId)
-    .eq('variant', variant || null)
     .eq('is_extra', true);
+  
+  if (variant) {
+    updateQuery = updateQuery.eq('variant', variant);
+  } else {
+    updateQuery = updateQuery.is('variant', null);
+  }
+
+  const { error: updateError } = await updateQuery;
 
   if (updateError) {
     console.error('[30B] Failed to toggle extra card ownership:', updateError);

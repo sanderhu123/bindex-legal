@@ -2,7 +2,7 @@ import type { Card } from '../../types';
 import type { PokemonArtStyle } from '../../types';
 import { mockCards, mockSets, type MockSet } from '../../data/mockupCards';
 import { getPokemonByRegion } from '../../data/pokemonRegions';
-import { getEras, getSetsByEra, convertSetToPokemonSet, sortCardsBySetDate } from '../../data/pokemonEras';
+import { getEras, getSetsByEra, convertSetToPokemonSet, sortCardsBySetDate, getSeriesSlugFromId } from '../../data/pokemonEras';
 import { getSpecialVariantsForCard, hasSpecialVariants } from '../../data/cardVariants';
 import TCGdex from '@tcgdex/sdk';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -825,12 +825,30 @@ async function transformTcgdexCardToCard(tcgdexCard: any): Promise<Card> {
   }
   
   // If still no image, try to construct it manually from TCGDEX assets
-  // Format: https://assets.tcgdex.net/[lang]/[set-id]/[card-id]/[quality].[format]
+  // Format: https://assets.tcgdex.net/{lang}/{series}/{set}/{card}/{quality}.{format}
+  // For older sets (base, gym, neo): https://assets.tcgdex.net/{lang}/{set}/{card}/{quality}.{format}
   if (!imageUrl && cardId) {
     const setId = tcgdexCard.set?.id || '';
     if (setId && cardNumber) {
-      imageUrl = `https://assets.tcgdex.net/en/${setId}/${cardNumber}/low.png`;
-      imageUrlHiRes = `https://assets.tcgdex.net/en/${setId}/${cardNumber}/high.png`;
+      // Get the series slug for this set (returns empty string for sets that don't need series)
+      const seriesSlug = getSeriesSlugFromId(setId);
+      
+      if (seriesSlug) {
+        // Modern sets: include series in path
+        imageUrl = `https://assets.tcgdex.net/en/${seriesSlug}/${setId}/${cardNumber}/low.png`;
+        imageUrlHiRes = `https://assets.tcgdex.net/en/${seriesSlug}/${setId}/${cardNumber}/high.png`;
+      } else {
+        // Classic sets (base, gym, neo): no series in path
+        imageUrl = `https://assets.tcgdex.net/en/${setId}/${cardNumber}/low.png`;
+        imageUrlHiRes = `https://assets.tcgdex.net/en/${setId}/${cardNumber}/high.png`;
+      }
+      
+      console.log('[24C] Fallback image URL constructed:', {
+        setId,
+        cardNumber,
+        seriesSlug: seriesSlug || '(none - classic set)',
+        imageUrl,
+      });
     }
   }
   

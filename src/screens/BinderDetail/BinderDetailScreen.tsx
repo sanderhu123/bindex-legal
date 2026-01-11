@@ -20,7 +20,7 @@ import { startBackgroundPrefetch } from '../../services/imagePrefetch';
 import { recordBinderAccess } from '../../services/cacheManager';
 import type { Binder, Card } from '../../types';
 import CardItem from '../../components/Card/CardItem';
-import CardImage from '../../components/Card/CardImage';
+import CardImage, { logFailedImageSummary } from '../../components/Card/CardImage';
 import CardDetails from '../../components/Card/CardDetails';
 import CardList from '../../components/Card/CardList';
 import EmptyCardSlot from '../../components/Card/EmptyCardSlot';
@@ -742,6 +742,10 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
             // Start prefetch in background (don't await - let it run independently)
             startBackgroundPrefetch(binder.id, imageUrls, 5).then(result => {
               console.log('[BinderDetail] Background prefetch complete:', result);
+              // Log failed image summary after prefetch completes (with delay for any remaining loads)
+              setTimeout(() => {
+                logFailedImageSummary();
+              }, 3000);
             }).catch(err => {
               console.error('[BinderDetail] Background prefetch error:', err);
             });

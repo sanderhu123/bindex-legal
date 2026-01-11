@@ -77,6 +77,7 @@ export default function CardItem({ card, onPress, binderId, width, variant = 'gr
             isMissing={!card.isOwned}
             aspectRatio={0.7}
             style={styles.listImageWrapper}
+            cardInfo={{ id: card.id, name: card.name, set: card.set }}
           />
           {badge && (
             <View style={[styles.listVariantBadge, { backgroundColor: badge.color }]}>
@@ -119,6 +120,7 @@ export default function CardItem({ card, onPress, binderId, width, variant = 'gr
           isMissing={!card.isOwned}
           aspectRatio={0.7}
           style={styles.cardImageWrapper}
+          cardInfo={{ id: card.id, name: card.name, set: card.set }}
         />
         <TouchableOpacity 
           style={styles.checkboxOverlay}

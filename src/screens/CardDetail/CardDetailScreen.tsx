@@ -132,9 +132,11 @@ export default function CardDetailScreen({ navigation, route }: CardDetailScreen
       console.log('[CardDetail] Card selection saved');
       
       // Update the current card to show the new image
+      // Include selectedCardId so the "Clear Selection" button stays visible
       setCard({
         ...selectedCard,
         pokedexNumber: pokedexNumber,
+        selectedCardId: selectedCard.id,
       });
       
       Alert.alert('Success', `Now showing ${selectedCard.name} for ${pokemonName || 'this Pokémon'}`);
@@ -302,6 +304,7 @@ export default function CardDetailScreen({ navigation, route }: CardDetailScreen
             aspectRatio={0.7}
             style={[styles.cardImage, { width: imageWidth }]}
             priority="high"
+            cardInfo={{ id: card.id, name: card.name, set: card.set }}
           />
         </View>
 

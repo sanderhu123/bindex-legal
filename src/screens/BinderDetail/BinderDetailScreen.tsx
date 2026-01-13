@@ -1761,27 +1761,41 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
     );
   };
 
-  // List view (using ScrollView as before)
+  // Render a single card for list view FlatList
+  const renderListCard = useCallback(
+    ({ item }: { item: CardWithOwnership }) => (
+      <CardItem
+        card={item}
+        onPress={handleToggleCard}
+        binderId={binder?.id || ''}
+        variant="list"
+        listTapBehavior="toggle"
+      />
+    ),
+    [handleToggleCard, binder?.id]
+  );
+
+  // List view - uses FlatList for virtualization (much faster than ScrollView + map)
   // Note: Custom mode only supports grid view (always falls through to grid)
   // Step 34A: List view tap toggles ownership (no card details navigation)
   if (viewMode === 'list' && !isCustomMode) {
     return (
       <SafeAreaView style={styles.safeArea}>
-        <ScrollView style={styles.container}>
-          <ListHeaderComponent />
-          {loading ? (
-            <LoadingSpinner message="Loading cards..." />
-          ) : filteredCards.length === 0 ? (
-            <ListEmptyComponent />
-          ) : (
-            <CardList
-              cards={filteredCards}
-              onCardPress={handleToggleCard}
-              binderId={binder.id}
-              listTapBehavior="toggle"
-            />
-          )}
-        </ScrollView>
+        <FlatList
+          data={filteredCards}
+          renderItem={renderListCard}
+          keyExtractor={keyExtractor}
+          contentContainerStyle={styles.flatListContainer}
+          ListHeaderComponent={ListHeaderComponent}
+          ListFooterComponent={ListFooterComponent}
+          ListEmptyComponent={ListEmptyComponent}
+          // Performance optimizations
+          removeClippedSubviews={false}
+          maxToRenderPerBatch={20}
+          windowSize={11}
+          initialNumToRender={15}
+          extraData={cards}
+        />
         <EnlargedCardOverlay />
       </SafeAreaView>
     );

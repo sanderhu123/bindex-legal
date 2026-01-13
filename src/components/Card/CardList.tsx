@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, StyleSheet } from 'react-native';
+import React, { useCallback, memo } from 'react';
+import { FlatList, StyleSheet } from 'react-native';
 import CardItem from './CardItem';
 import type { Card } from '../../types';
 
@@ -14,22 +14,52 @@ interface CardListProps {
   listTapBehavior?: 'navigate' | 'toggle'; // Step 34A: what happens when list row is tapped
 }
 
-export default function CardList({ cards, onCardPress, binderId, listTapBehavior = 'toggle' }: CardListProps) {
+/**
+ * CardList component - uses FlatList for virtualization
+ * This is much faster than .map() when switching view modes
+ */
+function CardListComponent({ cards, onCardPress, binderId, listTapBehavior = 'toggle' }: CardListProps) {
+  // Memoized render function for better performance
+  const renderCard = useCallback(
+    ({ item }: { item: CardWithOwnership }) => (
+      <CardItem
+        card={item}
+        onPress={onCardPress}
+        binderId={binderId}
+        variant="list"
+        listTapBehavior={listTapBehavior}
+      />
+    ),
+    [onCardPress, binderId, listTapBehavior]
+  );
+
+  // Key extractor for FlatList
+  const keyExtractor = useCallback((item: CardWithOwnership) => item.id, []);
+
   return (
-    <View style={styles.list}>
-      {cards.map((card) => (
-        <CardItem
-          key={card.id}
-          card={card}
-          onPress={onCardPress}
-          binderId={binderId}
-          variant="list"
-          listTapBehavior={listTapBehavior}
-        />
-      ))}
-    </View>
+    <FlatList
+      data={cards}
+      renderItem={renderCard}
+      keyExtractor={keyExtractor}
+      contentContainerStyle={styles.list}
+      // Performance optimizations
+      removeClippedSubviews={false} // Causes issues on some devices
+      maxToRenderPerBatch={20}
+      windowSize={11}
+      initialNumToRender={15}
+      // Disable scroll since parent ScrollView handles it
+      scrollEnabled={false}
+      // Prevent nested scroll issues
+      nestedScrollEnabled={false}
+      // Re-render when cards change
+      extraData={cards}
+    />
   );
 }
+
+// Memoize the entire list to prevent re-renders when parent state changes
+const CardList = memo(CardListComponent);
+export default CardList;
 
 const styles = StyleSheet.create({
   list: {

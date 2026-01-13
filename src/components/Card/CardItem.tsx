@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { StackNavigationProp } from '@react-navigation/stack';
@@ -42,7 +42,11 @@ function getVariantBadge(variant?: string) {
   return badges[variant] || null;
 }
 
-export default function CardItem({ 
+/**
+ * Card item component - memoized to prevent unnecessary re-renders
+ * when switching between view modes or when other cards change.
+ */
+function CardItemComponent({ 
   card, 
   onPress, 
   onLongPress,
@@ -183,6 +187,34 @@ export default function CardItem({
     </TouchableOpacity>
   );
 }
+
+/**
+ * Custom comparison function for React.memo
+ * Only re-render if card ownership, image, or key props changed
+ */
+function arePropsEqual(prevProps: CardItemProps, nextProps: CardItemProps): boolean {
+  // Always re-render if card ID changes
+  if (prevProps.card.id !== nextProps.card.id) return false;
+  
+  // Re-render if ownership status changes
+  if (prevProps.card.isOwned !== nextProps.card.isOwned) return false;
+  
+  // Re-render if image URL changes (for Region mode card selections)
+  if (prevProps.card.imageUrl !== nextProps.card.imageUrl) return false;
+  
+  // Re-render if variant changes
+  if (prevProps.variant !== nextProps.variant) return false;
+  
+  // Re-render if width changes (for grid layout)
+  if (prevProps.width !== nextProps.width) return false;
+  
+  // All relevant props are the same, skip re-render
+  return true;
+}
+
+// Export memoized component to prevent unnecessary re-renders
+const CardItem = memo(CardItemComponent, arePropsEqual);
+export default CardItem;
 
 const CARD_MARGIN = 2;
 

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Dimensions } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { StackNavigationProp } from '@react-navigation/stack';
@@ -72,8 +72,9 @@ function getVariantBadge(variant?: string) {
 /**
  * BinderPageView displays one binder page at a time
  * Shows cards in a grid layout with slot numbers visible on each position
+ * Memoized for performance during view mode switches
  */
-export default function BinderPageView({
+function BinderPageViewComponent({
   cards,
   currentPage,
   totalPages,
@@ -381,3 +382,7 @@ const styles = StyleSheet.create({
     color: colors.textTertiary,
   },
 });
+
+// Memoize the component to prevent unnecessary re-renders
+const BinderPageView = memo(BinderPageViewComponent);
+export default BinderPageView;

@@ -2,6 +2,32 @@ import React, { useState } from 'react';
 import { View, StyleSheet, ActivityIndicator, Text } from 'react-native';
 import { Image, ImageSource } from 'expo-image';
 
+/**
+ * CardBackPlaceholder - A styled placeholder that looks like a Pokémon card back
+ * Used when card images are not available from the API
+ */
+function CardBackPlaceholder({ style }: { style?: any }) {
+  return (
+    <View style={[styles.cardBackContainer, style]}>
+      {/* Background gradient effect using layered views */}
+      <View style={styles.cardBackInner}>
+        {/* Decorative border */}
+        <View style={styles.cardBackBorder}>
+          {/* Center circle (Pokéball inspired) */}
+          <View style={styles.pokeballOuter}>
+            <View style={styles.pokeballDivider} />
+            <View style={styles.pokeballCenter}>
+              <View style={styles.pokeballButton} />
+            </View>
+          </View>
+        </View>
+      </View>
+      {/* "No Image" text at bottom */}
+      <Text style={styles.cardBackText}>No Image</Text>
+    </View>
+  );
+}
+
 // Track failed image URLs for debugging
 const failedImageUrls: Set<string> = new Set();
 let failedImageCount = 0;
@@ -156,9 +182,7 @@ export default function CardImage({
     
     return (
       <View style={containerStyle}>
-        <View style={styles.noImagePlaceholder}>
-          <Text style={styles.noImageText}>?</Text>
-        </View>
+        <CardBackPlaceholder />
       </View>
     );
   }
@@ -207,10 +231,7 @@ export default function CardImage({
           )}
         </>
       ) : (
-        <View style={styles.errorPlaceholder}>
-          <Text style={styles.errorText}>?</Text>
-          <Text style={styles.errorSubtext}>Image unavailable</Text>
-        </View>
+        <CardBackPlaceholder />
       )}
     </View>
   );
@@ -248,34 +269,75 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: '#999',
   },
-  errorPlaceholder: {
+  // Card back placeholder styles (Pokéball design)
+  cardBackContainer: {
     width: '100%',
     height: '100%',
+    backgroundColor: '#1a5fb4', // Classic Pokémon card back blue
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#e0e0e0',
+    position: 'relative',
   },
-  errorText: {
-    fontSize: 24,
-    color: '#999',
-    fontWeight: 'bold',
+  cardBackInner: {
+    width: '85%',
+    height: '85%',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  errorSubtext: {
-    marginTop: 4,
+  cardBackBorder: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 12,
+    borderWidth: 3,
+    borderColor: '#ffd700', // Gold border
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#2563eb', // Slightly lighter blue inside
+  },
+  pokeballOuter: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#ffffff',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 3,
+    borderColor: '#333',
+    overflow: 'hidden',
+  },
+  pokeballDivider: {
+    position: 'absolute',
+    width: '100%',
+    height: 4,
+    backgroundColor: '#333',
+    top: '50%',
+    marginTop: -2,
+  },
+  pokeballCenter: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#ffffff',
+    borderWidth: 3,
+    borderColor: '#333',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1,
+  },
+  pokeballButton: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#999',
+  },
+  cardBackText: {
+    position: 'absolute',
+    bottom: 8,
     fontSize: 10,
-    color: '#999',
-  },
-  noImagePlaceholder: {
-    width: '100%',
-    height: '100%',
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#f0f0f0',
-  },
-  noImageText: {
-    fontSize: 32,
-    color: '#ccc',
-    fontWeight: 'bold',
+    color: 'rgba(255, 255, 255, 0.7)',
+    fontWeight: '600',
   },
 });
 

@@ -1,4 +1,4 @@
-import React, { useCallback, memo } from 'react';
+import React, { useCallback, memo, useMemo } from 'react';
 import {
   View,
   StyleSheet,
@@ -6,10 +6,19 @@ import {
   FlatList,
   TouchableOpacity,
   ActivityIndicator,
+  type ListRenderItemInfo,
+  type ViewToken,
 } from 'react-native';
 import type { Card } from '../../types';
 import CardImage from '../Card/CardImage';
 import { colors, spacing, typography, borderRadius } from '../../constants/theme';
+import { canRetryError, classifyError, type AppErrorType } from '../../utils/errorUtils';
+
+/**
+ * Fixed height for each card item (used for getItemLayout optimization)
+ * This includes the card image (70px) + padding (8px top/bottom) + margins (8px top)
+ */
+const CARD_ITEM_HEIGHT = 70 + 16 + 8; // 94px total
 
 /**
  * Individual card item in search results (memoized for performance)
@@ -17,9 +26,11 @@ import { colors, spacing, typography, borderRadius } from '../../constants/theme
 interface CardItemProps {
   card: Card;
   onSelect: (card: Card) => void;
+  /** Whether the item is currently visible on screen (for lazy loading) */
+  isVisible?: boolean;
 }
 
-const CardResultItem = memo(function CardResultItem({ card, onSelect }: CardItemProps) {
+const CardResultItem = memo(function CardResultItem({ card, onSelect, isVisible = true }: CardItemProps) {
   return (
     <TouchableOpacity
       style={styles.cardItem}
@@ -27,10 +38,14 @@ const CardResultItem = memo(function CardResultItem({ card, onSelect }: CardItem
       activeOpacity={0.7}
     >
       <View style={styles.cardImageContainer}>
+        {/* Use lazy loading - only load images for visible items */}
+        {/* Priority: 'low' for list items to prioritize visible content */}
         <CardImage
-          source={card.imageUrl}
+          source={isVisible ? card.imageUrl : undefined}
           isMissing={false}
           style={styles.cardImage}
+          priority="low"
+          cardInfo={{ id: card.id, name: card.name, set: card.set }}
         />
       </View>
       <View style={styles.cardInfo}>
@@ -66,6 +81,8 @@ export interface CardSearchResultsProps {
   loading?: boolean;
   /** Error message to display */
   error?: string | null;
+  /** The original error object (for determining if retry is possible) */
+  originalError?: Error | null;
   /** Whether there are more results to load */
   hasMore?: boolean;
   /** Callback to load more results */
@@ -74,6 +91,8 @@ export interface CardSearchResultsProps {
   emptyMessage?: string;
   /** Callback when scrolling begins (useful for dismissing keyboard) */
   onScrollBegin?: () => void;
+  /** Callback to retry the search (shown on retryable errors) */
+  onRetry?: () => void;
 }
 
 /**
@@ -92,18 +111,72 @@ export function CardSearchResults({
   onSelectCard,
   loading = false,
   error = null,
+  originalError = null,
   hasMore = false,
   onLoadMore,
   emptyMessage = 'No cards found',
   onScrollBegin,
+  onRetry,
 }: CardSearchResultsProps) {
   
   /**
-   * Render a single card item using memoized component
+   * Track which items are currently visible for lazy loading
+   * We use a Set for O(1) lookups
    */
-  const renderCardItem = useCallback(({ item }: { item: Card }) => (
-    <CardResultItem card={item} onSelect={onSelectCard} />
-  ), [onSelectCard]);
+  const [visibleItems, setVisibleItems] = React.useState<Set<string>>(new Set());
+  
+  /**
+   * Viewability config for tracking visible items
+   * Items are considered visible when at least 20% is on screen
+   */
+  const viewabilityConfig = useMemo(() => ({
+    itemVisiblePercentThreshold: 20,
+    minimumViewTime: 100, // Minimum time visible before triggering
+  }), []);
+  
+  /**
+   * Callback when viewable items change
+   * Updates the set of visible items for lazy loading
+   */
+  const onViewableItemsChanged = useCallback(({ viewableItems }: { viewableItems: ViewToken[] }) => {
+    const newVisibleSet = new Set<string>();
+    viewableItems.forEach((item) => {
+      if (item.item?.id) {
+        newVisibleSet.add(item.item.id);
+      }
+    });
+    setVisibleItems(newVisibleSet);
+  }, []);
+  
+  /**
+   * Stable ref for viewableItemsChanged callback (required by FlatList)
+   */
+  const viewabilityConfigCallbackPairs = useMemo(() => [{
+    viewabilityConfig,
+    onViewableItemsChanged,
+  }], [viewabilityConfig, onViewableItemsChanged]);
+  
+  /**
+   * getItemLayout for fixed-height items (improves scroll performance)
+   * Allows FlatList to calculate scroll positions without measuring each item
+   */
+  const getItemLayout = useCallback((_data: Card[] | null | undefined, index: number) => ({
+    length: CARD_ITEM_HEIGHT,
+    offset: CARD_ITEM_HEIGHT * index,
+    index,
+  }), []);
+  
+  /**
+   * Render a single card item using memoized component
+   * Pass visibility status for lazy image loading
+   */
+  const renderCardItem = useCallback(({ item }: ListRenderItemInfo<Card>) => (
+    <CardResultItem 
+      card={item} 
+      onSelect={onSelectCard}
+      isVisible={visibleItems.size === 0 || visibleItems.has(item.id)}
+    />
+  ), [onSelectCard, visibleItems]);
 
   /**
    * Render the footer (loading or load more button)
@@ -140,7 +213,25 @@ export function CardSearchResults({
   }, [loading, results.length, hasMore, onLoadMore]);
 
   /**
-   * Render empty state
+   * Get error icon based on error type (Step 32C)
+   */
+  const getErrorIcon = useCallback((errorType: AppErrorType): string => {
+    switch (errorType) {
+      case 'network':
+        return '📶'; // Network/signal icon
+      case 'rate_limit':
+        return '⏳'; // Hourglass for wait
+      case 'not_found':
+        return '🔍'; // Search not found
+      case 'server':
+        return '🔧'; // Server/maintenance
+      default:
+        return '⚠️'; // Generic warning
+    }
+  }, []);
+
+  /**
+   * Render empty state (enhanced for Step 32C)
    */
   const renderEmptyState = useCallback(() => {
     if (loading) {
@@ -153,21 +244,44 @@ export function CardSearchResults({
     }
 
     if (error) {
+      // Determine error type and if retry is possible
+      const errorType = originalError ? classifyError(originalError) : 'unknown';
+      const showRetry = onRetry && (originalError ? canRetryError(originalError) : true);
+      const icon = getErrorIcon(errorType);
+      
       return (
         <View style={styles.centerContainer}>
-          <Text style={styles.errorIcon}>⚠️</Text>
+          <Text style={styles.errorIcon}>{icon}</Text>
           <Text style={styles.errorText}>{error}</Text>
+          {showRetry && (
+            <TouchableOpacity 
+              style={styles.retryButton} 
+              onPress={onRetry}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.retryButtonText}>Try Again</Text>
+            </TouchableOpacity>
+          )}
         </View>
       );
     }
 
+    // Step 32C: Enhanced empty state with helpful tips
+    const isSearchAttempted = emptyMessage.toLowerCase().includes('no cards found');
+    
     return (
       <View style={styles.centerContainer}>
-        <Text style={styles.emptyIcon}>🔎</Text>
+        <Text style={styles.emptyIcon}>{isSearchAttempted ? '🤔' : '🔎'}</Text>
         <Text style={styles.emptyText}>{emptyMessage}</Text>
+        {isSearchAttempted && (
+          <Text style={styles.emptyHint}>
+            Try searching by the full Pokémon name{'\n'}
+            (e.g., "Pikachu" or "Charizard")
+          </Text>
+        )}
       </View>
     );
-  }, [loading, error, emptyMessage]);
+  }, [loading, error, originalError, emptyMessage, onRetry, getErrorIcon]);
 
   return (
     <FlatList
@@ -183,11 +297,16 @@ export function CardSearchResults({
       onScrollBeginDrag={onScrollBegin}
       onEndReached={hasMore && onLoadMore ? onLoadMore : undefined}
       onEndReachedThreshold={0.3}
-      // Performance optimizations
+      // Performance optimizations (Step 32B)
       removeClippedSubviews={true}
       maxToRenderPerBatch={10}
-      windowSize={5}
+      windowSize={7}
       initialNumToRender={10}
+      updateCellsBatchingPeriod={50}
+      // getItemLayout for instant scroll calculations (fixed item height)
+      getItemLayout={getItemLayout}
+      // Viewability tracking for lazy image loading
+      viewabilityConfigCallbackPairs={viewabilityConfigCallbackPairs}
     />
   );
 }
@@ -288,6 +407,14 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     textAlign: 'center',
   },
+  // Step 32C: Hint text for empty search results
+  emptyHint: {
+    fontSize: typography.sm,
+    color: colors.textTertiary,
+    textAlign: 'center',
+    marginTop: spacing.sm,
+    lineHeight: 20,
+  },
   footerLoading: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -322,6 +449,19 @@ const styles = StyleSheet.create({
   footerEndText: {
     fontSize: typography.xs,
     color: colors.textTertiary,
+  },
+  // Step 32C: Retry button styles
+  retryButton: {
+    marginTop: spacing.md,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    backgroundColor: colors.primary,
+    borderRadius: borderRadius.md,
+  },
+  retryButtonText: {
+    fontSize: typography.base,
+    fontWeight: typography.semibold,
+    color: colors.background,
   },
 });
 

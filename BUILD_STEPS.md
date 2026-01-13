@@ -4233,7 +4233,7 @@ if (binder.collectionMode === 'region') {
 ---
 
 ### Step 32: Polish & Integration
-- [ ] **Status**: Not started
+- [ ] **Status**: In Progress (32A ✅, 32B ✅)
 
 **What we're doing:** Final polish and integration of all custom card features
 
@@ -4260,32 +4260,68 @@ if (binder.collectionMode === 'region') {
 ---
 
 #### Step 32B: Performance Optimization
-- [ ] **Status**: Not started
+- [x] **Status**: Complete ✅
 
 **What we're doing:** Optimize performance for large search results and many card selections
 
-**Optimizations:**
-- [ ] Cache search results
-- [ ] Lazy load card images in picker
-- [ ] Batch load region card selections
-- [ ] Use React.memo for card items
-- [ ] Virtualized list for search results
+**Files created/updated:**
+- `src/services/searchCache.ts` - New persistent search cache service
+- `src/components/CardPicker/CardSearchResults.tsx` - Added lazy loading and getItemLayout
+- `src/services/supabase/regionCards.ts` - Added in-memory caching for region selections
+- `src/services/index.ts` - Export new search cache service
+
+**Optimizations implemented:**
+- [x] Cache search results - New `searchCache.ts` service with memory + persistent storage
+  - In-memory cache for instant access (5 min)
+  - Persistent storage via AsyncStorage (30 min)
+  - LRU-like behavior (max 20 cached searches)
+- [x] Lazy load card images in picker - Only load images for visible items
+  - Uses viewability tracking to detect visible items
+  - Images load with `priority: 'low'` for better performance
+- [x] Batch load region card selections - Single query loads all selections
+  - In-memory cache with 5 minute duration
+  - Automatic cache invalidation on updates
+- [x] Use React.memo for card items - `CardResultItem` is memoized
+- [x] Virtualized list for search results - FlatList with optimizations:
+  - `getItemLayout` for instant scroll calculations
+  - `removeClippedSubviews` to free off-screen views
+  - `maxToRenderPerBatch`, `windowSize`, `updateCellsBatchingPeriod` tuning
+
+**Performance improvements:**
+- Search results load instantly from cache on repeat searches
+- Scrolling is smoother with fixed item height (no measurement needed)
+- Images only load when visible (reduces network and memory)
+- Region card selections cached for 5 minutes (fewer database queries)
 
 ---
 
 #### Step 32C: Error Handling & Edge Cases
-- [ ] **Status**: Not started
+- [x] **Status**: Complete ✅
 
 **What we're doing:** Handle all error cases gracefully
 
-**Edge cases to handle:**
-- [ ] Card no longer exists in API (deleted set)
-- [ ] Network error during search
-- [ ] Rate limit hit during search
-- [ ] User tries to add same card twice
-- [ ] Very long Pokémon names in search
-- [ ] Special characters in search query
-- [ ] Empty search results
+**Files created/updated:**
+- `src/utils/errorUtils.ts` - New error utilities for classification and user-friendly messages
+- `src/components/CardPicker/CardSearchResults.tsx` - Added retry button, error icons, empty state hints
+- `src/hooks/useCardPicker.ts` - Added query sanitization, original error tracking
+- `src/components/CardPicker/CardPickerModal.tsx` - Pass originalError and onRetry to search results
+- `src/screens/CardDetail/CardDetailScreen.tsx` - Better error handling for missing cards
+
+**Edge cases handled:**
+- [x] Card no longer exists in API (deleted set) - Shows "This card is no longer available" message
+- [x] Network error during search - Shows 📶 icon, user-friendly message, and "Try Again" button
+- [x] Rate limit hit during search - Shows ⏳ icon, "Too many requests" message, and retry option
+- [x] User tries to add same card twice - Already handled in `addExtraCardToBinder` with error message
+- [x] Very long Pokémon names in search - Already using `numberOfLines={1}` with truncation
+- [x] Special characters in search query - Sanitized in `useCardPicker` (removes `<>{}[]\/"|` etc.)
+- [x] Empty search results - Shows 🤔 icon with helpful search tips
+
+**Error utilities added:**
+- `classifyError()` - Identifies error type (network, rate_limit, not_found, server, etc.)
+- `getUserFriendlyErrorMessage()` - Returns human-readable error messages
+- `canRetryError()` - Determines if retry is possible
+- `sanitizeSearchQuery()` - Cleans search input of dangerous characters
+- `truncateName()` - Truncates long names for display
 
 ---
 

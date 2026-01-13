@@ -97,9 +97,11 @@ export function CardPickerModal({
     results,
     loading,
     error,
+    originalError,
     hasMore,
     loadMore,
     clear,
+    search,
   } = useCardPicker({
     debounceMs: 300,
     initialQuery,
@@ -246,9 +248,11 @@ export function CardPickerModal({
               onSelectCard={handleSelectCard}
               loading={loading}
               error={error}
+              originalError={originalError}
               hasMore={hasMore}
               onLoadMore={loadMore}
               onScrollBegin={handleScrollBegin}
+              onRetry={search}
               emptyMessage={
                 query.length > 0
                   ? `No cards found for "${query}"`

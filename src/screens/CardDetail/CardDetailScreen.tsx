@@ -11,6 +11,7 @@ import CardDetails from '../../components/Card/CardDetails';
 import LoadingScreen from '../../components/Loading/LoadingScreen';
 import ErrorScreen from '../../components/Error/ErrorScreen';
 import { colors, spacing, typography, borderRadius, screenPadding, shadows } from '../../constants/theme';
+import { getUserFriendlyErrorMessage, isNotFoundError } from '../../utils/errorUtils';
 import type { Card, Binder } from '../../types';
 
 interface CardDetailScreenProps {
@@ -73,13 +74,26 @@ export default function CardDetailScreen({ navigation, route }: CardDetailScreen
         }
 
         // Fetch card and binder in parallel
-        const [cardData, binderData] = await Promise.all([
-          getCardById(cardId),
-          getBinderById(binderId),
-        ]);
+        let cardData: Card | null = null;
+        let binderData: Binder | null = null;
+        
+        try {
+          [cardData, binderData] = await Promise.all([
+            getCardById(cardId),
+            getBinderById(binderId),
+          ]);
+        } catch (fetchError) {
+          // Step 32C: Handle fetch errors with user-friendly messages
+          console.error('[CardDetail] Fetch error:', fetchError);
+          const friendlyMessage = getUserFriendlyErrorMessage(fetchError);
+          setError(friendlyMessage);
+          setLoading(false);
+          return;
+        }
 
         if (!cardData) {
-          setError(`Unable to load card '${cardId}'`);
+          // Step 32C: Card not found - may have been deleted from API
+          setError('This card is no longer available. It may have been removed from the database.');
           setLoading(false);
           return;
         }

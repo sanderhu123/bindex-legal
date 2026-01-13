@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { searchCardsByName, type CardSearchOptions } from '../services/api/pokemonApi';
 import type { Card } from '../types';
+import { getUserFriendlyErrorMessage, sanitizeSearchQuery } from '../utils/errorUtils';
 
 /**
  * Hook configuration options
@@ -33,15 +34,17 @@ export interface UseCardPickerReturn {
   results: Card[];
   /** Loading state */
   loading: boolean;
-  /** Error message if search failed */
+  /** Error message if search failed (user-friendly) */
   error: string | null;
+  /** Original error object (for retry determination) - Step 32C */
+  originalError: Error | null;
   /** Whether there are more results to load */
   hasMore: boolean;
   /** Load more results (pagination) */
   loadMore: () => void;
   /** Clear search and results */
   clear: () => void;
-  /** Manually trigger search */
+  /** Manually trigger search (also used as retry) */
   search: () => void;
   /** Total results found (may be more than loaded) */
   totalFound: number;
@@ -76,6 +79,7 @@ export function useCardPicker(options?: UseCardPickerOptions): UseCardPickerRetu
   const [results, setResults] = useState<Card[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [originalError, setOriginalError] = useState<Error | null>(null); // Step 32C
   const [hasMore, setHasMore] = useState(false);
   const [totalFound, setTotalFound] = useState(0);
   const [offset, setOffset] = useState(0);
@@ -85,15 +89,19 @@ export function useCardPicker(options?: UseCardPickerOptions): UseCardPickerRetu
   const abortControllerRef = useRef<AbortController | null>(null);
 
   /**
-   * Execute the search
+   * Execute the search (enhanced for Step 32C)
    */
   const executeSearch = useCallback(async (searchQuery: string, searchOffset: number = 0) => {
+    // Step 32C: Sanitize the query to prevent special character issues
+    const sanitizedQuery = sanitizeSearchQuery(searchQuery);
+    
     // Skip empty queries
-    if (!searchQuery.trim()) {
+    if (!sanitizedQuery) {
       setResults([]);
       setTotalFound(0);
       setHasMore(false);
       setError(null);
+      setOriginalError(null);
       return;
     }
 
@@ -106,10 +114,16 @@ export function useCardPicker(options?: UseCardPickerOptions): UseCardPickerRetu
     setLoading(true);
     if (searchOffset === 0) {
       setError(null);
+      setOriginalError(null);
     }
 
     try {
-      console.log('[useCardPicker] Executing search:', { query: searchQuery, offset: searchOffset, pageSize });
+      console.log('[useCardPicker] Executing search:', { 
+        query: searchQuery, 
+        sanitizedQuery,
+        offset: searchOffset, 
+        pageSize 
+      });
 
       const searchOptions: CardSearchOptions = {
         limit: pageSize,
@@ -120,10 +134,10 @@ export function useCardPicker(options?: UseCardPickerOptions): UseCardPickerRetu
 
       // API now returns cards already sorted by set release date (newest first)
       // and properly paginated from a cached sorted list
-      const cards = await searchCardsByName(searchQuery, searchOptions);
+      const cards = await searchCardsByName(sanitizedQuery, searchOptions);
 
       console.log('[useCardPicker] Search complete:', { 
-        query: searchQuery, 
+        query: sanitizedQuery, 
         resultsCount: cards.length,
         offset: searchOffset,
         note: 'Cards pre-sorted by API (newest first)',
@@ -144,6 +158,10 @@ export function useCardPicker(options?: UseCardPickerOptions): UseCardPickerRetu
       // If we got a full page, assume there could be more
       setHasMore(cards.length === pageSize);
       setOffset(searchOffset + cards.length);
+      
+      // Clear any previous errors on success
+      setError(null);
+      setOriginalError(null);
 
     } catch (err: any) {
       // Ignore abort errors
@@ -153,7 +171,11 @@ export function useCardPicker(options?: UseCardPickerOptions): UseCardPickerRetu
       }
 
       console.error('[useCardPicker] Search error:', err);
-      setError(err?.message || 'Failed to search cards');
+      
+      // Step 32C: Store both user-friendly message and original error
+      const originalErr = err instanceof Error ? err : new Error(String(err));
+      setOriginalError(originalErr);
+      setError(getUserFriendlyErrorMessage(originalErr));
       
       if (searchOffset === 0) {
         setResults([]);
@@ -210,6 +232,7 @@ export function useCardPicker(options?: UseCardPickerOptions): UseCardPickerRetu
     setQueryInternal('');
     setResults([]);
     setError(null);
+    setOriginalError(null); // Step 32C
     setHasMore(false);
     setTotalFound(0);
     setOffset(0);
@@ -252,6 +275,7 @@ export function useCardPicker(options?: UseCardPickerOptions): UseCardPickerRetu
     results,
     loading,
     error,
+    originalError, // Step 32C: for retry button determination
     hasMore,
     loadMore,
     clear,

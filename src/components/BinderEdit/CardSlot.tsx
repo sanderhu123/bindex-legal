@@ -70,14 +70,16 @@ export function CardSlot({
           <Text style={styles.plusIcon}>+</Text>
         </View>
       ) : hasImage ? (
-        <Image
-          source={{ uri: imageUrl }}
-          style={styles.cardImage}
-          contentFit="contain"
-          transition={200}
-          cachePolicy="memory-disk"
-          recyclingKey={imageUrl}
-        />
+        <View style={styles.imageContainer}>
+          <Image
+            key={`img-${cardId}-${imageUrl}`}
+            source={{ uri: imageUrl }}
+            style={styles.cardImage}
+            contentFit="contain"
+            transition={0}
+            cachePolicy="memory-disk"
+          />
+        </View>
       ) : (
         // Fallback placeholder when no image URL
         <View style={styles.placeholderContent}>
@@ -135,7 +137,15 @@ const styles = StyleSheet.create({
     color: colors.textTertiary,
     fontWeight: '300',
   },
+  imageContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
   cardImage: {
+    flex: 1,
     width: '100%',
     height: '100%',
   },

@@ -4901,7 +4901,7 @@ if (viewMode === 'grid' && showPageBreaks && cardSections) {
 ---
 
 #### Step 33G: Handle Variants in Position System
-- [ ] **Status**: Not started
+- [x] **Status**: Complete
 
 **What we're doing:** Ensure variant cards (base, reverse-holo, etc.) each have their own position displayed correctly.
 
@@ -4923,11 +4923,11 @@ When `variantPlacement` is "end":
 - Each variant is a separate card with its own index
 
 **Testing:**
-- [ ] Base card shows correct position
-- [ ] Reverse-holo variant shows different position (next slot)
-- [ ] "Grouped" placement: variants adjacent to base card
-- [ ] "End" placement: all variants at end with correct positions
-- [ ] Card detail shows correct position for each variant
+- [x] Base card shows correct position
+- [x] Reverse-holo variant shows different position (next slot)
+- [x] "Grouped" placement: variants adjacent to base card
+- [x] "End" placement: all variants at end with correct positions
+- [x] Card detail shows correct position for each variant
 
 **How to Test Step 33G:**
 
@@ -4957,7 +4957,7 @@ When `variantPlacement` is "end":
 - [ ] Page navigation works (arrows and jump)
 - [ ] Position shows in Card Details (Step 33E)
 - [ ] Page headers toggle works in Grid view (Step 33F)
-- [ ] Variants have correct positions (Step 33G)
+- [x] Variants have correct positions (Step 33G)
 - [ ] Works for Master Set binders
 - [ ] Works for Region binders
 - [ ] Works for Custom binders

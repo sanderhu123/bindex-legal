@@ -63,11 +63,12 @@ export function JumpToPageModal({
   const inputRef = useRef<TextInput>(null);
 
   /**
-   * Reset state when modal opens
+   * Reset state when modal opens - pre-populate with current page number
    */
   useEffect(() => {
     if (visible) {
-      setInputValue('');
+      // Pre-populate with current page so cursor is centered with the text
+      setInputValue(currentPage.toString());
       setError(null);
       // Auto-focus input after a short delay (for animation)
       const timer = setTimeout(() => {
@@ -75,7 +76,7 @@ export function JumpToPageModal({
       }, 100);
       return () => clearTimeout(timer);
     }
-  }, [visible]);
+  }, [visible, currentPage]);
 
   /**
    * Validate and submit the page number

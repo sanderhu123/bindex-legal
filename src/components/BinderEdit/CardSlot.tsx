@@ -90,12 +90,10 @@ export function CardSlot({
         </View>
       )}
       
-      {/* Selection indicator */}
+      {/* Selection indicator - small corner badge instead of overlay */}
       {isSelected && (
-        <View style={styles.selectionOverlay}>
-          <View style={styles.checkmark}>
-            <Text style={styles.checkmarkText}>✓</Text>
-          </View>
+        <View style={styles.selectionBadge}>
+          <Text style={styles.checkmarkText}>✓</Text>
         </View>
       )}
     </TouchableOpacity>
@@ -123,9 +121,15 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   selectedContainer: {
-    borderWidth: 3,
+    borderWidth: 4,
     borderStyle: 'solid',
     borderColor: colors.primary,
+    // Add glow effect for better visibility
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.5,
+    shadowRadius: 6,
+    elevation: 5,
   },
   emptyContent: {
     flex: 1,
@@ -166,27 +170,27 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontWeight: '500',
   },
-  selectionOverlay: {
+  // Selection badge - small corner indicator (no overlay to avoid grey flash)
+  selectionBadge: {
     position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0, 122, 255, 0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  checkmark: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    top: 4,
+    right: 4,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
     backgroundColor: colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
+    // Add shadow for visibility on light cards
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.3,
+    shadowRadius: 2,
+    elevation: 3,
   },
   checkmarkText: {
     color: colors.background,
-    fontSize: 18,
+    fontSize: 14,
     fontWeight: 'bold',
   },
 });

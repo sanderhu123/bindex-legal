@@ -107,31 +107,23 @@ export default function CardItem({
   };
 
   if (variant === 'list') {
+    // Step 34A: List view is text-only (no images) for faster scrolling
     return (
       <TouchableOpacity
         style={[styles.listItem, !card.isOwned && styles.missingListItem]}
         onPress={handleListRowPress}
         activeOpacity={0.7}
       >
-        <View style={styles.listImageContainer}>
-          <CardImage
-            source={card.imageUrl}
-            isMissing={!card.isOwned}
-            aspectRatio={0.7}
-            style={styles.listImageWrapper}
-            cardInfo={{ id: card.id, name: card.name, set: card.set }}
-          />
-          {badge && (
-            <View style={[styles.listVariantBadge, { backgroundColor: badge.color }]}>
-              <Text style={styles.listVariantBadgeText}>{badge.label}</Text>
-            </View>
-          )}
-        </View>
         <View style={styles.listInfo}>
-          <Text style={styles.listCardName}>{card.name}</Text>
+          <View style={styles.listNameRow}>
+            <Text style={styles.listCardName} numberOfLines={1}>{card.name}</Text>
+            {badge && (
+              <View style={[styles.listVariantBadgeInline, { backgroundColor: badge.color }]}>
+                <Text style={styles.listVariantBadgeText}>{badge.label}</Text>
+              </View>
+            )}
+          </View>
           <Text style={styles.listCardNumber}>{card.number}</Text>
-          {card.set && <Text style={styles.listCardSet}>{card.set}</Text>}
-          {card.pokedexNumber && <Text style={styles.listCardSet}>Pokédex: #{card.pokedexNumber}</Text>}
           {card.rarity && <Text style={styles.listCardRarity}>{card.rarity}</Text>}
         </View>
         <TouchableOpacity 
@@ -243,53 +235,52 @@ const styles = StyleSheet.create({
     textShadowRadius: 2,
     includeFontPadding: false,
   },
-  // List view styles
+  // List view styles (text-only, no images)
   listItem: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#fff',
     borderRadius: 8,
-    padding: 12,
-    marginBottom: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    marginBottom: 6,
     borderWidth: 1,
     borderColor: '#e0e0e0',
   },
   missingListItem: {
     opacity: 0.6,
   },
-  listImageContainer: {
-    width: 60,
-    height: 84, // 60 * 0.7 aspect ratio
-    marginRight: 12,
-    position: 'relative',
-  },
-  listImageWrapper: {
-    width: 60,
-    height: 84,
-    borderRadius: 6,
-  },
   listInfo: {
     flex: 1,
+  },
+  listNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 2,
   },
   listCardName: {
     fontSize: 16,
     fontWeight: '600',
     color: '#333',
-    marginBottom: 4,
+    flex: 1,
   },
   listCardNumber: {
     fontSize: 14,
     color: '#666',
-    marginBottom: 2,
-  },
-  listCardSet: {
-    fontSize: 12,
-    color: '#999',
-    marginBottom: 2,
+    marginBottom: 1,
   },
   listCardRarity: {
     fontSize: 12,
     color: '#999',
+  },
+  listVariantBadgeInline: {
+    marginLeft: 8,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    minWidth: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   listCheckbox: {
     marginLeft: 8,

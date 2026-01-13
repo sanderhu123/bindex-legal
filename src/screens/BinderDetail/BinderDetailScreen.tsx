@@ -1579,7 +1579,8 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
   const isCustomMode = binder.collectionMode === 'custom';
 
   // Header component for FlatList (binder info, progress, search, filters)
-  const ListHeaderComponent = () => (
+  // Memoized to prevent re-renders causing touch issues with view toggle
+  const listHeaderContent = useMemo(() => (
     <View style={styles.headerContainer}>
       {/* Step 34A: Header row with title and Edit button */}
       <View style={styles.titleRow}>
@@ -1705,7 +1706,25 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
         </Text>
       </View>
     </View>
-  );
+  ), [
+    binder, 
+    viewMode, 
+    searchQuery, 
+    ownershipFilter, 
+    showPageBreaks, 
+    isCustomMode, 
+    isMasterSetMode,
+    ownedCount, 
+    totalCount, 
+    progressPercentage,
+    positionCards,
+    customMaxSlots,
+    collectionModeText,
+    navigation,
+  ]);
+
+  // Wrapper component to pass memoized content to FlatList
+  const ListHeaderComponent = useCallback(() => listHeaderContent, [listHeaderContent]);
 
   // Footer component (loading indicator for pagination)
   const ListFooterComponent = () => {

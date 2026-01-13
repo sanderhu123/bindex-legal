@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect } from 'react';
+import React, { useCallback, useEffect, useRef } from 'react';
 import {
   View,
   StyleSheet,
@@ -8,8 +8,9 @@ import {
   Modal,
   KeyboardAvoidingView,
   Platform,
-  Dimensions,
+  useWindowDimensions,
   TouchableWithoutFeedback,
+  Keyboard,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { Card } from '../../types';
@@ -17,7 +18,10 @@ import { useCardPicker } from '../../hooks/useCardPicker';
 import { CardSearchResults } from './CardSearchResults';
 import { colors, spacing, typography, borderRadius, shadows } from '../../constants/theme';
 
-const { height: SCREEN_HEIGHT } = Dimensions.get('window');
+/** Modal height as percentage of screen (85%) */
+const MODAL_HEIGHT_RATIO = 0.85;
+/** Animation duration in milliseconds */
+const ANIMATION_DURATION = 300;
 
 /**
  * Props for CardPickerModal component
@@ -76,6 +80,11 @@ export function CardPickerModal({
   pokemonOnly = false,
   exactMatch,
 }: CardPickerModalProps) {
+  // Get dynamic screen dimensions for responsive layout
+  const { height: screenHeight, width: screenWidth } = useWindowDimensions();
+  
+  // Ref to the search input for managing focus
+  const searchInputRef = useRef<TextInput>(null);
   
   // Default exactMatch to true when initialQuery is provided (region mode)
   // This prevents "Pidgeot" from matching "Pidgeotto" cards
@@ -100,10 +109,18 @@ export function CardPickerModal({
   });
 
   /**
+   * Dismiss keyboard when scrolling results
+   */
+  const handleScrollBegin = useCallback(() => {
+    Keyboard.dismiss();
+  }, []);
+
+  /**
    * Handle card selection
    */
   const handleSelectCard = useCallback((card: Card) => {
     console.log('[CardPickerModal] Card selected:', { id: card.id, name: card.name });
+    Keyboard.dismiss();
     onSelectCard(card);
     onClose();
   }, [onSelectCard, onClose]);
@@ -113,6 +130,7 @@ export function CardPickerModal({
    */
   const handleClose = useCallback(() => {
     console.log('[CardPickerModal] Modal closed');
+    Keyboard.dismiss();
     clear();
     onClose();
   }, [clear, onClose]);
@@ -137,10 +155,13 @@ export function CardPickerModal({
       // Small delay to allow close animation
       const timer = setTimeout(() => {
         clear();
-      }, 300);
+      }, ANIMATION_DURATION);
       return () => clearTimeout(timer);
     }
   }, [visible, clear]);
+
+  // Calculate modal height based on screen size
+  const modalHeight = screenHeight * MODAL_HEIGHT_RATIO;
 
   return (
     <Modal
@@ -148,6 +169,7 @@ export function CardPickerModal({
       animationType="slide"
       transparent={true}
       onRequestClose={handleClose}
+      statusBarTranslucent={Platform.OS === 'android'}
     >
       {/* Backdrop */}
       <TouchableWithoutFeedback onPress={handleBackdropPress}>
@@ -156,8 +178,9 @@ export function CardPickerModal({
 
       {/* Bottom Sheet */}
       <KeyboardAvoidingView
-        style={styles.bottomSheet}
+        style={[styles.bottomSheet, { height: modalHeight }]}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
       >
         <SafeAreaView style={styles.safeArea} edges={['bottom']}>
           {/* Handle bar */}
@@ -170,11 +193,12 @@ export function CardPickerModal({
             <TouchableOpacity
               style={styles.cancelButton}
               onPress={handleClose}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
               <Text style={styles.cancelText}>Cancel</Text>
             </TouchableOpacity>
             
-            <Text style={styles.title}>{title}</Text>
+            <Text style={styles.title} numberOfLines={1}>{title}</Text>
             
             {/* Placeholder for symmetry */}
             <View style={styles.cancelButton}>
@@ -187,6 +211,7 @@ export function CardPickerModal({
             <View style={styles.searchInputContainer}>
               <Text style={styles.searchIcon}>🔍</Text>
               <TextInput
+                ref={searchInputRef}
                 style={styles.searchInput}
                 placeholder="Search by Pokémon name..."
                 placeholderTextColor={colors.textTertiary}
@@ -196,11 +221,17 @@ export function CardPickerModal({
                 autoCapitalize="none"
                 autoCorrect={false}
                 autoFocus={!initialQuery}
+                blurOnSubmit={true}
+                onSubmitEditing={() => Keyboard.dismiss()}
               />
               {query.length > 0 && (
                 <TouchableOpacity
                   style={styles.clearButton}
-                  onPress={clear}
+                  onPress={() => {
+                    clear();
+                    searchInputRef.current?.focus();
+                  }}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                 >
                   <Text style={styles.clearIcon}>✕</Text>
                 </TouchableOpacity>
@@ -217,6 +248,7 @@ export function CardPickerModal({
               error={error}
               hasMore={hasMore}
               onLoadMore={loadMore}
+              onScrollBegin={handleScrollBegin}
               emptyMessage={
                 query.length > 0
                   ? `No cards found for "${query}"`
@@ -244,7 +276,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    height: SCREEN_HEIGHT * 0.85, // 85% of screen height
+    // height is set dynamically via style prop using useWindowDimensions
     backgroundColor: colors.background,
     borderTopLeftRadius: borderRadius.xl,
     borderTopRightRadius: borderRadius.xl,

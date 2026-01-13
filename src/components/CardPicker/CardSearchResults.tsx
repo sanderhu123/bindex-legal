@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, memo } from 'react';
 import {
   View,
   StyleSheet,
@@ -10,6 +10,49 @@ import {
 import type { Card } from '../../types';
 import CardImage from '../Card/CardImage';
 import { colors, spacing, typography, borderRadius } from '../../constants/theme';
+
+/**
+ * Individual card item in search results (memoized for performance)
+ */
+interface CardItemProps {
+  card: Card;
+  onSelect: (card: Card) => void;
+}
+
+const CardResultItem = memo(function CardResultItem({ card, onSelect }: CardItemProps) {
+  return (
+    <TouchableOpacity
+      style={styles.cardItem}
+      onPress={() => onSelect(card)}
+      activeOpacity={0.7}
+    >
+      <View style={styles.cardImageContainer}>
+        <CardImage
+          source={card.imageUrl}
+          isMissing={false}
+          style={styles.cardImage}
+        />
+      </View>
+      <View style={styles.cardInfo}>
+        <Text style={styles.cardName} numberOfLines={1}>
+          {card.name}
+        </Text>
+        <Text style={styles.cardDetails} numberOfLines={1}>
+          #{card.number} • {card.set || 'Unknown Set'}
+        </Text>
+        {card.rarity ? (
+          <Text style={styles.cardRarity}>{card.rarity}</Text>
+        ) : null}
+        {card.supertype ? (
+          <Text style={styles.cardSupertype}>{card.supertype}</Text>
+        ) : null}
+      </View>
+      <View style={styles.selectIndicator}>
+        <Text style={styles.selectIcon}>›</Text>
+      </View>
+    </TouchableOpacity>
+  );
+});
 
 /**
  * Props for CardSearchResults component
@@ -29,6 +72,8 @@ export interface CardSearchResultsProps {
   onLoadMore?: () => void;
   /** Empty state message */
   emptyMessage?: string;
+  /** Callback when scrolling begins (useful for dismissing keyboard) */
+  onScrollBegin?: () => void;
 }
 
 /**
@@ -50,42 +95,14 @@ export function CardSearchResults({
   hasMore = false,
   onLoadMore,
   emptyMessage = 'No cards found',
+  onScrollBegin,
 }: CardSearchResultsProps) {
   
   /**
-   * Render a single card item
+   * Render a single card item using memoized component
    */
   const renderCardItem = useCallback(({ item }: { item: Card }) => (
-    <TouchableOpacity
-      style={styles.cardItem}
-      onPress={() => onSelectCard(item)}
-      activeOpacity={0.7}
-    >
-      <View style={styles.cardImageContainer}>
-        <CardImage
-          source={item.imageUrl}
-          isMissing={false}
-          style={styles.cardImage}
-        />
-      </View>
-      <View style={styles.cardInfo}>
-        <Text style={styles.cardName} numberOfLines={1}>
-          {item.name}
-        </Text>
-        <Text style={styles.cardDetails} numberOfLines={1}>
-          #{item.number} • {item.set || 'Unknown Set'}
-        </Text>
-        {item.rarity ? (
-          <Text style={styles.cardRarity}>{item.rarity}</Text>
-        ) : null}
-        {item.supertype ? (
-          <Text style={styles.cardSupertype}>{item.supertype}</Text>
-        ) : null}
-      </View>
-      <View style={styles.selectIndicator}>
-        <Text style={styles.selectIcon}>›</Text>
-      </View>
-    </TouchableOpacity>
+    <CardResultItem card={item} onSelect={onSelectCard} />
   ), [onSelectCard]);
 
   /**
@@ -162,8 +179,15 @@ export function CardSearchResults({
       ListFooterComponent={renderFooter}
       showsVerticalScrollIndicator={true}
       keyboardShouldPersistTaps="handled"
+      keyboardDismissMode="on-drag"
+      onScrollBeginDrag={onScrollBegin}
       onEndReached={hasMore && onLoadMore ? onLoadMore : undefined}
       onEndReachedThreshold={0.3}
+      // Performance optimizations
+      removeClippedSubviews={true}
+      maxToRenderPerBatch={10}
+      windowSize={5}
+      initialNumToRender={10}
     />
   );
 }

@@ -4240,20 +4240,22 @@ if (binder.collectionMode === 'region') {
 ---
 
 #### Step 32A: Unified Card Picker Experience
-- [ ] **Status**: Not started
+- [x] **Status**: Complete ✅
 
 **What we're doing:** Ensure card picker works consistently across all features
 
-**Files to review/update:**
-- All files using CardPickerModal
-- Consistent styling and behavior
+**Files updated:**
+- `src/components/CardPicker/CardPickerModal.tsx` - Improved with responsive layout, keyboard handling
+- `src/components/CardPicker/CardSearchResults.tsx` - Added memoization, keyboard dismiss on scroll
 
-**Checklist:**
-- [ ] Same animation for all uses
-- [ ] Same search behavior
-- [ ] Same result display
-- [ ] Proper keyboard handling
-- [ ] Works on all screen sizes
+**Improvements made:**
+- [x] Same animation for all uses (slide up, 300ms timing)
+- [x] Same search behavior (debounced, 300ms)
+- [x] Same result display (memoized CardResultItem component)
+- [x] Proper keyboard handling (dismiss on scroll, submit, backdrop press)
+- [x] Works on all screen sizes (useWindowDimensions for responsive layout)
+- [x] Performance optimizations (React.memo, FlatList tuning)
+- [x] hitSlop on buttons for better touch targets
 
 ---
 

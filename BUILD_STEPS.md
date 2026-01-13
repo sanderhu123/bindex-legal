@@ -1,8 +1,8 @@
 # Build Steps - Pokémon TCG Binder Tracker App
 
-> **📅 Last Updated:** January 6, 2026  
-> **🎯 Status:** ~85% Complete - Core features done, advanced collection features planned  
-> **✅ Major Milestones:** All phases 1-7 complete, Phase 8 (API integration) complete, Phase 9 (Monetization) planned, Phase 10 (Advanced Features) planned
+> **📅 Last Updated:** January 13, 2026  
+> **🎯 Status:** ~75% Complete - Core features done, Binder Edit Mode and advanced features planned  
+> **✅ Major Milestones:** All phases 1-7 complete, Phase 8 (API integration) complete, Phase 9 (Monetization) planned, Phase 10 (Advanced Features) planned, Step 34 (Binder Edit Mode) planned
 
 ## Overview
 
@@ -57,6 +57,16 @@ This guide walks you through building the app step-by-step. We'll build it incre
 - **Step 31**: Region Mode Card Selection - Not started
 - **Step 32**: Polish & Integration for Phase 10 - Not started
 - **Step 33**: Binder Position System (Physical Binder Organizer) - Not started
+- **Step 34**: Binder Edit Mode (Physical Binder Organizer) - Not started
+  - Step 34A: Update View Modes UI & Interactions
+  - Step 34B: Create Binder Edit Screen (Master Set / Custom)
+  - Step 34C: Implement Tap-to-Select System (with Remove button)
+  - Step 34D: Implement Card Placeholder Tray & Trash Zone
+  - Step 34E: Implement Insert Functionality (Plus Signs)
+  - Step 34F: Implement Drag & Drop System
+  - Step 34G: Implement Undo & Save System
+  - Step 34H: Region Binder Edit (Simple Version Picker)
+  - Step 34I: Database Storage for Card Positions
 - **Step 25**: Build for Production - Not started
 - **Step 26**: Deploy to App Stores - Not started
 
@@ -4961,6 +4971,2101 @@ When `variantPlacement` is "end":
 - [ ] Works for Master Set binders
 - [ ] Works for Region binders
 - [ ] Works for Custom binders
+- [ ] Works with 3×3 layout
+- [ ] Works with 4×3 layout
+- [ ] No TypeScript errors
+- [ ] No console errors
+- [ ] Performance acceptable
+
+---
+
+### Step 34: Binder Edit Mode (Physical Binder Organizer)
+- [ ] **Status**: Not started
+
+**What we're doing:** Create a comprehensive binder editing system that allows users to organize their cards like a physical binder. This includes drag & drop, tap-to-select, insert functionality, and a Card Placeholder for cross-page moves.
+
+**Overview of View Modes & Edit Button:**
+```
+┌─────────────────────────────────────────┐
+│  My Binder                  [📝 Edit]   │  ← Edit button (new)
+│                                         │
+│  View: [Grid] [List] [Binder]           │  ← 3 view modes (existing)
+│  Filter: [All ▼]                        │
+└─────────────────────────────────────────┘
+```
+
+**Key Features:**
+- **Grid View**: Visual browsing + mark owned (tap checkbox), long-press enlarges card
+- **List View**: Fast tracking (no images), tap row = toggle owned, no card details
+- **Binder View**: Visual binder pages + mark owned, long-press enlarges card
+- **Binder Edit Mode**: Full organization (Master Set/Custom) or simple version picker (Region)
+
+**Binder Type Differences:**
+
+| Feature | Master Set / Custom | Region |
+|---------|---------------------|--------|
+| Binder Edit | Full (drag, swap, insert, placeholder) | Simple (pick versions only) |
+| Card order | User arranges freely | Fixed (Pokédex order) |
+| Slots | Any card anywhere | One card per Pokémon |
+
+---
+
+#### Step 34A: Update View Modes UI & Interactions
+- [ ] **Status**: Not started
+
+**What we're doing:** Update the Grid, List, and Binder view modes to have consistent, simplified interactions. Add the "Edit" button to navigate to Binder Edit mode.
+
+**Files to modify:**
+- `src/screens/BinderDetail/BinderDetailScreen.tsx` - Add Edit button, update tap handlers
+- `src/components/Card/CardItem.tsx` - Update tap/long-press behavior
+- `src/types/navigation.ts` - Add BinderEdit screen params
+
+**Interaction Summary:**
+
+| Mode | Tap Card | Tap Checkbox | Long-Press | Card Details? |
+|------|----------|--------------|------------|---------------|
+| **Grid** | Card details | Toggle owned | Enlarge preview | ✅ Yes |
+| **List** | Toggle owned | Toggle owned | - | ❌ No |
+| **Binder (View)** | Card details | Toggle owned | Enlarge preview | ✅ Yes |
+
+**Changes to BinderDetailScreen:**
+
+1. **Add Edit button in header:**
+```tsx
+<View style={styles.headerRight}>
+  <TouchableOpacity 
+    style={styles.editButton}
+    onPress={() => navigation.navigate('BinderEdit', { binderId: binder.id })}
+  >
+    <Text style={styles.editButtonIcon}>📝</Text>
+    <Text style={styles.editButtonText}>Edit</Text>
+  </TouchableOpacity>
+</View>
+```
+
+2. **Update List view tap behavior:**
+```tsx
+// In List view, tapping the row toggles ownership (no card details)
+const handleListItemPress = (card: CardWithOwnership) => {
+  toggleCardOwnership(card.id, !card.isOwned);
+};
+```
+
+3. **Add long-press enlarge preview for Grid/Binder:**
+```tsx
+const [enlargedCard, setEnlargedCard] = useState<CardWithOwnership | null>(null);
+
+const handleLongPress = (card: CardWithOwnership) => {
+  setEnlargedCard(card);
+};
+
+const handleLongPressRelease = () => {
+  setEnlargedCard(null);
+};
+
+// Render enlarged card overlay
+{enlargedCard && (
+  <Pressable 
+    style={styles.enlargeOverlay}
+    onPressOut={handleLongPressRelease}
+  >
+    <Image 
+      source={{ uri: enlargedCard.imageUrl }}
+      style={styles.enlargedCard}
+    />
+  </Pressable>
+)}
+```
+
+**Visual - Enlarged Card Preview:**
+```
+┌─────────────────────────────────────────┐
+│  (Dimmed background)                    │
+│                                         │
+│     ┌───────────────────────┐           │
+│     │                       │           │
+│     │    Enlarged Card      │           │
+│     │       Image           │           │
+│     │                       │           │
+│     │                       │           │
+│     └───────────────────────┘           │
+│                                         │
+│  Release to close                       │
+└─────────────────────────────────────────┘
+```
+
+**Navigation Types Update:**
+
+```tsx
+// src/types/navigation.ts
+export type RootStackParamList = {
+  // ... existing params
+  BinderEdit: { binderId: string };
+};
+```
+
+**Testing:**
+- [ ] Edit button visible in binder header
+- [ ] Edit button navigates to BinderEdit screen
+- [ ] Grid: tap card = card details, tap checkbox = toggle owned
+- [ ] Grid: long-press = enlarge preview, release = close
+- [ ] List: tap row = toggle owned, no card details available
+- [ ] Binder: tap card = card details, tap checkbox = toggle owned
+- [ ] Binder: long-press = enlarge preview, release = close
+- [ ] Checkbox position unchanged from current design
+- [ ] No TypeScript errors
+
+**How to Test Step 34A:**
+
+1. **Open any binder:**
+   - Should see "📝 Edit" button in top right
+   - Tap it → should navigate to Binder Edit screen (empty for now)
+
+2. **Test Grid view:**
+   - Tap on a card image → should open card details
+   - Tap on checkbox → should toggle owned status
+   - Long-press card → card should enlarge
+   - Release → card returns to normal
+
+3. **Test List view:**
+   - Tap anywhere on the row → should toggle owned status
+   - Should NOT be able to open card details
+
+4. **Test Binder view:**
+   - Tap on a card image → should open card details
+   - Tap on checkbox → should toggle owned status
+   - Long-press card → card should enlarge
+   - Release → card returns to normal
+
+---
+
+#### Step 34B: Create Binder Edit Screen (Master Set / Custom)
+- [ ] **Status**: Not started
+
+**What we're doing:** Create the main Binder Edit screen with page navigation, card slots, and the Card Placeholder tray.
+
+**Files to create:**
+- `src/screens/BinderEdit/BinderEditScreen.tsx` - Main edit screen
+- `src/screens/BinderEdit/index.ts` - Export
+- `src/components/BinderEdit/CardSlot.tsx` - Individual card slot component
+- `src/components/BinderEdit/CardPlaceholder.tsx` - Bottom tray component
+- `src/components/BinderEdit/SelectedCardBar.tsx` - Cross-page selection reminder
+
+**Files to modify:**
+- `src/navigation/AppNavigator.tsx` - Add BinderEdit screen
+
+**Screen Layout:**
+```
+┌───────────────────────────────────────────┐
+│  [← Back]        Page 1/20          [→]   │
+│                                           │
+│  ┌──────────────────────────────────────┐ │
+│  │ 🃏 Charizard #6 selected   [Cancel]  │ │  ← Selection bar (when active)
+│  └──────────────────────────────────────┘ │
+│                                           │
+│  +  ┌────┐  +  ┌────┐  +  ┌────┐  +      │  ← Plus signs for insert
+│     │Card│     │Card│     │Card│          │
+│     │ 1  │     │ 2  │     │ 3  │          │
+│     └────┘     └────┘     └────┘          │
+│                                           │
+│  +  ┌────┐  +  ┌────┐  +  ┌────┐  +      │
+│     │Card│     │Card│     │    │          │  ← Empty slot
+│     │ 4  │     │ 5  │     │    │          │
+│     └────┘     └────┘     └────┘          │
+│                                           │
+│  +  ┌────┐  +  ┌────┐  +  ┌────┐  +      │
+│     │Card│     │    │     │    │          │
+│     │ 7  │     │    │     │    │          │
+│     └────┘     └────┘     └────┘          │
+├═══════════════════════════════════════════┤
+│  📥 CARD PLACEHOLDER                 0/18 │
+│  ╔════╗  ╔════╗  ╔════╗  ╔════╗      →   │
+│  ║    ║  ║    ║  ║    ║  ║    ║          │
+│  ╚════╝  ╚════╝  ╚════╝  ╚════╝          │
+└───────────────────────────────────────────┘
+```
+
+**BinderEditScreen Component:**
+
+```tsx
+// src/screens/BinderEdit/BinderEditScreen.tsx
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { View, StyleSheet, Alert, BackHandler } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigation, useRoute } from '@react-navigation/native';
+
+interface BinderEditScreenProps {}
+
+interface CardPosition {
+  cardId: string | null;
+  slotIndex: number; // Global index across all pages
+}
+
+interface SelectedCard {
+  cardId: string;
+  cardName: string;
+  sourceSlot: number | 'placeholder';
+  sourceIndex: number;
+}
+
+export default function BinderEditScreen() {
+  const navigation = useNavigation();
+  const route = useRoute();
+  const { binderId } = route.params as { binderId: string };
+  
+  // State
+  const [binder, setBinder] = useState<Binder | null>(null);
+  const [cardPositions, setCardPositions] = useState<CardPosition[]>([]);
+  const [originalPositions, setOriginalPositions] = useState<CardPosition[]>([]);
+  const [placeholderCards, setPlaceholderCards] = useState<string[]>([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [selectedCard, setSelectedCard] = useState<SelectedCard | null>(null);
+  const [undoStack, setUndoStack] = useState<CardPosition[][]>([]);
+  const [hasChanges, setHasChanges] = useState(false);
+  
+  const cardsPerPage = binder?.layoutPreference === '4x3' ? 12 : 9;
+  const totalPages = 20;
+  const totalSlots = cardsPerPage * totalPages; // 360 or 480
+  const placeholderMaxSlots = 18;
+  
+  // Load binder and card positions
+  useEffect(() => {
+    loadBinder();
+  }, [binderId]);
+  
+  // Initialize binder with cards based on collection mode
+  // - Master Set: Pre-populate with all cards from the set in order
+  // - Custom: Start empty (user adds cards manually)
+  // - Region: Pre-populate with Pokémon in Pokédex order
+  const initializeBinder = async (binderData: Binder) => {
+    const slotsPerPage = binderData.layoutPreference === '4x3' ? 12 : 9;
+    const totalSlotCount = slotsPerPage * 20; // 20 pages
+    
+    // Initialize all slots
+    const positions: CardPosition[] = [];
+    
+    if (binderData.collectionMode === 'master-set' && binderData.set) {
+      // Master Set: Pre-populate with set cards in order
+      let cards = await getCardsBySet(binderData.set);
+      
+      // Apply variant filtering if specified
+      if (binderData.variantsToTrack && binderData.variantsToTrack.length > 0) {
+        cards = cards.filter(card => {
+          const cardVariant = card.variant || 'base';
+          return binderData.variantsToTrack!.includes(cardVariant);
+        });
+      }
+      
+      // Place cards in slots (in order)
+      for (let i = 0; i < totalSlotCount; i++) {
+        if (i < cards.length) {
+          positions.push({
+            cardId: cards[i].id,
+            cardName: cards[i].name,
+            imageUrl: cards[i].imageUrl,
+            slotIndex: i,
+          });
+        } else {
+          positions.push({ cardId: null, slotIndex: i });
+        }
+      }
+    } else if (binderData.collectionMode === 'region' && binderData.region) {
+      // Region: Pre-populate with Pokémon in Pokédex order
+      const cards = await getCardsByRegion(binderData.region, binderData.pokemonArtStyle);
+      
+      for (let i = 0; i < totalSlotCount; i++) {
+        if (i < cards.length) {
+          positions.push({
+            cardId: cards[i].id,
+            cardName: cards[i].name,
+            imageUrl: cards[i].imageUrl,
+            slotIndex: i,
+          });
+        } else {
+          positions.push({ cardId: null, slotIndex: i });
+        }
+      }
+    } else {
+      // Custom: Start empty
+      for (let i = 0; i < totalSlotCount; i++) {
+        positions.push({ cardId: null, slotIndex: i });
+      }
+    }
+    
+    setCardPositions(positions);
+    setOriginalPositions(positions);
+  };
+  
+  // Handle back button - prompt to save
+  useEffect(() => {
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (hasChanges) {
+        showSavePrompt();
+        return true;
+      }
+      return false;
+    });
+    return () => backHandler.remove();
+  }, [hasChanges]);
+  
+  // Get cards for current page
+  const currentPageCards = useMemo(() => {
+    const startIndex = (currentPage - 1) * cardsPerPage;
+    return cardPositions.slice(startIndex, startIndex + cardsPerPage);
+  }, [cardPositions, currentPage, cardsPerPage]);
+  
+  // Save prompt
+  const showSavePrompt = () => {
+    Alert.alert(
+      'Save changes?',
+      'You have unsaved changes to your binder.',
+      [
+        { text: "Don't Save", style: 'destructive', onPress: () => navigation.goBack() },
+        { text: 'Save', onPress: () => saveAndExit() },
+        { text: 'Cancel', style: 'cancel' },
+      ]
+    );
+  };
+  
+  const saveAndExit = async () => {
+    await savePositions();
+    navigation.goBack();
+  };
+  
+  const handleBack = () => {
+    if (hasChanges) {
+      showSavePrompt();
+    } else {
+      navigation.goBack();
+    }
+  };
+  
+  // Card picker for adding cards to empty slots
+  const [showCardPicker, setShowCardPicker] = useState(false);
+  const [targetSlotIndex, setTargetSlotIndex] = useState<number | null>(null);
+  
+  // Handle tapping empty slot or + sign to add card
+  const handleAddCardToSlot = (slotIndex: number) => {
+    setTargetSlotIndex(slotIndex);
+    setShowCardPicker(true);
+  };
+  
+  // Handle card selection from picker
+  const handleCardPickerSelect = (cardId: string, cardName: string) => {
+    // Check if card is already placed elsewhere in the binder
+    const existingSlot = cardPositions.find(pos => pos.cardId === cardId);
+    
+    if (existingSlot) {
+      // Card already placed - show warning but allow it
+      Alert.alert(
+        'Card Already Placed',
+        `${cardName} is already in Slot ${existingSlot.slotIndex + 1} (Page ${Math.floor(existingSlot.slotIndex / cardsPerPage) + 1}). Add it anyway?`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { 
+            text: 'Add Anyway', 
+            onPress: () => placeCardInSlot(cardId),
+          },
+        ]
+      );
+    } else {
+      placeCardInSlot(cardId);
+    }
+  };
+  
+  const placeCardInSlot = (cardId: string) => {
+    if (targetSlotIndex === null) return;
+    
+    saveUndoState();
+    
+    setCardPositions(prev => {
+      const newPositions = [...prev];
+      newPositions[targetSlotIndex].cardId = cardId;
+      return newPositions;
+    });
+    
+    setHasChanges(true);
+    setShowCardPicker(false);
+    setTargetSlotIndex(null);
+  };
+  
+  // ... more implementation in following steps
+  
+  return (
+    <SafeAreaView style={styles.container}>
+      {/* Header with navigation */}
+      {/* Selection bar when card selected */}
+      {/* Card grid with plus signs */}
+      {/* Card Placeholder tray with trash zone */}
+      
+      {/* Card Picker Modal */}
+      <CardPickerModal
+        visible={showCardPicker}
+        onClose={() => setShowCardPicker(false)}
+        onSelectCard={handleCardPickerSelect}
+        binderType={binder?.collectionMode}
+        setId={binder?.setId}
+        region={binder?.region}
+      />
+    </SafeAreaView>
+  );
+}
+```
+
+**Testing:**
+- [ ] BinderEdit screen loads with binder data
+- [ ] Shows correct number of pages (20)
+- [ ] Shows correct cards per page (9 for 3×3, 12 for 4×3)
+- [ ] Page navigation works (arrows)
+- [ ] Jump to page works
+- [ ] Card Placeholder tray visible at bottom
+- [ ] Back button shows save prompt when changes made
+- [ ] Master Set binder pre-populates with set cards in order
+- [ ] Region binder pre-populates with Pokémon in Pokédex order
+- [ ] Custom binder starts with all empty slots
+- [ ] Tap empty slot → opens card picker
+- [ ] Card picker shows all cards for binder type
+- [ ] Selecting card places it in slot
+- [ ] Duplicate card warning shown when placing card that exists elsewhere
+- [ ] "Add Anyway" places duplicate card
+- [ ] No TypeScript errors
+
+**How to Test Step 34B:**
+
+1. **Navigate to Binder Edit:**
+   - Open any Master Set or Custom binder
+   - Tap "📝 Edit" button
+   - Should see Binder Edit screen
+
+2. **Verify layout:**
+   - Should see 9 cards (3×3) or 12 cards (4×3) per page
+   - Should see page navigator at top
+   - Should see Card Placeholder tray at bottom
+
+3. **Test navigation:**
+   - Tap arrows to change pages
+   - Tap page number to jump
+
+4. **Test save prompt:**
+   - Make no changes, tap back → should exit immediately
+   - (After implementing changes) Make changes, tap back → should see prompt
+
+5. **Test Master Set pre-population:**
+   - Create/open a Master Set binder
+   - Open Binder Edit → cards should be pre-populated in set order
+   - First card in set should be in slot 1, etc.
+
+6. **Test Custom binder (empty start):**
+   - Create/open a Custom binder
+   - Open Binder Edit → all slots should be empty
+
+7. **Test adding cards:**
+   - Tap an empty slot → card picker opens
+   - Search/select a card → card placed in slot
+   - Add the same card to another slot → should see warning
+   - Tap "Add Anyway" → card placed (duplicate allowed)
+
+---
+
+#### Step 34C: Implement Tap-to-Select System
+- [ ] **Status**: Not started
+
+**What we're doing:** Implement the tap-to-select interaction where tapping a card selects it (glowing border), then tapping a destination moves/swaps/inserts the card. Selection persists across pages.
+
+**Files to modify:**
+- `src/screens/BinderEdit/BinderEditScreen.tsx` - Add selection logic
+- `src/components/BinderEdit/CardSlot.tsx` - Add selected state styling
+- `src/components/BinderEdit/SelectedCardBar.tsx` - Show selected card info
+
+**Selection States:**
+
+| State | Visual |
+|-------|--------|
+| Normal | Default card appearance |
+| Selected | Glowing border (gold/yellow) |
+| Empty slot | Dashed border, slightly dimmed |
+| Missing card | Grayed out / transparent |
+
+**SelectedCardBar Component (with Remove button):**
+```tsx
+// src/components/BinderEdit/SelectedCardBar.tsx
+interface SelectedCardBarProps {
+  cardName: string;
+  onRemove: () => void;
+  onCancel: () => void;
+}
+
+export default function SelectedCardBar({ cardName, onRemove, onCancel }: SelectedCardBarProps) {
+  return (
+    <View style={styles.container}>
+      <Text style={styles.icon}>🃏</Text>
+      <Text style={styles.text}>{cardName} selected</Text>
+      <TouchableOpacity onPress={onRemove} style={styles.removeButton}>
+        <Text style={styles.removeText}>🗑️ Remove</Text>
+      </TouchableOpacity>
+      <TouchableOpacity onPress={onCancel} style={styles.cancelButton}>
+        <Text style={styles.cancelText}>Cancel</Text>
+      </TouchableOpacity>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#2a2a3e',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 8,
+    marginHorizontal: 12,
+    marginBottom: 8,
+  },
+  icon: {
+    fontSize: 16,
+    marginRight: 8,
+  },
+  text: {
+    color: '#fff',
+    flex: 1,
+    fontSize: 14,
+  },
+  removeButton: {
+    backgroundColor: '#ff4444',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+    marginRight: 8,
+  },
+  removeText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  cancelButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  cancelText: {
+    color: '#888',
+    fontSize: 12,
+  },
+});
+```
+
+**Selection Logic:**
+```tsx
+// In BinderEditScreen
+const handleSlotPress = (slotIndex: number, cardId: string | null) => {
+  if (selectedCard) {
+    // A card is already selected - perform action
+    if (slotIndex === selectedCard.sourceSlot) {
+      // Tapped same card - deselect
+      setSelectedCard(null);
+    } else if (cardId) {
+      // Tapped another card - swap
+      performSwap(selectedCard.sourceSlot, slotIndex);
+      setSelectedCard(null);
+    } else {
+      // Tapped empty slot - move
+      performMove(selectedCard.sourceSlot, slotIndex);
+      setSelectedCard(null);
+    }
+  } else {
+    // No card selected - select this one (if it has a card)
+    if (cardId) {
+      const card = getCardById(cardId);
+      setSelectedCard({
+        cardId,
+        cardName: card?.name || 'Unknown Card',
+        sourceSlot: slotIndex,
+        sourceIndex: slotIndex,
+      });
+    }
+  }
+};
+
+const handleEmptySpacePress = () => {
+  // Deselect current card
+  setSelectedCard(null);
+};
+
+const handleCancelSelection = () => {
+  setSelectedCard(null);
+};
+```
+
+**Cross-Page Selection:**
+```tsx
+// Selection persists when changing pages
+const handlePageChange = (newPage: number) => {
+  // Keep selectedCard state - don't reset it
+  setCurrentPage(newPage);
+};
+
+// When rendering, show selection bar if card is selected
+{selectedCard && (
+  <SelectedCardBar
+    cardName={selectedCard.cardName}
+    onRemove={handleRemoveCard}
+    onCancel={handleCancelSelection}
+  />
+)}
+```
+
+**Remove Card Functionality:**
+```tsx
+// Remove card from slot (via selection bar button)
+const handleRemoveCard = () => {
+  if (!selectedCard) return;
+  
+  // Show confirmation dialog
+  Alert.alert(
+    'Remove Card',
+    `Remove ${selectedCard.cardName} from this slot?`,
+    [
+      { text: 'Cancel', style: 'cancel' },
+      { 
+        text: 'Remove', 
+        style: 'destructive',
+        onPress: () => performRemoveCard(),
+      },
+    ]
+  );
+};
+
+const performRemoveCard = () => {
+  if (!selectedCard) return;
+  
+  // Save undo state
+  saveUndoState();
+  
+  if (selectedCard.sourceSlot === 'placeholder') {
+    // Remove from placeholder
+    setPlaceholderCards(prev => 
+      prev.filter((_, i) => i !== selectedCard.sourceIndex)
+    );
+  } else {
+    // Remove from binder slot - slot becomes empty
+    setCardPositions(prev => {
+      const newPositions = [...prev];
+      newPositions[selectedCard.sourceSlot as number].cardId = null;
+      return newPositions;
+    });
+  }
+  
+  setHasChanges(true);
+  setSelectedCard(null);
+};
+```
+
+**Swap Logic:**
+```tsx
+const performSwap = (sourceSlot: number, targetSlot: number) => {
+  // Save current state for undo
+  saveUndoState();
+  
+  setCardPositions(prev => {
+    const newPositions = [...prev];
+    const temp = newPositions[sourceSlot].cardId;
+    newPositions[sourceSlot].cardId = newPositions[targetSlot].cardId;
+    newPositions[targetSlot].cardId = temp;
+    return newPositions;
+  });
+  
+  setHasChanges(true);
+};
+
+const performMove = (sourceSlot: number, targetSlot: number) => {
+  // Save current state for undo
+  saveUndoState();
+  
+  setCardPositions(prev => {
+    const newPositions = [...prev];
+    newPositions[targetSlot].cardId = newPositions[sourceSlot].cardId;
+    newPositions[sourceSlot].cardId = null;
+    return newPositions;
+  });
+  
+  setHasChanges(true);
+};
+```
+
+**CardSlot Styling:**
+```tsx
+// src/components/BinderEdit/CardSlot.tsx
+const styles = StyleSheet.create({
+  slot: {
+    width: slotSize,
+    height: slotSize * 1.4, // Card aspect ratio
+    margin: 4,
+    borderRadius: 8,
+    overflow: 'hidden',
+  },
+  selected: {
+    borderWidth: 3,
+    borderColor: '#FFD700', // Gold
+    shadowColor: '#FFD700',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 10,
+    elevation: 10,
+  },
+  empty: {
+    borderWidth: 2,
+    borderStyle: 'dashed',
+    borderColor: '#666',
+    backgroundColor: 'rgba(255,255,255,0.05)',
+  },
+  missing: {
+    opacity: 0.5,
+  },
+});
+```
+
+**Testing:**
+- [ ] Tap card → card gets selected (glowing border)
+- [ ] Selection bar appears with card name, Remove button, and Cancel button
+- [ ] Tap same card → deselects
+- [ ] Tap empty space → deselects
+- [ ] Tap Cancel button → deselects
+- [ ] Tap another card → cards swap positions
+- [ ] Tap empty slot → card moves there
+- [ ] Navigate to different page → selection persists
+- [ ] Selection bar still visible on different page
+- [ ] Swap/move works across pages
+- [ ] hasChanges flag updates correctly
+- [ ] Tap Remove button → shows confirmation dialog
+- [ ] Confirm remove → card removed, slot becomes empty
+- [ ] Cancel remove → card stays in place
+
+**How to Test Step 34C:**
+
+1. **Test selection:**
+   - Tap any card → should see glowing border
+   - Should see selection bar: "🃏 Charizard #6 selected [🗑️ Remove] [Cancel]"
+
+2. **Test deselection:**
+   - Tap same card → deselects
+   - Tap empty space → deselects
+   - Tap Cancel → deselects
+
+3. **Test swap:**
+   - Select card A
+   - Tap card B
+   - Cards should swap positions
+
+4. **Test move:**
+   - Select a card
+   - Tap empty slot
+   - Card should move, leaving empty slot behind
+
+5. **Test cross-page:**
+   - Select a card on Page 1
+   - Navigate to Page 5
+   - Selection bar still visible
+   - Tap a card on Page 5 → should swap across pages
+
+6. **Test remove (via button):**
+   - Select a card
+   - Tap "🗑️ Remove" button in selection bar
+   - Should see confirmation: "Remove Charizard from this slot?"
+   - Tap "Remove" → card removed, slot empty
+   - Tap "Cancel" → card stays
+
+---
+
+#### Step 34D: Implement Card Placeholder Tray & Trash Zone
+- [ ] **Status**: Not started
+
+**What we're doing:** Create the Card Placeholder tray at the bottom of the screen for temporarily holding cards during reorganization. Also add a Trash Zone for permanently removing cards from slots.
+
+**Files to create/modify:**
+- `src/components/BinderEdit/CardPlaceholder.tsx` - The tray component with trash zone
+
+**Visual Design:**
+```
+┌══════════════════════════════════════════════════════════┐
+│  📥 CARD PLACEHOLDER  3/18              🗑️ REMOVE       │
+│  ╔════╗ ╔════╗ ╔════╗ ╔════╗  →      ┌ ─ ─ ─ ─ ─ ┐     │
+│  ║Card║ ║Card║ ║Card║ ║    ║         │  Drop to  │     │
+│  ║ A  ║ ║ B  ║ ║ C  ║ ║    ║         │  Remove   │     │
+│  ╚════╝ ╚════╝ ╚════╝ ╚════╝         └ ─ ─ ─ ─ ─ ┘     │
+└══════════════════════════════════════════════════════════┘
+
+When dragging (invite effect):
+┌══════════════════════════════════════════════════════════┐
+│  📥 CARD PLACEHOLDER  ✨ Drop here! ✨ 3/18  🗑️ REMOVE ✨│
+│  ╔════╗ ╔════╗ ╔════╗ ╔════╗        ╔═══════════════╗   │
+│  ║ ✨ ║ ║Card║ ║Card║ ║ ✨ ║        ║  ✨ Drop to  ✨║   │
+│  ║    ║ ║ B  ║ ║ C  ║ ║    ║        ║    Remove     ║   │
+│  ╚════╝ ╚════╝ ╚════╝ ╚════╝        ╚═══════════════╝   │
+└──────────────────────────────────────────────────────────┘
+```
+
+**Placeholder Full Handling:**
+When placeholder is full (18/18) and user tries to add another card:
+- Show message: "Placeholder is full (18/18)"
+- Block the action
+- User must remove cards from placeholder first
+
+**CardPlaceholder Component (with Trash Zone):**
+```tsx
+// src/components/BinderEdit/CardPlaceholder.tsx
+interface CardPlaceholderProps {
+  cards: string[]; // Card IDs in placeholder
+  maxSlots: number; // 18
+  visibleSlots: number; // 3 or 4 based on layout
+  onSlotPress: (index: number, cardId: string | null) => void;
+  onInsertBetween: (index: number) => void;
+  onTrashDrop: () => void; // Called when card dropped on trash
+  isDragging: boolean;
+  selectedCardId: string | null;
+}
+
+export default function CardPlaceholder({
+  cards,
+  maxSlots,
+  visibleSlots,
+  onSlotPress,
+  onInsertBetween,
+  onTrashDrop,
+  isDragging,
+  selectedCardId,
+}: CardPlaceholderProps) {
+  // Create slots array (cards + empty slots up to visible amount)
+  const slots = useMemo(() => {
+    const result: (string | null)[] = [...cards];
+    while (result.length < Math.max(visibleSlots, cards.length + 1)) {
+      result.push(null);
+    }
+    return result.slice(0, maxSlots);
+  }, [cards, visibleSlots, maxSlots]);
+  
+  const isFull = cards.length >= maxSlots;
+  
+  return (
+    <View style={styles.container}>
+      <View style={styles.header}>
+        <Text style={styles.icon}>📥</Text>
+        <Text style={styles.title}>CARD PLACEHOLDER</Text>
+        {isDragging && !isFull && (
+          <Text style={styles.dropHint}>✨ Drop here! ✨</Text>
+        )}
+        <Text style={[styles.counter, isFull && styles.counterFull]}>
+          {cards.length}/{maxSlots}
+        </Text>
+      </View>
+      
+      <View style={styles.contentRow}>
+        {/* Placeholder slots */}
+        <ScrollView 
+          horizontal 
+          showsHorizontalScrollIndicator={false}
+          style={styles.scrollView}
+        >
+          {slots.map((cardId, index) => (
+            <TouchableOpacity
+              key={index}
+              style={[
+                styles.slot,
+                !cardId && styles.emptySlot,
+                isDragging && !isFull && styles.inviteSlot,
+                selectedCardId === cardId && styles.selectedSlot,
+              ]}
+              onPress={() => onSlotPress(index, cardId)}
+            >
+              {cardId ? (
+                <CardImage cardId={cardId} size="small" />
+              ) : (
+                <View style={styles.emptySlotContent}>
+                  <Text style={styles.emptyIcon}>+</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+        
+        {/* Trash Zone */}
+        <TouchableOpacity
+          style={[
+            styles.trashZone,
+            isDragging && styles.trashZoneActive,
+          ]}
+          onPress={onTrashDrop}
+        >
+          <Text style={styles.trashIcon}>🗑️</Text>
+          <Text style={styles.trashText}>
+            {isDragging ? 'Drop to\nRemove' : 'REMOVE'}
+          </Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+}
+```
+
+**Placeholder Full Handling:**
+```tsx
+// In BinderEditScreen - when trying to move to placeholder
+const performMoveToPlaceholder = (card: SelectedCard, targetIndex: number) => {
+  // Check if placeholder is full
+  if (placeholderCards.length >= placeholderMaxSlots) {
+    Alert.alert(
+      'Placeholder Full',
+      'The placeholder is full (18/18). Remove some cards first.',
+      [{ text: 'OK' }]
+    );
+    return;
+  }
+  
+  // Save undo state
+  saveUndoState();
+  
+  // ... rest of move logic
+};
+```
+
+**Trash Zone Remove Logic:**
+```tsx
+// Handle dropping card on trash zone (via drag & drop)
+const handleTrashDrop = () => {
+  if (!draggedCard) return;
+  
+  // Show confirmation
+  const cardName = getCardById(draggedCard.cardId)?.name || 'this card';
+  Alert.alert(
+    'Remove Card',
+    `Remove ${cardName} from this slot?`,
+    [
+      { text: 'Cancel', style: 'cancel' },
+      { 
+        text: 'Remove', 
+        style: 'destructive',
+        onPress: () => {
+          saveUndoState();
+          
+          if (draggedCard.sourceSlot === 'placeholder') {
+            setPlaceholderCards(prev => 
+              prev.filter((_, i) => i !== draggedCard.sourceIndex)
+            );
+          } else {
+            setCardPositions(prev => {
+              const newPositions = [...prev];
+              newPositions[draggedCard.sourceSlot as number].cardId = null;
+              return newPositions;
+            });
+          }
+          
+          setHasChanges(true);
+        },
+      },
+    ]
+  );
+};
+```
+
+**Styles:**
+```tsx
+const styles = StyleSheet.create({
+  container: {
+    backgroundColor: '#1a1a2e',
+    borderTopWidth: 2,
+    borderTopColor: '#333',
+    paddingVertical: 8,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    marginBottom: 8,
+  },
+  icon: {
+    fontSize: 16,
+    marginRight: 8,
+  },
+  title: {
+    color: '#888',
+    fontSize: 12,
+    fontWeight: 'bold',
+    flex: 1,
+  },
+  dropHint: {
+    color: '#FFD700',
+    fontSize: 12,
+    marginRight: 8,
+  },
+  counter: {
+    color: '#666',
+    fontSize: 12,
+  },
+  counterFull: {
+    color: '#ff4444',
+    fontWeight: 'bold',
+  },
+  contentRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  scrollView: {
+    flex: 1,
+    paddingHorizontal: 8,
+  },
+  slot: {
+    width: 60,
+    height: 84,
+    marginHorizontal: 4,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: '#444',
+    backgroundColor: '#2a2a3e',
+    overflow: 'hidden',
+  },
+  emptySlot: {
+    borderStyle: 'dashed',
+    borderColor: '#555',
+  },
+  inviteSlot: {
+    borderColor: '#FFD700',
+    shadowColor: '#FFD700',
+    shadowOpacity: 0.5,
+    shadowRadius: 8,
+  },
+  selectedSlot: {
+    borderColor: '#FFD700',
+    borderWidth: 3,
+  },
+  emptySlotContent: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  emptyIcon: {
+    color: '#555',
+    fontSize: 24,
+  },
+  // Trash Zone styles
+  trashZone: {
+    width: 70,
+    height: 84,
+    marginHorizontal: 8,
+    borderRadius: 8,
+    borderWidth: 2,
+    borderStyle: 'dashed',
+    borderColor: '#666',
+    backgroundColor: '#2a2a3e',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  trashZoneActive: {
+    borderColor: '#ff4444',
+    backgroundColor: 'rgba(255, 68, 68, 0.2)',
+    shadowColor: '#ff4444',
+    shadowOpacity: 0.5,
+    shadowRadius: 8,
+  },
+  trashIcon: {
+    fontSize: 20,
+    marginBottom: 4,
+  },
+  trashText: {
+    color: '#888',
+    fontSize: 10,
+    textAlign: 'center',
+  },
+});
+```
+
+**Integration with BinderEditScreen:**
+```tsx
+// In BinderEditScreen
+const handlePlaceholderSlotPress = (index: number, cardId: string | null) => {
+  if (selectedCard) {
+    if (selectedCard.sourceSlot === 'placeholder' && selectedCard.sourceIndex === index) {
+      // Tapped same card - deselect
+      setSelectedCard(null);
+    } else if (cardId) {
+      // Swap with placeholder card
+      performPlaceholderSwap(selectedCard, index);
+      setSelectedCard(null);
+    } else {
+      // Move to empty placeholder slot
+      performMoveToPlaceholder(selectedCard, index);
+      setSelectedCard(null);
+    }
+  } else if (cardId) {
+    // Select placeholder card
+    const card = getCardById(cardId);
+    setSelectedCard({
+      cardId,
+      cardName: card?.name || 'Unknown Card',
+      sourceSlot: 'placeholder',
+      sourceIndex: index,
+    });
+  }
+};
+```
+
+**Testing:**
+- [ ] Card Placeholder tray visible at bottom
+- [ ] Trash Zone visible next to placeholder
+- [ ] Shows correct count (X/18)
+- [ ] Counter turns red when full (18/18)
+- [ ] Scrollable when more than visible slots
+- [ ] Tap placeholder slot with card → selects it
+- [ ] Tap empty placeholder slot with card selected → moves card there
+- [ ] Swap between binder and placeholder works
+- [ ] Swap within placeholder works
+- [ ] Invite effect shows when dragging (will test with drag implementation)
+- [ ] Tray style looks like "holding tray"
+- [ ] Placeholder full → shows "Placeholder is full" message
+- [ ] Trash zone highlights when dragging
+- [ ] Drop on trash → shows confirmation dialog
+- [ ] Confirm remove → card removed from slot
+
+**How to Test Step 34D:**
+
+1. **Verify placeholder appearance:**
+   - Should see tray at bottom with "📥 CARD PLACEHOLDER" header
+   - Should show "0/18" counter
+   - Should have 3-4 visible empty slots
+   - Should see "🗑️ REMOVE" trash zone on the right
+
+2. **Test interactions:**
+   - Select a binder card
+   - Tap empty placeholder slot → card moves to placeholder
+   - Counter updates to "1/18"
+   - Tap placeholder card → selects it
+   - Tap binder slot → card returns to binder
+
+3. **Test scrolling:**
+   - Add multiple cards to placeholder
+   - Should be able to scroll horizontally
+   - Should see scroll indicator or shadow
+
+4. **Test placeholder full:**
+   - Add 18 cards to placeholder
+   - Counter shows "18/18" in red
+   - Try to add another card → should see "Placeholder is full" message
+
+5. **Test trash zone (via drag):**
+   - Long-press and drag a card toward trash zone
+   - Trash zone should glow/highlight
+   - Drop on trash → confirmation dialog
+   - Confirm → card removed, slot empty
+
+---
+
+#### Step 34E: Implement Insert Functionality (Plus Signs)
+- [ ] **Status**: Not started
+
+**What we're doing:** Add plus signs between cards that allow inserting a card, pushing other cards to the right.
+
+**Visual Layout:**
+```
++  ┌────┐  +  ┌────┐  +  ┌────┐  +
+   │ A  │     │ B  │     │ C  │
+   └────┘     └────┘     └────┘
+
+User inserts X at second + sign:
+
++  ┌────┐  +  ┌────┐  +  ┌────┐  +
+   │ A  │     │ X  │     │ B  │
+   └────┘     └────┘     └────┘
+                         ↑ C pushed to next row/page
+```
+
+**Files to create/modify:**
+- `src/components/BinderEdit/InsertButton.tsx` - Plus sign button
+- `src/screens/BinderEdit/BinderEditScreen.tsx` - Add insert logic
+
+**InsertButton Component:**
+```tsx
+// src/components/BinderEdit/InsertButton.tsx
+interface InsertButtonProps {
+  onPress: () => void;
+  isActive: boolean; // Show when card is selected
+  isHighlighted: boolean; // Glow when dragging nearby
+}
+
+export default function InsertButton({ onPress, isActive, isHighlighted }: InsertButtonProps) {
+  if (!isActive) {
+    return <View style={styles.spacer} />;
+  }
+  
+  return (
+    <TouchableOpacity 
+      style={[styles.button, isHighlighted && styles.highlighted]}
+      onPress={onPress}
+    >
+      <Text style={styles.icon}>+</Text>
+    </TouchableOpacity>
+  );
+}
+
+const styles = StyleSheet.create({
+  spacer: {
+    width: 20,
+  },
+  button: {
+    width: 20,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 215, 0, 0.2)',
+    borderRadius: 4,
+  },
+  highlighted: {
+    backgroundColor: 'rgba(255, 215, 0, 0.5)',
+  },
+  icon: {
+    color: '#FFD700',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+});
+```
+
+**Insert Logic:**
+```tsx
+const performInsert = (insertAtIndex: number) => {
+  // Save undo state
+  saveUndoState();
+  
+  if (!selectedCard) return;
+  
+  const sourceCardId = selectedCard.cardId;
+  
+  setCardPositions(prev => {
+    const newPositions = [...prev];
+    
+    // Remove card from source
+    if (selectedCard.sourceSlot === 'placeholder') {
+      // Remove from placeholder
+      setPlaceholderCards(p => p.filter((_, i) => i !== selectedCard.sourceIndex));
+    } else {
+      // Remove from binder slot
+      newPositions[selectedCard.sourceSlot as number].cardId = null;
+    }
+    
+    // Shift cards right from insert point
+    for (let i = newPositions.length - 1; i > insertAtIndex; i--) {
+      newPositions[i].cardId = newPositions[i - 1].cardId;
+    }
+    
+    // Insert the card
+    newPositions[insertAtIndex].cardId = sourceCardId;
+    
+    return newPositions;
+  });
+  
+  setHasChanges(true);
+  setSelectedCard(null);
+};
+
+// Handle overflow to next page
+const handleOverflow = () => {
+  // Last card on binder gets pushed to Card Placeholder
+  const lastCardId = cardPositions[cardPositions.length - 1].cardId;
+  if (lastCardId && placeholderCards.length < 18) {
+    setPlaceholderCards(prev => [...prev, lastCardId]);
+  } else if (lastCardId) {
+    // Binder is full!
+    Alert.alert('Binder is full', 'Cannot insert - all slots are occupied.');
+    return false;
+  }
+  return true;
+};
+```
+
+**Row Layout with Plus Signs:**
+```tsx
+// Render a row of cards with plus signs
+const renderRow = (rowCards: CardPosition[], rowStartIndex: number) => {
+  const columnsPerRow = binder?.layoutPreference === '4x3' ? 4 : 3;
+  
+  return (
+    <View style={styles.row}>
+      {/* Plus sign at start of row */}
+      <InsertButton
+        onPress={() => performInsert(rowStartIndex)}
+        isActive={!!selectedCard}
+        isHighlighted={false}
+      />
+      
+      {rowCards.map((slot, colIndex) => (
+        <React.Fragment key={slot.slotIndex}>
+          <CardSlot
+            cardId={slot.cardId}
+            slotIndex={slot.slotIndex}
+            isSelected={selectedCard?.sourceSlot === slot.slotIndex}
+            onPress={() => handleSlotPress(slot.slotIndex, slot.cardId)}
+          />
+          
+          {/* Plus sign after each card */}
+          <InsertButton
+            onPress={() => performInsert(rowStartIndex + colIndex + 1)}
+            isActive={!!selectedCard}
+            isHighlighted={false}
+          />
+        </React.Fragment>
+      ))}
+    </View>
+  );
+};
+```
+
+**Testing:**
+- [ ] Plus signs appear between cards when card is selected
+- [ ] Plus signs hidden when no card selected
+- [ ] Plus sign at start of each row
+- [ ] Plus sign at end of each row
+- [ ] Tap plus sign → card inserted at that position
+- [ ] Cards shift right after insert
+- [ ] Overflow pushes to next page
+- [ ] Overflow from last page pushes to Card Placeholder
+- [ ] Full binder shows "Binder is full" message
+
+**How to Test Step 34E:**
+
+1. **Verify plus signs appear:**
+   - Select any card
+   - Should see "+" buttons appear between all cards
+
+2. **Test insert:**
+   - Select card A
+   - Tap "+" between cards B and C
+   - Order should be: B, A, C (A inserted, C shifted right)
+
+3. **Test overflow:**
+   - Fill up page 1
+   - Insert card at start of page 1
+   - Last card should move to page 2
+
+4. **Test full binder:**
+   - Fill all 360/480 slots
+   - Try to insert
+   - Should see "Binder is full" message
+
+---
+
+#### Step 34F: Implement Drag & Drop System
+- [ ] **Status**: Not started
+
+**What we're doing:** Implement long-press drag & drop for moving, swapping, and inserting cards.
+
+**Files to modify:**
+- `src/screens/BinderEdit/BinderEditScreen.tsx` - Add drag handling
+- `src/components/BinderEdit/CardSlot.tsx` - Add drag source/target
+- `src/components/BinderEdit/CardPlaceholder.tsx` - Add drag target
+
+**Drag Behaviors:**
+
+| Drag Action | Result |
+|-------------|--------|
+| Drag onto another card | Swap positions |
+| Drag to empty slot | Move to that slot |
+| Drag between two cards | Insert (shift right) |
+| Drag to Card Placeholder | Move to placeholder |
+| Drag from Placeholder to binder | Insert/swap/move |
+| Drag to Trash Zone | Remove card (with confirmation) |
+
+**Using React Native Gesture Handler:**
+```tsx
+import { GestureHandlerRootView, PanGestureHandler, LongPressGestureHandler } from 'react-native-gesture-handler';
+import Animated, { useSharedValue, useAnimatedStyle, withSpring } from 'react-native-reanimated';
+
+// Dragging state
+const [draggedCard, setDraggedCard] = useState<DraggedCard | null>(null);
+const translateX = useSharedValue(0);
+const translateY = useSharedValue(0);
+
+interface DraggedCard {
+  cardId: string;
+  sourceSlot: number | 'placeholder';
+  sourceIndex: number;
+  startX: number;
+  startY: number;
+}
+
+const handleLongPressStart = (card: CardPosition, event: any) => {
+  setDraggedCard({
+    cardId: card.cardId!,
+    sourceSlot: card.slotIndex,
+    sourceIndex: card.slotIndex,
+    startX: event.absoluteX,
+    startY: event.absoluteY,
+  });
+};
+
+const handleDrag = (event: any) => {
+  if (!draggedCard) return;
+  translateX.value = event.translationX;
+  translateY.value = event.translationY;
+};
+
+const handleDragEnd = (event: any) => {
+  if (!draggedCard) return;
+  
+  // Determine drop target based on position
+  const dropTarget = getDropTargetAtPosition(
+    draggedCard.startX + event.translationX,
+    draggedCard.startY + event.translationY
+  );
+  
+  if (dropTarget) {
+    if (dropTarget.type === 'card') {
+      performSwap(draggedCard.sourceSlot, dropTarget.slotIndex);
+    } else if (dropTarget.type === 'empty') {
+      performMove(draggedCard.sourceSlot, dropTarget.slotIndex);
+    } else if (dropTarget.type === 'insert') {
+      performInsert(dropTarget.insertIndex);
+    } else if (dropTarget.type === 'placeholder') {
+      performMoveToPlaceholder(draggedCard, dropTarget.index);
+    } else if (dropTarget.type === 'trash') {
+      // Handle trash drop with confirmation
+      handleTrashDrop();
+    }
+  }
+  
+  // Reset drag state
+  translateX.value = withSpring(0);
+  translateY.value = withSpring(0);
+  setDraggedCard(null);
+};
+
+// Dragged card visual (floating above everything)
+const animatedStyle = useAnimatedStyle(() => ({
+  transform: [
+    { translateX: translateX.value },
+    { translateY: translateY.value },
+  ],
+}));
+
+{draggedCard && (
+  <Animated.View style={[styles.draggedCard, animatedStyle]}>
+    <CardImage cardId={draggedCard.cardId} />
+  </Animated.View>
+)}
+```
+
+**Drop Target Detection:**
+```tsx
+// Use layout measurements to detect what's under the drag
+const slotRefs = useRef<Map<number, { x: number; y: number; width: number; height: number }>>(new Map());
+
+const getDropTargetAtPosition = (x: number, y: number): DropTarget | null => {
+  // Check each slot
+  for (const [index, layout] of slotRefs.current.entries()) {
+    if (
+      x >= layout.x && x <= layout.x + layout.width &&
+      y >= layout.y && y <= layout.y + layout.height
+    ) {
+      const cardId = cardPositions[index]?.cardId;
+      return {
+        type: cardId ? 'card' : 'empty',
+        slotIndex: index,
+      };
+    }
+    
+    // Check insert zones (between cards)
+    // ...
+  }
+  
+  // Check placeholder area
+  // ...
+  
+  return null;
+};
+```
+
+**Testing:**
+- [ ] Long-press card → card "lifts" and follows finger
+- [ ] Drag onto another card → swap
+- [ ] Drag to empty slot → move
+- [ ] Drag between cards → insert (when insert zones detected)
+- [ ] Drag to Card Placeholder → move to placeholder
+- [ ] Drag from Placeholder to binder → works
+- [ ] Drag to Trash Zone → shows confirmation, removes card
+- [ ] Release in invalid area → card returns to original position
+- [ ] Visual feedback during drag (card follows finger, slots highlight)
+- [ ] Invite effect on Card Placeholder when dragging
+- [ ] Trash Zone highlights red when dragging near it
+
+**How to Test Step 34F:**
+
+1. **Test drag initiation:**
+   - Long-press any card
+   - Card should "lift" and follow your finger
+
+2. **Test swap:**
+   - Drag card A onto card B
+   - They should swap positions
+
+3. **Test move:**
+   - Drag card to empty slot
+   - Card should move there
+
+4. **Test placeholder:**
+   - Drag card down to Card Placeholder
+   - Card should appear in placeholder
+   - Drag card from placeholder to binder slot
+
+5. **Test trash zone:**
+   - Drag card toward Trash Zone
+   - Zone should glow red
+   - Drop on trash → confirmation dialog
+   - Confirm → card removed
+
+6. **Test cancel:**
+   - Start dragging, release in empty space
+   - Card should return to original position
+
+---
+
+#### Step 34G: Implement Undo & Save System
+- [ ] **Status**: Not started
+
+**What we're doing:** Add undo functionality and save confirmation when exiting.
+
+**Files to modify:**
+- `src/screens/BinderEdit/BinderEditScreen.tsx` - Add undo logic and save
+
+**Undo Stack:**
+```tsx
+const [undoStack, setUndoStack] = useState<UndoState[]>([]);
+const maxUndoSteps = 10;
+
+interface UndoState {
+  cardPositions: CardPosition[];
+  placeholderCards: string[];
+}
+
+const saveUndoState = () => {
+  setUndoStack(prev => {
+    const newStack = [...prev, {
+      cardPositions: [...cardPositions],
+      placeholderCards: [...placeholderCards],
+    }];
+    // Keep only last N states
+    return newStack.slice(-maxUndoSteps);
+  });
+};
+
+const performUndo = () => {
+  if (undoStack.length === 0) return;
+  
+  const lastState = undoStack[undoStack.length - 1];
+  setCardPositions(lastState.cardPositions);
+  setPlaceholderCards(lastState.placeholderCards);
+  setUndoStack(prev => prev.slice(0, -1));
+};
+```
+
+**Undo Button:**
+```tsx
+// In Card Placeholder header
+<TouchableOpacity 
+  onPress={performUndo}
+  disabled={undoStack.length === 0}
+  style={[styles.undoButton, undoStack.length === 0 && styles.undoDisabled]}
+>
+  <Text style={styles.undoText}>↩ Undo</Text>
+</TouchableOpacity>
+```
+
+**Save Logic:**
+```tsx
+const savePositions = async () => {
+  try {
+    // Save to database
+    await updateBinderCardPositions(binderId, cardPositions);
+    setOriginalPositions([...cardPositions]);
+    setHasChanges(false);
+    setUndoStack([]);
+  } catch (error) {
+    Alert.alert('Error', 'Failed to save changes. Please try again.');
+  }
+};
+
+// Save prompt on exit
+const showSavePrompt = () => {
+  Alert.alert(
+    'Save changes?',
+    'You have unsaved changes to your binder.',
+    [
+      { 
+        text: "Don't Save", 
+        style: 'destructive', 
+        onPress: () => navigation.goBack() 
+      },
+      { 
+        text: 'Save', 
+        onPress: async () => {
+          await savePositions();
+          navigation.goBack();
+        }
+      },
+      { 
+        text: 'Cancel', 
+        style: 'cancel' 
+      },
+    ]
+  );
+};
+```
+
+**Visual - Card Placeholder with Undo:**
+```
+┌═══════════════════════════════════════════┐
+│  📥 CARD PLACEHOLDER   [↩ Undo]      3/18 │
+│  ╔════╗  ╔════╗  ╔════╗  ╔════╗      →   │
+│  ║Card║  ║Card║  ║Card║  ║    ║          │
+│  ╚════╝  ╚════╝  ╚════╝  ╚════╝          │
+└═══════════════════════════════════════════┘
+```
+
+**Testing:**
+- [ ] Undo button visible in Card Placeholder header
+- [ ] Undo disabled when no actions to undo
+- [ ] Undo reverts last action
+- [ ] Multiple undos work (up to 10)
+- [ ] Back button shows save prompt when changes exist
+- [ ] "Save" saves changes and exits
+- [ ] "Don't Save" discards changes and exits
+- [ ] "Cancel" stays on edit screen
+- [ ] Android back button triggers save prompt
+
+**How to Test Step 34G:**
+
+1. **Test undo:**
+   - Move a card
+   - Tap "Undo"
+   - Card should return to original position
+   - Do multiple actions, undo each one
+
+2. **Test save prompt:**
+   - Make some changes
+   - Tap back button
+   - Should see "Save changes?" dialog
+
+3. **Test save:**
+   - Make changes, tap Save
+   - Exit and re-enter binder edit
+   - Changes should persist
+
+4. **Test don't save:**
+   - Make changes, tap "Don't Save"
+   - Re-enter binder edit
+   - Changes should be gone
+
+---
+
+#### Step 34H: Region Binder Edit (Simple Version Picker)
+- [ ] **Status**: Not started
+
+**What we're doing:** Create a simplified Binder Edit mode for Region binders that only allows picking which version of each Pokémon card to display.
+
+**Differences from Master Set/Custom:**
+
+| Feature | Master Set / Custom | Region |
+|---------|---------------------|--------|
+| Card order | User arranges | Fixed (Pokédex order) |
+| Tap card | Select (glow) | Open version picker |
+| Drag & drop | ✅ Yes | ❌ No |
+| Card Placeholder | ✅ Yes | ❌ No |
+| Plus signs (insert) | ✅ Yes | ❌ No |
+
+**Files to modify:**
+- `src/screens/BinderEdit/BinderEditScreen.tsx` - Add Region mode branch
+
+**Region Mode Layout:**
+```
+┌───────────────────────────────────────────┐
+│  [← Back]     Kanto - Page 1/17     [→]   │
+│                                           │
+│  ┌────────┐  ┌────────┐  ┌────────┐      │
+│  │ #001   │  │ #002   │  │ #003   │      │
+│  │ 🌿     │  │ 🌿     │  │ 🌿     │      │
+│  │Bulba-  │  │Ivy-    │  │Venu-   │      │
+│  │saur    │  │saur    │  │saur    │      │
+│  └────────┘  └────────┘  └────────┘      │
+│                                           │
+│  Tap a Pokémon to choose a card version   │
+└───────────────────────────────────────────┘
+```
+
+**Region Mode Logic:**
+```tsx
+// In BinderEditScreen
+if (binder.collectionMode === 'region') {
+  return <RegionBinderEditView binder={binder} />;
+}
+
+// RegionBinderEditView
+const handlePokemonTap = async (pokemon: PokemonSlot) => {
+  // Open card picker for this Pokémon
+  setCardPickerPokemon(pokemon);
+  setShowCardPicker(true);
+};
+
+const handleCardSelected = async (cardId: string) => {
+  // Save selection
+  await setSelectedCardForPokemon(binderId, pokemon.pokedexNumber, cardId);
+  setShowCardPicker(false);
+  // Refresh display
+  await loadBinder();
+};
+
+const handleClearSelection = async (pokemon: PokemonSlot) => {
+  await clearSelectedCardForPokemon(binderId, pokemon.pokedexNumber);
+  await loadBinder();
+};
+```
+
+**Testing:**
+- [ ] Region binders open simplified edit view
+- [ ] No drag & drop functionality
+- [ ] No Card Placeholder
+- [ ] No plus signs / insert
+- [ ] Cards in fixed Pokédex order
+- [ ] Tap Pokémon → opens version picker
+- [ ] Select card → saves selection
+- [ ] Can clear selection to revert to default
+
+**How to Test Step 34H:**
+
+1. **Open Region binder edit:**
+   - Create or open a Region binder
+   - Tap "📝 Edit"
+   - Should see simplified layout (no plus signs, no placeholder)
+
+2. **Test version picker:**
+   - Tap on Pikachu
+   - Should see all Pikachu cards from all sets
+   - Select one → binder shows that card
+
+3. **Test clear:**
+   - Find option to clear selection
+   - Should revert to default sprite
+
+---
+
+#### Step 34I: Database Storage for Card Positions
+- [ ] **Status**: Not started
+
+**What we're doing:** Create the database table and service functions to store and retrieve card positions for binder organization.
+
+**Files to create:**
+- `database/migrations/add_binder_card_positions.sql` - Database migration
+- `src/services/supabase/binderPositions.ts` - Service functions
+
+**Files to modify:**
+- `src/services/supabase/index.ts` - Export new service
+
+**Database Table:**
+
+```sql
+-- database/migrations/add_binder_card_positions.sql
+
+-- Table to store card positions in binders (for Master Set and Custom binders)
+CREATE TABLE IF NOT EXISTS binder_card_positions (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  binder_id UUID NOT NULL REFERENCES binders(id) ON DELETE CASCADE,
+  slot_index INTEGER NOT NULL, -- Position in binder (0-359 for 3x3, 0-479 for 4x3)
+  card_id TEXT NOT NULL, -- TCGDEX card ID
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  
+  -- Each slot can only have one card
+  UNIQUE(binder_id, slot_index)
+);
+
+-- Indexes for fast lookups
+CREATE INDEX idx_binder_positions_binder ON binder_card_positions(binder_id);
+CREATE INDEX idx_binder_positions_user ON binder_card_positions(user_id);
+
+-- RLS Policies
+ALTER TABLE binder_card_positions ENABLE ROW LEVEL SECURITY;
+
+-- Users can only see their own positions
+CREATE POLICY "Users can view own positions" ON binder_card_positions
+  FOR SELECT USING (auth.uid() = user_id);
+
+-- Users can insert their own positions
+CREATE POLICY "Users can insert own positions" ON binder_card_positions
+  FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+-- Users can update their own positions
+CREATE POLICY "Users can update own positions" ON binder_card_positions
+  FOR UPDATE USING (auth.uid() = user_id);
+
+-- Users can delete their own positions
+CREATE POLICY "Users can delete own positions" ON binder_card_positions
+  FOR DELETE USING (auth.uid() = user_id);
+
+-- Trigger to update updated_at
+CREATE OR REPLACE FUNCTION update_binder_positions_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER binder_positions_updated_at
+  BEFORE UPDATE ON binder_card_positions
+  FOR EACH ROW
+  EXECUTE FUNCTION update_binder_positions_updated_at();
+```
+
+**Service Functions:**
+
+```tsx
+// src/services/supabase/binderPositions.ts
+import { supabase } from './client';
+
+interface CardPosition {
+  slotIndex: number;
+  cardId: string | null;
+}
+
+interface StoredPosition {
+  id: string;
+  binder_id: string;
+  slot_index: number;
+  card_id: string;
+}
+
+/**
+ * Get all card positions for a binder
+ */
+export async function getCardPositionsForBinder(
+  binderId: string
+): Promise<CardPosition[]> {
+  const { data: user } = await supabase.auth.getUser();
+  if (!user.user) throw new Error('Not authenticated');
+  
+  const { data, error } = await supabase
+    .from('binder_card_positions')
+    .select('slot_index, card_id')
+    .eq('binder_id', binderId)
+    .eq('user_id', user.user.id)
+    .order('slot_index');
+  
+  if (error) {
+    console.error('[34I] Error loading positions:', error);
+    return [];
+  }
+  
+  // Convert to CardPosition array
+  return (data || []).map(row => ({
+    slotIndex: row.slot_index,
+    cardId: row.card_id,
+  }));
+}
+
+/**
+ * Save all card positions for a binder (batch upsert)
+ */
+export async function saveCardPositionsForBinder(
+  binderId: string,
+  positions: CardPosition[]
+): Promise<void> {
+  const { data: user } = await supabase.auth.getUser();
+  if (!user.user) throw new Error('Not authenticated');
+  
+  // Filter out empty slots
+  const filledPositions = positions.filter(p => p.cardId !== null);
+  
+  // Delete existing positions for this binder
+  const { error: deleteError } = await supabase
+    .from('binder_card_positions')
+    .delete()
+    .eq('binder_id', binderId)
+    .eq('user_id', user.user.id);
+  
+  if (deleteError) {
+    console.error('[34I] Error deleting old positions:', deleteError);
+    throw deleteError;
+  }
+  
+  // Insert new positions
+  if (filledPositions.length > 0) {
+    const rows = filledPositions.map(p => ({
+      user_id: user.user!.id,
+      binder_id: binderId,
+      slot_index: p.slotIndex,
+      card_id: p.cardId,
+    }));
+    
+    const { error: insertError } = await supabase
+      .from('binder_card_positions')
+      .insert(rows);
+    
+    if (insertError) {
+      console.error('[34I] Error saving positions:', insertError);
+      throw insertError;
+    }
+  }
+  
+  console.log(`[34I] Saved ${filledPositions.length} card positions for binder ${binderId}`);
+}
+
+/**
+ * Clear all positions for a binder
+ */
+export async function clearAllPositionsForBinder(
+  binderId: string
+): Promise<void> {
+  const { data: user } = await supabase.auth.getUser();
+  if (!user.user) throw new Error('Not authenticated');
+  
+  const { error } = await supabase
+    .from('binder_card_positions')
+    .delete()
+    .eq('binder_id', binderId)
+    .eq('user_id', user.user.id);
+  
+  if (error) {
+    console.error('[34I] Error clearing positions:', error);
+    throw error;
+  }
+}
+
+/**
+ * Get count of placed cards in a binder
+ */
+export async function getPlacedCardCount(
+  binderId: string
+): Promise<number> {
+  const { data: user } = await supabase.auth.getUser();
+  if (!user.user) return 0;
+  
+  const { count, error } = await supabase
+    .from('binder_card_positions')
+    .select('*', { count: 'exact', head: true })
+    .eq('binder_id', binderId)
+    .eq('user_id', user.user.id);
+  
+  if (error) {
+    console.error('[34I] Error counting positions:', error);
+    return 0;
+  }
+  
+  return count || 0;
+}
+```
+
+**Integration with BinderEditScreen:**
+
+```tsx
+// In BinderEditScreen - loadBinder function
+const loadBinder = async () => {
+  try {
+    // Get binder details
+    const binderData = await getBinderById(binderId);
+    setBinder(binderData);
+    
+    // Calculate total slots
+    const slots = binderData.layoutPreference === '4x3' ? 480 : 360;
+    
+    // Load saved positions from database
+    const savedPositions = await getCardPositionsForBinder(binderId);
+    
+    // If user has saved positions, use them
+    if (savedPositions.length > 0) {
+      const allPositions: CardPosition[] = [];
+      for (let i = 0; i < slots; i++) {
+        const saved = savedPositions.find(p => p.slotIndex === i);
+        allPositions.push({
+          slotIndex: i,
+          cardId: saved?.cardId || null,
+          cardName: saved?.cardName,
+          imageUrl: saved?.imageUrl,
+        });
+      }
+      setCardPositions(allPositions);
+      setOriginalPositions([...allPositions]);
+    } else {
+      // No saved positions - pre-populate based on collection mode
+      // Master Set: cards in set order
+      // Region: Pokémon in Pokédex order  
+      // Custom: all empty slots
+      await initializeBinder(binderData);
+    }
+  } catch (error) {
+    console.error('Error loading binder:', error);
+    Alert.alert('Error', 'Failed to load binder. Please try again.');
+  }
+};
+
+// In savePositions function
+const savePositions = async () => {
+  try {
+    await saveCardPositionsForBinder(binderId, cardPositions);
+    setOriginalPositions([...cardPositions]);
+    setHasChanges(false);
+    setUndoStack([]);
+  } catch (error) {
+    Alert.alert('Error', 'Failed to save changes. Please try again.');
+  }
+};
+```
+
+**Testing:**
+- [ ] Migration runs without errors
+- [ ] Table created with correct columns
+- [ ] RLS policies applied
+- [ ] getCardPositionsForBinder returns saved positions
+- [ ] saveCardPositionsForBinder saves correctly
+- [ ] clearAllPositionsForBinder works
+- [ ] Positions persist after app restart
+- [ ] Positions isolated per user (RLS)
+- [ ] Positions isolated per binder
+
+**How to Test Step 34I:**
+
+1. **Run migration:**
+   - Go to Supabase Dashboard → SQL Editor
+   - Run the migration SQL
+   - Verify table created
+
+2. **Test saving:**
+   - Open Binder Edit, place some cards
+   - Save and exit
+   - Re-open Binder Edit → cards should be in same positions
+
+3. **Test persistence:**
+   - Close app completely
+   - Reopen and check binder → positions preserved
+
+4. **Test isolation:**
+   - Log in as different user
+   - Should not see other user's positions
+
+---
+
+**Overall Testing Checklist for Step 34:**
+- [ ] Edit button visible and navigates correctly (Step 34A)
+- [ ] View modes have correct interactions (Step 34A)
+- [ ] Binder Edit screen loads correctly (Step 34B)
+- [ ] Empty binder starts with all empty slots (Step 34B)
+- [ ] Card picker with duplicate warning works (Step 34B)
+- [ ] Tap-to-select works with cross-page selection (Step 34C)
+- [ ] Remove via selection bar button works (Step 34C)
+- [ ] Card Placeholder works correctly (Step 34D)
+- [ ] Trash zone for removing cards works (Step 34D)
+- [ ] Placeholder full handling works (Step 34D)
+- [ ] Insert (plus signs) works correctly (Step 34E)
+- [ ] Drag & drop works correctly (Step 34F)
+- [ ] Undo and save system works (Step 34G)
+- [ ] Region binder has simplified edit mode (Step 34H)
+- [ ] Database positions save and load correctly (Step 34I)
+- [ ] Works for Master Set binders
+- [ ] Works for Custom binders
+- [ ] Works for Region binders
 - [ ] Works with 3×3 layout
 - [ ] Works with 4×3 layout
 - [ ] No TypeScript errors

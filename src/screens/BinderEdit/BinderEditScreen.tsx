@@ -3,7 +3,6 @@ import { View, StyleSheet, Alert, BackHandler, Text, TouchableOpacity, ScrollVie
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { getBinderById } from '../../services/supabase/binders';
-import { getCardsBySet, getCardsByRegion, type Region } from '../../services/api/pokemonApi';
 import { CardSlot, CardPlaceholder, SelectedCardBar, type PlaceholderCard } from '../../components/BinderEdit';
 import PageNavigator from '../../components/Binder/PageNavigator';
 import { JumpToPageModal } from '../../components/Binder/JumpToPageModal';
@@ -11,13 +10,16 @@ import { CardPickerModal } from '../../components/CardPicker';
 import LoadingScreen from '../../components/Loading/LoadingScreen';
 import ErrorScreen from '../../components/Error/ErrorScreen';
 import type { Binder, Card } from '../../types';
-import { colors, spacing, typography, borderRadius, shadows } from '../../constants/theme';
+import { colors, spacing, typography, borderRadius } from '../../constants/theme';
 
 /**
  * Position of a card in the binder grid
+ * Stores all card display data to avoid lookup issues
  */
 interface CardPosition {
   cardId: string | null;
+  cardName?: string;
+  imageUrl?: string;
   slotIndex: number; // Global index across all pages (0-based)
 }
 
@@ -33,16 +35,6 @@ interface SelectedCard {
   sourcePage?: number; // Page number (1-based) for cross-page reference
 }
 
-/**
- * Card data with image URL for display
- */
-interface CardData {
-  id: string;
-  name: string;
-  imageUrl?: string;
-  number?: string;
-}
-
 const TOTAL_PAGES = 20; // Fixed 20 pages for binder edit
 const PLACEHOLDER_MAX = 18; // Maximum cards in placeholder tray
 
@@ -55,9 +47,8 @@ export default function BinderEditScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
-  // Binder and card data
+  // Binder data
   const [binder, setBinder] = useState<Binder | null>(null);
-  const [allCards, setAllCards] = useState<Map<string, CardData>>(new Map()); // Card ID -> Card data
   
   // Card positions in binder slots
   const [cardPositions, setCardPositions] = useState<CardPosition[]>([]);
@@ -139,44 +130,20 @@ export default function BinderEditScreen() {
       }
       setBinder(binderData);
 
-      // Load cards based on binder type
-      let cards: Card[] = [];
-      if (binderData.collectionMode === 'master-set' && binderData.set) {
-        cards = await getCardsBySet(binderData.set);
-        
-        // Apply variant filtering if specified
-        if (binderData.variantsToTrack && binderData.variantsToTrack.length > 0) {
-          cards = cards.filter(card => {
-            const cardVariant = card.variant || 'base';
-            return binderData.variantsToTrack!.includes(cardVariant);
-          });
-        }
-      } else if (binderData.collectionMode === 'region' && binderData.region) {
-        cards = await getCardsByRegion(binderData.region as Region, binderData.pokemonArtStyle);
-      }
-      // Custom binders start empty
-
-      // Build card data map
-      const cardDataMap = new Map<string, CardData>();
-      cards.forEach(card => {
-        cardDataMap.set(card.id, {
-          id: card.id,
-          name: card.name,
-          imageUrl: card.imageUrl,
-          number: card.number,
-        });
-      });
-      setAllCards(cardDataMap);
-
       // Calculate total slots based on layout
       const slotsPerPage = binderData.layoutPreference === '4x3' ? 12 : 9;
       const totalSlotCount = slotsPerPage * TOTAL_PAGES;
 
       // Initialize empty positions
-      // For now, all slots start empty - later we'll load saved positions from database
+      // For now, all slots start empty - later we'll load saved positions from database (Step 34I)
       const emptyPositions: CardPosition[] = [];
       for (let i = 0; i < totalSlotCount; i++) {
-        emptyPositions.push({ cardId: null, slotIndex: i });
+        emptyPositions.push({ 
+          cardId: null, 
+          cardName: undefined,
+          imageUrl: undefined,
+          slotIndex: i 
+        });
       }
       
       setCardPositions(emptyPositions);
@@ -242,28 +209,81 @@ export default function BinderEditScreen() {
   /**
    * Handle tapping a card slot
    */
-  const handleSlotPress = (slotIndex: number, cardId: string | null) => {
-    if (cardId) {
-      // Slot has a card - select it
-      const cardData = allCards.get(cardId);
+  const handleSlotPress = (slot: CardPosition) => {
+    const { slotIndex, cardId, cardName, imageUrl } = slot;
+    
+    if (selectedCard) {
+      // A card is already selected
+      if (selectedCard.sourceSlot === slotIndex) {
+        // Tapped the same slot - deselect
+        setSelectedCard(null);
+      } else if (cardId) {
+        // Tapped another filled slot - SWAP the cards
+        handleSwapCards(slot);
+      } else {
+        // Tapped empty slot - move card here
+        handleMoveCardToSlot(slotIndex);
+      }
+    } else if (cardId) {
+      // No selection, slot has a card - select it
       const pageNumber = Math.floor(slotIndex / cardsPerPage) + 1;
       
       setSelectedCard({
         cardId,
-        cardName: cardData?.name || 'Unknown Card',
-        imageUrl: cardData?.imageUrl,
+        cardName: cardName || 'Unknown Card',
+        imageUrl: imageUrl,
         sourceSlot: slotIndex,
         sourceIndex: slotIndex,
         sourcePage: pageNumber,
       });
-    } else if (selectedCard) {
-      // Empty slot with a card selected - move card here
-      handleMoveCardToSlot(slotIndex);
     } else {
       // Empty slot, no selection - open card picker
       setTargetSlotIndex(slotIndex);
       setShowCardPicker(true);
     }
+  };
+
+  /**
+   * Swap selected card with card in target slot
+   */
+  const handleSwapCards = (targetSlot: CardPosition) => {
+    if (!selectedCard || selectedCard.sourceSlot === 'placeholder') return;
+    
+    saveUndoState();
+    
+    const sourceSlotIndex = selectedCard.sourceSlot as number;
+    
+    setCardPositions(prev => {
+      const newPositions = [...prev];
+      
+      // Store target slot data before swap
+      const targetData = {
+        cardId: targetSlot.cardId,
+        cardName: targetSlot.cardName,
+        imageUrl: targetSlot.imageUrl,
+      };
+      
+      // Move target card to source slot
+      newPositions[sourceSlotIndex] = {
+        ...newPositions[sourceSlotIndex],
+        cardId: targetData.cardId,
+        cardName: targetData.cardName,
+        imageUrl: targetData.imageUrl,
+      };
+      
+      // Move source card to target slot
+      newPositions[targetSlot.slotIndex] = {
+        ...newPositions[targetSlot.slotIndex],
+        cardId: selectedCard.cardId,
+        cardName: selectedCard.cardName,
+        imageUrl: selectedCard.imageUrl,
+      };
+      
+      return newPositions;
+    });
+    
+    setHasChanges(true);
+    setSelectedCard(null);
   };
 
   /**
@@ -274,20 +294,31 @@ export default function BinderEditScreen() {
     
     saveUndoState();
     
+    // Handle placeholder source separately
+    if (selectedCard.sourceSlot === 'placeholder') {
+      setPlaceholderCards(p => p.filter((_, i) => i !== selectedCard.sourceIndex));
+    }
+    
     setCardPositions(prev => {
       const newPositions = [...prev];
       
-      // Remove from source
-      if (selectedCard.sourceSlot === 'placeholder') {
-        // Remove from placeholder - handled separately
-        setPlaceholderCards(p => p.filter((_, i) => i !== selectedCard.sourceIndex));
-      } else {
-        // Remove from binder slot
-        newPositions[selectedCard.sourceSlot].cardId = null;
+      // Remove from source binder slot (if from binder, not placeholder)
+      if (selectedCard.sourceSlot !== 'placeholder') {
+        newPositions[selectedCard.sourceSlot] = {
+          ...newPositions[selectedCard.sourceSlot],
+          cardId: null,
+          cardName: undefined,
+          imageUrl: undefined,
+        };
       }
       
-      // Place in target slot
-      newPositions[targetSlotIndex].cardId = selectedCard.cardId;
+      // Place in target slot with card data
+      newPositions[targetSlotIndex] = {
+        ...newPositions[targetSlotIndex],
+        cardId: selectedCard.cardId,
+        cardName: selectedCard.cardName,
+        imageUrl: selectedCard.imageUrl,
+      };
       
       return newPositions;
     });
@@ -325,7 +356,7 @@ export default function BinderEditScreen() {
   };
 
   /**
-   * Remove selected card (send to trash)
+   * Remove selected card from binder entirely
    */
   const handleRemoveCard = () => {
     if (!selectedCard) return;
@@ -333,7 +364,7 @@ export default function BinderEditScreen() {
     // Confirm removal
     Alert.alert(
       'Remove Card',
-      `Remove ${selectedCard.cardName} from the binder? It will be moved to the placeholder tray.`,
+      `Remove ${selectedCard.cardName} from the binder? The slot will become empty.`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -343,29 +374,18 @@ export default function BinderEditScreen() {
             saveUndoState();
             
             if (selectedCard.sourceSlot === 'placeholder') {
-              // Already in placeholder - remove completely
+              // Remove from placeholder
               setPlaceholderCards(prev => prev.filter((_, i) => i !== selectedCard.sourceIndex));
             } else {
-              // Move from binder to placeholder
-              if (placeholderCards.length >= PLACEHOLDER_MAX) {
-                Alert.alert('Placeholder Full', 'The placeholder tray is full (18 cards max). Please move some cards back to the binder first.');
-                return;
-              }
-              
-              // Add to placeholder
-              setPlaceholderCards(prev => [
-                ...prev,
-                {
-                  cardId: selectedCard.cardId,
-                  cardName: selectedCard.cardName,
-                  imageUrl: selectedCard.imageUrl,
-                },
-              ]);
-              
-              // Remove from binder slot
+              // Remove from binder slot - clear all card data
               setCardPositions(prev => {
                 const newPositions = [...prev];
-                newPositions[selectedCard.sourceSlot as number].cardId = null;
+                newPositions[selectedCard.sourceSlot as number] = {
+                  ...newPositions[selectedCard.sourceSlot as number],
+                  cardId: null,
+                  cardName: undefined,
+                  imageUrl: undefined,
+                };
                 return newPositions;
               });
             }
@@ -391,16 +411,20 @@ export default function BinderEditScreen() {
   const handleCardPickerSelect = (card: Card) => {
     if (targetSlotIndex === null) return;
     
-    // Check if card is already placed elsewhere
+    // Check if card is already placed elsewhere in the binder
     const existingSlot = cardPositions.find(pos => pos.cardId === card.id);
     
     if (existingSlot) {
       const existingPage = Math.floor(existingSlot.slotIndex / cardsPerPage) + 1;
+      const slotOnPage = (existingSlot.slotIndex % cardsPerPage) + 1;
       Alert.alert(
         'Card Already Placed',
-        `${card.name} is already in Slot ${existingSlot.slotIndex + 1} (Page ${existingPage}). Add it anyway?`,
+        `${card.name} is already on Page ${existingPage} (Slot ${slotOnPage}). Add it anyway?`,
         [
-          { text: 'Cancel', style: 'cancel' },
+          { text: 'Cancel', style: 'cancel', onPress: () => {
+            setShowCardPicker(false);
+            setTargetSlotIndex(null);
+          }},
           { 
             text: 'Add Anyway', 
             onPress: () => placeCardInSlot(card),
@@ -420,23 +444,15 @@ export default function BinderEditScreen() {
     
     saveUndoState();
     
-    // Add to allCards map if not already there
-    if (!allCards.has(card.id)) {
-      setAllCards(prev => {
-        const newMap = new Map(prev);
-        newMap.set(card.id, {
-          id: card.id,
-          name: card.name,
-          imageUrl: card.imageUrl,
-          number: card.number,
-        });
-        return newMap;
-      });
-    }
-    
+    // Update positions with card data stored directly
     setCardPositions(prev => {
       const newPositions = [...prev];
-      newPositions[targetSlotIndex].cardId = card.id;
+      newPositions[targetSlotIndex] = {
+        ...newPositions[targetSlotIndex],
+        cardId: card.id,
+        cardName: card.name,
+        imageUrl: card.imageUrl,
+      };
       return newPositions;
     });
     
@@ -458,25 +474,22 @@ export default function BinderEditScreen() {
       <View style={styles.gridContainer}>
         {rows.map((row, rowIndex) => (
           <View key={rowIndex} style={styles.row}>
-            {row.map((slot) => {
-              const cardData = slot.cardId ? allCards.get(slot.cardId) : undefined;
-              return (
-                <CardSlot
-                  key={slot.slotIndex}
-                  cardId={slot.cardId}
-                  imageUrl={cardData?.imageUrl}
-                  cardName={cardData?.name}
-                  slotIndex={slot.slotIndex}
-                  isSelected={
-                    selectedCard !== null && 
-                    selectedCard.sourceSlot !== 'placeholder' && 
-                    selectedCard.sourceSlot === slot.slotIndex
-                  }
-                  onPress={() => handleSlotPress(slot.slotIndex, slot.cardId)}
-                  layoutPreference={binder?.layoutPreference}
-                />
-              );
-            })}
+            {row.map((slot) => (
+              <CardSlot
+                key={slot.slotIndex}
+                cardId={slot.cardId}
+                imageUrl={slot.imageUrl}
+                cardName={slot.cardName}
+                slotIndex={slot.slotIndex}
+                isSelected={
+                  selectedCard !== null && 
+                  selectedCard.sourceSlot !== 'placeholder' && 
+                  selectedCard.sourceSlot === slot.slotIndex
+                }
+                onPress={() => handleSlotPress(slot)}
+                layoutPreference={binder?.layoutPreference}
+              />
+            ))}
           </View>
         ))}
       </View>

@@ -1301,6 +1301,20 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
   // Key extractor for FlatList
   const keyExtractor = useCallback((item: CardWithOwnership) => item.id, []);
 
+  // Render a single card for list view FlatList
+  const renderListCard = useCallback(
+    ({ item }: { item: CardWithOwnership }) => (
+      <CardItem
+        card={item}
+        onPress={handleToggleCard}
+        binderId={binder?.id || ''}
+        variant="list"
+        listTapBehavior="toggle"
+      />
+    ),
+    [handleToggleCard, binder?.id]
+  );
+
   // === MASTER SET MODE: Combined grid with regular cards, extra cards, and empty slots ===
   
   // Create combined data for Master Set mode: regular cards + extra cards + empty slots
@@ -1760,20 +1774,6 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
       />
     );
   };
-
-  // Render a single card for list view FlatList
-  const renderListCard = useCallback(
-    ({ item }: { item: CardWithOwnership }) => (
-      <CardItem
-        card={item}
-        onPress={handleToggleCard}
-        binderId={binder?.id || ''}
-        variant="list"
-        listTapBehavior="toggle"
-      />
-    ),
-    [handleToggleCard, binder?.id]
-  );
 
   // List view - uses FlatList for virtualization (much faster than ScrollView + map)
   // Note: Custom mode only supports grid view (always falls through to grid)

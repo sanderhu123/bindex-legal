@@ -39,6 +39,7 @@ import LoadingScreen from '../../components/Loading/LoadingScreen';
 import LoadingSpinner from '../../components/Loading/LoadingSpinner';
 import EmptyState from '../../components/EmptyState/EmptyState';
 import ErrorScreen from '../../components/Error/ErrorScreen';
+import ViewModeToggle from '../../components/ViewModeToggle';
 import { colors, spacing, typography, borderRadius, screenPadding } from '../../constants/theme';
 
 const CONTAINER_PADDING = screenPadding; // Padding from container style (24px)
@@ -1579,8 +1580,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
   const isCustomMode = binder.collectionMode === 'custom';
 
   // Header component for FlatList (binder info, progress, search, filters)
-  // Memoized to prevent re-renders causing touch issues with view toggle
-  const listHeaderContent = useMemo(() => (
+  const ListHeaderComponent = () => (
     <View style={styles.headerContainer}>
       {/* Step 34A: Header row with title and Edit button */}
       <View style={styles.titleRow}>
@@ -1649,32 +1649,10 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
           <Text style={styles.sectionTitle}>{isCustomMode ? 'Card Slots:' : 'Cards:'}</Text>
           {/* View toggle - only show for non-Custom modes */}
           {!isCustomMode && (
-            <View style={styles.viewToggle}>
-              <TouchableOpacity
-                style={[styles.toggleButton, viewMode === 'grid' && styles.toggleButtonActive]}
-                onPress={() => setViewMode('grid')}
-              >
-                <Text style={[styles.toggleButtonText, viewMode === 'grid' && styles.toggleButtonTextActive]}>
-                  Grid
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.toggleButton, viewMode === 'list' && styles.toggleButtonActive]}
-                onPress={() => setViewMode('list')}
-              >
-                <Text style={[styles.toggleButtonText, viewMode === 'list' && styles.toggleButtonTextActive]}>
-                  List
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.toggleButton, viewMode === 'binder' && styles.toggleButtonActive]}
-                onPress={() => setViewMode('binder')}
-              >
-                <Text style={[styles.toggleButtonText, viewMode === 'binder' && styles.toggleButtonTextActive]}>
-                  Binder
-                </Text>
-              </TouchableOpacity>
-            </View>
+            <ViewModeToggle 
+              viewMode={viewMode} 
+              onViewModeChange={setViewMode} 
+            />
           )}
         </View>
         
@@ -1706,25 +1684,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
         </Text>
       </View>
     </View>
-  ), [
-    binder, 
-    viewMode, 
-    searchQuery, 
-    ownershipFilter, 
-    showPageBreaks, 
-    isCustomMode, 
-    isMasterSetMode,
-    ownedCount, 
-    totalCount, 
-    progressPercentage,
-    positionCards,
-    customMaxSlots,
-    collectionModeText,
-    navigation,
-  ]);
-
-  // Wrapper component to pass memoized content to FlatList
-  const ListHeaderComponent = useCallback(() => listHeaderContent, [listHeaderContent]);
+  );
 
   // Footer component (loading indicator for pagination)
   const ListFooterComponent = () => {
@@ -2156,28 +2116,6 @@ const styles = StyleSheet.create({
     fontSize: typography['2xl'],
     fontWeight: typography.semibold,
     color: colors.textSecondary,
-  },
-  viewToggle: {
-    flexDirection: 'row',
-    backgroundColor: colors.backgroundDark,
-    borderRadius: borderRadius.md,
-    padding: 2,
-  },
-  toggleButton: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs + 2,
-    borderRadius: borderRadius.sm,
-  },
-  toggleButtonActive: {
-    backgroundColor: colors.primary,
-  },
-  toggleButtonText: {
-    fontSize: typography.sm,
-    fontWeight: typography.medium,
-    color: colors.textTertiary,
-  },
-  toggleButtonTextActive: {
-    color: colors.background,
   },
   row: {
     marginHorizontal: -CARD_MARGIN,

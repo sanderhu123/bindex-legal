@@ -71,7 +71,7 @@ export function CardSlot({
         </View>
       ) : hasImage ? (
         <View style={styles.imageContainer}>
-          <Image
+<Image
             key={`img-${cardId}-${imageUrl}`}
             source={{ uri: imageUrl }}
             style={styles.cardImage}
@@ -108,6 +108,9 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.md,
     overflow: 'hidden',
     backgroundColor: colors.backgroundLight,
+    // Always have 4px border to prevent layout shift when selecting/deselecting
+    borderWidth: 4,
+    borderColor: 'transparent',
     ...shadows.sm,
   },
   container4x3: {
@@ -121,8 +124,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   selectedContainer: {
-    borderWidth: 4,
-    borderStyle: 'solid',
+    // Only change border color, not width (prevents layout shift / grey flash)
     borderColor: colors.primary,
     // Add glow effect for better visibility
     shadowColor: colors.primary,

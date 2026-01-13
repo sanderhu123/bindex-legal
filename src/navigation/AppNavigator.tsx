@@ -4,6 +4,7 @@ import NfcHandlerScreen from '../screens/NfcHandler/NfcHandlerScreen';
 import OnboardingScreen from '../screens/Onboarding/OnboardingScreen';
 import BinderListScreen from '../screens/BinderList/BinderListScreen';
 import BinderDetailScreen from '../screens/BinderDetail/BinderDetailScreen';
+import BinderEditScreen from '../screens/BinderEdit/BinderEditScreen';
 import CardListScreen from '../screens/CardList/CardListScreen';
 import CardDetailScreen from '../screens/CardDetail/CardDetailScreen';
 import CardSearchTestScreen from '../screens/CardSearchTest/CardSearchTestScreen';
@@ -13,6 +14,7 @@ export type MainStackParamList = {
   Questionnaire: { nfcTagId?: string } | undefined;
   BinderList: undefined;
   BinderDetail: { binderId: string };
+  BinderEdit: { binderId: string }; // Step 34A: Binder Edit mode
   CardList: undefined;
   CardDetail: { 
     cardId: string; 
@@ -52,6 +54,10 @@ export default function AppNavigator() {
       <Stack.Screen
         name="BinderDetail"
         component={BinderDetailScreen}
+      />
+      <Stack.Screen
+        name="BinderEdit"
+        component={BinderEditScreen}
       />
       <Stack.Screen
         name="CardList"

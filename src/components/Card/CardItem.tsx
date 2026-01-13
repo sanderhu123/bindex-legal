@@ -14,6 +14,8 @@ interface CardWithOwnership extends Card {
 interface CardItemProps {
   card: CardWithOwnership;
   onPress?: (card: CardWithOwnership) => void; // Optional now, navigation takes priority
+  onLongPress?: (card: CardWithOwnership) => void; // Long-press handler (for enlarge preview)
+  onLongPressRelease?: () => void; // Called when long-press is released
   binderId: string;
   width?: number;
   variant?: 'grid' | 'list';
@@ -22,6 +24,7 @@ interface CardItemProps {
   isExtraCard?: boolean; // For cards added by user (not in official set)
   cardIndex?: number; // Card's index in the sorted list (for binder position calculation)
   cardsPerPage?: number; // Cards per binder page (9 for 3x3, 12 for 4x3)
+  listTapBehavior?: 'navigate' | 'toggle'; // Step 34A: what happens when list row is tapped
 }
 
 type NavigationProp = StackNavigationProp<MainStackParamList, 'CardDetail'>;
@@ -39,7 +42,21 @@ function getVariantBadge(variant?: string) {
   return badges[variant] || null;
 }
 
-export default function CardItem({ card, onPress, binderId, width, variant = 'grid', position, collectionMode, isExtraCard, cardIndex, cardsPerPage }: CardItemProps) {
+export default function CardItem({ 
+  card, 
+  onPress, 
+  onLongPress,
+  onLongPressRelease,
+  binderId, 
+  width, 
+  variant = 'grid', 
+  position, 
+  collectionMode, 
+  isExtraCard, 
+  cardIndex, 
+  cardsPerPage,
+  listTapBehavior = 'navigate', // Default: tap navigates to card details
+}: CardItemProps) {
   const navigation = useNavigation<NavigationProp>();
   const badge = getVariantBadge(card.variant);
 
@@ -69,11 +86,31 @@ export default function CardItem({ card, onPress, binderId, width, variant = 'gr
     }
   };
 
+  // Step 34A: Long-press handler for enlarge preview
+  const handleLongPress = () => {
+    if (onLongPress) {
+      onLongPress(card);
+    }
+  };
+
+  // Step 34A: List view tap behavior - either navigate or toggle ownership
+  const handleListRowPress = () => {
+    if (listTapBehavior === 'toggle') {
+      // Toggle ownership when row is tapped
+      if (onPress) {
+        onPress(card);
+      }
+    } else {
+      // Navigate to card details (default)
+      handleCardPress();
+    }
+  };
+
   if (variant === 'list') {
     return (
       <TouchableOpacity
         style={[styles.listItem, !card.isOwned && styles.missingListItem]}
-        onPress={handleCardPress}
+        onPress={handleListRowPress}
         activeOpacity={0.7}
       >
         <View style={styles.listImageContainer}>
@@ -117,6 +154,9 @@ export default function CardItem({ card, onPress, binderId, width, variant = 'gr
     <TouchableOpacity
       style={cardItemStyle}
       onPress={handleCardPress}
+      onLongPress={onLongPress ? handleLongPress : undefined}
+      onPressOut={onLongPressRelease}
+      delayLongPress={300}
       activeOpacity={0.7}
     >
       <View style={styles.cardImageContainer}>

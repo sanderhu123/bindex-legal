@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { View, StyleSheet, Text, ScrollView, TouchableOpacity, Dimensions, FlatList, ActivityIndicator, Alert, PanResponder } from 'react-native';
+import { View, StyleSheet, Text, ScrollView, TouchableOpacity, Dimensions, FlatList, SectionList, ActivityIndicator, Alert, PanResponder, Modal, Pressable } from 'react-native';
+import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { getBinderById } from '../../services/supabase/binders';
@@ -28,6 +29,7 @@ import { CardPickerModal } from '../../components/CardPicker';
 import PageNavigator from '../../components/Binder/PageNavigator';
 import BinderPageView from '../../components/Binder/BinderPageView';
 import { JumpToPageModal } from '../../components/Binder/JumpToPageModal';
+import PageHeader from '../../components/Binder/PageHeader';
 import { useCardSearch } from '../../hooks/useCardSearch';
 import { useCardFilter, type OwnershipFilter } from '../../hooks/useCardFilter';
 import SearchBar from '../../components/Search/SearchBar';
@@ -100,6 +102,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
   const [currentPage, setCurrentPage] = useState(1);
   const [showJumpModal, setShowJumpModal] = useState(false);
   const [ownershipFilter, setOwnershipFilter] = useState<OwnershipFilter>('all');
+  const [showPageBreaks, setShowPageBreaks] = useState(false);
   const [screenWidth, setScreenWidth] = useState(Dimensions.get('window').width);
   
   // Pagination state for infinite scroll (only used for Custom mode)
@@ -1021,6 +1024,9 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
   const [showRegionCardPicker, setShowRegionCardPicker] = useState(false);
   const [selectedPokemonForPicker, setSelectedPokemonForPicker] = useState<CardWithOwnership | null>(null);
   
+  // Step 34A: Enlarged card preview state (for long-press in Grid/Binder view)
+  const [enlargedCard, setEnlargedCard] = useState<CardWithOwnership | null>(null);
+  
   // Handle tapping a Region Pokemon slot
   // - If no card selected: open card picker directly
   // - If card selected: navigate to card detail
@@ -1108,6 +1114,14 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
     }
   }, [binder, selectedPokemonForPicker]);
 
+  // Step 34A: Long-press handlers for enlarged card preview
+  const handleLongPressCard = useCallback((card: CardWithOwnership) => {
+    setEnlargedCard(card);
+  }, []);
+
+  const handleLongPressRelease = useCallback(() => {
+    setEnlargedCard(null);
+  }, []);
 
   // Update header title when binder loads
   useEffect(() => {
@@ -1194,6 +1208,34 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
     const endIndex = startIndex + cardsPerPage;
     return filteredCards.slice(startIndex, endIndex);
   }, [filteredCards, currentPage, cardsPerPage]);
+
+  // Group cards by page for page breaks view (grid mode with headers)
+  // Each section contains rows of cards (for grid layout in SectionList)
+  const cardSections = useMemo(() => {
+    if (!showPageBreaks) return null;
+    
+    const sections: { title: string; pageNumber: number; data: CardWithOwnership[][] }[] = [];
+    let currentPageNum = 1;
+    
+    for (let i = 0; i < filteredCards.length; i += cardsPerPage) {
+      const pageData = filteredCards.slice(i, i + cardsPerPage);
+      
+      // Group cards into rows for grid layout
+      const rows: CardWithOwnership[][] = [];
+      for (let j = 0; j < pageData.length; j += gridColumns) {
+        rows.push(pageData.slice(j, j + gridColumns));
+      }
+      
+      sections.push({
+        title: `Page ${currentPageNum}`,
+        pageNumber: currentPageNum,
+        data: rows,
+      });
+      currentPageNum++;
+    }
+    
+    return sections;
+  }, [filteredCards, showPageBreaks, cardsPerPage, gridColumns]);
   
   // Reset to page 1 when filtered cards change (e.g., search or filter applied)
   useEffect(() => {
@@ -1237,12 +1279,14 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
     })
   ).current;
 
-  // Render a single card for FlatList
+  // Render a single card for FlatList (with long-press enlarge preview)
   const renderCard = useCallback(
     ({ item, index }: { item: CardWithOwnership; index: number }) => (
       <CardItem
         card={item}
         onPress={handleToggleCard}
+        onLongPress={handleLongPressCard}
+        onLongPressRelease={handleLongPressRelease}
         binderId={binder?.id || ''}
         width={cardWidth}
         variant="grid"
@@ -1250,7 +1294,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
         cardsPerPage={cardsPerPage}
       />
     ),
-    [handleToggleCard, binder?.id, cardWidth, cardsPerPage]
+    [handleToggleCard, handleLongPressCard, handleLongPressRelease, binder?.id, cardWidth, cardsPerPage]
   );
 
   // Key extractor for FlatList
@@ -1286,7 +1330,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
     return items;
   }, [binder, displayedCards, extraCards, hasMoreCards]);
 
-  // Render function for Master Set grid items
+  // Render function for Master Set grid items (with long-press enlarge preview)
   const renderMasterSetGridItem = useCallback(
     ({ item, index }: { item: MasterSetGridItem; index: number }) => {
       if (item.type === 'card') {
@@ -1295,6 +1339,8 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
           <CardItem
             card={item.card}
             onPress={handleToggleCard}
+            onLongPress={handleLongPressCard}
+            onLongPressRelease={handleLongPressRelease}
             binderId={binder?.id || ''}
             width={cardWidth}
             variant="grid"
@@ -1311,6 +1357,8 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
           <CardItem
             card={item.card}
             onPress={handleToggleExtraCardOwnership}
+            onLongPress={handleLongPressCard}
+            onLongPressRelease={handleLongPressRelease}
             binderId={binder?.id || ''}
             width={cardWidth}
             variant="grid"
@@ -1333,7 +1381,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
         />
       );
     },
-    [binder?.id, cardWidth, cardsPerPage, handleToggleCard, handleToggleExtraCardOwnership, handleExtraSlotPress]
+    [binder?.id, cardWidth, cardsPerPage, handleToggleCard, handleToggleExtraCardOwnership, handleExtraSlotPress, handleLongPressCard, handleLongPressRelease]
   );
 
   // Key extractor for Master Set grid items
@@ -1409,13 +1457,16 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
 
   // === REGION MODE: Custom render function for Pokemon cards ===
   
-  // Render a Region Pokemon card - tap navigates to card detail
+  // Render a Region Pokemon card - tap navigates to card detail, long-press enlarges
   const renderRegionCard = useCallback(
     ({ item, index }: { item: CardWithOwnership; index: number }) => {
       return (
         <TouchableOpacity
           style={[styles.regionCardItem, { width: cardWidth }]}
           onPress={() => handleRegionCardTap(item, index)}
+          onLongPress={() => handleLongPressCard(item)}
+          onPressOut={handleLongPressRelease}
+          delayLongPress={300}
           activeOpacity={0.7}
         >
           <View style={styles.regionCardImageContainer}>
@@ -1445,8 +1496,38 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
         </TouchableOpacity>
       );
     },
-    [cardWidth, handleRegionCardTap, handleToggleCard]
+    [cardWidth, handleRegionCardTap, handleToggleCard, handleLongPressCard, handleLongPressRelease]
   );
+
+  // Step 34A: Enlarged card overlay component (for long-press preview)
+  const EnlargedCardOverlay = () => {
+    if (!enlargedCard) return null;
+    
+    return (
+      <Modal
+        visible={!!enlargedCard}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={handleLongPressRelease}
+      >
+        <Pressable 
+          style={styles.enlargeOverlay}
+          onPress={handleLongPressRelease}
+        >
+          <View style={styles.enlargedCardContainer}>
+            <Image
+              source={{ uri: enlargedCard.imageUrlHiRes || enlargedCard.imageUrl }}
+              style={styles.enlargedCard}
+              contentFit="contain"
+            />
+            <Text style={styles.enlargedCardName}>{enlargedCard.name}</Text>
+            <Text style={styles.enlargedCardNumber}>{enlargedCard.number}</Text>
+            <Text style={styles.enlargedHint}>Tap anywhere to close</Text>
+          </View>
+        </Pressable>
+      </Modal>
+    );
+  };
 
   if (loading && !binder) {
     return <LoadingScreen message="Loading binder..." />;
@@ -1500,7 +1581,17 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
   // Header component for FlatList (binder info, progress, search, filters)
   const ListHeaderComponent = () => (
     <View style={styles.headerContainer}>
-      <Text style={styles.title}>{binder.name}</Text>
+      {/* Step 34A: Header row with title and Edit button */}
+      <View style={styles.titleRow}>
+        <Text style={styles.title}>{binder.name}</Text>
+        <TouchableOpacity
+          style={styles.editButton}
+          onPress={() => navigation.navigate('BinderEdit', { binderId: binder.id })}
+        >
+          <Text style={styles.editButtonIcon}>📝</Text>
+          <Text style={styles.editButtonText}>Edit</Text>
+        </TouchableOpacity>
+      </View>
       <Text style={styles.subtitle}>Collection Mode: {collectionModeText}</Text>
       {binder.set && <Text style={styles.text}>Set: {binder.set}</Text>}
       {binder.region && <Text style={styles.text}>Region: {binder.region}</Text>}
@@ -1598,6 +1689,8 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
             <FilterPanel
               ownershipFilter={ownershipFilter}
               onOwnershipFilterChange={setOwnershipFilter}
+              showPageBreaks={showPageBreaks}
+              onShowPageBreaksChange={setShowPageBreaks}
             />
           </>
         )}
@@ -1691,6 +1784,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
 
   // List view (using ScrollView as before)
   // Note: Custom mode only supports grid view (always falls through to grid)
+  // Step 34A: List view tap toggles ownership (no card details navigation)
   if (viewMode === 'list' && !isCustomMode) {
     return (
       <SafeAreaView style={styles.safeArea}>
@@ -1705,9 +1799,11 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
               cards={filteredCards}
               onCardPress={handleToggleCard}
               binderId={binder.id}
+              listTapBehavior="toggle"
             />
           )}
         </ScrollView>
+        <EnlargedCardOverlay />
       </SafeAreaView>
     );
   }
@@ -1744,6 +1840,8 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
                   binderId={binder.id}
                   onPageChange={setCurrentPage}
                   onCardPress={handleToggleCard}
+                  onCardLongPress={handleLongPressCard}
+                  onCardLongPressRelease={handleLongPressRelease}
                   collectionMode={binder.collectionMode}
                 />
               </View>
@@ -1760,6 +1858,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
             setShowJumpModal(false);
           }}
         />
+        <EnlargedCardOverlay />
       </SafeAreaView>
     );
   }
@@ -1799,6 +1898,65 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
           title={selectedPosition !== null ? `Add Card to Slot ${selectedPosition + 1}` : 'Add Card'}
           pokemonOnly={false}
         />
+        <EnlargedCardOverlay />
+      </SafeAreaView>
+    );
+  }
+
+  // Grid view with page breaks enabled - uses SectionList with rows for grid layout
+  // This applies to Master Set and Region modes when page breaks toggle is ON
+  if (viewMode === 'grid' && showPageBreaks && cardSections && !isCustomMode) {
+    // Render a row of cards for the sectioned grid (with long-press enlarge preview)
+    const renderSectionRow = ({ item: row, index: rowIndex, section }: { item: CardWithOwnership[]; index: number; section: { pageNumber: number } }) => {
+      // Calculate the starting index for this row (for card position tracking)
+      const pageStartIndex = (section.pageNumber - 1) * cardsPerPage;
+      const rowStartIndex = pageStartIndex + (rowIndex * gridColumns);
+      
+      return (
+        <View style={styles.sectionRow}>
+          {row.map((card, colIndex) => {
+            const cardIndex = rowStartIndex + colIndex;
+            return (
+              <CardItem
+                key={card.id}
+                card={card}
+                onPress={handleToggleCard}
+                onLongPress={handleLongPressCard}
+                onLongPressRelease={handleLongPressRelease}
+                binderId={binder.id}
+                width={cardWidth}
+                variant="grid"
+                cardIndex={cardIndex}
+                cardsPerPage={cardsPerPage}
+              />
+            );
+          })}
+          {/* Fill empty cells in last row if needed */}
+          {row.length < gridColumns && 
+            Array.from({ length: gridColumns - row.length }).map((_, i) => (
+              <View key={`empty-${i}`} style={{ width: cardWidth, margin: 2 }} />
+            ))
+          }
+        </View>
+      );
+    };
+
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <SectionList
+          sections={cardSections}
+          renderSectionHeader={({ section }) => (
+            <PageHeader pageNumber={section.pageNumber} />
+          )}
+          renderItem={renderSectionRow}
+          keyExtractor={(row, index) => `row-${index}-${row.map(c => c.id).join('-')}`}
+          stickySectionHeadersEnabled={false}
+          contentContainerStyle={styles.flatListContainer}
+          ListHeaderComponent={ListHeaderComponent}
+          ListFooterComponent={ListFooterComponent}
+          ListEmptyComponent={ListEmptyComponent}
+        />
+        <EnlargedCardOverlay />
       </SafeAreaView>
     );
   }
@@ -1835,6 +1993,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
           title="Add Card"
           pokemonOnly={false}
         />
+        <EnlargedCardOverlay />
       </SafeAreaView>
     );
   }
@@ -1878,6 +2037,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
           initialQuery={selectedPokemonForPicker?.name || ''}
           pokemonOnly={true}
         />
+        <EnlargedCardOverlay />
       </SafeAreaView>
     );
   }
@@ -1907,6 +2067,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
         // Extra data to trigger re-render when cards ownership changes
         extraData={[displayCount, cards]}
       />
+      <EnlargedCardOverlay />
     </SafeAreaView>
   );
 }
@@ -2080,5 +2241,79 @@ const styles = StyleSheet.create({
   },
   checkbox: {
     fontSize: 20,
+  },
+  // Section row for page breaks grid view
+  sectionRow: {
+    flexDirection: 'row',
+    marginHorizontal: -2, // Match the CARD_MARGIN negative margin
+  },
+  // Step 34A: Title row with Edit button
+  titleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: spacing.lg,
+    marginBottom: spacing.sm,
+  },
+  // Step 34A: Edit button
+  editButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.primary + '20',
+    borderRadius: borderRadius.md,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.primary,
+  },
+  editButtonIcon: {
+    fontSize: typography.base,
+    marginRight: spacing.xs,
+  },
+  editButtonText: {
+    fontSize: typography.sm,
+    fontWeight: typography.semibold,
+    color: colors.primary,
+  },
+  // Step 34A: Enlarged card overlay
+  enlargeOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.85)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1000,
+  },
+  enlargedCardContainer: {
+    width: '85%',
+    maxHeight: '80%',
+    alignItems: 'center',
+  },
+  enlargedCard: {
+    width: '100%',
+    aspectRatio: 0.72, // TCG card aspect ratio
+    borderRadius: borderRadius.lg,
+  },
+  enlargedCardName: {
+    fontSize: typography.xl,
+    fontWeight: typography.bold,
+    color: colors.background,
+    marginTop: spacing.md,
+    textAlign: 'center',
+  },
+  enlargedCardNumber: {
+    fontSize: typography.base,
+    color: colors.backgroundLight,
+    marginTop: spacing.xs,
+    textAlign: 'center',
+  },
+  enlargedHint: {
+    fontSize: typography.sm,
+    color: colors.textTertiary,
+    marginTop: spacing.lg,
+    fontStyle: 'italic',
   },
   });

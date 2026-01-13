@@ -44,6 +44,10 @@ interface BinderPageViewProps {
   isCustomMode?: boolean;
   /** Collection mode of the binder */
   collectionMode?: 'master-set' | 'region' | 'custom';
+  /** Step 34A: Callback when card is long-pressed (for enlarge preview) */
+  onCardLongPress?: (card: CardWithOwnership) => void;
+  /** Step 34A: Callback when long-press is released */
+  onCardLongPressRelease?: () => void;
 }
 
 /**
@@ -82,6 +86,8 @@ export default function BinderPageView({
   onEmptySlotPress,
   isCustomMode = false,
   collectionMode,
+  onCardLongPress,
+  onCardLongPressRelease,
 }: BinderPageViewProps) {
   const navigation = useNavigation<NavigationProp>();
   // Calculate which cards to show on the current page
@@ -145,6 +151,13 @@ export default function BinderPageView({
       onCardPress(card);
     };
     
+    // Handle long-press - enlarge preview
+    const handleLongPress = () => {
+      if (onCardLongPress) {
+        onCardLongPress(card);
+      }
+    };
+    
     // Slot with card
     return (
       <TouchableOpacity
@@ -154,6 +167,9 @@ export default function BinderPageView({
           { width: cardWidth },
         ]}
         onPress={handleCardTap}
+        onLongPress={onCardLongPress ? handleLongPress : undefined}
+        onPressOut={onCardLongPressRelease}
+        delayLongPress={300}
         activeOpacity={0.7}
       >
         <View style={[styles.cardContainer, { width: cardWidth }]}>

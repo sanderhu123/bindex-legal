@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { View, StyleSheet, Text, ScrollView, TouchableOpacity, Dimensions, FlatList, ActivityIndicator, Alert } from 'react-native';
+import { View, StyleSheet, Text, ScrollView, TouchableOpacity, Dimensions, FlatList, ActivityIndicator, Alert, PanResponder } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { getBinderById } from '../../services/supabase/binders';
@@ -1195,6 +1195,41 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
     }
   }, [filteredCards.length, totalPages, currentPage]);
 
+  // Refs for swipe gesture (needed because PanResponder callbacks are created once)
+  const currentPageRef = useRef(currentPage);
+  const totalPagesRef = useRef(totalPages);
+  useEffect(() => {
+    currentPageRef.current = currentPage;
+    totalPagesRef.current = totalPages;
+  }, [currentPage, totalPages]);
+
+  // Swipe gesture handler for binder page navigation
+  const SWIPE_THRESHOLD = 50; // Minimum distance to trigger a swipe
+  const binderPanResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => false,
+      onMoveShouldSetPanResponder: (_, gestureState) => {
+        // Only respond to horizontal swipes (not vertical scrolling)
+        return Math.abs(gestureState.dx) > Math.abs(gestureState.dy) && Math.abs(gestureState.dx) > 10;
+      },
+      onPanResponderRelease: (_, gestureState) => {
+        const { dx } = gestureState;
+        
+        if (dx < -SWIPE_THRESHOLD) {
+          // Swipe left → go to next page
+          if (currentPageRef.current < totalPagesRef.current) {
+            setCurrentPage(p => Math.min(totalPagesRef.current, p + 1));
+          }
+        } else if (dx > SWIPE_THRESHOLD) {
+          // Swipe right → go to previous page
+          if (currentPageRef.current > 1) {
+            setCurrentPage(p => Math.max(1, p - 1));
+          }
+        }
+      },
+    })
+  ).current;
+
   // Render a single card for FlatList
   const renderCard = useCallback(
     ({ item }: { item: CardWithOwnership }) => (
@@ -1680,17 +1715,20 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
                 onNextPage={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                 onJumpToPage={() => setShowJumpModal(true)}
               />
-              <BinderPageView
-                cards={filteredCards}
-                currentPage={currentPage}
-                totalPages={totalPages}
-                cardsPerPage={cardsPerPage}
-                columns={gridColumns}
-                cardWidth={cardWidth}
-                binderId={binder.id}
-                onPageChange={setCurrentPage}
-                onCardPress={handleToggleCard}
-              />
+              {/* Swipeable container for page navigation */}
+              <View {...binderPanResponder.panHandlers}>
+                <BinderPageView
+                  cards={filteredCards}
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  cardsPerPage={cardsPerPage}
+                  columns={gridColumns}
+                  cardWidth={cardWidth}
+                  binderId={binder.id}
+                  onPageChange={setCurrentPage}
+                  onCardPress={handleToggleCard}
+                />
+              </View>
             </>
           )}
         </ScrollView>

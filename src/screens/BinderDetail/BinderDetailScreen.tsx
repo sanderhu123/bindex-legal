@@ -25,6 +25,9 @@ import CardDetails from '../../components/Card/CardDetails';
 import CardList from '../../components/Card/CardList';
 import EmptyCardSlot from '../../components/Card/EmptyCardSlot';
 import { CardPickerModal } from '../../components/CardPicker';
+import PageNavigator from '../../components/Binder/PageNavigator';
+import BinderPageView from '../../components/Binder/BinderPageView';
+import { JumpToPageModal } from '../../components/Binder/JumpToPageModal';
 import { useCardSearch } from '../../hooks/useCardSearch';
 import { useCardFilter, type OwnershipFilter } from '../../hooks/useCardFilter';
 import SearchBar from '../../components/Search/SearchBar';
@@ -82,7 +85,7 @@ type MasterSetGridItem =
   | { type: 'extra'; card: CardWithOwnership }
   | { type: 'empty-slot'; slotIndex: number };
 
-type ViewMode = 'grid' | 'list';
+type ViewMode = 'grid' | 'list' | 'binder';
 
 export default function BinderDetailScreen({ navigation, route }: BinderDetailScreenProps) {
   const binderId = route.params?.binderId;
@@ -92,6 +95,10 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
   const [error, setError] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [searchQuery, setSearchQuery] = useState('');
+  
+  // Binder view mode state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [showJumpModal, setShowJumpModal] = useState(false);
   const [ownershipFilter, setOwnershipFilter] = useState<OwnershipFilter>('all');
   const [screenWidth, setScreenWidth] = useState(Dimensions.get('window').width);
   
@@ -1169,6 +1176,24 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
   // Determine grid columns based on layout preference (default to 3)
   const gridColumns = binder?.layoutPreference === '4x3' ? 4 : 3;
   const cardWidth = Math.max(50, calculateCardWidth(screenWidth, gridColumns)); // Ensure minimum width of 50
+  
+  // Binder view mode calculations
+  const cardsPerPage = gridColumns === 4 ? 12 : 9; // 4×3 = 12, 3×3 = 9
+  const totalPages = Math.ceil(filteredCards.length / cardsPerPage) || 1;
+  
+  // Get cards for current binder page
+  const pageCards = useMemo(() => {
+    const startIndex = (currentPage - 1) * cardsPerPage;
+    const endIndex = startIndex + cardsPerPage;
+    return filteredCards.slice(startIndex, endIndex);
+  }, [filteredCards, currentPage, cardsPerPage]);
+  
+  // Reset to page 1 when filtered cards change (e.g., search or filter applied)
+  useEffect(() => {
+    if (currentPage > totalPages && totalPages > 0) {
+      setCurrentPage(1);
+    }
+  }, [filteredCards.length, totalPages, currentPage]);
 
   // Render a single card for FlatList
   const renderCard = useCallback(
@@ -1497,6 +1522,14 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
                   List
                 </Text>
               </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.toggleButton, viewMode === 'binder' && styles.toggleButtonActive]}
+                onPress={() => setViewMode('binder')}
+              >
+                <Text style={[styles.toggleButtonText, viewMode === 'binder' && styles.toggleButtonTextActive]}>
+                  Binder
+                </Text>
+              </TouchableOpacity>
             </View>
           )}
         </View>
@@ -1623,6 +1656,54 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
             />
           )}
         </ScrollView>
+      </SafeAreaView>
+    );
+  }
+
+  // Binder view mode - shows cards page by page like a physical binder
+  // Note: Custom mode only supports grid view (always falls through to grid)
+  if (viewMode === 'binder' && !isCustomMode) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <ScrollView style={styles.container}>
+          <ListHeaderComponent />
+          {loading ? (
+            <LoadingSpinner message="Loading cards..." />
+          ) : filteredCards.length === 0 ? (
+            <ListEmptyComponent />
+          ) : (
+            <>
+              <PageNavigator
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPreviousPage={() => setCurrentPage(p => Math.max(1, p - 1))}
+                onNextPage={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                onJumpToPage={() => setShowJumpModal(true)}
+              />
+              <BinderPageView
+                cards={filteredCards}
+                currentPage={currentPage}
+                totalPages={totalPages}
+                cardsPerPage={cardsPerPage}
+                columns={gridColumns}
+                cardWidth={cardWidth}
+                binderId={binder.id}
+                onPageChange={setCurrentPage}
+                onCardPress={handleToggleCard}
+              />
+            </>
+          )}
+        </ScrollView>
+        <JumpToPageModal
+          visible={showJumpModal}
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onClose={() => setShowJumpModal(false)}
+          onJump={(page) => {
+            setCurrentPage(page);
+            setShowJumpModal(false);
+          }}
+        />
       </SafeAreaView>
     );
   }

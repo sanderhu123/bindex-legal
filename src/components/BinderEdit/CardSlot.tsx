@@ -1,6 +1,6 @@
 import React from 'react';
-import { View, StyleSheet, TouchableOpacity, Text } from 'react-native';
-import CardImage from '../Card/CardImage';
+import { View, StyleSheet, TouchableOpacity, Text, ActivityIndicator } from 'react-native';
+import { Image } from 'expo-image';
 import { colors, spacing, borderRadius, shadows } from '../../constants/theme';
 
 /**
@@ -44,6 +44,7 @@ export function CardSlot({
   layoutPreference = '3x3',
 }: CardSlotProps) {
   const isEmpty = !cardId;
+  const hasImage = imageUrl && imageUrl.trim() !== '';
 
   return (
     <TouchableOpacity
@@ -68,12 +69,23 @@ export function CardSlot({
         <View style={styles.emptyContent}>
           <Text style={styles.plusIcon}>+</Text>
         </View>
-      ) : (
-        <CardImage
-          source={imageUrl}
+      ) : hasImage ? (
+        <Image
+          source={{ uri: imageUrl }}
           style={styles.cardImage}
-          cardInfo={{ id: cardId, name: cardName }}
+          contentFit="contain"
+          transition={200}
+          cachePolicy="memory-disk"
+          recyclingKey={imageUrl}
         />
+      ) : (
+        // Fallback placeholder when no image URL
+        <View style={styles.placeholderContent}>
+          <Text style={styles.placeholderIcon}>🃏</Text>
+          <Text style={styles.placeholderText} numberOfLines={2}>
+            {cardName || 'Card'}
+          </Text>
+        </View>
       )}
       
       {/* Selection indicator */}
@@ -126,7 +138,23 @@ const styles = StyleSheet.create({
   cardImage: {
     width: '100%',
     height: '100%',
-    borderRadius: 0, // Override CardImage border radius
+  },
+  placeholderContent: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#1a5fb4',
+    padding: spacing.xs,
+  },
+  placeholderIcon: {
+    fontSize: 24,
+    marginBottom: 4,
+  },
+  placeholderText: {
+    fontSize: 10,
+    color: 'white',
+    textAlign: 'center',
+    fontWeight: '500',
   },
   selectionOverlay: {
     position: 'absolute',

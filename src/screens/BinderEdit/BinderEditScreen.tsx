@@ -476,7 +476,7 @@ export default function BinderEditScreen() {
           <View key={rowIndex} style={styles.row}>
             {row.map((slot) => (
               <CardSlot
-                key={slot.slotIndex}
+                key={`${slot.slotIndex}-${slot.cardId || 'empty'}`}
                 cardId={slot.cardId}
                 imageUrl={slot.imageUrl}
                 cardName={slot.cardName}

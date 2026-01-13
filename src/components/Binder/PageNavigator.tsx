@@ -1,0 +1,147 @@
+import React from 'react';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { colors, spacing, typography, borderRadius, shadows } from '../../constants/theme';
+
+/**
+ * Props for the PageNavigator component
+ */
+interface PageNavigatorProps {
+  /** Current page number (1-based) */
+  currentPage: number;
+  /** Total number of pages */
+  totalPages: number;
+  /** Called when user taps the previous (left) arrow */
+  onPreviousPage: () => void;
+  /** Called when user taps the next (right) arrow */
+  onNextPage: () => void;
+  /** Called when user taps the page number (opens jump-to-page modal) */
+  onJumpToPage: () => void;
+}
+
+/**
+ * PageNavigator displays a navigation bar for binder page navigation
+ * Shows: [◄] Page X of Y [►]
+ * - Left arrow goes to previous page (disabled on page 1)
+ * - Right arrow goes to next page (disabled on last page)
+ * - Tapping "Page X of Y" opens a modal to jump to a specific page
+ */
+export default function PageNavigator({
+  currentPage,
+  totalPages,
+  onPreviousPage,
+  onNextPage,
+  onJumpToPage,
+}: PageNavigatorProps) {
+  // Determine if arrows should be disabled
+  const isPreviousDisabled = currentPage <= 1;
+  const isNextDisabled = currentPage >= totalPages;
+
+  return (
+    <View style={styles.container}>
+      {/* Previous page button */}
+      <TouchableOpacity
+        style={[
+          styles.arrowButton,
+          isPreviousDisabled && styles.arrowButtonDisabled,
+        ]}
+        onPress={onPreviousPage}
+        disabled={isPreviousDisabled}
+        activeOpacity={0.7}
+        accessibilityLabel="Go to previous page"
+        accessibilityRole="button"
+        accessibilityState={{ disabled: isPreviousDisabled }}
+      >
+        <Text
+          style={[
+            styles.arrowText,
+            isPreviousDisabled && styles.arrowTextDisabled,
+          ]}
+        >
+          ◄
+        </Text>
+      </TouchableOpacity>
+
+      {/* Page info - tappable to open jump modal */}
+      <TouchableOpacity
+        style={styles.pageInfoButton}
+        onPress={onJumpToPage}
+        activeOpacity={0.7}
+        accessibilityLabel={`Page ${currentPage} of ${totalPages}. Tap to jump to a page.`}
+        accessibilityRole="button"
+      >
+        <Text style={styles.pageText}>
+          Page {currentPage} of {totalPages}
+        </Text>
+      </TouchableOpacity>
+
+      {/* Next page button */}
+      <TouchableOpacity
+        style={[
+          styles.arrowButton,
+          isNextDisabled && styles.arrowButtonDisabled,
+        ]}
+        onPress={onNextPage}
+        disabled={isNextDisabled}
+        activeOpacity={0.7}
+        accessibilityLabel="Go to next page"
+        accessibilityRole="button"
+        accessibilityState={{ disabled: isNextDisabled }}
+      >
+        <Text
+          style={[
+            styles.arrowText,
+            isNextDisabled && styles.arrowTextDisabled,
+          ]}
+        >
+          ►
+        </Text>
+      </TouchableOpacity>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: colors.backgroundLight,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    marginHorizontal: spacing.md,
+    marginVertical: spacing.sm,
+    borderRadius: borderRadius.lg,
+    ...shadows.sm,
+  },
+  arrowButton: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.primary,
+    borderRadius: borderRadius.full,
+  },
+  arrowButtonDisabled: {
+    backgroundColor: colors.disabled,
+  },
+  arrowText: {
+    fontSize: typography.lg,
+    color: colors.background,
+    fontWeight: typography.bold,
+  },
+  arrowTextDisabled: {
+    color: colors.disabledText,
+  },
+  pageInfoButton: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.sm,
+    marginHorizontal: spacing.md,
+  },
+  pageText: {
+    fontSize: typography.base,
+    fontWeight: typography.semibold,
+    color: colors.text,
+  },
+});

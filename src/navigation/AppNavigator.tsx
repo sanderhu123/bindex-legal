@@ -21,6 +21,8 @@ export type MainStackParamList = {
     position?: number; // For Custom binders (slot position)
     collectionMode?: 'master-set' | 'region' | 'custom'; // Binder type
     isExtraCard?: boolean; // For cards added by user (not in official set)
+    cardIndex?: number; // Card's index in the sorted list (for binder position calculation)
+    cardsPerPage?: number; // Cards per binder page (9 for 3x3, 12 for 4x3)
   };
   CardSearchTest: undefined; // Temporary test screen for Step 28A
 };

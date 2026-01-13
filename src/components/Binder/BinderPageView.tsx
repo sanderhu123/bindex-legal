@@ -1,8 +1,11 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Dimensions } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import type { StackNavigationProp } from '@react-navigation/stack';
 import CardImage from '../Card/CardImage';
 import { colors, spacing, typography, borderRadius } from '../../constants/theme';
 import type { Card } from '../../types';
+import type { MainStackParamList } from '../../navigation/AppNavigator';
 
 /**
  * Card with ownership status
@@ -10,6 +13,8 @@ import type { Card } from '../../types';
 interface CardWithOwnership extends Card {
   isOwned: boolean;
 }
+
+type NavigationProp = StackNavigationProp<MainStackParamList, 'CardDetail'>;
 
 /**
  * Props for the BinderPageView component
@@ -31,12 +36,14 @@ interface BinderPageViewProps {
   binderId: string;
   /** Callback when page changes */
   onPageChange: (page: number) => void;
-  /** Callback when a card is tapped (for toggling ownership) */
+  /** Callback when checkbox is tapped (for toggling ownership) */
   onCardPress: (card: CardWithOwnership) => void;
   /** Callback when an empty slot is tapped (for Custom binders) */
   onEmptySlotPress?: (slotIndex: number) => void;
   /** Whether this is a Custom binder (shows empty slots) */
   isCustomMode?: boolean;
+  /** Collection mode of the binder */
+  collectionMode?: 'master-set' | 'region' | 'custom';
 }
 
 /**
@@ -74,7 +81,9 @@ export default function BinderPageView({
   onCardPress,
   onEmptySlotPress,
   isCustomMode = false,
+  collectionMode,
 }: BinderPageViewProps) {
+  const navigation = useNavigation<NavigationProp>();
   // Calculate which cards to show on the current page
   const startIndex = (currentPage - 1) * cardsPerPage;
   const pageCards = cards.slice(startIndex, startIndex + cardsPerPage);
@@ -118,6 +127,24 @@ export default function BinderPageView({
       );
     }
     
+    // Handle card tap - navigate to card detail screen
+    const handleCardTap = () => {
+      navigation.navigate('CardDetail', {
+        cardId: card.id,
+        binderId: binderId,
+        isOwned: card.isOwned,
+        collectionMode: collectionMode,
+        // Pass card index for binder position display
+        cardIndex: globalSlotIndex,
+        cardsPerPage: cardsPerPage,
+      });
+    };
+    
+    // Handle checkbox tap - toggle ownership
+    const handleCheckboxTap = () => {
+      onCardPress(card);
+    };
+    
     // Slot with card
     return (
       <TouchableOpacity
@@ -126,7 +153,7 @@ export default function BinderPageView({
           styles.slot,
           { width: cardWidth },
         ]}
-        onPress={() => onCardPress(card)}
+        onPress={handleCardTap}
         activeOpacity={0.7}
       >
         <View style={[styles.cardContainer, { width: cardWidth }]}>
@@ -144,10 +171,14 @@ export default function BinderPageView({
             cardInfo={{ id: card.id, name: card.name, set: card.set }}
           />
           
-          {/* Ownership checkbox overlay */}
-          <View style={styles.checkboxOverlay}>
+          {/* Ownership checkbox overlay - separate touchable to toggle ownership */}
+          <TouchableOpacity 
+            style={styles.checkboxOverlay}
+            onPress={handleCheckboxTap}
+            activeOpacity={0.7}
+          >
             <Text style={styles.checkbox}>{card.isOwned ? '☑' : '☐'}</Text>
-          </View>
+          </TouchableOpacity>
           
           {/* Variant badge (if applicable) */}
           {badge && (

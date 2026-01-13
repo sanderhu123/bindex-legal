@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { View, StyleSheet, Text, ScrollView, Dimensions, TouchableOpacity, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { getCardById } from '../../services/api/pokemonApi';
@@ -24,7 +24,7 @@ interface CardDetailScreenProps {
  * Displays full details of a single card
  */
 export default function CardDetailScreen({ navigation, route }: CardDetailScreenProps) {
-  const { cardId, binderId, isOwned: initialOwnedParam, position, collectionMode, isExtraCard, pokedexNumber, pokemonName, regionCardData } = route.params || {};
+  const { cardId, binderId, isOwned: initialOwnedParam, position, collectionMode, isExtraCard, pokedexNumber, pokemonName, regionCardData, cardIndex, cardsPerPage } = route.params || {};
   const [card, setCard] = useState<Card | null>(null);
   const [binder, setBinder] = useState<Binder | null>(null);
   const [loading, setLoading] = useState(true);
@@ -35,6 +35,17 @@ export default function CardDetailScreen({ navigation, route }: CardDetailScreen
   // Region mode: card picker state
   const [showCardPicker, setShowCardPicker] = useState(false);
   const isRegionMode = collectionMode === 'region';
+
+  // Calculate binder position (Page X, Slot Y) from card index
+  const binderPosition = useMemo(() => {
+    if (cardIndex === undefined || cardIndex < 0) return null;
+    
+    const effectiveCardsPerPage = cardsPerPage || 9; // Default to 9 (3×3 layout)
+    const page = Math.floor(cardIndex / effectiveCardsPerPage) + 1;
+    const slot = (cardIndex % effectiveCardsPerPage) + 1;
+    
+    return { page, slot };
+  }, [cardIndex, cardsPerPage]);
 
   // Fetch card and binder data
   useEffect(() => {
@@ -335,6 +346,16 @@ export default function CardDetailScreen({ navigation, route }: CardDetailScreen
           />
         </View>
 
+        {/* Binder Position (Page X, Slot Y) */}
+        {binderPosition && (
+          <View style={styles.positionContainer}>
+            <Text style={styles.positionIcon}>📍</Text>
+            <Text style={styles.positionText}>
+              Page {binderPosition.page}, Slot {binderPosition.slot}
+            </Text>
+          </View>
+        )}
+
         {/* Ownership Toggle Button */}
         <View style={styles.buttonContainer}>
           <TouchableOpacity
@@ -424,6 +445,27 @@ const styles = StyleSheet.create({
     width: '100%',
     paddingHorizontal: spacing.xs,
     marginBottom: spacing.sm,
+  },
+  // Binder position display
+  positionContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    backgroundColor: colors.backgroundLight || '#f5f5f5',
+    borderRadius: borderRadius.md,
+    marginBottom: spacing.md,
+    width: '100%',
+  },
+  positionIcon: {
+    fontSize: typography.lg,
+    marginRight: spacing.xs,
+  },
+  positionText: {
+    fontSize: typography.base,
+    color: colors.textSecondary,
+    fontWeight: typography.medium,
   },
   buttonContainer: {
     width: '100%',

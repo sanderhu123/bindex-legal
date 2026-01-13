@@ -1024,7 +1024,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
   // Handle tapping a Region Pokemon slot
   // - If no card selected: open card picker directly
   // - If card selected: navigate to card detail
-  const handleRegionCardTap = useCallback((pokemon: CardWithOwnership) => {
+  const handleRegionCardTap = useCallback((pokemon: CardWithOwnership, index?: number) => {
     const hasCustomCard = !!pokemon.selectedCardId;
     console.log('[BinderDetail] Region card tapped:', pokemon.name, 'hasCustomCard:', hasCustomCard);
     
@@ -1033,6 +1033,10 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
       setSelectedPokemonForPicker(pokemon);
       setShowRegionCardPicker(true);
     } else {
+      // Calculate cards per page based on layout preference
+      const gridCols = binder?.layoutPreference === '4x3' ? 4 : 3;
+      const perPage = gridCols === 4 ? 12 : 9;
+      
       // Custom card selected - navigate to card detail
       // Use the stored TCG card details (rarity, artist, set) from when the card was loaded
       navigation.navigate('CardDetail', {
@@ -1042,6 +1046,9 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
         collectionMode: 'region',
         pokedexNumber: pokemon.pokedexNumber,
         pokemonName: pokemon.name,
+        // Pass card index and cards per page for binder position display
+        cardIndex: index,
+        cardsPerPage: perPage,
         // Pass full card data for Region mode with TCG card details
         regionCardData: {
           id: pokemon.id,
@@ -1057,7 +1064,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
         },
       });
     }
-  }, [binder?.id, binder?.region, navigation]);
+  }, [binder?.id, binder?.region, binder?.layoutPreference, navigation]);
 
   // Handle selecting a card from the Region card picker
   const handleRegionCardSelected = useCallback(async (selectedCard: Card) => {
@@ -1232,16 +1239,18 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
 
   // Render a single card for FlatList
   const renderCard = useCallback(
-    ({ item }: { item: CardWithOwnership }) => (
+    ({ item, index }: { item: CardWithOwnership; index: number }) => (
       <CardItem
         card={item}
         onPress={handleToggleCard}
         binderId={binder?.id || ''}
         width={cardWidth}
         variant="grid"
+        cardIndex={index}
+        cardsPerPage={cardsPerPage}
       />
     ),
-    [handleToggleCard, binder?.id, cardWidth]
+    [handleToggleCard, binder?.id, cardWidth, cardsPerPage]
   );
 
   // Key extractor for FlatList
@@ -1279,7 +1288,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
 
   // Render function for Master Set grid items
   const renderMasterSetGridItem = useCallback(
-    ({ item }: { item: MasterSetGridItem }) => {
+    ({ item, index }: { item: MasterSetGridItem; index: number }) => {
       if (item.type === 'card') {
         // Regular set card
         return (
@@ -1289,12 +1298,15 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
             binderId={binder?.id || ''}
             width={cardWidth}
             variant="grid"
+            cardIndex={index}
+            cardsPerPage={cardsPerPage}
           />
         );
       }
       
       if (item.type === 'extra') {
         // Extra card (added by user, displayed the same as regular cards)
+        // For extra cards, the index continues from regular cards
         return (
           <CardItem
             card={item.card}
@@ -1304,6 +1316,8 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
             variant="grid"
             collectionMode="master-set"
             isExtraCard={true}
+            cardIndex={index}
+            cardsPerPage={cardsPerPage}
           />
         );
       }
@@ -1319,7 +1333,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
         />
       );
     },
-    [binder?.id, cardWidth, handleToggleCard, handleToggleExtraCardOwnership, handleExtraSlotPress, navigation]
+    [binder?.id, cardWidth, cardsPerPage, handleToggleCard, handleToggleExtraCardOwnership, handleExtraSlotPress]
   );
 
   // Key extractor for Master Set grid items
@@ -1362,6 +1376,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
       if (card) {
         // Slot has a card - render it with toggle ownership handler
         // Pass position and collectionMode so CardDetail can toggle ownership correctly
+        // For Custom mode, position IS the cardIndex
         return (
           <CardItem
             card={card}
@@ -1371,6 +1386,8 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
             variant="grid"
             position={position}
             collectionMode="custom"
+            cardIndex={position}
+            cardsPerPage={cardsPerPage}
           />
         );
       }
@@ -1384,7 +1401,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
         />
       );
     },
-    [positionCards, handleToggleCustomCardOwnership, handleEmptySlotPress, binder?.id, cardWidth]
+    [positionCards, handleToggleCustomCardOwnership, handleEmptySlotPress, binder?.id, cardWidth, cardsPerPage]
   );
 
   // Key extractor for Custom mode slots
@@ -1394,11 +1411,11 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
   
   // Render a Region Pokemon card - tap navigates to card detail
   const renderRegionCard = useCallback(
-    ({ item }: { item: CardWithOwnership }) => {
+    ({ item, index }: { item: CardWithOwnership; index: number }) => {
       return (
         <TouchableOpacity
           style={[styles.regionCardItem, { width: cardWidth }]}
-          onPress={() => handleRegionCardTap(item)}
+          onPress={() => handleRegionCardTap(item, index)}
           activeOpacity={0.7}
         >
           <View style={styles.regionCardImageContainer}>
@@ -1727,6 +1744,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
                   binderId={binder.id}
                   onPageChange={setCurrentPage}
                   onCardPress={handleToggleCard}
+                  collectionMode={binder.collectionMode}
                 />
               </View>
             </>

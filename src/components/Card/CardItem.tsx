@@ -20,6 +20,8 @@ interface CardItemProps {
   position?: number; // For Custom binders (slot position)
   collectionMode?: 'master-set' | 'region' | 'custom'; // Binder type
   isExtraCard?: boolean; // For cards added by user (not in official set)
+  cardIndex?: number; // Card's index in the sorted list (for binder position calculation)
+  cardsPerPage?: number; // Cards per binder page (9 for 3x3, 12 for 4x3)
 }
 
 type NavigationProp = StackNavigationProp<MainStackParamList, 'CardDetail'>;
@@ -37,7 +39,7 @@ function getVariantBadge(variant?: string) {
   return badges[variant] || null;
 }
 
-export default function CardItem({ card, onPress, binderId, width, variant = 'grid', position, collectionMode, isExtraCard }: CardItemProps) {
+export default function CardItem({ card, onPress, binderId, width, variant = 'grid', position, collectionMode, isExtraCard, cardIndex, cardsPerPage }: CardItemProps) {
   const navigation = useNavigation<NavigationProp>();
   const badge = getVariantBadge(card.variant);
 
@@ -53,6 +55,9 @@ export default function CardItem({ card, onPress, binderId, width, variant = 'gr
       collectionMode: collectionMode,
       // Pass isExtraCard for cards added by user (not in official set)
       isExtraCard: isExtraCard,
+      // Pass card index and cards per page for binder position display
+      cardIndex: cardIndex,
+      cardsPerPage: cardsPerPage,
     });
   };
 

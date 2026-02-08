@@ -53,6 +53,8 @@ export interface CardPlaceholderProps {
   onCardDragEnd?: (touchX: number, touchY: number) => void;
   /** Called when drag gesture finalizes from placeholder card */
   onCardDragFinalize?: () => void;
+  /** Register a ref for each placeholder card (for drag drop target measurement) */
+  registerCardRef?: (index: number, ref: View | null) => void;
 }
 
 /**
@@ -68,6 +70,7 @@ function PlaceholderCardItem({
   onDragUpdate,
   onDragEnd,
   onDragFinalize,
+  registerRef,
 }: {
   card: PlaceholderCard;
   index: number;
@@ -81,6 +84,7 @@ function PlaceholderCardItem({
   onDragUpdate?: (touchX: number, touchY: number) => void;
   onDragEnd?: (touchX: number, touchY: number) => void;
   onDragFinalize?: () => void;
+  registerRef?: (index: number, ref: View | null) => void;
 }) {
   // Refs for stable gesture callbacks
   const onPressRef = useRef(onPress);
@@ -149,6 +153,7 @@ function PlaceholderCardItem({
   return (
     <GestureDetector gesture={composedGesture}>
       <View
+        ref={(ref) => registerRef?.(index, ref)}
         style={[styles.card, isSelected && styles.cardSelected]}
         accessibilityLabel={`${card.cardName || 'Card'} in placeholder, tap to select`}
       >
@@ -194,6 +199,7 @@ export function CardPlaceholder({
   onCardDragUpdate,
   onCardDragEnd,
   onCardDragFinalize,
+  registerCardRef,
 }: CardPlaceholderProps) {
   const cardCount = cards.length;
 
@@ -246,6 +252,7 @@ export function CardPlaceholder({
                   onDragUpdate={onCardDragUpdate}
                   onDragEnd={onCardDragEnd}
                   onDragFinalize={onCardDragFinalize}
+                  registerRef={registerCardRef}
                 />
               );
             }

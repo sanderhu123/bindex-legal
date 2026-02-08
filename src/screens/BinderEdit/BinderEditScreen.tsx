@@ -77,6 +77,8 @@ interface LayoutRect {
 interface DropTarget {
   type: 'card' | 'empty' | 'placeholder' | 'trash';
   slotIndex?: number;
+  /** Index of a specific placeholder card that was dropped on (for swap) */
+  placeholderCardIndex?: number;
 }
 
 const TOTAL_PAGES = 20; // Fixed 20 pages for binder edit
@@ -131,6 +133,8 @@ export default function BinderEditScreen() {
   const slotViewRefs = useRef<Map<number, View>>(new Map());
   const placeholderAreaViewRef = useRef<View | null>(null);
   const trashZoneViewRef = useRef<View | null>(null);
+  const placeholderCardViewRefs = useRef<Map<number, View>>(new Map());
+  const placeholderCardMeasurementsRef = useRef<Map<number, LayoutRect>>(new Map());
 
   // Refs for accessing current state in callbacks
   const cardPositionsRef = useRef(cardPositions);
@@ -197,6 +201,16 @@ export default function BinderEditScreen() {
                 }
               },
             );
+          } catch { /* ignore */ }
+        }
+        // Re-measure individual placeholder cards
+        for (const [index, view] of placeholderCardViewRefs.current.entries()) {
+          try {
+            view.measureInWindow((x: number, y: number, width: number, height: number) => {
+              if (width > 0 && height > 0) {
+                placeholderCardMeasurementsRef.current.set(index, { x, y, width, height });
+              }
+            });
           } catch { /* ignore */ }
         }
       }, 150); // Wait for React Native to complete the layout
@@ -484,32 +498,62 @@ export default function BinderEditScreen() {
   };
 
   const handleSwapCards = (targetSlot: CardPosition) => {
-    if (!selectedCard || selectedCard.sourceSlot === 'placeholder') return;
+    if (!selectedCard) return;
 
     saveUndoState();
-    const sourceSlotIndex = selectedCard.sourceSlot as number;
 
-    setCardPositions(prev => {
-      const newPositions = [...prev];
-      const targetData = {
-        cardId: targetSlot.cardId,
-        cardName: targetSlot.cardName,
-        imageUrl: targetSlot.imageUrl,
-      };
-      newPositions[sourceSlotIndex] = {
-        ...newPositions[sourceSlotIndex],
-        cardId: targetData.cardId,
-        cardName: targetData.cardName,
-        imageUrl: targetData.imageUrl,
-      };
-      newPositions[targetSlot.slotIndex] = {
-        ...newPositions[targetSlot.slotIndex],
-        cardId: selectedCard.cardId,
-        cardName: selectedCard.cardName,
-        imageUrl: selectedCard.imageUrl,
-      };
-      return newPositions;
-    });
+    if (selectedCard.sourceSlot === 'placeholder') {
+      // Placeholder card → binder card: swap them
+      const placeholderIdx = selectedCard.sourceIndex;
+
+      // Put the binder card into the placeholder slot
+      setPlaceholderCards(prev => {
+        const updated = [...prev];
+        updated[placeholderIdx] = {
+          cardId: targetSlot.cardId!,
+          cardName: targetSlot.cardName,
+          imageUrl: targetSlot.imageUrl,
+        };
+        return updated;
+      });
+
+      // Put the placeholder card into the binder slot
+      setCardPositions(prev => {
+        const newPositions = [...prev];
+        newPositions[targetSlot.slotIndex] = {
+          ...newPositions[targetSlot.slotIndex],
+          cardId: selectedCard.cardId,
+          cardName: selectedCard.cardName,
+          imageUrl: selectedCard.imageUrl,
+        };
+        return newPositions;
+      });
+    } else {
+      // Binder card → binder card: swap them
+      const sourceSlotIndex = selectedCard.sourceSlot as number;
+
+      setCardPositions(prev => {
+        const newPositions = [...prev];
+        const targetData = {
+          cardId: targetSlot.cardId,
+          cardName: targetSlot.cardName,
+          imageUrl: targetSlot.imageUrl,
+        };
+        newPositions[sourceSlotIndex] = {
+          ...newPositions[sourceSlotIndex],
+          cardId: targetData.cardId,
+          cardName: targetData.cardName,
+          imageUrl: targetData.imageUrl,
+        };
+        newPositions[targetSlot.slotIndex] = {
+          ...newPositions[targetSlot.slotIndex],
+          cardId: selectedCard.cardId,
+          cardName: selectedCard.cardName,
+          imageUrl: selectedCard.imageUrl,
+        };
+        return newPositions;
+      });
+    }
 
     setHasChanges(true);
     setSelectedCard(null);
@@ -1034,6 +1078,25 @@ export default function BinderEditScreen() {
       );
     }
 
+    // Measure individual placeholder cards
+    const phCardMeasurements = new Map<number, LayoutRect>();
+    for (const [index, view] of placeholderCardViewRefs.current.entries()) {
+      promises.push(
+        new Promise<void>((resolve) => {
+          try {
+            view.measureInWindow((x: number, y: number, width: number, height: number) => {
+              if (width > 0 && height > 0) {
+                phCardMeasurements.set(index, { x, y, width, height });
+              }
+              resolve();
+            });
+          } catch {
+            resolve();
+          }
+        }),
+      );
+    }
+
     // Also re-measure container offset
     if (containerRef.current) {
       promises.push(
@@ -1048,6 +1111,7 @@ export default function BinderEditScreen() {
 
     await Promise.all(promises);
     slotMeasurementsRef.current = measurements;
+    placeholderCardMeasurementsRef.current = phCardMeasurements;
   }, []);
 
   /**
@@ -1061,7 +1125,15 @@ export default function BinderEditScreen() {
       return { type: 'trash' };
     }
 
-    // Check placeholder area
+    // Check individual placeholder cards first (higher priority than general area)
+    for (const [index, layout] of placeholderCardMeasurementsRef.current.entries()) {
+      if (absoluteX >= layout.x && absoluteX <= layout.x + layout.width &&
+          absoluteY >= layout.y && absoluteY <= layout.y + layout.height) {
+        return { type: 'placeholder', placeholderCardIndex: index };
+      }
+    }
+
+    // Check general placeholder area (for empty space / empty slots)
     const ph = placeholderMeasurementRef.current;
     if (ph && absoluteX >= ph.x && absoluteX <= ph.x + ph.width &&
         absoluteY >= ph.y && absoluteY <= ph.y + ph.height) {
@@ -1248,7 +1320,7 @@ export default function BinderEditScreen() {
         break;
 
       case 'placeholder':
-        performDragToPlaceholder(dragged);
+        performDragToPlaceholder(dragged, target.placeholderCardIndex);
         break;
 
       case 'trash':
@@ -1366,13 +1438,69 @@ export default function BinderEditScreen() {
   };
 
   /**
-   * PLACEHOLDER: Drag a binder card to the placeholder area.
+   * PLACEHOLDER: Drag a card to the placeholder area.
+   * If dropped on a specific filled placeholder card, swap with it.
+   * Otherwise, add to placeholder.
    */
-  const performDragToPlaceholder = (dragged: DraggedCard) => {
+  const performDragToPlaceholder = (dragged: DraggedCard, targetCardIndex?: number) => {
+    const currentPlaceholder = placeholderCardsRef.current;
+
+    // Dropped on a specific filled placeholder card → swap
+    if (targetCardIndex !== undefined && targetCardIndex < currentPlaceholder.length) {
+      const targetCard = currentPlaceholder[targetCardIndex];
+
+      // Ignore if dragging a placeholder card onto itself
+      if (dragged.sourceSlot === 'placeholder' && dragged.sourceIndex === targetCardIndex) return;
+
+      saveUndoState();
+
+      if (dragged.sourceSlot === 'placeholder') {
+        // Placeholder card → placeholder card: swap positions
+        setPlaceholderCards(prev => {
+          const updated = [...prev];
+          const temp = { ...updated[dragged.sourceIndex] };
+          updated[dragged.sourceIndex] = { ...updated[targetCardIndex] };
+          updated[targetCardIndex] = temp;
+          return updated;
+        });
+      } else {
+        // Binder card → placeholder card: swap them
+        const binderSlotIdx = dragged.sourceSlot as number;
+
+        // Put the placeholder card into the binder slot
+        setCardPositions(prev => {
+          const newPositions = [...prev];
+          newPositions[binderSlotIdx] = {
+            ...newPositions[binderSlotIdx],
+            cardId: targetCard.cardId,
+            cardName: targetCard.cardName,
+            imageUrl: targetCard.imageUrl,
+          };
+          return newPositions;
+        });
+
+        // Put the binder card into the placeholder slot
+        setPlaceholderCards(prev => {
+          const updated = [...prev];
+          updated[targetCardIndex] = {
+            cardId: dragged.cardId,
+            cardName: dragged.cardName,
+            imageUrl: dragged.imageUrl,
+          };
+          return updated;
+        });
+      }
+
+      setHasChanges(true);
+      console.log('[BinderEdit] Drag swap with placeholder card complete');
+      return;
+    }
+
+    // Dropped on empty placeholder area — add to placeholder
     // If it's already in the placeholder, ignore
     if (dragged.sourceSlot === 'placeholder') return;
 
-    if (placeholderCardsRef.current.length >= PLACEHOLDER_MAX) {
+    if (currentPlaceholder.length >= PLACEHOLDER_MAX) {
       Alert.alert('Placeholder Full', 'The placeholder tray can hold a maximum of 18 cards.');
       return;
     }
@@ -1437,6 +1565,17 @@ export default function BinderEditScreen() {
       ],
     );
   };
+
+  /**
+   * Register a placeholder card view ref for layout measurement during drag
+   */
+  const registerPlaceholderCardRef = useCallback((index: number, ref: View | null) => {
+    if (ref) {
+      placeholderCardViewRefs.current.set(index, ref);
+    } else {
+      placeholderCardViewRefs.current.delete(index);
+    }
+  }, []);
 
   /**
    * Register a slot view ref for layout measurement
@@ -1617,6 +1756,7 @@ export default function BinderEditScreen() {
           onCardDragUpdate={handleDragUpdate}
           onCardDragEnd={handleDragEnd}
           onCardDragFinalize={handleDragFinalize}
+          registerCardRef={registerPlaceholderCardRef}
         />
 
         {/* ── Floating Drag Card Overlay ── */}

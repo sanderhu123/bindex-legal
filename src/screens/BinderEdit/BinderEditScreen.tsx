@@ -551,9 +551,59 @@ export default function BinderEditScreen() {
 
     const card = placeholderCards[index];
 
-    if (selectedCard && selectedCard.sourceSlot === 'placeholder' && selectedCard.sourceIndex === index) {
+    if (selectedCard) {
+      // ── A card is already selected ──
+
+      // Tap the same placeholder card again → deselect
+      if (selectedCard.sourceSlot === 'placeholder' && selectedCard.sourceIndex === index) {
+        setSelectedCard(null);
+        return;
+      }
+
+      saveUndoState();
+
+      if (selectedCard.sourceSlot === 'placeholder') {
+        // Swap two placeholder cards
+        const srcIdx = selectedCard.sourceIndex;
+        setPlaceholderCards(prev => {
+          const updated = [...prev];
+          const temp = { ...updated[srcIdx] };
+          updated[srcIdx] = { ...updated[index] };
+          updated[index] = temp;
+          return updated;
+        });
+      } else {
+        // Selected card is from binder → swap: binder card goes to placeholder, placeholder card goes to binder slot
+        const binderSlot = selectedCard.sourceSlot as number;
+
+        // Put the tapped placeholder card into the binder slot
+        setCardPositions(prev => {
+          const newPositions = [...prev];
+          newPositions[binderSlot] = {
+            ...newPositions[binderSlot],
+            cardId: card.cardId,
+            cardName: card.cardName,
+            imageUrl: card.imageUrl,
+          };
+          return newPositions;
+        });
+
+        // Replace the placeholder card with the selected binder card
+        setPlaceholderCards(prev => {
+          const updated = [...prev];
+          updated[index] = {
+            cardId: selectedCard.cardId,
+            cardName: selectedCard.cardName,
+            imageUrl: selectedCard.imageUrl,
+          };
+          return updated;
+        });
+      }
+
+      setHasChanges(true);
       setSelectedCard(null);
     } else {
+      // ── No card selected → select this placeholder card ──
       setSelectedCard({
         cardId: card.cardId,
         cardName: card.cardName || 'Unknown Card',
@@ -624,15 +674,56 @@ export default function BinderEditScreen() {
   };
 
   /**
-   * Add a card to a specific empty slot in the placeholder tray.
-   * Opens the Card Picker; when a card is chosen it goes into that placeholder slot.
+   * Empty placeholder slot tapped.
+   * - If a card is already selected: move that card into the placeholder.
+   * - If no card selected: open the Card Picker to add a new card.
    */
   const handlePlaceholderEmptySlotPress = (index: number) => {
-    setPlaceholderPickerIndex(index);
-    setTargetSlotIndex(null);
-    setInsertMode(false);
-    setReplaceMode(false);
-    setShowCardPicker(true);
+    if (selectedCard) {
+      // Move the selected card into the placeholder
+      if (placeholderCards.length >= PLACEHOLDER_MAX) {
+        Alert.alert('Placeholder Full', 'The placeholder tray can hold a maximum of 18 cards.');
+        return;
+      }
+
+      saveUndoState();
+
+      const newPlaceholderCard: PlaceholderCard = {
+        cardId: selectedCard.cardId,
+        cardName: selectedCard.cardName,
+        imageUrl: selectedCard.imageUrl,
+      };
+
+      // Remove from source
+      if (selectedCard.sourceSlot === 'placeholder') {
+        // Moving from one placeholder position — remove old, add new
+        setPlaceholderCards(prev => {
+          const updated = prev.filter((_, i) => i !== selectedCard.sourceIndex);
+          return [...updated, newPlaceholderCard];
+        });
+      } else {
+        // Moving from binder slot — clear the binder slot, add to placeholder
+        setCardPositions(prev => {
+          const newPositions = [...prev];
+          newPositions[selectedCard.sourceSlot as number] = {
+            ...newPositions[selectedCard.sourceSlot as number],
+            cardId: null, cardName: undefined, imageUrl: undefined,
+          };
+          return newPositions;
+        });
+        setPlaceholderCards(prev => [...prev, newPlaceholderCard]);
+      }
+
+      setHasChanges(true);
+      setSelectedCard(null);
+    } else {
+      // No card selected — open Card Picker to add a new card
+      setPlaceholderPickerIndex(index);
+      setTargetSlotIndex(null);
+      setInsertMode(false);
+      setReplaceMode(false);
+      setShowCardPicker(true);
+    }
   };
 
   // ─────────────────────────────────────────────────────────────────────────────

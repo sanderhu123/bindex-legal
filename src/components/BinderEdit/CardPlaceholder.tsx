@@ -363,10 +363,13 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.sm,
     overflow: 'hidden',
     backgroundColor: colors.background,
+    // Always have a border to prevent layout shift when selecting/deselecting
+    borderWidth: 2,
+    borderColor: 'transparent',
     ...shadows.sm,
   },
   cardSelected: {
-    borderWidth: 2,
+    // Only change border color, not width (prevents layout shift / blank flash)
     borderColor: colors.primary,
   },
   cardImage: {

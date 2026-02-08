@@ -76,6 +76,7 @@ export default function BinderEditScreen() {
   // Card picker state
   const [showCardPicker, setShowCardPicker] = useState(false);
   const [targetSlotIndex, setTargetSlotIndex] = useState<number | null>(null);
+  const [insertMode, setInsertMode] = useState(false); // true = picker opened from "+" button (insert & shift)
 
   // Screen dimensions
   const [screenWidth, setScreenWidth] = useState(Dimensions.get('window').width);
@@ -576,15 +577,20 @@ export default function BinderEditScreen() {
           { text: 'Cancel', style: 'cancel', onPress: () => {
             setShowCardPicker(false);
             setTargetSlotIndex(null);
+            setInsertMode(false);
           }},
           { 
             text: 'Add Anyway', 
-            onPress: () => placeCardInSlot(card),
+            onPress: () => insertMode ? insertCardFromPicker(card) : placeCardInSlot(card),
           },
         ]
       );
     } else {
-      placeCardInSlot(card);
+      if (insertMode) {
+        insertCardFromPicker(card);
+      } else {
+        placeCardInSlot(card);
+      }
     }
   };
 
@@ -611,6 +617,82 @@ export default function BinderEditScreen() {
     setHasChanges(true);
     setShowCardPicker(false);
     setTargetSlotIndex(null);
+  };
+
+  /**
+   * Insert a newly picked card at a position, shifting all existing cards to the right.
+   * Used when the Card Picker was opened from a "+" button (insertMode).
+   */
+  const insertCardFromPicker = (card: Card) => {
+    if (targetSlotIndex === null) return;
+
+    const insertAtIndex = targetSlotIndex;
+    const newPositions = cardPositions.map(p => ({ ...p }));
+
+    // Check if the last slot has a card (will overflow when shifting right)
+    const lastCard = newPositions[newPositions.length - 1];
+    let overflowCard: PlaceholderCard | null = null;
+
+    if (lastCard.cardId) {
+      if (placeholderCards.length >= PLACEHOLDER_MAX) {
+        Alert.alert(
+          'Binder is full',
+          'Cannot insert — all binder slots and placeholder are full.'
+        );
+        setShowCardPicker(false);
+        setTargetSlotIndex(null);
+        setInsertMode(false);
+        return;
+      }
+
+      overflowCard = {
+        cardId: lastCard.cardId,
+        cardName: lastCard.cardName,
+        imageUrl: lastCard.imageUrl,
+      };
+    }
+
+    saveUndoState();
+
+    // Shift all cards right from insert point to end
+    for (let i = newPositions.length - 1; i > insertAtIndex; i--) {
+      newPositions[i] = {
+        ...newPositions[i],
+        cardId: newPositions[i - 1].cardId,
+        cardName: newPositions[i - 1].cardName,
+        imageUrl: newPositions[i - 1].imageUrl,
+      };
+    }
+
+    // Place the new card at the insert point
+    newPositions[insertAtIndex] = {
+      ...newPositions[insertAtIndex],
+      cardId: card.id,
+      cardName: card.name,
+      imageUrl: card.imageUrl,
+    };
+
+    setCardPositions(newPositions);
+
+    if (overflowCard) {
+      setPlaceholderCards(prev => [...prev, overflowCard!]);
+    }
+
+    setHasChanges(true);
+    setShowCardPicker(false);
+    setTargetSlotIndex(null);
+    setInsertMode(false);
+  };
+
+  /**
+   * Handle tapping a "+" insert button.
+   * Deselects any selected card and opens the Card Picker in insert mode.
+   */
+  const handleInsertButtonPress = (insertAtIndex: number) => {
+    setSelectedCard(null);
+    setTargetSlotIndex(insertAtIndex);
+    setInsertMode(true);
+    setShowCardPicker(true);
   };
 
   /**
@@ -730,20 +812,6 @@ export default function BinderEditScreen() {
     }
 
     const pageStartIndex = (currentPage - 1) * cardsPerPage;
-    const showInsertButtons = selectedCard !== null;
-
-    // The "+" buttons right before and after the selected card are no-ops
-    // (inserting a card at its own position does nothing), so we hide them.
-    // Only applies when the source is a binder slot (not placeholder).
-    const selectedSlot = (showInsertButtons && selectedCard.sourceSlot !== 'placeholder')
-      ? selectedCard.sourceSlot as number
-      : -999; // Never matches
-
-    // Helper: should we show the insert button at this insert index?
-    const shouldShowInsert = (insertIndex: number) => {
-      // Skip the "+" at the selected card's position and right after it
-      return insertIndex !== selectedSlot && insertIndex !== selectedSlot + 1;
-    };
 
     return (
       <View style={styles.gridContainer}>
@@ -752,41 +820,33 @@ export default function BinderEditScreen() {
 
           return (
             <View key={rowIndex} style={styles.row}>
-              {/* Plus sign at start of row (only when card is selected) */}
-              {showInsertButtons && shouldShowInsert(rowStartIndex) && (
-                <InsertButton
-                  onPress={() => performInsert(rowStartIndex)}
-                />
-              )}
+              {/* Plus sign at start of row — always visible */}
+              <InsertButton
+                onPress={() => handleInsertButtonPress(rowStartIndex)}
+              />
 
-              {row.map((slot, colIndex) => {
-                const insertIndex = rowStartIndex + colIndex + 1;
+              {row.map((slot, colIndex) => (
+                <React.Fragment key={`${slot.slotIndex}-${slot.cardId || 'empty'}`}>
+                  <CardSlot
+                    cardId={slot.cardId}
+                    imageUrl={slot.imageUrl}
+                    cardName={slot.cardName}
+                    slotIndex={slot.slotIndex}
+                    isSelected={
+                      selectedCard !== null && 
+                      selectedCard.sourceSlot !== 'placeholder' && 
+                      selectedCard.sourceSlot === slot.slotIndex
+                    }
+                    onPress={() => handleSlotPress(slot)}
+                    layoutPreference={binder?.layoutPreference}
+                  />
 
-                return (
-                  <React.Fragment key={`${slot.slotIndex}-${slot.cardId || 'empty'}`}>
-                    <CardSlot
-                      cardId={slot.cardId}
-                      imageUrl={slot.imageUrl}
-                      cardName={slot.cardName}
-                      slotIndex={slot.slotIndex}
-                      isSelected={
-                        selectedCard !== null && 
-                        selectedCard.sourceSlot !== 'placeholder' && 
-                        selectedCard.sourceSlot === slot.slotIndex
-                      }
-                      onPress={() => handleSlotPress(slot)}
-                      layoutPreference={binder?.layoutPreference}
-                    />
-
-                    {/* Plus sign after each card (skip no-op positions) */}
-                    {showInsertButtons && shouldShowInsert(insertIndex) && (
-                      <InsertButton
-                        onPress={() => performInsert(insertIndex)}
-                      />
-                    )}
-                  </React.Fragment>
-                );
-              })}
+                  {/* Plus sign after each card — always visible */}
+                  <InsertButton
+                    onPress={() => handleInsertButtonPress(rowStartIndex + colIndex + 1)}
+                  />
+                </React.Fragment>
+              ))}
             </View>
           );
         })}
@@ -889,6 +949,7 @@ export default function BinderEditScreen() {
         onClose={() => {
           setShowCardPicker(false);
           setTargetSlotIndex(null);
+          setInsertMode(false);
         }}
         onSelectCard={handleCardPickerSelect}
         title="Add Card"

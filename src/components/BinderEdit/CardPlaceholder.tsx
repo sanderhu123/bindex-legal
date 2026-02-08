@@ -198,7 +198,10 @@ export function CardPlaceholder({
   const showTrashZone = hasSelectedCard || isDragging;
 
   return (
-    <View style={[styles.container, isDragOverPlaceholder && styles.containerDragOver]}>
+    <View
+      ref={(ref) => placeholderAreaRef?.(ref)}
+      style={[styles.container, isDragOverPlaceholder && styles.containerDragOver]}
+    >
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
@@ -213,7 +216,6 @@ export function CardPlaceholder({
       {/* Cards row */}
       <View style={styles.contentRow}>
         <ScrollView
-          ref={(ref) => placeholderAreaRef?.(ref as unknown as View | null)}
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.cardsContainer}
@@ -245,21 +247,25 @@ export function CardPlaceholder({
           )}
         </ScrollView>
 
-        {/* Trash Zone - visible when a card is selected or drag is in progress */}
-        {showTrashZone && (
-          <TouchableOpacity
-            ref={(ref) => trashZoneRef?.(ref as unknown as View | null)}
-            style={[styles.trashZone, isDragOverTrash && styles.trashZoneActive]}
-            onPress={onTrashPress}
-            activeOpacity={0.7}
-            accessibilityLabel="Trash zone, tap to remove selected card"
-          >
-            <Text style={styles.trashIcon}>🗑️</Text>
-            <Text style={[styles.trashText, isDragOverTrash && styles.trashTextActive]}>
-              {isDragOverTrash ? 'Drop to\nRemove' : 'Remove'}
-            </Text>
-          </TouchableOpacity>
-        )}
+        {/* Trash Zone — always rendered so the ref/measurement is available,
+            but visually hidden when no card is selected and no drag is active */}
+        <TouchableOpacity
+          ref={(ref) => trashZoneRef?.(ref as unknown as View | null)}
+          style={[
+            styles.trashZone,
+            !showTrashZone && styles.trashZoneHidden,
+            isDragOverTrash && styles.trashZoneActive,
+          ]}
+          onPress={showTrashZone ? onTrashPress : undefined}
+          disabled={!showTrashZone}
+          activeOpacity={0.7}
+          accessibilityLabel="Trash zone, tap to remove selected card"
+        >
+          <Text style={styles.trashIcon}>🗑️</Text>
+          <Text style={[styles.trashText, isDragOverTrash && styles.trashTextActive]}>
+            {isDragOverTrash ? 'Drop to\nRemove' : 'Remove'}
+          </Text>
+        </TouchableOpacity>
       </View>
     </View>
   );
@@ -371,6 +377,13 @@ const styles = StyleSheet.create({
     borderStyle: 'dashed',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  trashZoneHidden: {
+    width: 0,
+    marginRight: 0,
+    borderWidth: 0,
+    overflow: 'hidden',
+    opacity: 0,
   },
   trashZoneActive: {
     backgroundColor: 'rgba(255, 59, 48, 0.35)',

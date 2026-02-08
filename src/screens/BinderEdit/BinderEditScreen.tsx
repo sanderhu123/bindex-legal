@@ -163,6 +163,45 @@ export default function BinderEditScreen() {
   useEffect(() => { draggedCardRef.current = draggedCard; }, [draggedCard]);
   useEffect(() => { hoverTargetRef.current = hoverTarget; }, [hoverTarget]);
 
+  /**
+   * Re-measure the trash zone and placeholder AFTER a drag starts.
+   * The trash zone is conditionally rendered (only when isDragging is true),
+   * so it isn't in the layout tree when the initial measureAllLayouts() runs
+   * during handleDragStart. This effect fires after the re-render that makes
+   * the trash zone visible, giving us a chance to measure it.
+   */
+  useEffect(() => {
+    if (draggedCard) {
+      const timer = setTimeout(() => {
+        // Measure trash zone (just appeared because isDragging became true)
+        if (trashZoneViewRef.current) {
+          try {
+            (trashZoneViewRef.current as any).measureInWindow?.(
+              (x: number, y: number, width: number, height: number) => {
+                if (width > 0 && height > 0) {
+                  trashMeasurementRef.current = { x, y, width, height };
+                }
+              },
+            );
+          } catch { /* ignore */ }
+        }
+        // Re-measure placeholder area (layout may have shifted when trash zone appeared)
+        if (placeholderAreaViewRef.current) {
+          try {
+            (placeholderAreaViewRef.current as any).measureInWindow?.(
+              (x: number, y: number, width: number, height: number) => {
+                if (width > 0 && height > 0) {
+                  placeholderMeasurementRef.current = { x, y, width, height };
+                }
+              },
+            );
+          } catch { /* ignore */ }
+        }
+      }, 150); // Wait for React Native to complete the layout
+      return () => clearTimeout(timer);
+    }
+  }, [draggedCard]);
+
   // ─────────────────────────────────────────────────────────────────────────────
   // LOAD DATA
   // ─────────────────────────────────────────────────────────────────────────────

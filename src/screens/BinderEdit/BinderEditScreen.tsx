@@ -621,6 +621,8 @@ export default function BinderEditScreen() {
   const performInsert = (insertAtIndex: number) => {
     if (!selectedCard) return;
 
+    console.log('[BinderEdit] performInsert:', selectedCard.cardId, 'from slot', selectedCard.sourceSlot, '→ insert at', insertAtIndex);
+
     const sourceIsInBinder = selectedCard.sourceSlot !== 'placeholder';
 
     // Work with a copy so we can check overflow before committing
@@ -629,7 +631,6 @@ export default function BinderEditScreen() {
     // Step 1: If source is in the binder, remove it and collapse the gap
     if (sourceIsInBinder) {
       const sourceIdx = selectedCard.sourceSlot as number;
-
       // Shift everything after source left by one (close the gap)
       for (let i = sourceIdx; i < newPositions.length - 1; i++) {
         newPositions[i] = {
@@ -731,6 +732,19 @@ export default function BinderEditScreen() {
     const pageStartIndex = (currentPage - 1) * cardsPerPage;
     const showInsertButtons = selectedCard !== null;
 
+    // The "+" buttons right before and after the selected card are no-ops
+    // (inserting a card at its own position does nothing), so we hide them.
+    // Only applies when the source is a binder slot (not placeholder).
+    const selectedSlot = (showInsertButtons && selectedCard.sourceSlot !== 'placeholder')
+      ? selectedCard.sourceSlot as number
+      : -999; // Never matches
+
+    // Helper: should we show the insert button at this insert index?
+    const shouldShowInsert = (insertIndex: number) => {
+      // Skip the "+" at the selected card's position and right after it
+      return insertIndex !== selectedSlot && insertIndex !== selectedSlot + 1;
+    };
+
     return (
       <View style={styles.gridContainer}>
         {rows.map((row, rowIndex) => {
@@ -739,36 +753,40 @@ export default function BinderEditScreen() {
           return (
             <View key={rowIndex} style={styles.row}>
               {/* Plus sign at start of row (only when card is selected) */}
-              {showInsertButtons && (
+              {showInsertButtons && shouldShowInsert(rowStartIndex) && (
                 <InsertButton
                   onPress={() => performInsert(rowStartIndex)}
                 />
               )}
 
-              {row.map((slot, colIndex) => (
-                <React.Fragment key={`${slot.slotIndex}-${slot.cardId || 'empty'}`}>
-                  <CardSlot
-                    cardId={slot.cardId}
-                    imageUrl={slot.imageUrl}
-                    cardName={slot.cardName}
-                    slotIndex={slot.slotIndex}
-                    isSelected={
-                      selectedCard !== null && 
-                      selectedCard.sourceSlot !== 'placeholder' && 
-                      selectedCard.sourceSlot === slot.slotIndex
-                    }
-                    onPress={() => handleSlotPress(slot)}
-                    layoutPreference={binder?.layoutPreference}
-                  />
+              {row.map((slot, colIndex) => {
+                const insertIndex = rowStartIndex + colIndex + 1;
 
-                  {/* Plus sign after each card (only when card is selected) */}
-                  {showInsertButtons && (
-                    <InsertButton
-                      onPress={() => performInsert(rowStartIndex + colIndex + 1)}
+                return (
+                  <React.Fragment key={`${slot.slotIndex}-${slot.cardId || 'empty'}`}>
+                    <CardSlot
+                      cardId={slot.cardId}
+                      imageUrl={slot.imageUrl}
+                      cardName={slot.cardName}
+                      slotIndex={slot.slotIndex}
+                      isSelected={
+                        selectedCard !== null && 
+                        selectedCard.sourceSlot !== 'placeholder' && 
+                        selectedCard.sourceSlot === slot.slotIndex
+                      }
+                      onPress={() => handleSlotPress(slot)}
+                      layoutPreference={binder?.layoutPreference}
                     />
-                  )}
-                </React.Fragment>
-              ))}
+
+                    {/* Plus sign after each card (skip no-op positions) */}
+                    {showInsertButtons && shouldShowInsert(insertIndex) && (
+                      <InsertButton
+                        onPress={() => performInsert(insertIndex)}
+                      />
+                    )}
+                  </React.Fragment>
+                );
+              })}
             </View>
           );
         })}

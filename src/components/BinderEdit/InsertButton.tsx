@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, TouchableOpacity, Text } from 'react-native';
+import { StyleSheet, TouchableOpacity, Text, View } from 'react-native';
 
 /**
  * Props for InsertButton component
@@ -16,35 +16,47 @@ export interface InsertButtonProps {
  * shifting all cards to the right.
  * 
  * Only rendered when a card is selected in edit mode.
+ * 
+ * Uses a full-height wrapper to maximize the tappable area.
  */
 export function InsertButton({ onPress }: InsertButtonProps) {
   return (
     <TouchableOpacity
-      style={styles.button}
+      style={styles.wrapper}
       onPress={onPress}
-      activeOpacity={0.6}
-      hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
+      activeOpacity={0.5}
       accessibilityLabel="Insert card here"
       accessibilityRole="button"
     >
-      <Text style={styles.icon}>+</Text>
+      <View style={styles.button}>
+        <Text style={styles.icon}>+</Text>
+      </View>
     </TouchableOpacity>
   );
 }
 
 const styles = StyleSheet.create({
-  button: {
-    width: 20,
-    height: 40,
+  // Outer wrapper stretches to full row height for a bigger tap target
+  wrapper: {
+    width: 28,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 215, 0, 0.2)',
-    borderRadius: 4,
-    alignSelf: 'center',
+    zIndex: 1,
+  },
+  // Inner visual button
+  button: {
+    width: 24,
+    height: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 215, 0, 0.25)',
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 215, 0, 0.4)',
   },
   icon: {
     color: '#FFD700',
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: 'bold',
   },
 });

@@ -1,5 +1,5 @@
 export { CardSlot } from './CardSlot';
-export type { CardSlotProps } from './CardSlot';
+export type { CardSlotProps, DragStartData } from './CardSlot';
 
 export { CardPlaceholder } from './CardPlaceholder';
 export type { CardPlaceholderProps, PlaceholderCard } from './CardPlaceholder';

@@ -1,12 +1,24 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { View, StyleSheet, Alert, BackHandler, Text, TouchableOpacity, ScrollView, Dimensions } from 'react-native';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import {
+  View,
+  StyleSheet,
+  Alert,
+  BackHandler,
+  Text,
+  TouchableOpacity,
+  ScrollView,
+  Dimensions,
+  Animated as RNAnimated,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
+import { Image } from 'expo-image';
 import { getBinderById } from '../../services/supabase/binders';
 import { getBinderCardsWithPositions } from '../../services/supabase/cards';
 import { getCardsBySet, getCardsByRegion, getCardById, type Region } from '../../services/api/pokemonApi';
 import { getAllSelectedCardsForBinder } from '../../services/supabase/regionCards';
 import { CardSlot, CardPlaceholder, SelectedCardBar, InsertButton, type PlaceholderCard } from '../../components/BinderEdit';
+import type { DragStartData } from '../../components/BinderEdit/CardSlot';
 import PageNavigator from '../../components/Binder/PageNavigator';
 import { JumpToPageModal } from '../../components/Binder/JumpToPageModal';
 import { CardPickerModal } from '../../components/CardPicker';
@@ -27,7 +39,7 @@ interface CardPosition {
 }
 
 /**
- * Currently selected card info
+ * Currently selected card info (tap-to-select mode)
  */
 interface SelectedCard {
   cardId: string;
@@ -38,8 +50,39 @@ interface SelectedCard {
   sourcePage?: number; // Page number (1-based) for cross-page reference
 }
 
+/**
+ * Currently dragged card info (drag & drop mode)
+ */
+interface DraggedCard {
+  cardId: string;
+  cardName: string;
+  imageUrl?: string;
+  sourceSlot: number | 'placeholder';
+  sourceIndex: number;
+}
+
+/**
+ * Layout rectangle for hit testing
+ */
+interface LayoutRect {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+/**
+ * Drop target detected during drag
+ */
+interface DropTarget {
+  type: 'card' | 'empty' | 'placeholder' | 'trash';
+  slotIndex?: number;
+}
+
 const TOTAL_PAGES = 20; // Fixed 20 pages for binder edit
 const PLACEHOLDER_MAX = 18; // Maximum cards in placeholder tray
+const FLOATING_CARD_WIDTH = 70; // Width of the floating drag card
+const FLOATING_CARD_HEIGHT = 100; // Height of the floating drag card
 
 export default function BinderEditScreen() {
   const navigation = useNavigation();
@@ -49,34 +92,62 @@ export default function BinderEditScreen() {
   // Screen state
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  
+
   // Binder data
   const [binder, setBinder] = useState<Binder | null>(null);
-  
+
   // Card positions in binder slots
   const [cardPositions, setCardPositions] = useState<CardPosition[]>([]);
   const [originalPositions, setOriginalPositions] = useState<CardPosition[]>([]);
-  
+
   // Placeholder tray (temporarily removed cards)
   const [placeholderCards, setPlaceholderCards] = useState<PlaceholderCard[]>([]);
-  
+
   // Navigation
   const [currentPage, setCurrentPage] = useState(1);
   const [showJumpModal, setShowJumpModal] = useState(false);
-  
-  // Selection state
+
+  // Selection state (tap-to-select)
   const [selectedCard, setSelectedCard] = useState<SelectedCard | null>(null);
-  
+
+  // ── Drag & Drop state ──
+  const [draggedCard, setDraggedCard] = useState<DraggedCard | null>(null);
+  const [hoverTarget, setHoverTarget] = useState<DropTarget | null>(null);
+
+  // Animated position for the floating drag card
+  const dragAnimX = useRef(new RNAnimated.Value(0)).current;
+  const dragAnimY = useRef(new RNAnimated.Value(0)).current;
+
+  // Container offset (SafeAreaView position on screen) for coordinate translation
+  const containerRef = useRef<View>(null);
+  const containerOffsetRef = useRef({ x: 0, y: 0 });
+
+  // Layout measurement refs for drop target detection
+  const slotMeasurementsRef = useRef<Map<number, LayoutRect>>(new Map());
+  const placeholderMeasurementRef = useRef<LayoutRect | null>(null);
+  const trashMeasurementRef = useRef<LayoutRect | null>(null);
+
+  // View refs for measuring slot positions
+  const slotViewRefs = useRef<Map<number, View>>(new Map());
+  const placeholderAreaViewRef = useRef<View | null>(null);
+  const trashZoneViewRef = useRef<View | null>(null);
+
+  // Refs for accessing current state in callbacks
+  const cardPositionsRef = useRef(cardPositions);
+  const placeholderCardsRef = useRef(placeholderCards);
+  const draggedCardRef = useRef<DraggedCard | null>(null);
+  const hoverTargetRef = useRef<DropTarget | null>(null);
+
   // Undo stack
   const [undoStack, setUndoStack] = useState<CardPosition[][]>([]);
-  
+
   // Track changes
   const [hasChanges, setHasChanges] = useState(false);
-  
+
   // Card picker state
   const [showCardPicker, setShowCardPicker] = useState(false);
   const [targetSlotIndex, setTargetSlotIndex] = useState<number | null>(null);
-  const [insertMode, setInsertMode] = useState(false); // true = picker opened from "+" button (insert & shift)
+  const [insertMode, setInsertMode] = useState(false);
 
   // Screen dimensions
   const [screenWidth, setScreenWidth] = useState(Dimensions.get('window').width);
@@ -86,16 +157,18 @@ export default function BinderEditScreen() {
   const columnsPerRow = binder?.layoutPreference === '4x3' ? 4 : 3;
   const totalSlots = cardsPerPage * TOTAL_PAGES;
 
-  /**
-   * Load binder and cards on mount
-   */
-  useEffect(() => {
-    loadBinderData();
-  }, [binderId]);
+  // ── Keep refs in sync with state ──
+  useEffect(() => { cardPositionsRef.current = cardPositions; }, [cardPositions]);
+  useEffect(() => { placeholderCardsRef.current = placeholderCards; }, [placeholderCards]);
+  useEffect(() => { draggedCardRef.current = draggedCard; }, [draggedCard]);
+  useEffect(() => { hoverTargetRef.current = hoverTarget; }, [hoverTarget]);
 
-  /**
-   * Handle screen dimension changes
-   */
+  // ─────────────────────────────────────────────────────────────────────────────
+  // LOAD DATA
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  useEffect(() => { loadBinderData(); }, [binderId]);
+
   useEffect(() => {
     const subscription = Dimensions.addEventListener('change', ({ window }) => {
       setScreenWidth(window.width);
@@ -103,29 +176,31 @@ export default function BinderEditScreen() {
     return () => subscription?.remove();
   }, []);
 
-  /**
-   * Handle Android back button
-   */
   useEffect(() => {
     const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
       if (hasChanges) {
         showSavePrompt();
-        return true; // Prevent default back
+        return true;
       }
-      return false; // Allow default back
+      return false;
     });
     return () => backHandler.remove();
   }, [hasChanges]);
 
   /**
-   * Load binder data and populate card positions from existing binder cards
+   * Measure the container's screen position (called once on layout)
    */
+  const handleContainerLayout = useCallback(() => {
+    containerRef.current?.measureInWindow((x, y) => {
+      containerOffsetRef.current = { x: x || 0, y: y || 0 };
+    });
+  }, []);
+
   const loadBinderData = async () => {
     try {
       setLoading(true);
       setError(null);
 
-      // Load binder info
       const binderData = await getBinderById(binderId);
       if (!binderData) {
         setError('Binder not found');
@@ -134,30 +209,20 @@ export default function BinderEditScreen() {
       }
       setBinder(binderData);
 
-      // Calculate total slots based on layout
       const slotsPerPage = binderData.layoutPreference === '4x3' ? 12 : 9;
       const totalSlotCount = slotsPerPage * TOTAL_PAGES;
 
-      // Initialize all slots as empty first
       const positions: CardPosition[] = [];
       for (let i = 0; i < totalSlotCount; i++) {
-        positions.push({ 
-          cardId: null, 
-          cardName: undefined,
-          imageUrl: undefined,
-          slotIndex: i 
-        });
+        positions.push({ cardId: null, cardName: undefined, imageUrl: undefined, slotIndex: i });
       }
 
-      // Fetch the binder's cards based on collection mode and populate the grid
       let cardsToPlace: Card[] = [];
 
       if (binderData.collectionMode === 'master-set' && binderData.set) {
-        // --- Master Set: fetch cards from API and apply variant/sort logic ---
         console.log('[BinderEdit] Loading Master Set cards for:', binderData.set);
         cardsToPlace = await getCardsBySet(binderData.set);
 
-        // Filter by tracked variants (same logic as BinderDetail)
         if (binderData.variantsToTrack && binderData.variantsToTrack.length > 0) {
           cardsToPlace = cardsToPlace.filter((card) => {
             const cardVariant = card.variant || 'base';
@@ -165,7 +230,6 @@ export default function BinderEditScreen() {
           });
         }
 
-        // Sort by set number
         cardsToPlace.sort((a, b) => {
           const getSetNumber = (numberStr: string): number => {
             const match = numberStr.match(/^(\d+)\//);
@@ -174,7 +238,6 @@ export default function BinderEditScreen() {
           return getSetNumber(a.number) - getSetNumber(b.number);
         });
 
-        // Apply variant placement logic
         if (binderData.variantPlacement === 'grouped') {
           const isBaseCard = (card: Card) => !card.variant || card.variant === 'base';
           const getBaseId = (card: Card) => `${card.name}-${card.number}`;
@@ -201,12 +264,10 @@ export default function BinderEditScreen() {
             });
             grouped.push(...variants);
           });
-          // Add orphan variants whose base card doesn't exist
           variantMap.forEach((variants, baseId) => {
             if (!baseCards.some((c) => getBaseId(c) === baseId)) grouped.push(...variants);
           });
           cardsToPlace = grouped;
-
         } else if (binderData.variantPlacement === 'end') {
           const isBaseCard = (card: Card) => !card.variant || card.variant === 'base';
           const bases = cardsToPlace.filter(isBaseCard);
@@ -219,13 +280,10 @@ export default function BinderEditScreen() {
         }
 
         console.log('[BinderEdit] Master Set: placing', cardsToPlace.length, 'cards');
-
       } else if (binderData.collectionMode === 'region' && binderData.region) {
-        // --- Region: fetch Pokémon list + any custom card selections ---
         console.log('[BinderEdit] Loading Region cards for:', binderData.region);
         const pokemonList = await getCardsByRegion(binderData.region as Region, binderData.pokemonArtStyle);
 
-        // Check for custom card selections
         const selectedCards = await getAllSelectedCardsForBinder(binderData.id);
         if (selectedCards.size > 0) {
           cardsToPlace = await Promise.all(
@@ -249,17 +307,13 @@ export default function BinderEditScreen() {
           cardsToPlace = pokemonList;
         }
 
-        // Sort by Pokédex number
         cardsToPlace.sort((a, b) => (a.pokedexNumber ?? 0) - (b.pokedexNumber ?? 0));
         console.log('[BinderEdit] Region: placing', cardsToPlace.length, 'cards');
-
       } else if (binderData.collectionMode === 'custom') {
-        // --- Custom: load saved card positions from database ---
         console.log('[BinderEdit] Loading Custom binder cards');
         const savedPositions = await getBinderCardsWithPositions(binderData.id);
 
         if (savedPositions.size > 0) {
-          // Load card details for each saved position
           const results = await Promise.all(
             Array.from(savedPositions.entries()).map(async ([position, data]) => {
               try {
@@ -269,7 +323,6 @@ export default function BinderEditScreen() {
             })
           );
 
-          // Place cards at their saved positions
           results.forEach((result) => {
             if (result && result.position < totalSlotCount) {
               positions[result.position] = {
@@ -285,7 +338,6 @@ export default function BinderEditScreen() {
         }
       }
 
-      // For Master Set and Region modes, place cards sequentially into slots
       if (binderData.collectionMode !== 'custom') {
         cardsToPlace.forEach((card, index) => {
           if (index < totalSlotCount) {
@@ -300,7 +352,7 @@ export default function BinderEditScreen() {
       }
 
       setCardPositions(positions);
-      setOriginalPositions(positions.map(p => ({ ...p }))); // Deep copy for change tracking
+      setOriginalPositions(positions.map(p => ({ ...p })));
       setLoading(false);
     } catch (err) {
       console.error('[BinderEdit] Error loading binder:', err);
@@ -309,24 +361,27 @@ export default function BinderEditScreen() {
     }
   };
 
-  /**
-   * Get cards for current page
-   */
+  // ─────────────────────────────────────────────────────────────────────────────
+  // CURRENT PAGE CARDS
+  // ─────────────────────────────────────────────────────────────────────────────
+
   const currentPageCards = useMemo(() => {
     const startIndex = (currentPage - 1) * cardsPerPage;
     return cardPositions.slice(startIndex, startIndex + cardsPerPage);
   }, [cardPositions, currentPage, cardsPerPage]);
 
-  /**
-   * Save current state to undo stack
-   */
+  // ─────────────────────────────────────────────────────────────────────────────
+  // UNDO
+  // ─────────────────────────────────────────────────────────────────────────────
+
   const saveUndoState = useCallback(() => {
     setUndoStack(prev => [...prev, [...cardPositions]]);
   }, [cardPositions]);
 
-  /**
-   * Show save prompt when leaving with unsaved changes
-   */
+  // ─────────────────────────────────────────────────────────────────────────────
+  // SAVE / EXIT
+  // ─────────────────────────────────────────────────────────────────────────────
+
   const showSavePrompt = () => {
     Alert.alert(
       'Save changes?',
@@ -339,18 +394,12 @@ export default function BinderEditScreen() {
     );
   };
 
-  /**
-   * Save positions and exit
-   */
   const saveAndExit = async () => {
     // TODO: Step 34I - Save to database
     console.log('[BinderEdit] Saving positions...');
     navigation.goBack();
   };
 
-  /**
-   * Handle back button press
-   */
   const handleBack = () => {
     if (hasChanges) {
       showSavePrompt();
@@ -359,138 +408,111 @@ export default function BinderEditScreen() {
     }
   };
 
-  /**
-   * Handle tapping a card slot
-   */
+  // ─────────────────────────────────────────────────────────────────────────────
+  // TAP-TO-SELECT HANDLERS (existing behavior, unchanged)
+  // ─────────────────────────────────────────────────────────────────────────────
+
   const handleSlotPress = (slot: CardPosition) => {
+    // Don't process taps while dragging
+    if (draggedCard) return;
+
     const { slotIndex, cardId, cardName, imageUrl } = slot;
-    
+
     if (selectedCard) {
-      // A card is already selected
       if (selectedCard.sourceSlot === slotIndex) {
-        // Tapped the same slot - deselect
         setSelectedCard(null);
       } else if (cardId) {
-        // Tapped another filled slot - SWAP the cards
         handleSwapCards(slot);
       } else {
-        // Tapped empty slot - move card here
         handleMoveCardToSlot(slotIndex);
       }
     } else if (cardId) {
-      // No selection, slot has a card - select it
       const pageNumber = Math.floor(slotIndex / cardsPerPage) + 1;
-      
       setSelectedCard({
         cardId,
         cardName: cardName || 'Unknown Card',
-        imageUrl: imageUrl,
+        imageUrl,
         sourceSlot: slotIndex,
         sourceIndex: slotIndex,
         sourcePage: pageNumber,
       });
     } else {
-      // Empty slot, no selection - open card picker
       setTargetSlotIndex(slotIndex);
       setShowCardPicker(true);
     }
   };
 
-  /**
-   * Swap selected card with card in target slot
-   */
   const handleSwapCards = (targetSlot: CardPosition) => {
     if (!selectedCard || selectedCard.sourceSlot === 'placeholder') return;
-    
+
     saveUndoState();
-    
     const sourceSlotIndex = selectedCard.sourceSlot as number;
-    
+
     setCardPositions(prev => {
       const newPositions = [...prev];
-      
-      // Store target slot data before swap
       const targetData = {
         cardId: targetSlot.cardId,
         cardName: targetSlot.cardName,
         imageUrl: targetSlot.imageUrl,
       };
-      
-      // Move target card to source slot
       newPositions[sourceSlotIndex] = {
         ...newPositions[sourceSlotIndex],
         cardId: targetData.cardId,
         cardName: targetData.cardName,
         imageUrl: targetData.imageUrl,
       };
-      
-      // Move source card to target slot
       newPositions[targetSlot.slotIndex] = {
         ...newPositions[targetSlot.slotIndex],
         cardId: selectedCard.cardId,
         cardName: selectedCard.cardName,
         imageUrl: selectedCard.imageUrl,
       };
-      
       return newPositions;
     });
-    
+
     setHasChanges(true);
     setSelectedCard(null);
   };
 
-  /**
-   * Move selected card to target slot
-   */
   const handleMoveCardToSlot = (targetSlotIndex: number) => {
     if (!selectedCard) return;
-    
+
     saveUndoState();
-    
-    // Handle placeholder source separately
+
     if (selectedCard.sourceSlot === 'placeholder') {
       setPlaceholderCards(p => p.filter((_, i) => i !== selectedCard.sourceIndex));
     }
-    
+
     setCardPositions(prev => {
       const newPositions = [...prev];
-      
-      // Remove from source binder slot (if from binder, not placeholder)
       if (selectedCard.sourceSlot !== 'placeholder') {
         newPositions[selectedCard.sourceSlot] = {
           ...newPositions[selectedCard.sourceSlot],
-          cardId: null,
-          cardName: undefined,
-          imageUrl: undefined,
+          cardId: null, cardName: undefined, imageUrl: undefined,
         };
       }
-      
-      // Place in target slot with card data
       newPositions[targetSlotIndex] = {
         ...newPositions[targetSlotIndex],
         cardId: selectedCard.cardId,
         cardName: selectedCard.cardName,
         imageUrl: selectedCard.imageUrl,
       };
-      
       return newPositions;
     });
-    
+
     setHasChanges(true);
     setSelectedCard(null);
   };
 
-  /**
-   * Handle tapping a card in the placeholder
-   */
   const handlePlaceholderCardPress = (index: number, cardId: string) => {
+    // Don't process taps while dragging
+    if (draggedCard) return;
+
     const card = placeholderCards[index];
-    
+
     if (selectedCard && selectedCard.sourceSlot === 'placeholder' && selectedCard.sourceIndex === index) {
-      // Tapped already selected card - deselect
       setSelectedCard(null);
     } else {
-      // Select this placeholder card
       setSelectedCard({
         cardId: card.cardId,
         cardName: card.cardName || 'Unknown Card',
@@ -501,20 +523,11 @@ export default function BinderEditScreen() {
     }
   };
 
-  /**
-   * Cancel current selection
-   */
-  const handleCancelSelection = () => {
-    setSelectedCard(null);
-  };
+  const handleCancelSelection = () => { setSelectedCard(null); };
 
-  /**
-   * Remove selected card from binder entirely
-   */
   const handleRemoveCard = () => {
     if (!selectedCard) return;
-    
-    // Confirm removal
+
     Alert.alert(
       'Remove Card',
       `Remove ${selectedCard.cardName} from the binder? The slot will become empty.`,
@@ -525,24 +538,18 @@ export default function BinderEditScreen() {
           style: 'destructive',
           onPress: () => {
             saveUndoState();
-            
             if (selectedCard.sourceSlot === 'placeholder') {
-              // Remove from placeholder
               setPlaceholderCards(prev => prev.filter((_, i) => i !== selectedCard.sourceIndex));
             } else {
-              // Remove from binder slot - clear all card data
               setCardPositions(prev => {
                 const newPositions = [...prev];
                 newPositions[selectedCard.sourceSlot as number] = {
                   ...newPositions[selectedCard.sourceSlot as number],
-                  cardId: null,
-                  cardName: undefined,
-                  imageUrl: undefined,
+                  cardId: null, cardName: undefined, imageUrl: undefined,
                 };
                 return newPositions;
               });
             }
-            
             setHasChanges(true);
             setSelectedCard(null);
           },
@@ -551,22 +558,17 @@ export default function BinderEditScreen() {
     );
   };
 
-  /**
-   * Handle trash zone press
-   */
-  const handleTrashPress = () => {
-    handleRemoveCard();
-  };
+  const handleTrashPress = () => { handleRemoveCard(); };
 
-  /**
-   * Handle card selection from picker
-   */
+  // ─────────────────────────────────────────────────────────────────────────────
+  // CARD PICKER
+  // ─────────────────────────────────────────────────────────────────────────────
+
   const handleCardPickerSelect = (card: Card) => {
     if (targetSlotIndex === null) return;
-    
-    // Check if card is already placed elsewhere in the binder
+
     const existingSlot = cardPositions.find(pos => pos.cardId === card.id);
-    
+
     if (existingSlot) {
       const existingPage = Math.floor(existingSlot.slotIndex / cardsPerPage) + 1;
       const slotOnPage = (existingSlot.slotIndex % cardsPerPage) + 1;
@@ -575,14 +577,9 @@ export default function BinderEditScreen() {
         `${card.name} is already on Page ${existingPage} (Slot ${slotOnPage}). Add it anyway?`,
         [
           { text: 'Cancel', style: 'cancel', onPress: () => {
-            setShowCardPicker(false);
-            setTargetSlotIndex(null);
-            setInsertMode(false);
+            setShowCardPicker(false); setTargetSlotIndex(null); setInsertMode(false);
           }},
-          { 
-            text: 'Add Anyway', 
-            onPress: () => insertMode ? insertCardFromPicker(card) : placeCardInSlot(card),
-          },
+          { text: 'Add Anyway', onPress: () => insertMode ? insertCardFromPicker(card) : placeCardInSlot(card) },
         ]
       );
     } else {
@@ -594,67 +591,42 @@ export default function BinderEditScreen() {
     }
   };
 
-  /**
-   * Place a card in the target slot
-   */
   const placeCardInSlot = (card: Card) => {
     if (targetSlotIndex === null) return;
-    
     saveUndoState();
-    
-    // Update positions with card data stored directly
     setCardPositions(prev => {
       const newPositions = [...prev];
       newPositions[targetSlotIndex] = {
         ...newPositions[targetSlotIndex],
-        cardId: card.id,
-        cardName: card.name,
-        imageUrl: card.imageUrl,
+        cardId: card.id, cardName: card.name, imageUrl: card.imageUrl,
       };
       return newPositions;
     });
-    
     setHasChanges(true);
     setShowCardPicker(false);
     setTargetSlotIndex(null);
   };
 
-  /**
-   * Insert a newly picked card at a position, shifting all existing cards to the right.
-   * Used when the Card Picker was opened from a "+" button (insertMode).
-   */
   const insertCardFromPicker = (card: Card) => {
     if (targetSlotIndex === null) return;
 
     const insertAtIndex = targetSlotIndex;
     const newPositions = cardPositions.map(p => ({ ...p }));
 
-    // Check if the last slot has a card (will overflow when shifting right)
     const lastCard = newPositions[newPositions.length - 1];
     let overflowCard: PlaceholderCard | null = null;
 
     if (lastCard.cardId) {
       if (placeholderCards.length >= PLACEHOLDER_MAX) {
-        Alert.alert(
-          'Binder is full',
-          'Cannot insert — all binder slots and placeholder are full.'
-        );
-        setShowCardPicker(false);
-        setTargetSlotIndex(null);
-        setInsertMode(false);
+        Alert.alert('Binder is full', 'Cannot insert — all binder slots and placeholder are full.');
+        setShowCardPicker(false); setTargetSlotIndex(null); setInsertMode(false);
         return;
       }
-
-      overflowCard = {
-        cardId: lastCard.cardId,
-        cardName: lastCard.cardName,
-        imageUrl: lastCard.imageUrl,
-      };
+      overflowCard = { cardId: lastCard.cardId, cardName: lastCard.cardName, imageUrl: lastCard.imageUrl };
     }
 
     saveUndoState();
 
-    // Shift all cards right from insert point to end
     for (let i = newPositions.length - 1; i > insertAtIndex; i--) {
       newPositions[i] = {
         ...newPositions[i],
@@ -664,30 +636,19 @@ export default function BinderEditScreen() {
       };
     }
 
-    // Place the new card at the insert point
     newPositions[insertAtIndex] = {
       ...newPositions[insertAtIndex],
-      cardId: card.id,
-      cardName: card.name,
-      imageUrl: card.imageUrl,
+      cardId: card.id, cardName: card.name, imageUrl: card.imageUrl,
     };
 
     setCardPositions(newPositions);
-
-    if (overflowCard) {
-      setPlaceholderCards(prev => [...prev, overflowCard!]);
-    }
-
+    if (overflowCard) setPlaceholderCards(prev => [...prev, overflowCard!]);
     setHasChanges(true);
     setShowCardPicker(false);
     setTargetSlotIndex(null);
     setInsertMode(false);
   };
 
-  /**
-   * Handle tapping a "+" insert button.
-   * Deselects any selected card and opens the Card Picker in insert mode.
-   */
   const handleInsertButtonPress = (insertAtIndex: number) => {
     setSelectedCard(null);
     setTargetSlotIndex(insertAtIndex);
@@ -695,25 +656,20 @@ export default function BinderEditScreen() {
     setShowCardPicker(true);
   };
 
-  /**
-   * Insert selected card at a specific position, shifting all cards to the right.
-   * If the last binder slot has a card, it overflows to the placeholder tray.
-   * If both binder and placeholder are full, shows an error message.
-   */
+  // ─────────────────────────────────────────────────────────────────────────────
+  // INSERT (tap-selected card into "+" position)
+  // ─────────────────────────────────────────────────────────────────────────────
+
   const performInsert = (insertAtIndex: number) => {
     if (!selectedCard) return;
 
     console.log('[BinderEdit] performInsert:', selectedCard.cardId, 'from slot', selectedCard.sourceSlot, '→ insert at', insertAtIndex);
 
     const sourceIsInBinder = selectedCard.sourceSlot !== 'placeholder';
-
-    // Work with a copy so we can check overflow before committing
     const newPositions = cardPositions.map(p => ({ ...p }));
 
-    // Step 1: If source is in the binder, remove it and collapse the gap
     if (sourceIsInBinder) {
       const sourceIdx = selectedCard.sourceSlot as number;
-      // Shift everything after source left by one (close the gap)
       for (let i = sourceIdx; i < newPositions.length - 1; i++) {
         newPositions[i] = {
           ...newPositions[i],
@@ -722,49 +678,31 @@ export default function BinderEditScreen() {
           imageUrl: newPositions[i + 1].imageUrl,
         };
       }
-      // Clear the last slot (gap moved to end)
       newPositions[newPositions.length - 1] = {
         ...newPositions[newPositions.length - 1],
-        cardId: null,
-        cardName: undefined,
-        imageUrl: undefined,
+        cardId: null, cardName: undefined, imageUrl: undefined,
       };
-
-      // Adjust insert index if it was after the removed source
-      if (insertAtIndex > sourceIdx) {
-        insertAtIndex--;
-      }
+      if (insertAtIndex > sourceIdx) insertAtIndex--;
     }
 
-    // Step 2: Check if the last slot has a card (will overflow when shifting right)
     const lastCard = newPositions[newPositions.length - 1];
     let overflowCard: PlaceholderCard | null = null;
 
     if (lastCard.cardId) {
-      // Check if placeholder has room
       const currentPlaceholderCount = !sourceIsInBinder
-        ? placeholderCards.length - 1 // One card leaving placeholder
+        ? placeholderCards.length - 1
         : placeholderCards.length;
 
       if (currentPlaceholderCount >= PLACEHOLDER_MAX) {
-        Alert.alert(
-          'Binder is full',
-          'Cannot insert — all binder slots and placeholder are full.'
-        );
+        Alert.alert('Binder is full', 'Cannot insert — all binder slots and placeholder are full.');
         return;
       }
 
-      overflowCard = {
-        cardId: lastCard.cardId,
-        cardName: lastCard.cardName,
-        imageUrl: lastCard.imageUrl,
-      };
+      overflowCard = { cardId: lastCard.cardId, cardName: lastCard.cardName, imageUrl: lastCard.imageUrl };
     }
 
-    // Everything is safe — save undo state and proceed
     saveUndoState();
 
-    // Step 3: Shift cards right from insert point to end
     for (let i = newPositions.length - 1; i > insertAtIndex; i--) {
       newPositions[i] = {
         ...newPositions[i],
@@ -774,7 +712,6 @@ export default function BinderEditScreen() {
       };
     }
 
-    // Step 4: Place the selected card at the insert point
     newPositions[insertAtIndex] = {
       ...newPositions[insertAtIndex],
       cardId: selectedCard.cardId,
@@ -782,19 +719,13 @@ export default function BinderEditScreen() {
       imageUrl: selectedCard.imageUrl,
     };
 
-    // Step 5: Update all state
     setCardPositions(newPositions);
 
-    // Handle placeholder changes
     if (!sourceIsInBinder) {
-      // Card came from placeholder — remove it and add overflow if needed
       const newPlaceholder = placeholderCards.filter((_, i) => i !== selectedCard.sourceIndex);
-      if (overflowCard) {
-        newPlaceholder.push(overflowCard);
-      }
+      if (overflowCard) newPlaceholder.push(overflowCard);
       setPlaceholderCards(newPlaceholder);
     } else if (overflowCard) {
-      // Card came from binder — just add overflow to placeholder
       setPlaceholderCards(prev => [...prev, overflowCard!]);
     }
 
@@ -802,9 +733,487 @@ export default function BinderEditScreen() {
     setSelectedCard(null);
   };
 
+  // ─────────────────────────────────────────────────────────────────────────────
+  // DRAG & DROP SYSTEM
+  // ─────────────────────────────────────────────────────────────────────────────
+
   /**
-   * Render the card grid for current page
+   * Measure all slot positions on screen for drop target detection.
+   * Called once at the start of each drag.
    */
+  const measureAllLayouts = useCallback(async () => {
+    const measurements = new Map<number, LayoutRect>();
+    const promises: Promise<void>[] = [];
+
+    // Measure all visible card slots
+    for (const [index, view] of slotViewRefs.current.entries()) {
+      promises.push(
+        new Promise<void>((resolve) => {
+          try {
+            view.measureInWindow((x, y, width, height) => {
+              if (width > 0 && height > 0) {
+                measurements.set(index, { x, y, width, height });
+              }
+              resolve();
+            });
+          } catch {
+            resolve();
+          }
+        }),
+      );
+    }
+
+    // Measure placeholder area
+    if (placeholderAreaViewRef.current) {
+      promises.push(
+        new Promise<void>((resolve) => {
+          try {
+            (placeholderAreaViewRef.current as any).measureInWindow?.((x: number, y: number, width: number, height: number) => {
+              placeholderMeasurementRef.current = { x, y, width, height };
+              resolve();
+            }) || resolve();
+          } catch {
+            resolve();
+          }
+        }),
+      );
+    }
+
+    // Measure trash zone
+    if (trashZoneViewRef.current) {
+      promises.push(
+        new Promise<void>((resolve) => {
+          try {
+            (trashZoneViewRef.current as any).measureInWindow?.((x: number, y: number, width: number, height: number) => {
+              trashMeasurementRef.current = { x, y, width, height };
+              resolve();
+            }) || resolve();
+          } catch {
+            resolve();
+          }
+        }),
+      );
+    }
+
+    // Also re-measure container offset
+    if (containerRef.current) {
+      promises.push(
+        new Promise<void>((resolve) => {
+          containerRef.current!.measureInWindow((x, y) => {
+            containerOffsetRef.current = { x: x || 0, y: y || 0 };
+            resolve();
+          });
+        }),
+      );
+    }
+
+    await Promise.all(promises);
+    slotMeasurementsRef.current = measurements;
+  }, []);
+
+  /**
+   * Determine what drop target is at the given screen coordinates
+   */
+  const getDropTarget = useCallback((absoluteX: number, absoluteY: number): DropTarget | null => {
+    // Check trash zone first (highest priority)
+    const trash = trashMeasurementRef.current;
+    if (trash && absoluteX >= trash.x && absoluteX <= trash.x + trash.width &&
+        absoluteY >= trash.y && absoluteY <= trash.y + trash.height) {
+      return { type: 'trash' };
+    }
+
+    // Check placeholder area
+    const ph = placeholderMeasurementRef.current;
+    if (ph && absoluteX >= ph.x && absoluteX <= ph.x + ph.width &&
+        absoluteY >= ph.y && absoluteY <= ph.y + ph.height) {
+      return { type: 'placeholder' };
+    }
+
+    // Check card slots
+    for (const [index, layout] of slotMeasurementsRef.current.entries()) {
+      if (absoluteX >= layout.x && absoluteX <= layout.x + layout.width &&
+          absoluteY >= layout.y && absoluteY <= layout.y + layout.height) {
+        const hasCard = cardPositionsRef.current[index]?.cardId != null;
+        return { type: hasCard ? 'card' : 'empty', slotIndex: index };
+      }
+    }
+
+    return null;
+  }, []);
+
+  /**
+   * Called when a long-press drag starts on a binder card slot.
+   * Measures all layouts and initializes the floating card.
+   */
+  const handleDragStart = useCallback((data: DragStartData, touchX: number, touchY: number) => {
+    console.log('[BinderEdit] Drag start:', data.cardName, 'from slot', data.slotIndex);
+
+    // Clear any tap-selected card
+    setSelectedCard(null);
+
+    // Set dragged card state
+    const dragged: DraggedCard = {
+      cardId: data.cardId,
+      cardName: data.cardName || 'Unknown Card',
+      imageUrl: data.imageUrl,
+      sourceSlot: data.slotIndex,
+      sourceIndex: data.slotIndex,
+    };
+    setDraggedCard(dragged);
+    draggedCardRef.current = dragged;
+
+    // Position the floating card centered on the finger
+    const offsetX = containerOffsetRef.current.x;
+    const offsetY = containerOffsetRef.current.y;
+    dragAnimX.setValue(touchX - offsetX - FLOATING_CARD_WIDTH / 2);
+    dragAnimY.setValue(touchY - offsetY - FLOATING_CARD_HEIGHT / 2);
+
+    // Measure all layout positions for drop detection
+    measureAllLayouts();
+  }, [dragAnimX, dragAnimY, measureAllLayouts]);
+
+  /**
+   * Called when a long-press drag starts on a placeholder card.
+   */
+  const handlePlaceholderDragStart = useCallback((
+    data: { cardId: string; cardName?: string; imageUrl?: string; index: number },
+    touchX: number,
+    touchY: number,
+  ) => {
+    console.log('[BinderEdit] Placeholder drag start:', data.cardName, 'from index', data.index);
+
+    setSelectedCard(null);
+
+    const dragged: DraggedCard = {
+      cardId: data.cardId,
+      cardName: data.cardName || 'Unknown Card',
+      imageUrl: data.imageUrl,
+      sourceSlot: 'placeholder',
+      sourceIndex: data.index,
+    };
+    setDraggedCard(dragged);
+    draggedCardRef.current = dragged;
+
+    const offsetX = containerOffsetRef.current.x;
+    const offsetY = containerOffsetRef.current.y;
+    dragAnimX.setValue(touchX - offsetX - FLOATING_CARD_WIDTH / 2);
+    dragAnimY.setValue(touchY - offsetY - FLOATING_CARD_HEIGHT / 2);
+
+    measureAllLayouts();
+  }, [dragAnimX, dragAnimY, measureAllLayouts]);
+
+  /**
+   * Called on each drag movement.
+   * Updates the floating card position and determines hover target.
+   */
+  const handleDragUpdate = useCallback((touchX: number, touchY: number) => {
+    // Update floating card position (no React state update = no re-render)
+    const offsetX = containerOffsetRef.current.x;
+    const offsetY = containerOffsetRef.current.y;
+    dragAnimX.setValue(touchX - offsetX - FLOATING_CARD_WIDTH / 2);
+    dragAnimY.setValue(touchY - offsetY - FLOATING_CARD_HEIGHT / 2);
+
+    // Determine hover target (only update state if it changed)
+    const target = getDropTarget(touchX, touchY);
+    const prev = hoverTargetRef.current;
+
+    // Skip self-hover (hovering over the source slot)
+    const dragged = draggedCardRef.current;
+    if (target && dragged) {
+      if (target.slotIndex !== undefined && dragged.sourceSlot === target.slotIndex) {
+        if (prev !== null) {
+          hoverTargetRef.current = null;
+          setHoverTarget(null);
+        }
+        return;
+      }
+    }
+
+    const changed =
+      target?.type !== prev?.type || target?.slotIndex !== prev?.slotIndex;
+
+    if (changed) {
+      hoverTargetRef.current = target;
+      setHoverTarget(target);
+    }
+  }, [dragAnimX, dragAnimY, getDropTarget]);
+
+  /**
+   * Called when the drag ends (finger lifts).
+   * Determines the drop target and performs the appropriate action.
+   */
+  const handleDragEnd = useCallback((touchX: number, touchY: number) => {
+    const dragged = draggedCardRef.current;
+    if (!dragged) return;
+
+    const target = getDropTarget(touchX, touchY);
+    console.log('[BinderEdit] Drag end at target:', target?.type, target?.slotIndex);
+
+    if (!target) {
+      // No valid target — cancel the drag (card returns to original position)
+      console.log('[BinderEdit] Drag cancelled — no valid drop target');
+      setDraggedCard(null);
+      setHoverTarget(null);
+      draggedCardRef.current = null;
+      hoverTargetRef.current = null;
+      return;
+    }
+
+    // Don't do anything if dropped on source
+    if (target.slotIndex !== undefined && dragged.sourceSlot === target.slotIndex) {
+      setDraggedCard(null);
+      setHoverTarget(null);
+      draggedCardRef.current = null;
+      hoverTargetRef.current = null;
+      return;
+    }
+
+    // Perform the drop action
+    performDragAction(dragged, target);
+
+    // Clean up drag state
+    setDraggedCard(null);
+    setHoverTarget(null);
+    draggedCardRef.current = null;
+    hoverTargetRef.current = null;
+  }, [getDropTarget]);
+
+  /**
+   * Called when the gesture finalizes (end or cancel).
+   * Ensures drag state is always cleaned up.
+   */
+  const handleDragFinalize = useCallback(() => {
+    if (draggedCardRef.current) {
+      setDraggedCard(null);
+      setHoverTarget(null);
+      draggedCardRef.current = null;
+      hoverTargetRef.current = null;
+    }
+  }, []);
+
+  /**
+   * Execute the appropriate action when a card is dropped on a target.
+   */
+  const performDragAction = (dragged: DraggedCard, target: DropTarget) => {
+    switch (target.type) {
+      case 'card':
+        if (target.slotIndex !== undefined) {
+          performDragSwap(dragged, target.slotIndex);
+        }
+        break;
+
+      case 'empty':
+        if (target.slotIndex !== undefined) {
+          performDragMove(dragged, target.slotIndex);
+        }
+        break;
+
+      case 'placeholder':
+        performDragToPlaceholder(dragged);
+        break;
+
+      case 'trash':
+        performDragToTrash(dragged);
+        break;
+    }
+  };
+
+  /**
+   * SWAP: Drag a card onto another card → they swap positions.
+   */
+  const performDragSwap = (dragged: DraggedCard, targetSlotIndex: number) => {
+    saveUndoState();
+
+    const positions = cardPositionsRef.current;
+    const targetSlot = positions[targetSlotIndex];
+
+    if (dragged.sourceSlot === 'placeholder') {
+      // Placeholder card ↔ binder card
+      const newPlaceholder = [...placeholderCardsRef.current];
+      newPlaceholder[dragged.sourceIndex] = {
+        cardId: targetSlot.cardId!,
+        cardName: targetSlot.cardName,
+        imageUrl: targetSlot.imageUrl,
+      };
+      setPlaceholderCards(newPlaceholder);
+
+      setCardPositions(prev => {
+        const newPositions = [...prev];
+        newPositions[targetSlotIndex] = {
+          ...newPositions[targetSlotIndex],
+          cardId: dragged.cardId,
+          cardName: dragged.cardName,
+          imageUrl: dragged.imageUrl,
+        };
+        return newPositions;
+      });
+    } else {
+      // Binder card ↔ binder card
+      const sourceIdx = dragged.sourceSlot as number;
+
+      setCardPositions(prev => {
+        const newPositions = [...prev];
+
+        // Put target card in source slot
+        newPositions[sourceIdx] = {
+          ...newPositions[sourceIdx],
+          cardId: targetSlot.cardId,
+          cardName: targetSlot.cardName,
+          imageUrl: targetSlot.imageUrl,
+        };
+
+        // Put dragged card in target slot
+        newPositions[targetSlotIndex] = {
+          ...newPositions[targetSlotIndex],
+          cardId: dragged.cardId,
+          cardName: dragged.cardName,
+          imageUrl: dragged.imageUrl,
+        };
+
+        return newPositions;
+      });
+    }
+
+    setHasChanges(true);
+    console.log('[BinderEdit] Drag swap complete');
+  };
+
+  /**
+   * MOVE: Drag a card to an empty slot → card moves there.
+   */
+  const performDragMove = (dragged: DraggedCard, targetSlotIndex: number) => {
+    saveUndoState();
+
+    if (dragged.sourceSlot === 'placeholder') {
+      // Remove from placeholder
+      setPlaceholderCards(p => p.filter((_, i) => i !== dragged.sourceIndex));
+    } else {
+      // Clear source binder slot
+      setCardPositions(prev => {
+        const newPositions = [...prev];
+        const sourceIdx = dragged.sourceSlot as number;
+        newPositions[sourceIdx] = {
+          ...newPositions[sourceIdx],
+          cardId: null, cardName: undefined, imageUrl: undefined,
+        };
+        // Place in target slot
+        newPositions[targetSlotIndex] = {
+          ...newPositions[targetSlotIndex],
+          cardId: dragged.cardId,
+          cardName: dragged.cardName,
+          imageUrl: dragged.imageUrl,
+        };
+        return newPositions;
+      });
+      setHasChanges(true);
+      console.log('[BinderEdit] Drag move complete');
+      return;
+    }
+
+    // Place from placeholder into binder slot
+    setCardPositions(prev => {
+      const newPositions = [...prev];
+      newPositions[targetSlotIndex] = {
+        ...newPositions[targetSlotIndex],
+        cardId: dragged.cardId,
+        cardName: dragged.cardName,
+        imageUrl: dragged.imageUrl,
+      };
+      return newPositions;
+    });
+
+    setHasChanges(true);
+    console.log('[BinderEdit] Drag move (from placeholder) complete');
+  };
+
+  /**
+   * PLACEHOLDER: Drag a binder card to the placeholder area.
+   */
+  const performDragToPlaceholder = (dragged: DraggedCard) => {
+    // If it's already in the placeholder, ignore
+    if (dragged.sourceSlot === 'placeholder') return;
+
+    if (placeholderCardsRef.current.length >= PLACEHOLDER_MAX) {
+      Alert.alert('Placeholder Full', 'The placeholder tray can hold a maximum of 18 cards.');
+      return;
+    }
+
+    saveUndoState();
+
+    // Add to placeholder
+    setPlaceholderCards(prev => [...prev, {
+      cardId: dragged.cardId,
+      cardName: dragged.cardName,
+      imageUrl: dragged.imageUrl,
+    }]);
+
+    // Clear source binder slot
+    const sourceIdx = dragged.sourceSlot as number;
+    setCardPositions(prev => {
+      const newPositions = [...prev];
+      newPositions[sourceIdx] = {
+        ...newPositions[sourceIdx],
+        cardId: null, cardName: undefined, imageUrl: undefined,
+      };
+      return newPositions;
+    });
+
+    setHasChanges(true);
+    console.log('[BinderEdit] Drag to placeholder complete');
+  };
+
+  /**
+   * TRASH: Drag a card to the trash zone → confirm removal.
+   */
+  const performDragToTrash = (dragged: DraggedCard) => {
+    Alert.alert(
+      'Remove Card',
+      `Remove ${dragged.cardName} from the binder? The slot will become empty.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Remove',
+          style: 'destructive',
+          onPress: () => {
+            saveUndoState();
+
+            if (dragged.sourceSlot === 'placeholder') {
+              setPlaceholderCards(prev => prev.filter((_, i) => i !== dragged.sourceIndex));
+            } else {
+              const sourceIdx = dragged.sourceSlot as number;
+              setCardPositions(prev => {
+                const newPositions = [...prev];
+                newPositions[sourceIdx] = {
+                  ...newPositions[sourceIdx],
+                  cardId: null, cardName: undefined, imageUrl: undefined,
+                };
+                return newPositions;
+              });
+            }
+
+            setHasChanges(true);
+            console.log('[BinderEdit] Drag to trash complete');
+          },
+        },
+      ],
+    );
+  };
+
+  /**
+   * Register a slot view ref for layout measurement
+   */
+  const registerSlotRef = useCallback((slotIndex: number, ref: View | null) => {
+    if (ref) {
+      slotViewRefs.current.set(slotIndex, ref);
+    } else {
+      slotViewRefs.current.delete(slotIndex);
+    }
+  }, []);
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // RENDER: Card Grid
+  // ─────────────────────────────────────────────────────────────────────────────
+
   const renderCardGrid = () => {
     const rows: CardPosition[][] = [];
     for (let i = 0; i < currentPageCards.length; i += columnsPerRow) {
@@ -825,30 +1234,53 @@ export default function BinderEditScreen() {
                 onPress={() => handleInsertButtonPress(rowStartIndex)}
               />
 
-              {row.map((slot, colIndex) => (
-                <React.Fragment key={`${slot.slotIndex}-${slot.cardId || 'empty'}`}>
-                  <CardSlot
-                    cardId={slot.cardId}
-                    imageUrl={slot.imageUrl}
-                    cardName={slot.cardName}
-                    slotIndex={slot.slotIndex}
-                    isSelected={
-                      selectedCard !== null && 
-                      selectedCard.sourceSlot !== 'placeholder' && 
-                      selectedCard.sourceSlot === slot.slotIndex
-                    }
-                    onPress={() => handleSlotPress(slot)}
-                    layoutPreference={binder?.layoutPreference}
-                  />
+              {row.map((slot, colIndex) => {
+                const isDraggedOver =
+                  hoverTarget?.type === 'card' && hoverTarget?.slotIndex === slot.slotIndex ||
+                  hoverTarget?.type === 'empty' && hoverTarget?.slotIndex === slot.slotIndex;
 
-                  {/* Plus sign between cards (skip last card — next row's start "+" covers it) */}
-                  {colIndex < row.length - 1 && (
-                    <InsertButton
-                      onPress={() => handleInsertButtonPress(rowStartIndex + colIndex + 1)}
-                    />
-                  )}
-                </React.Fragment>
-              ))}
+                const isDragSource =
+                  draggedCard !== null &&
+                  draggedCard.sourceSlot !== 'placeholder' &&
+                  draggedCard.sourceSlot === slot.slotIndex;
+
+                return (
+                  <React.Fragment key={`${slot.slotIndex}-${slot.cardId || 'empty'}`}>
+                    {/* Card slot with drag support and ref for measurement */}
+                    <View
+                      ref={(ref) => registerSlotRef(slot.slotIndex, ref)}
+                      style={{ flex: 1 }}
+                    >
+                      <CardSlot
+                        cardId={slot.cardId}
+                        imageUrl={slot.imageUrl}
+                        cardName={slot.cardName}
+                        slotIndex={slot.slotIndex}
+                        isSelected={
+                          selectedCard !== null &&
+                          selectedCard.sourceSlot !== 'placeholder' &&
+                          selectedCard.sourceSlot === slot.slotIndex
+                        }
+                        onPress={() => handleSlotPress(slot)}
+                        layoutPreference={binder?.layoutPreference}
+                        isDraggedOver={isDraggedOver}
+                        isDragSource={isDragSource}
+                        onDragStart={handleDragStart}
+                        onDragUpdate={handleDragUpdate}
+                        onDragEnd={handleDragEnd}
+                        onDragFinalize={handleDragFinalize}
+                      />
+                    </View>
+
+                    {/* Plus sign between cards (skip last — next row's start "+" covers it) */}
+                    {colIndex < row.length - 1 && (
+                      <InsertButton
+                        onPress={() => handleInsertButtonPress(rowStartIndex + colIndex + 1)}
+                      />
+                    )}
+                  </React.Fragment>
+                );
+              })}
             </View>
           );
         })}
@@ -856,12 +1288,14 @@ export default function BinderEditScreen() {
     );
   };
 
-  // Loading state
+  // ─────────────────────────────────────────────────────────────────────────────
+  // RENDER: Main Screen
+  // ─────────────────────────────────────────────────────────────────────────────
+
   if (loading) {
     return <LoadingScreen message="Loading binder..." />;
   }
 
-  // Error state
   if (error || !binder) {
     return (
       <ErrorScreen
@@ -871,70 +1305,111 @@ export default function BinderEditScreen() {
     );
   }
 
-  // Placeholder index of selected card (for highlighting)
-  const selectedPlaceholderIndex = selectedCard?.sourceSlot === 'placeholder' 
-    ? selectedCard.sourceIndex 
+  const selectedPlaceholderIndex = selectedCard?.sourceSlot === 'placeholder'
+    ? selectedCard.sourceIndex
     : -1;
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={handleBack}
-        >
-          <Text style={styles.backButtonText}>← Back</Text>
-        </TouchableOpacity>
-        <Text style={styles.title} numberOfLines={1}>Edit: {binder.name}</Text>
-        <View style={styles.headerRight}>
-          {hasChanges && (
-            <TouchableOpacity
-              style={styles.saveButton}
-              onPress={saveAndExit}
-            >
-              <Text style={styles.saveButtonText}>Save</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-      </View>
-
-      {/* Page Navigator */}
-      <PageNavigator
-        currentPage={currentPage}
-        totalPages={TOTAL_PAGES}
-        onPreviousPage={() => setCurrentPage(p => Math.max(1, p - 1))}
-        onNextPage={() => setCurrentPage(p => Math.min(TOTAL_PAGES, p + 1))}
-        onJumpToPage={() => setShowJumpModal(true)}
-      />
-
-      {/* Selected Card Bar (when card is selected) */}
-      {selectedCard && (
-        <SelectedCardBar
-          cardName={selectedCard.cardName}
-          sourcePage={selectedCard.sourcePage}
-          onCancel={handleCancelSelection}
-          onRemove={handleRemoveCard}
-        />
-      )}
-
-      {/* Card Grid */}
-      <ScrollView 
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
+      <View
+        ref={containerRef}
+        style={{ flex: 1 }}
+        onLayout={handleContainerLayout}
       >
-        {renderCardGrid()}
-      </ScrollView>
+        {/* Header */}
+        <View style={styles.header}>
+          <TouchableOpacity style={styles.backButton} onPress={handleBack}>
+            <Text style={styles.backButtonText}>← Back</Text>
+          </TouchableOpacity>
+          <Text style={styles.title} numberOfLines={1}>Edit: {binder.name}</Text>
+          <View style={styles.headerRight}>
+            {hasChanges && (
+              <TouchableOpacity style={styles.saveButton} onPress={saveAndExit}>
+                <Text style={styles.saveButtonText}>Save</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
 
-      {/* Card Placeholder Tray */}
-      <CardPlaceholder
-        cards={placeholderCards}
-        maxCards={PLACEHOLDER_MAX}
-        selectedIndex={selectedPlaceholderIndex}
-        onCardPress={handlePlaceholderCardPress}
-        onTrashPress={handleTrashPress}
-        hasSelectedCard={selectedCard !== null}
-      />
+        {/* Page Navigator */}
+        <PageNavigator
+          currentPage={currentPage}
+          totalPages={TOTAL_PAGES}
+          onPreviousPage={() => setCurrentPage(p => Math.max(1, p - 1))}
+          onNextPage={() => setCurrentPage(p => Math.min(TOTAL_PAGES, p + 1))}
+          onJumpToPage={() => setShowJumpModal(true)}
+        />
+
+        {/* Selected Card Bar (tap-selected) */}
+        {selectedCard && !draggedCard && (
+          <SelectedCardBar
+            cardName={selectedCard.cardName}
+            sourcePage={selectedCard.sourcePage}
+            onCancel={handleCancelSelection}
+            onRemove={handleRemoveCard}
+          />
+        )}
+
+        {/* Card Grid */}
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          scrollEnabled={!draggedCard} // Disable scroll while dragging
+        >
+          {renderCardGrid()}
+        </ScrollView>
+
+        {/* Card Placeholder Tray */}
+        <CardPlaceholder
+          cards={placeholderCards}
+          maxCards={PLACEHOLDER_MAX}
+          selectedIndex={selectedPlaceholderIndex}
+          onCardPress={handlePlaceholderCardPress}
+          onTrashPress={handleTrashPress}
+          hasSelectedCard={selectedCard !== null}
+          isDragging={draggedCard !== null}
+          isDragOverPlaceholder={hoverTarget?.type === 'placeholder'}
+          isDragOverTrash={hoverTarget?.type === 'trash'}
+          placeholderAreaRef={(ref) => { placeholderAreaViewRef.current = ref; }}
+          trashZoneRef={(ref) => { trashZoneViewRef.current = ref; }}
+          onCardDragStart={handlePlaceholderDragStart}
+          onCardDragUpdate={handleDragUpdate}
+          onCardDragEnd={handleDragEnd}
+          onCardDragFinalize={handleDragFinalize}
+        />
+
+        {/* ── Floating Drag Card Overlay ── */}
+        {draggedCard && (
+          <RNAnimated.View
+            style={[
+              styles.floatingCard,
+              {
+                transform: [
+                  { translateX: dragAnimX },
+                  { translateY: dragAnimY },
+                ],
+              },
+            ]}
+            pointerEvents="none" // Don't interfere with gesture tracking
+          >
+            {draggedCard.imageUrl ? (
+              <Image
+                source={{ uri: draggedCard.imageUrl }}
+                style={styles.floatingCardImage}
+                contentFit="contain"
+                cachePolicy="memory-disk"
+              />
+            ) : (
+              <View style={styles.floatingCardPlaceholder}>
+                <Text style={styles.floatingCardIcon}>🃏</Text>
+                <Text style={styles.floatingCardText} numberOfLines={2}>
+                  {draggedCard.cardName}
+                </Text>
+              </View>
+            )}
+          </RNAnimated.View>
+        )}
+      </View>
 
       {/* Jump to Page Modal */}
       <JumpToPageModal
@@ -1019,5 +1494,44 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     justifyContent: 'flex-start',
+  },
+  // ── Floating drag card ──
+  floatingCard: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: FLOATING_CARD_WIDTH,
+    height: FLOATING_CARD_HEIGHT,
+    borderRadius: borderRadius.md,
+    overflow: 'hidden',
+    opacity: 0.85,
+    zIndex: 9999,
+    elevation: 20,
+    // Shadow for "lifted" effect
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+  },
+  floatingCardImage: {
+    width: '100%',
+    height: '100%',
+  },
+  floatingCardPlaceholder: {
+    flex: 1,
+    backgroundColor: '#1a5fb4',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: spacing.xs,
+  },
+  floatingCardIcon: {
+    fontSize: 20,
+    marginBottom: 2,
+  },
+  floatingCardText: {
+    fontSize: 9,
+    color: 'white',
+    textAlign: 'center',
+    fontWeight: '500',
   },
 });

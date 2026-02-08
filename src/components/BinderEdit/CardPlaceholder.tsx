@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useMemo, useRef } from 'react';
 import { View, StyleSheet, Text, ScrollView, TouchableOpacity } from 'react-native';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import CardImage from '../Card/CardImage';
 import { colors, spacing, typography, borderRadius, shadows } from '../../constants/theme';
 
@@ -28,24 +29,151 @@ export interface CardPlaceholderProps {
   onTrashPress?: () => void;
   /** Whether a card is currently selected (enables trash zone) */
   hasSelectedCard: boolean;
+  /** Whether a drag is currently in progress (shows trash zone as drop target) */
+  isDragging?: boolean;
+  /** Whether a card is currently being dragged over the placeholder area */
+  isDragOverPlaceholder?: boolean;
+  /** Whether a card is currently being dragged over the trash zone */
+  isDragOverTrash?: boolean;
+  /** Ref callback for the placeholder content area (for drag measurement) */
+  placeholderAreaRef?: (ref: View | null) => void;
+  /** Ref callback for the trash zone (for drag measurement) */
+  trashZoneRef?: (ref: View | null) => void;
+  /** Called when a long-press drag starts on a placeholder card */
+  onCardDragStart?: (
+    data: { cardId: string; cardName?: string; imageUrl?: string; index: number },
+    touchX: number,
+    touchY: number,
+  ) => void;
+  /** Called on each drag movement from placeholder card */
+  onCardDragUpdate?: (touchX: number, touchY: number) => void;
+  /** Called when drag ends from placeholder card */
+  onCardDragEnd?: (touchX: number, touchY: number) => void;
+  /** Called when drag gesture finalizes from placeholder card */
+  onCardDragFinalize?: () => void;
+}
+
+/**
+ * A single draggable card in the placeholder tray.
+ * Supports tap-to-select and long-press-to-drag.
+ */
+function PlaceholderCardItem({
+  card,
+  index,
+  isSelected,
+  onPress,
+  onDragStart,
+  onDragUpdate,
+  onDragEnd,
+  onDragFinalize,
+}: {
+  card: PlaceholderCard;
+  index: number;
+  isSelected: boolean;
+  onPress: () => void;
+  onDragStart?: (
+    data: { cardId: string; cardName?: string; imageUrl?: string; index: number },
+    touchX: number,
+    touchY: number,
+  ) => void;
+  onDragUpdate?: (touchX: number, touchY: number) => void;
+  onDragEnd?: (touchX: number, touchY: number) => void;
+  onDragFinalize?: () => void;
+}) {
+  // Refs for stable gesture callbacks
+  const onPressRef = useRef(onPress);
+  onPressRef.current = onPress;
+
+  const onDragStartRef = useRef(onDragStart);
+  onDragStartRef.current = onDragStart;
+
+  const onDragUpdateRef = useRef(onDragUpdate);
+  onDragUpdateRef.current = onDragUpdate;
+
+  const onDragEndRef = useRef(onDragEnd);
+  onDragEndRef.current = onDragEnd;
+
+  const onDragFinalizeRef = useRef(onDragFinalize);
+  onDragFinalizeRef.current = onDragFinalize;
+
+  const cardDataRef = useRef({ ...card, index });
+  cardDataRef.current = { ...card, index };
+
+  // Tap gesture for selection
+  const tapGesture = useMemo(
+    () => Gesture.Tap().onEnd(() => onPressRef.current()),
+    [],
+  );
+
+  // Pan gesture for drag (long press activation)
+  const panGesture = useMemo(() => {
+    const gesture = Gesture.Pan()
+      .activateAfterLongPress(300)
+      .onStart((e) => {
+        const data = cardDataRef.current;
+        onDragStartRef.current?.(
+          {
+            cardId: data.cardId,
+            cardName: data.cardName,
+            imageUrl: data.imageUrl,
+            index: data.index,
+          },
+          e.absoluteX,
+          e.absoluteY,
+        );
+      })
+      .onUpdate((e) => {
+        onDragUpdateRef.current?.(e.absoluteX, e.absoluteY);
+      })
+      .onEnd((e) => {
+        onDragEndRef.current?.(e.absoluteX, e.absoluteY);
+      })
+      .onFinalize(() => {
+        onDragFinalizeRef.current?.();
+      });
+
+    if (!onDragStart) {
+      gesture.enabled(false);
+    }
+
+    return gesture;
+  }, [!!onDragStart]);
+
+  const composedGesture = useMemo(
+    () => Gesture.Exclusive(panGesture, tapGesture),
+    [panGesture, tapGesture],
+  );
+
+  return (
+    <GestureDetector gesture={composedGesture}>
+      <View
+        style={[styles.card, isSelected && styles.cardSelected]}
+        accessibilityLabel={`${card.cardName || 'Card'} in placeholder, tap to select`}
+      >
+        <CardImage
+          source={card.imageUrl}
+          style={styles.cardImage}
+          cardInfo={{ id: card.cardId, name: card.cardName }}
+        />
+        {isSelected && (
+          <View style={styles.selectedOverlay}>
+            <Text style={styles.selectedCheck}>✓</Text>
+          </View>
+        )}
+      </View>
+    </GestureDetector>
+  );
 }
 
 /**
  * CardPlaceholder is the bottom tray in binder edit mode.
- * 
+ *
  * Features:
  * - Horizontal scrolling list of cards temporarily removed from binder
  * - Maximum 18 cards
- * - Trash zone on the right (visible when card is selected)
- * - Cards can be dragged back to binder
- * 
- * Layout:
- * ├═══════════════════════════════════════════════════┤
- * │  📥 CARD PLACEHOLDER                         0/18 │
- * │  ╔════╗  ╔════╗  ╔════╗  ╔════╗      🗑️ TRASH  │
- * │  ║    ║  ║    ║  ║    ║  ║    ║                   │
- * │  ╚════╝  ╚════╝  ╚════╝  ╚════╝                   │
- * └───────────────────────────────────────────────────┘
+ * - Trash zone on the right (visible when card is selected or dragging)
+ * - Cards can be tapped to select or long-pressed to drag
+ * - Visual feedback when dragging over placeholder or trash
  */
 export function CardPlaceholder({
   cards,
@@ -54,11 +182,23 @@ export function CardPlaceholder({
   onCardPress,
   onTrashPress,
   hasSelectedCard,
+  isDragging = false,
+  isDragOverPlaceholder = false,
+  isDragOverTrash = false,
+  placeholderAreaRef,
+  trashZoneRef,
+  onCardDragStart,
+  onCardDragUpdate,
+  onCardDragEnd,
+  onCardDragFinalize,
 }: CardPlaceholderProps) {
   const cardCount = cards.length;
 
+  // Show trash zone when a card is selected OR when a drag is in progress
+  const showTrashZone = hasSelectedCard || isDragging;
+
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, isDragOverPlaceholder && styles.containerDragOver]}>
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
@@ -73,54 +213,51 @@ export function CardPlaceholder({
       {/* Cards row */}
       <View style={styles.contentRow}>
         <ScrollView
+          ref={(ref) => placeholderAreaRef?.(ref as unknown as View | null)}
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.cardsContainer}
           style={styles.cardsScroll}
+          scrollEnabled={!isDragging} // Disable scroll while dragging
         >
           {cards.length === 0 ? (
             <View style={styles.emptyState}>
               <Text style={styles.emptyText}>
-                Drag cards here to temporarily remove them
+                {isDragging
+                  ? 'Drop card here to move to placeholder'
+                  : 'Drag cards here to temporarily remove them'}
               </Text>
             </View>
           ) : (
             cards.map((card, index) => (
-              <TouchableOpacity
+              <PlaceholderCardItem
                 key={`${card.cardId}-${index}`}
-                style={[
-                  styles.card,
-                  selectedIndex === index && styles.cardSelected,
-                ]}
+                card={card}
+                index={index}
+                isSelected={selectedIndex === index}
                 onPress={() => onCardPress(index, card.cardId)}
-                activeOpacity={0.7}
-                accessibilityLabel={`${card.cardName || 'Card'} in placeholder, tap to select`}
-              >
-                <CardImage
-                  source={card.imageUrl}
-                  style={styles.cardImage}
-                  cardInfo={{ id: card.cardId, name: card.cardName }}
-                />
-                {selectedIndex === index && (
-                  <View style={styles.selectedOverlay}>
-                    <Text style={styles.selectedCheck}>✓</Text>
-                  </View>
-                )}
-              </TouchableOpacity>
+                onDragStart={onCardDragStart}
+                onDragUpdate={onCardDragUpdate}
+                onDragEnd={onCardDragEnd}
+                onDragFinalize={onCardDragFinalize}
+              />
             ))
           )}
         </ScrollView>
 
-        {/* Trash Zone - only visible when a card is selected */}
-        {hasSelectedCard && (
+        {/* Trash Zone - visible when a card is selected or drag is in progress */}
+        {showTrashZone && (
           <TouchableOpacity
-            style={styles.trashZone}
+            ref={(ref) => trashZoneRef?.(ref as unknown as View | null)}
+            style={[styles.trashZone, isDragOverTrash && styles.trashZoneActive]}
             onPress={onTrashPress}
             activeOpacity={0.7}
             accessibilityLabel="Trash zone, tap to remove selected card"
           >
             <Text style={styles.trashIcon}>🗑️</Text>
-            <Text style={styles.trashText}>Remove</Text>
+            <Text style={[styles.trashText, isDragOverTrash && styles.trashTextActive]}>
+              {isDragOverTrash ? 'Drop to\nRemove' : 'Remove'}
+            </Text>
           </TouchableOpacity>
         )}
       </View>
@@ -134,6 +271,11 @@ const styles = StyleSheet.create({
     borderTopWidth: 2,
     borderTopColor: colors.border,
     paddingBottom: spacing.sm,
+  },
+  containerDragOver: {
+    borderTopColor: '#4CAF50',
+    borderTopWidth: 3,
+    backgroundColor: 'rgba(76, 175, 80, 0.08)',
   },
   header: {
     flexDirection: 'row',
@@ -184,6 +326,7 @@ const styles = StyleSheet.create({
     fontSize: typography.sm,
     color: colors.textTertiary,
     fontStyle: 'italic',
+    textAlign: 'center',
   },
   card: {
     width: 56,
@@ -229,6 +372,17 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  trashZoneActive: {
+    backgroundColor: 'rgba(255, 59, 48, 0.35)',
+    borderWidth: 3,
+    borderStyle: 'solid',
+    borderColor: '#FF1744',
+    shadowColor: '#FF1744',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.6,
+    shadowRadius: 10,
+    elevation: 8,
+  },
   trashIcon: {
     fontSize: 24,
   },
@@ -237,6 +391,11 @@ const styles = StyleSheet.create({
     color: colors.error,
     fontWeight: typography.medium,
     marginTop: 2,
+    textAlign: 'center',
+  },
+  trashTextActive: {
+    color: '#FF1744',
+    fontWeight: 'bold' as const,
   },
 });
 

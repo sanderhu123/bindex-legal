@@ -48,6 +48,8 @@ interface BinderPageViewProps {
   onCardLongPress?: (card: CardWithOwnership) => void;
   /** Step 34A: Callback when long-press is released */
   onCardLongPressRelease?: () => void;
+  /** Display mode: clean view with just card images (no badges, names, checkboxes) */
+  displayMode?: boolean;
 }
 
 /**
@@ -89,6 +91,7 @@ function BinderPageViewComponent({
   collectionMode,
   onCardLongPress,
   onCardLongPressRelease,
+  displayMode = false,
 }: BinderPageViewProps) {
   const navigation = useNavigation<NavigationProp>();
   // Calculate which cards to show on the current page
@@ -113,6 +116,17 @@ function BinderPageViewComponent({
     
     if (!card) {
       // Empty slot - only shown in Custom mode or if there are fewer cards than slots
+      // In display mode, show an empty space with no dashed border or text
+      if (displayMode) {
+        return (
+          <View
+            key={`empty-${slotIndex}`}
+            style={[styles.slot, { width: cardWidth }]}
+          >
+            <View style={{ height: cardHeight }} />
+          </View>
+        );
+      }
       return (
         <TouchableOpacity
           key={`empty-${slotIndex}`}
@@ -174,44 +188,52 @@ function BinderPageViewComponent({
         activeOpacity={0.7}
       >
         <View style={[styles.cardContainer, { width: cardWidth }]}>
-          {/* Slot number badge */}
-          <View style={styles.slotBadgeContainer}>
-            <Text style={styles.slotBadgeOnCard}>{slotBadge}</Text>
-          </View>
+          {/* Slot number badge - hidden in display mode */}
+          {!displayMode && (
+            <View style={styles.slotBadgeContainer}>
+              <Text style={styles.slotBadgeOnCard}>{slotBadge}</Text>
+            </View>
+          )}
           
-          {/* Card image */}
+          {/* Card image - always full opacity in display mode */}
           <CardImage
             source={card.imageUrl}
-            isMissing={!card.isOwned}
+            isMissing={displayMode ? false : !card.isOwned}
             aspectRatio={0.7}
             style={styles.cardImage}
             cardInfo={{ id: card.id, name: card.name, set: card.set }}
           />
           
-          {/* Ownership checkbox overlay - separate touchable to toggle ownership */}
-          <TouchableOpacity 
-            style={styles.checkboxOverlay}
-            onPress={handleCheckboxTap}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.checkbox}>{card.isOwned ? '☑' : '☐'}</Text>
-          </TouchableOpacity>
+          {/* Ownership checkbox overlay - hidden in display mode */}
+          {!displayMode && (
+            <TouchableOpacity 
+              style={styles.checkboxOverlay}
+              onPress={handleCheckboxTap}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.checkbox}>{card.isOwned ? '☑' : '☐'}</Text>
+            </TouchableOpacity>
+          )}
           
-          {/* Variant badge (if applicable) */}
-          {badge && (
+          {/* Variant badge - hidden in display mode */}
+          {!displayMode && badge && (
             <View style={[styles.variantBadge, { backgroundColor: badge.color }]}>
               <Text style={styles.variantBadgeText}>{badge.label}</Text>
             </View>
           )}
         </View>
         
-        {/* Card name and number */}
-        <Text style={styles.cardName} numberOfLines={1}>
-          {card.name}
-        </Text>
-        <Text style={styles.cardNumber} numberOfLines={1}>
-          {card.number}
-        </Text>
+        {/* Card name and number - hidden in display mode */}
+        {!displayMode && (
+          <>
+            <Text style={styles.cardName} numberOfLines={1}>
+              {card.name}
+            </Text>
+            <Text style={styles.cardNumber} numberOfLines={1}>
+              {card.number}
+            </Text>
+          </>
+        )}
       </TouchableOpacity>
     );
   };
@@ -248,12 +270,14 @@ function BinderPageViewComponent({
         {renderGrid()}
       </View>
       
-      {/* Page info footer */}
-      <View style={styles.pageInfo}>
-        <Text style={styles.pageInfoText}>
-          Cards {startIndex + 1} - {Math.min(startIndex + cardsPerPage, cards.length)} of {cards.length}
-        </Text>
-      </View>
+      {/* Page info footer - hidden in display mode */}
+      {!displayMode && (
+        <View style={styles.pageInfo}>
+          <Text style={styles.pageInfoText}>
+            Cards {startIndex + 1} - {Math.min(startIndex + cardsPerPage, cards.length)} of {cards.length}
+          </Text>
+        </View>
+      )}
     </View>
   );
 }

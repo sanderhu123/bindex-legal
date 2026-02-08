@@ -106,6 +106,9 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
   const [showPageBreaks, setShowPageBreaks] = useState(false);
   const [screenWidth, setScreenWidth] = useState(Dimensions.get('window').width);
   
+  // Display mode: clean binder view with just card images (no badges, names, checkboxes)
+  const [displayMode, setDisplayMode] = useState(false);
+  
   // Pagination state for infinite scroll (only used for Custom mode)
   // For Master Set and Region modes, we show all cards once loaded
   const [displayCount, setDisplayCount] = useState(PAGE_SIZE);
@@ -1807,20 +1810,50 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
     return (
       <SafeAreaView style={styles.safeArea}>
         <ScrollView style={styles.container}>
-          <ListHeaderComponent />
+          {/* Hide header/progress/search/filters in display mode */}
+          {!displayMode && <ListHeaderComponent />}
+          
+          {/* Display mode toggle bar - shown at top when in display mode */}
+          {displayMode && (
+            <View style={styles.displayModeBar}>
+              <TouchableOpacity
+                style={styles.displayModeExitButton}
+                onPress={() => setDisplayMode(false)}
+              >
+                <Text style={styles.displayModeExitIcon}>✕</Text>
+                <Text style={styles.displayModeExitText}>Exit Display</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+          
           {loading ? (
             <LoadingSpinner message="Loading cards..." />
           ) : filteredCards.length === 0 ? (
             <ListEmptyComponent />
           ) : (
             <>
-              <PageNavigator
-                currentPage={currentPage}
-                totalPages={totalPages}
-                onPreviousPage={() => setCurrentPage(p => Math.max(1, p - 1))}
-                onNextPage={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                onJumpToPage={() => setShowJumpModal(true)}
-              />
+              {/* Page navigator with display mode toggle button */}
+              <View style={styles.pageNavRow}>
+                <View style={styles.pageNavContainer}>
+                  <PageNavigator
+                    currentPage={currentPage}
+                    totalPages={totalPages}
+                    onPreviousPage={() => setCurrentPage(p => Math.max(1, p - 1))}
+                    onNextPage={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                    onJumpToPage={() => setShowJumpModal(true)}
+                  />
+                </View>
+                {/* Display mode toggle - only show when NOT in display mode (exit button is shown above) */}
+                {!displayMode && (
+                  <TouchableOpacity
+                    style={styles.displayModeToggle}
+                    onPress={() => setDisplayMode(true)}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.displayModeToggleIcon}>👁</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
               {/* Swipeable container for page navigation */}
               <View {...binderPanResponder.panHandlers}>
                 <BinderPageView
@@ -1836,6 +1869,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
                   onCardLongPress={handleLongPressCard}
                   onCardLongPressRelease={handleLongPressRelease}
                   collectionMode={binder.collectionMode}
+                  displayMode={displayMode}
                 />
               </View>
             </>
@@ -2286,5 +2320,52 @@ const styles = StyleSheet.create({
     color: colors.textTertiary,
     marginTop: spacing.lg,
     fontStyle: 'italic',
+  },
+  // Display mode styles
+  pageNavRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  pageNavContainer: {
+    flex: 1,
+  },
+  displayModeToggle: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.primary,
+    borderRadius: borderRadius.full,
+    marginLeft: spacing.sm,
+    marginRight: spacing.md,
+  },
+  displayModeToggleIcon: {
+    fontSize: 20,
+  },
+  displayModeBar: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.sm,
+  },
+  displayModeExitButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.backgroundDark,
+    borderRadius: borderRadius.md,
+    paddingVertical: spacing.xs + 2,
+    paddingHorizontal: spacing.md,
+  },
+  displayModeExitIcon: {
+    fontSize: typography.base,
+    color: colors.text,
+    marginRight: spacing.xs,
+  },
+  displayModeExitText: {
+    fontSize: typography.sm,
+    fontWeight: typography.semibold,
+    color: colors.text,
   },
   });

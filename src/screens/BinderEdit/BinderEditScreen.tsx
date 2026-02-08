@@ -841,10 +841,12 @@ export default function BinderEditScreen() {
                     layoutPreference={binder?.layoutPreference}
                   />
 
-                  {/* Plus sign after each card — always visible */}
-                  <InsertButton
-                    onPress={() => handleInsertButtonPress(rowStartIndex + colIndex + 1)}
-                  />
+                  {/* Plus sign between cards (skip last card — next row's start "+" covers it) */}
+                  {colIndex < row.length - 1 && (
+                    <InsertButton
+                      onPress={() => handleInsertButtonPress(rowStartIndex + colIndex + 1)}
+                    />
+                  )}
                 </React.Fragment>
               ))}
             </View>

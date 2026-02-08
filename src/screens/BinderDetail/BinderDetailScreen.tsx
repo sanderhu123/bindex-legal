@@ -1664,13 +1664,28 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
       <View style={styles.cardsContainer}>
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>{isCustomMode ? 'Card Slots:' : 'Cards:'}</Text>
-          {/* View toggle - only show for non-Custom modes */}
-          {!isCustomMode && (
-            <ViewModeToggle 
-              viewMode={viewMode} 
-              onViewModeChange={setViewMode} 
-            />
-          )}
+          <View style={styles.sectionHeaderRight}>
+            {/* View toggle - only show for non-Custom modes */}
+            {!isCustomMode && (
+              <ViewModeToggle 
+                viewMode={viewMode} 
+                onViewModeChange={setViewMode} 
+              />
+            )}
+            {/* Display mode button - switches to clean binder view */}
+            {!isCustomMode && (
+              <TouchableOpacity
+                style={styles.displayModeToggle}
+                onPress={() => {
+                  setViewMode('binder');
+                  setDisplayMode(true);
+                }}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.displayModeToggleIcon}>👁</Text>
+              </TouchableOpacity>
+            )}
+          </View>
         </View>
         
         {/* Search and Filter - only show for non-Custom modes */}
@@ -1832,28 +1847,13 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
             <ListEmptyComponent />
           ) : (
             <>
-              {/* Page navigator with display mode toggle button */}
-              <View style={styles.pageNavRow}>
-                <View style={styles.pageNavContainer}>
-                  <PageNavigator
-                    currentPage={currentPage}
-                    totalPages={totalPages}
-                    onPreviousPage={() => setCurrentPage(p => Math.max(1, p - 1))}
-                    onNextPage={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                    onJumpToPage={() => setShowJumpModal(true)}
-                  />
-                </View>
-                {/* Display mode toggle - only show when NOT in display mode (exit button is shown above) */}
-                {!displayMode && (
-                  <TouchableOpacity
-                    style={styles.displayModeToggle}
-                    onPress={() => setDisplayMode(true)}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={styles.displayModeToggleIcon}>👁</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
+              <PageNavigator
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPreviousPage={() => setCurrentPage(p => Math.max(1, p - 1))}
+                onNextPage={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                onJumpToPage={() => setShowJumpModal(true)}
+              />
               {/* Swipeable container for page navigation */}
               <View {...binderPanResponder.panHandlers}>
                 <BinderPageView
@@ -2322,12 +2322,10 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
   },
   // Display mode styles
-  pageNavRow: {
+  sectionHeaderRight: {
     flexDirection: 'row',
     alignItems: 'center',
-  },
-  pageNavContainer: {
-    flex: 1,
+    gap: spacing.sm,
   },
   displayModeToggle: {
     width: 44,

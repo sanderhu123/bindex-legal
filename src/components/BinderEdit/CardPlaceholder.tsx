@@ -25,6 +25,8 @@ export interface CardPlaceholderProps {
   selectedIndex: number;
   /** Called when a card in the placeholder is tapped */
   onCardPress: (index: number, cardId: string) => void;
+  /** Called when an empty placeholder slot is tapped (opens card picker) */
+  onEmptySlotPress?: (index: number) => void;
   /** Called when trash zone is tapped (only when card is selected) */
   onTrashPress?: () => void;
   /** Whether a card is currently selected (enables trash zone) */
@@ -180,6 +182,7 @@ export function CardPlaceholder({
   maxCards = 18,
   selectedIndex,
   onCardPress,
+  onEmptySlotPress,
   onTrashPress,
   hasSelectedCard,
   isDragging = false,
@@ -197,6 +200,14 @@ export function CardPlaceholder({
   // Show trash zone when a card is selected OR when a drag is in progress
   const showTrashZone = hasSelectedCard || isDragging;
 
+  // Build the full list of slots (filled cards + empty slots up to maxCards)
+  const slots = Array.from({ length: maxCards }, (_, i) => {
+    if (i < cards.length) {
+      return { type: 'card' as const, card: cards[i], index: i };
+    }
+    return { type: 'empty' as const, card: null, index: i };
+  });
+
   return (
     <View
       ref={(ref) => placeholderAreaRef?.(ref)}
@@ -213,7 +224,7 @@ export function CardPlaceholder({
         </Text>
       </View>
 
-      {/* Cards row */}
+      {/* Cards row — always shows all 18 slots */}
       <View style={styles.contentRow}>
         <ScrollView
           horizontal
@@ -222,29 +233,36 @@ export function CardPlaceholder({
           style={styles.cardsScroll}
           scrollEnabled={!isDragging} // Disable scroll while dragging
         >
-          {cards.length === 0 ? (
-            <View style={styles.emptyState}>
-              <Text style={styles.emptyText}>
-                {isDragging
-                  ? 'Drop card here to move to placeholder'
-                  : 'Drag cards here to temporarily remove them'}
-              </Text>
-            </View>
-          ) : (
-            cards.map((card, index) => (
-              <PlaceholderCardItem
-                key={`${card.cardId}-${index}`}
-                card={card}
-                index={index}
-                isSelected={selectedIndex === index}
-                onPress={() => onCardPress(index, card.cardId)}
-                onDragStart={onCardDragStart}
-                onDragUpdate={onCardDragUpdate}
-                onDragEnd={onCardDragEnd}
-                onDragFinalize={onCardDragFinalize}
-              />
-            ))
-          )}
+          {slots.map((slot) => {
+            if (slot.type === 'card' && slot.card) {
+              return (
+                <PlaceholderCardItem
+                  key={`filled-${slot.card.cardId}-${slot.index}`}
+                  card={slot.card}
+                  index={slot.index}
+                  isSelected={selectedIndex === slot.index}
+                  onPress={() => onCardPress(slot.index, slot.card!.cardId)}
+                  onDragStart={onCardDragStart}
+                  onDragUpdate={onCardDragUpdate}
+                  onDragEnd={onCardDragEnd}
+                  onDragFinalize={onCardDragFinalize}
+                />
+              );
+            }
+
+            // Empty slot
+            return (
+              <TouchableOpacity
+                key={`empty-${slot.index}`}
+                style={styles.emptySlot}
+                onPress={() => onEmptySlotPress?.(slot.index)}
+                activeOpacity={0.6}
+                accessibilityLabel={`Empty placeholder slot ${slot.index + 1}, tap to add card`}
+              >
+                <Text style={styles.emptySlotPlus}>+</Text>
+              </TouchableOpacity>
+            );
+          })}
         </ScrollView>
 
         {/* Trash Zone — always rendered so the ref/measurement is available,
@@ -321,18 +339,22 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xs,
     minHeight: 80,
   },
-  emptyState: {
-    flex: 1,
-    minWidth: 200,
+  emptySlot: {
+    width: 56,
+    height: 78,
+    marginRight: spacing.sm,
+    borderRadius: borderRadius.sm,
+    borderWidth: 1.5,
+    borderStyle: 'dashed',
+    borderColor: colors.border,
+    backgroundColor: 'transparent',
     justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: spacing.md,
   },
-  emptyText: {
-    fontSize: typography.sm,
+  emptySlotPlus: {
+    fontSize: 22,
     color: colors.textTertiary,
-    fontStyle: 'italic',
-    textAlign: 'center',
+    fontWeight: '300',
   },
   card: {
     width: 56,

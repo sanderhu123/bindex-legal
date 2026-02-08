@@ -12,6 +12,8 @@ export interface SelectedCardBarProps {
   sourcePage?: number;
   /** Called when Cancel button is pressed (deselects card) */
   onCancel: () => void;
+  /** Called when Replace button is pressed (opens card picker to swap this card) */
+  onReplace: () => void;
   /** Called when Remove button is pressed (sends to trash) */
   onRemove: () => void;
 }
@@ -26,14 +28,15 @@ export interface SelectedCardBarProps {
  * - Remove button to send card to trash
  * 
  * Layout:
- * ┌──────────────────────────────────────────────────┐
- * │ 🃏 Charizard #6 (Page 1)   [Remove] [Cancel]    │
- * └──────────────────────────────────────────────────┘
+ * ┌────────────────────────────────────────────────────────────┐
+ * │ 🃏 Charizard #6 (Page 1)   [Replace] [Remove] [Cancel]   │
+ * └────────────────────────────────────────────────────────────┘
  */
 export function SelectedCardBar({
   cardName,
   sourcePage,
   onCancel,
+  onReplace,
   onRemove,
 }: SelectedCardBarProps) {
   return (
@@ -53,6 +56,15 @@ export function SelectedCardBar({
 
       {/* Action buttons */}
       <View style={styles.actions}>
+        <TouchableOpacity
+          style={[styles.button, styles.replaceButton]}
+          onPress={onReplace}
+          activeOpacity={0.7}
+          accessibilityLabel="Replace card with a different one"
+        >
+          <Text style={styles.replaceButtonText}>Replace</Text>
+        </TouchableOpacity>
+
         <TouchableOpacity
           style={[styles.button, styles.removeButton]}
           onPress={onRemove}
@@ -119,6 +131,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs,
     borderRadius: borderRadius.sm,
+  },
+  replaceButton: {
+    backgroundColor: '#FF9800',
+  },
+  replaceButtonText: {
+    fontSize: typography.sm,
+    fontWeight: typography.medium,
+    color: colors.background,
   },
   removeButton: {
     backgroundColor: colors.error,

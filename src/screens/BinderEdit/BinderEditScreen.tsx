@@ -148,6 +148,8 @@ export default function BinderEditScreen() {
   const [showCardPicker, setShowCardPicker] = useState(false);
   const [targetSlotIndex, setTargetSlotIndex] = useState<number | null>(null);
   const [insertMode, setInsertMode] = useState(false);
+  const [replaceMode, setReplaceMode] = useState(false); // true = picker replaces selected card in-place
+  const [placeholderPickerIndex, setPlaceholderPickerIndex] = useState<number | null>(null); // index in placeholder to add card to
 
   // Screen dimensions
   const [screenWidth, setScreenWidth] = useState(Dimensions.get('window').width);
@@ -599,11 +601,51 @@ export default function BinderEditScreen() {
 
   const handleTrashPress = () => { handleRemoveCard(); };
 
+  /**
+   * Replace selected card: open the Card Picker to choose a replacement.
+   * The picked card takes the slot of the currently selected card.
+   */
+  const handleReplaceCard = () => {
+    if (!selectedCard) return;
+
+    if (selectedCard.sourceSlot === 'placeholder') {
+      // Replacing a placeholder card — remember the index
+      setPlaceholderPickerIndex(selectedCard.sourceIndex);
+      setTargetSlotIndex(null);
+    } else {
+      // Replacing a binder card — target the same slot
+      setTargetSlotIndex(selectedCard.sourceSlot as number);
+      setPlaceholderPickerIndex(null);
+    }
+
+    setReplaceMode(true);
+    setInsertMode(false);
+    setShowCardPicker(true);
+  };
+
+  /**
+   * Add a card to a specific empty slot in the placeholder tray.
+   * Opens the Card Picker; when a card is chosen it goes into that placeholder slot.
+   */
+  const handlePlaceholderEmptySlotPress = (index: number) => {
+    setPlaceholderPickerIndex(index);
+    setTargetSlotIndex(null);
+    setInsertMode(false);
+    setReplaceMode(false);
+    setShowCardPicker(true);
+  };
+
   // ─────────────────────────────────────────────────────────────────────────────
   // CARD PICKER
   // ─────────────────────────────────────────────────────────────────────────────
 
   const handleCardPickerSelect = (card: Card) => {
+    // ── Placeholder-add mode: card goes into the placeholder tray ──
+    if (placeholderPickerIndex !== null) {
+      addCardToPlaceholder(card);
+      return;
+    }
+
     if (targetSlotIndex === null) return;
 
     const existingSlot = cardPositions.find(pos => pos.cardId === card.id);
@@ -616,18 +658,88 @@ export default function BinderEditScreen() {
         `${card.name} is already on Page ${existingPage} (Slot ${slotOnPage}). Add it anyway?`,
         [
           { text: 'Cancel', style: 'cancel', onPress: () => {
-            setShowCardPicker(false); setTargetSlotIndex(null); setInsertMode(false);
+            closeCardPicker();
           }},
-          { text: 'Add Anyway', onPress: () => insertMode ? insertCardFromPicker(card) : placeCardInSlot(card) },
+          { text: 'Add Anyway', onPress: () => {
+            if (replaceMode) {
+              replaceCardInSlot(card);
+            } else if (insertMode) {
+              insertCardFromPicker(card);
+            } else {
+              placeCardInSlot(card);
+            }
+          }},
         ]
       );
     } else {
-      if (insertMode) {
+      if (replaceMode) {
+        replaceCardInSlot(card);
+      } else if (insertMode) {
         insertCardFromPicker(card);
       } else {
         placeCardInSlot(card);
       }
     }
+  };
+
+  /**
+   * Helper to reset all card picker state
+   */
+  const closeCardPicker = () => {
+    setShowCardPicker(false);
+    setTargetSlotIndex(null);
+    setInsertMode(false);
+    setReplaceMode(false);
+    setPlaceholderPickerIndex(null);
+    setSelectedCard(null);
+  };
+
+  /**
+   * Replace the card in the target binder slot with the picked card.
+   * Used by the "Replace" button flow.
+   */
+  const replaceCardInSlot = (card: Card) => {
+    if (targetSlotIndex === null) return;
+    saveUndoState();
+    setCardPositions(prev => {
+      const newPositions = [...prev];
+      newPositions[targetSlotIndex] = {
+        ...newPositions[targetSlotIndex],
+        cardId: card.id, cardName: card.name, imageUrl: card.imageUrl,
+      };
+      return newPositions;
+    });
+    setHasChanges(true);
+    closeCardPicker();
+  };
+
+  /**
+   * Add a picked card into the placeholder tray.
+   * Used when tapping an empty placeholder slot or replacing a placeholder card.
+   */
+  const addCardToPlaceholder = (card: Card) => {
+    const idx = placeholderPickerIndex!;
+    saveUndoState();
+
+    if (replaceMode && idx < placeholderCards.length) {
+      // Replace an existing placeholder card
+      setPlaceholderCards(prev => {
+        const updated = [...prev];
+        updated[idx] = { cardId: card.id, cardName: card.name, imageUrl: card.imageUrl };
+        return updated;
+      });
+    } else {
+      // Add to the placeholder (append — the slot index doesn't determine array position)
+      if (placeholderCards.length >= PLACEHOLDER_MAX) {
+        Alert.alert('Placeholder Full', 'The placeholder tray can hold a maximum of 18 cards.');
+        closeCardPicker();
+        return;
+      }
+      setPlaceholderCards(prev => [...prev, { cardId: card.id, cardName: card.name, imageUrl: card.imageUrl }]);
+    }
+
+    setHasChanges(true);
+    closeCardPicker();
   };
 
   const placeCardInSlot = (card: Card) => {
@@ -642,8 +754,7 @@ export default function BinderEditScreen() {
       return newPositions;
     });
     setHasChanges(true);
-    setShowCardPicker(false);
-    setTargetSlotIndex(null);
+    closeCardPicker();
   };
 
   const insertCardFromPicker = (card: Card) => {
@@ -658,7 +769,7 @@ export default function BinderEditScreen() {
     if (lastCard.cardId) {
       if (placeholderCards.length >= PLACEHOLDER_MAX) {
         Alert.alert('Binder is full', 'Cannot insert — all binder slots and placeholder are full.');
-        setShowCardPicker(false); setTargetSlotIndex(null); setInsertMode(false);
+        closeCardPicker();
         return;
       }
       overflowCard = { cardId: lastCard.cardId, cardName: lastCard.cardName, imageUrl: lastCard.imageUrl };
@@ -683,9 +794,7 @@ export default function BinderEditScreen() {
     setCardPositions(newPositions);
     if (overflowCard) setPlaceholderCards(prev => [...prev, overflowCard!]);
     setHasChanges(true);
-    setShowCardPicker(false);
-    setTargetSlotIndex(null);
-    setInsertMode(false);
+    closeCardPicker();
   };
 
   const handleInsertButtonPress = (insertAtIndex: number) => {
@@ -1385,6 +1494,7 @@ export default function BinderEditScreen() {
             cardName={selectedCard.cardName}
             sourcePage={selectedCard.sourcePage}
             onCancel={handleCancelSelection}
+            onReplace={handleReplaceCard}
             onRemove={handleRemoveCard}
           />
         )}
@@ -1404,6 +1514,7 @@ export default function BinderEditScreen() {
           maxCards={PLACEHOLDER_MAX}
           selectedIndex={selectedPlaceholderIndex}
           onCardPress={handlePlaceholderCardPress}
+          onEmptySlotPress={handlePlaceholderEmptySlotPress}
           onTrashPress={handleTrashPress}
           hasSelectedCard={selectedCard !== null}
           isDragging={draggedCard !== null}
@@ -1462,13 +1573,9 @@ export default function BinderEditScreen() {
       {/* Card Picker Modal */}
       <CardPickerModal
         visible={showCardPicker}
-        onClose={() => {
-          setShowCardPicker(false);
-          setTargetSlotIndex(null);
-          setInsertMode(false);
-        }}
+        onClose={closeCardPicker}
         onSelectCard={handleCardPickerSelect}
-        title="Add Card"
+        title={replaceMode ? 'Replace Card' : 'Add Card'}
         pokemonOnly={false}
       />
     </SafeAreaView>

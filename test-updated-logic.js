@@ -26,6 +26,7 @@ async function testUpdatedLogic() {
       rarity === 'Common' || 
       rarity === 'Uncommon' || 
       rarity === 'Rare' ||
+      rarity === 'Holo Rare' ||
       rarity === 'Rare Holo'
     );
     

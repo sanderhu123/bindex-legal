@@ -11,22 +11,22 @@
  * 
  * RARITY RESTRICTION (ALL SETS):
  * - Reverse holo, Pokeball holo, and Masterball holo are ONLY available for:
- *   → Common, Uncommon, Rare, Rare Holo
+ *   → Common, Uncommon, Rare, Holo Rare (aka Rare Holo)
  * - NOT available for higher rarities:
  *   → Double Rare, Ultra Rare, Illustration Rare, etc.
  * 
  * 1. REVERSE HOLO (all sets): 
  *    - Available if API says reverse: true
- *    - AND rarity is Common/Uncommon/Rare/Rare Holo
+ *    - AND rarity is Common/Uncommon/Rare/Holo Rare
  * 
  * 2. POKEBALL HOLO (special sets only): Follows EXACT same logic as reverse holo
  *    - Available if API says reverse: true
- *    - AND rarity is Common/Uncommon/Rare/Rare Holo
+ *    - AND rarity is Common/Uncommon/Rare/Holo Rare
  *    - Only in special sets (Prismatic Evolutions, White Flare, Black Bolt)
  * 
  * 3. MASTERBALL HOLO (special sets only): Same as reverse holo + Pokemon restriction
  *    - Available if API says reverse: true
- *    - AND rarity is Common/Uncommon/Rare/Rare Holo
+ *    - AND rarity is Common/Uncommon/Rare/Holo Rare
  *    - AND card must be Supertype "Pokemon" (not Trainer or Energy)
  *    - Only in special sets (Prismatic Evolutions, White Flare, Black Bolt)
  * 
@@ -59,8 +59,8 @@ export function hasSpecialVariants(setId: string): boolean {
  * Determine which special variants a card has based on API data and rarity.
  * 
  * Logic:
- * - Pokeball variant: Available if reverse: true AND rarity is Common/Uncommon/Rare/Rare Holo (same as reverse holo)
- * - Masterball variant: Available if reverse: true AND rarity is Common/Uncommon/Rare/Rare Holo AND supertype === "Pokemon"
+ * - Pokeball variant: Available if reverse: true AND rarity is Common/Uncommon/Rare/Holo Rare (same as reverse holo)
+ * - Masterball variant: Available if reverse: true AND rarity is Common/Uncommon/Rare/Holo Rare AND supertype === "Pokemon"
  * 
  * @param setId - The set ID
  * @param hasReverse - Whether the card has a reverse holo (from API)
@@ -84,11 +84,13 @@ export function getSpecialVariantsForCard(
     return [];
   }
 
-  // Only Common, Uncommon, Rare, and Rare Holo cards can have reverse/pokeball/masterball holos
+  // Only Common, Uncommon, Rare, and Holo Rare cards can have reverse/pokeball/masterball holos
+  // Note: TCGDEX API uses "Holo Rare" for SWSH era, "Rare Holo" for older DP/HGSS era
   const allowsReverseHolo = (
     rarity === 'Common' || 
     rarity === 'Uncommon' || 
     rarity === 'Rare' ||
+    rarity === 'Holo Rare' ||
     rarity === 'Rare Holo'
   );
 
@@ -98,10 +100,10 @@ export function getSpecialVariantsForCard(
 
   const variants: ('poke-ball' | 'master-ball')[] = [];
 
-  // Pokeball Holo: Available for Common/Uncommon/Rare/Rare Holo with reverse holo (exact same logic as reverse holo)
+  // Pokeball Holo: Available for Common/Uncommon/Rare/Holo Rare with reverse holo (exact same logic as reverse holo)
   variants.push('poke-ball');
 
-  // Masterball Holo: Only available for Pokemon cards with reverse holo that are Common/Uncommon/Rare/Rare Holo
+  // Masterball Holo: Only available for Pokemon cards with reverse holo that are Common/Uncommon/Rare/Holo Rare
   // (same logic as reverse holo, but restricted to Pokemon supertype only)
   // TCGDEX API returns "Pokémon" (with accent) for the category field
   if (supertype === 'Pokémon' || supertype === 'Pokemon') {

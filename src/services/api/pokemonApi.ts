@@ -900,14 +900,14 @@ async function transformTcgdexCardToCard(tcgdexCard: any): Promise<Card> {
  * Creates separate Card objects for each available variant:
  * - Base (always)
  * - Holo (if API says holo: true)
- * - Reverse holo (if API says reverse: true AND rarity is Common/Uncommon/Rare/Rare Holo)
+ * - Reverse holo (if API says reverse: true AND rarity is Common/Uncommon/Rare/Holo Rare)
  * - Pokeball holo (special sets only, follows EXACT same logic as reverse holo)
  * - Masterball holo (special sets only, follows same logic as reverse holo BUT only for Pokemon supertype)
  * 
  * VARIANT LOGIC:
- * - Reverse Holo: hasReverse === true AND rarity in [Common, Uncommon, Rare, Rare Holo]
- * - Pokeball: hasReverse === true AND rarity in [Common, Uncommon, Rare, Rare Holo] (same as reverse holo)
- * - Masterball: hasReverse === true AND rarity in [Common, Uncommon, Rare, Rare Holo] AND supertype === "Pokemon"
+ * - Reverse Holo: hasReverse === true AND rarity in [Common, Uncommon, Rare, Holo Rare]
+ * - Pokeball: hasReverse === true AND rarity in [Common, Uncommon, Rare, Holo Rare] (same as reverse holo)
+ * - Masterball: hasReverse === true AND rarity in [Common, Uncommon, Rare, Holo Rare] AND supertype === "Pokemon"
  * 
  * @param baseCard - The base card from transformTcgdexCardToCard
  * @param tcgdexCard - The original TCGDEX card data (for variant info)
@@ -924,11 +924,13 @@ function generateVariantCards(baseCard: Card, tcgdexCard: any): Card[] {
   const rarity = tcgdexCard.rarity || '';
   
   // Check if card rarity allows reverse/special holos
-  // Only Common, Uncommon, Rare, and Rare Holo cards can have reverse/pokeball/masterball holos
+  // Only Common, Uncommon, Rare, and Holo Rare cards can have reverse/pokeball/masterball holos
+  // Note: TCGDEX API uses "Holo Rare" for SWSH era, "Rare Holo" for older DP/HGSS era
   const allowsReverseHolo = (
     rarity === 'Common' || 
     rarity === 'Uncommon' || 
     rarity === 'Rare' ||
+    rarity === 'Holo Rare' ||
     rarity === 'Rare Holo'
   );
   

@@ -6,7 +6,7 @@ import { getBinderById } from '../../services/supabase/binders';
 import { getBinderCardsWithPositions } from '../../services/supabase/cards';
 import { getCardsBySet, getCardsByRegion, getCardById, type Region } from '../../services/api/pokemonApi';
 import { getAllSelectedCardsForBinder } from '../../services/supabase/regionCards';
-import { CardSlot, CardPlaceholder, SelectedCardBar, type PlaceholderCard } from '../../components/BinderEdit';
+import { CardSlot, CardPlaceholder, SelectedCardBar, InsertButton, type PlaceholderCard } from '../../components/BinderEdit';
 import PageNavigator from '../../components/Binder/PageNavigator';
 import { JumpToPageModal } from '../../components/Binder/JumpToPageModal';
 import { CardPickerModal } from '../../components/CardPicker';
@@ -614,6 +614,112 @@ export default function BinderEditScreen() {
   };
 
   /**
+   * Insert selected card at a specific position, shifting all cards to the right.
+   * If the last binder slot has a card, it overflows to the placeholder tray.
+   * If both binder and placeholder are full, shows an error message.
+   */
+  const performInsert = (insertAtIndex: number) => {
+    if (!selectedCard) return;
+
+    const sourceIsInBinder = selectedCard.sourceSlot !== 'placeholder';
+
+    // Work with a copy so we can check overflow before committing
+    const newPositions = cardPositions.map(p => ({ ...p }));
+
+    // Step 1: If source is in the binder, remove it and collapse the gap
+    if (sourceIsInBinder) {
+      const sourceIdx = selectedCard.sourceSlot as number;
+
+      // Shift everything after source left by one (close the gap)
+      for (let i = sourceIdx; i < newPositions.length - 1; i++) {
+        newPositions[i] = {
+          ...newPositions[i],
+          cardId: newPositions[i + 1].cardId,
+          cardName: newPositions[i + 1].cardName,
+          imageUrl: newPositions[i + 1].imageUrl,
+        };
+      }
+      // Clear the last slot (gap moved to end)
+      newPositions[newPositions.length - 1] = {
+        ...newPositions[newPositions.length - 1],
+        cardId: null,
+        cardName: undefined,
+        imageUrl: undefined,
+      };
+
+      // Adjust insert index if it was after the removed source
+      if (insertAtIndex > sourceIdx) {
+        insertAtIndex--;
+      }
+    }
+
+    // Step 2: Check if the last slot has a card (will overflow when shifting right)
+    const lastCard = newPositions[newPositions.length - 1];
+    let overflowCard: PlaceholderCard | null = null;
+
+    if (lastCard.cardId) {
+      // Check if placeholder has room
+      const currentPlaceholderCount = !sourceIsInBinder
+        ? placeholderCards.length - 1 // One card leaving placeholder
+        : placeholderCards.length;
+
+      if (currentPlaceholderCount >= PLACEHOLDER_MAX) {
+        Alert.alert(
+          'Binder is full',
+          'Cannot insert — all binder slots and placeholder are full.'
+        );
+        return;
+      }
+
+      overflowCard = {
+        cardId: lastCard.cardId,
+        cardName: lastCard.cardName,
+        imageUrl: lastCard.imageUrl,
+      };
+    }
+
+    // Everything is safe — save undo state and proceed
+    saveUndoState();
+
+    // Step 3: Shift cards right from insert point to end
+    for (let i = newPositions.length - 1; i > insertAtIndex; i--) {
+      newPositions[i] = {
+        ...newPositions[i],
+        cardId: newPositions[i - 1].cardId,
+        cardName: newPositions[i - 1].cardName,
+        imageUrl: newPositions[i - 1].imageUrl,
+      };
+    }
+
+    // Step 4: Place the selected card at the insert point
+    newPositions[insertAtIndex] = {
+      ...newPositions[insertAtIndex],
+      cardId: selectedCard.cardId,
+      cardName: selectedCard.cardName,
+      imageUrl: selectedCard.imageUrl,
+    };
+
+    // Step 5: Update all state
+    setCardPositions(newPositions);
+
+    // Handle placeholder changes
+    if (!sourceIsInBinder) {
+      // Card came from placeholder — remove it and add overflow if needed
+      const newPlaceholder = placeholderCards.filter((_, i) => i !== selectedCard.sourceIndex);
+      if (overflowCard) {
+        newPlaceholder.push(overflowCard);
+      }
+      setPlaceholderCards(newPlaceholder);
+    } else if (overflowCard) {
+      // Card came from binder — just add overflow to placeholder
+      setPlaceholderCards(prev => [...prev, overflowCard!]);
+    }
+
+    setHasChanges(true);
+    setSelectedCard(null);
+  };
+
+  /**
    * Render the card grid for current page
    */
   const renderCardGrid = () => {
@@ -622,28 +728,50 @@ export default function BinderEditScreen() {
       rows.push(currentPageCards.slice(i, i + columnsPerRow));
     }
 
+    const pageStartIndex = (currentPage - 1) * cardsPerPage;
+    const showInsertButtons = selectedCard !== null;
+
     return (
       <View style={styles.gridContainer}>
-        {rows.map((row, rowIndex) => (
-          <View key={rowIndex} style={styles.row}>
-            {row.map((slot) => (
-              <CardSlot
-                key={`${slot.slotIndex}-${slot.cardId || 'empty'}`}
-                cardId={slot.cardId}
-                imageUrl={slot.imageUrl}
-                cardName={slot.cardName}
-                slotIndex={slot.slotIndex}
-                isSelected={
-                  selectedCard !== null && 
-                  selectedCard.sourceSlot !== 'placeholder' && 
-                  selectedCard.sourceSlot === slot.slotIndex
-                }
-                onPress={() => handleSlotPress(slot)}
-                layoutPreference={binder?.layoutPreference}
-              />
-            ))}
-          </View>
-        ))}
+        {rows.map((row, rowIndex) => {
+          const rowStartIndex = pageStartIndex + rowIndex * columnsPerRow;
+
+          return (
+            <View key={rowIndex} style={styles.row}>
+              {/* Plus sign at start of row (only when card is selected) */}
+              {showInsertButtons && (
+                <InsertButton
+                  onPress={() => performInsert(rowStartIndex)}
+                />
+              )}
+
+              {row.map((slot, colIndex) => (
+                <React.Fragment key={`${slot.slotIndex}-${slot.cardId || 'empty'}`}>
+                  <CardSlot
+                    cardId={slot.cardId}
+                    imageUrl={slot.imageUrl}
+                    cardName={slot.cardName}
+                    slotIndex={slot.slotIndex}
+                    isSelected={
+                      selectedCard !== null && 
+                      selectedCard.sourceSlot !== 'placeholder' && 
+                      selectedCard.sourceSlot === slot.slotIndex
+                    }
+                    onPress={() => handleSlotPress(slot)}
+                    layoutPreference={binder?.layoutPreference}
+                  />
+
+                  {/* Plus sign after each card (only when card is selected) */}
+                  {showInsertButtons && (
+                    <InsertButton
+                      onPress={() => performInsert(rowStartIndex + colIndex + 1)}
+                    />
+                  )}
+                </React.Fragment>
+              ))}
+            </View>
+          );
+        })}
       </View>
     );
   };

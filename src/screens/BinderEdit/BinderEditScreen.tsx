@@ -3,6 +3,9 @@ import { View, StyleSheet, Alert, BackHandler, Text, TouchableOpacity, ScrollVie
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { getBinderById } from '../../services/supabase/binders';
+import { getBinderCardsWithPositions } from '../../services/supabase/cards';
+import { getCardsBySet, getCardsByRegion, getCardById, type Region } from '../../services/api/pokemonApi';
+import { getAllSelectedCardsForBinder } from '../../services/supabase/regionCards';
 import { CardSlot, CardPlaceholder, SelectedCardBar, type PlaceholderCard } from '../../components/BinderEdit';
 import PageNavigator from '../../components/Binder/PageNavigator';
 import { JumpToPageModal } from '../../components/Binder/JumpToPageModal';
@@ -114,7 +117,7 @@ export default function BinderEditScreen() {
   }, [hasChanges]);
 
   /**
-   * Load binder data and initialize card positions
+   * Load binder data and populate card positions from existing binder cards
    */
   const loadBinderData = async () => {
     try {
@@ -134,20 +137,169 @@ export default function BinderEditScreen() {
       const slotsPerPage = binderData.layoutPreference === '4x3' ? 12 : 9;
       const totalSlotCount = slotsPerPage * TOTAL_PAGES;
 
-      // Initialize empty positions
-      // For now, all slots start empty - later we'll load saved positions from database (Step 34I)
-      const emptyPositions: CardPosition[] = [];
+      // Initialize all slots as empty first
+      const positions: CardPosition[] = [];
       for (let i = 0; i < totalSlotCount; i++) {
-        emptyPositions.push({ 
+        positions.push({ 
           cardId: null, 
           cardName: undefined,
           imageUrl: undefined,
           slotIndex: i 
         });
       }
-      
-      setCardPositions(emptyPositions);
-      setOriginalPositions(emptyPositions);
+
+      // Fetch the binder's cards based on collection mode and populate the grid
+      let cardsToPlace: Card[] = [];
+
+      if (binderData.collectionMode === 'master-set' && binderData.set) {
+        // --- Master Set: fetch cards from API and apply variant/sort logic ---
+        console.log('[BinderEdit] Loading Master Set cards for:', binderData.set);
+        cardsToPlace = await getCardsBySet(binderData.set);
+
+        // Filter by tracked variants (same logic as BinderDetail)
+        if (binderData.variantsToTrack && binderData.variantsToTrack.length > 0) {
+          cardsToPlace = cardsToPlace.filter((card) => {
+            const cardVariant = card.variant || 'base';
+            return binderData.variantsToTrack!.includes(cardVariant);
+          });
+        }
+
+        // Sort by set number
+        cardsToPlace.sort((a, b) => {
+          const getSetNumber = (numberStr: string): number => {
+            const match = numberStr.match(/^(\d+)\//);
+            return match ? parseInt(match[1], 10) : 0;
+          };
+          return getSetNumber(a.number) - getSetNumber(b.number);
+        });
+
+        // Apply variant placement logic
+        if (binderData.variantPlacement === 'grouped') {
+          const isBaseCard = (card: Card) => !card.variant || card.variant === 'base';
+          const getBaseId = (card: Card) => `${card.name}-${card.number}`;
+          const baseCards: Card[] = [];
+          const variantMap = new Map<string, Card[]>();
+
+          cardsToPlace.forEach((card) => {
+            if (isBaseCard(card)) {
+              baseCards.push(card);
+            } else {
+              const baseId = getBaseId(card);
+              if (!variantMap.has(baseId)) variantMap.set(baseId, []);
+              variantMap.get(baseId)!.push(card);
+            }
+          });
+
+          const grouped: Card[] = [];
+          baseCards.forEach((base) => {
+            grouped.push(base);
+            const variants = variantMap.get(getBaseId(base)) || [];
+            variants.sort((a, b) => {
+              const order: Record<string, number> = { 'reverse-holo': 1, 'poke-ball': 2, 'master-ball': 3 };
+              return (order[a.variant || 'base'] || 0) - (order[b.variant || 'base'] || 0);
+            });
+            grouped.push(...variants);
+          });
+          // Add orphan variants whose base card doesn't exist
+          variantMap.forEach((variants, baseId) => {
+            if (!baseCards.some((c) => getBaseId(c) === baseId)) grouped.push(...variants);
+          });
+          cardsToPlace = grouped;
+
+        } else if (binderData.variantPlacement === 'end') {
+          const isBaseCard = (card: Card) => !card.variant || card.variant === 'base';
+          const bases = cardsToPlace.filter(isBaseCard);
+          const variants = cardsToPlace.filter((c) => !isBaseCard(c));
+          variants.sort((a, b) => {
+            const getSetNumber = (n: string) => { const m = n.match(/^(\d+)\//); return m ? parseInt(m[1], 10) : 0; };
+            return getSetNumber(a.number) - getSetNumber(b.number);
+          });
+          cardsToPlace = [...bases, ...variants];
+        }
+
+        console.log('[BinderEdit] Master Set: placing', cardsToPlace.length, 'cards');
+
+      } else if (binderData.collectionMode === 'region' && binderData.region) {
+        // --- Region: fetch Pokémon list + any custom card selections ---
+        console.log('[BinderEdit] Loading Region cards for:', binderData.region);
+        const pokemonList = await getCardsByRegion(binderData.region as Region, binderData.pokemonArtStyle);
+
+        // Check for custom card selections
+        const selectedCards = await getAllSelectedCardsForBinder(binderData.id);
+        if (selectedCards.size > 0) {
+          cardsToPlace = await Promise.all(
+            pokemonList.map(async (pokemon) => {
+              const pokedexNumber = pokemon.pokedexNumber;
+              if (pokedexNumber) {
+                const selectedCardId = selectedCards.get(pokedexNumber);
+                if (selectedCardId) {
+                  try {
+                    const tcgCard = await getCardById(selectedCardId);
+                    if (tcgCard?.imageUrl) {
+                      return { ...pokemon, imageUrl: tcgCard.imageUrl, imageUrlHiRes: tcgCard.imageUrlHiRes };
+                    }
+                  } catch { /* fall back to default sprite */ }
+                }
+              }
+              return pokemon;
+            })
+          );
+        } else {
+          cardsToPlace = pokemonList;
+        }
+
+        // Sort by Pokédex number
+        cardsToPlace.sort((a, b) => (a.pokedexNumber ?? 0) - (b.pokedexNumber ?? 0));
+        console.log('[BinderEdit] Region: placing', cardsToPlace.length, 'cards');
+
+      } else if (binderData.collectionMode === 'custom') {
+        // --- Custom: load saved card positions from database ---
+        console.log('[BinderEdit] Loading Custom binder cards');
+        const savedPositions = await getBinderCardsWithPositions(binderData.id);
+
+        if (savedPositions.size > 0) {
+          // Load card details for each saved position
+          const results = await Promise.all(
+            Array.from(savedPositions.entries()).map(async ([position, data]) => {
+              try {
+                const card = await getCardById(data.cardId);
+                return card ? { position, card } : null;
+              } catch { return null; }
+            })
+          );
+
+          // Place cards at their saved positions
+          results.forEach((result) => {
+            if (result && result.position < totalSlotCount) {
+              positions[result.position] = {
+                ...positions[result.position],
+                cardId: result.card.id,
+                cardName: result.card.name,
+                imageUrl: result.card.imageUrl,
+              };
+            }
+          });
+
+          console.log('[BinderEdit] Custom: placed', results.filter(Boolean).length, 'cards from saved positions');
+        }
+      }
+
+      // For Master Set and Region modes, place cards sequentially into slots
+      if (binderData.collectionMode !== 'custom') {
+        cardsToPlace.forEach((card, index) => {
+          if (index < totalSlotCount) {
+            positions[index] = {
+              ...positions[index],
+              cardId: card.id,
+              cardName: card.name,
+              imageUrl: card.imageUrl,
+            };
+          }
+        });
+      }
+
+      setCardPositions(positions);
+      setOriginalPositions(positions.map(p => ({ ...p }))); // Deep copy for change tracking
       setLoading(false);
     } catch (err) {
       console.error('[BinderEdit] Error loading binder:', err);

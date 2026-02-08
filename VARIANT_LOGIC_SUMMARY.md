@@ -43,6 +43,7 @@ This document explains how card variants (Reverse Holo, Pokeball Holo, and Maste
 ### Pokeball Holo Logic
 ```
 IF card has reverse holo (reverse: true)
+AND rarity is Common, Uncommon, Rare, or Rare Holo
 THEN card can have Pokeball holo variant
 ```
 **Same as reverse holo - no additional restrictions**
@@ -50,6 +51,7 @@ THEN card can have Pokeball holo variant
 ### Masterball Holo Logic
 ```
 IF card has reverse holo (reverse: true)
+AND rarity is Common, Uncommon, Rare, or Rare Holo
 AND card supertype === "Pokemon"
 THEN card can have Masterball holo variant
 ```
@@ -160,6 +162,7 @@ To test the variant logic:
 
 **Date Implemented**: December 21, 2025
 **Status**: ✅ Complete
+
 
 
 

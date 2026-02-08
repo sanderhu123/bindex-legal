@@ -25,7 +25,8 @@ async function testUpdatedLogic() {
     const allowsReverseHolo = (
       rarity === 'Common' || 
       rarity === 'Uncommon' || 
-      rarity === 'Rare'
+      rarity === 'Rare' ||
+      rarity === 'Rare Holo'
     );
     
     console.log('\n=== OUR LOGIC CHECKS ===');
@@ -73,6 +74,7 @@ async function testUpdatedLogic() {
 }
 
 testUpdatedLogic();
+
 
 
 

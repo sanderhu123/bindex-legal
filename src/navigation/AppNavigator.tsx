@@ -25,6 +25,22 @@ export type MainStackParamList = {
     isExtraCard?: boolean; // For cards added by user (not in official set)
     cardIndex?: number; // Card's index in the sorted list (for binder position calculation)
     cardsPerPage?: number; // Cards per binder page (9 for 3x3, 12 for 4x3)
+    // Pass full card data to skip API fetch (faster loading)
+    cardData?: {
+      id: string;
+      name: string;
+      number: string;
+      set: string;
+      rarity: string;
+      artist: string;
+      imageUrl?: string;
+      imageUrlHiRes?: string;
+      variant?: string;
+      supertype?: string;
+      setTotal?: string;
+      pokedexNumber?: number;
+      selectedCardId?: string;
+    };
   };
   CardSearchTest: undefined; // Temporary test screen for Step 28A
 };

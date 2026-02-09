@@ -79,6 +79,21 @@ function CardItemComponent({
       // Pass card index and cards per page for binder position display
       cardIndex: cardIndex,
       cardsPerPage: cardsPerPage,
+      // Pass full card data to skip API fetch (faster loading)
+      cardData: {
+        id: card.id,
+        name: card.name,
+        number: card.number,
+        set: card.set,
+        rarity: card.rarity,
+        artist: card.artist,
+        imageUrl: card.imageUrl,
+        imageUrlHiRes: card.imageUrlHiRes,
+        variant: card.variant,
+        supertype: card.supertype,
+        setTotal: card.setTotal,
+        pokedexNumber: card.pokedexNumber,
+      },
     });
   };
 

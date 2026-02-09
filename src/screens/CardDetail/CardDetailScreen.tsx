@@ -24,7 +24,7 @@ interface CardDetailScreenProps {
  * Displays full details of a single card
  */
 export default function CardDetailScreen({ navigation, route }: CardDetailScreenProps) {
-  const { cardId, binderId, isOwned: initialOwnedParam, position, collectionMode, isExtraCard, pokedexNumber, pokemonName, regionCardData, cardIndex, cardsPerPage } = route.params || {};
+  const { cardId, binderId, isOwned: initialOwnedParam, position, collectionMode, isExtraCard, pokedexNumber, pokemonName, regionCardData, cardIndex, cardsPerPage, cardData } = route.params || {};
   const [card, setCard] = useState<Card | null>(null);
   const [binder, setBinder] = useState<Binder | null>(null);
   const [loading, setLoading] = useState(true);
@@ -48,6 +48,7 @@ export default function CardDetailScreen({ navigation, route }: CardDetailScreen
   }, [cardIndex, cardsPerPage]);
 
   // Fetch card and binder data
+  // If cardData was passed from the grid view, use it directly (no API call needed)
   useEffect(() => {
     async function fetchData() {
       if (!binderId) {
@@ -77,19 +78,42 @@ export default function CardDetailScreen({ navigation, route }: CardDetailScreen
           return;
         }
 
-        // For other modes, fetch card from API
+        // If card data was passed from the grid/list view, use it directly (skip API call)
+        if (cardData) {
+          console.log('[CardDetail] Using passed card data (fast path):', cardData.name);
+          const binderData = await getBinderById(binderId);
+          
+          if (!binderData) {
+            setError('Binder not found');
+            setLoading(false);
+            return;
+          }
+          
+          setCard(cardData as Card);
+          setBinder(binderData);
+          // Trust the navigation param if provided
+          if (initialOwnedParam === undefined) {
+            setIsOwned(binderData.cardIds.includes(cardData.id));
+          }
+          setLoading(false);
+          return;
+        }
+
+        // Fallback: fetch card from API (only if cardData was not passed)
         if (!cardId) {
           setError('Missing card ID');
           setLoading(false);
           return;
         }
 
+        console.log('[CardDetail] No card data passed, fetching from API (slow path):', cardId);
+
         // Fetch card and binder in parallel
-        let cardData: Card | null = null;
+        let fetchedCardData: Card | null = null;
         let binderData: Binder | null = null;
         
         try {
-          [cardData, binderData] = await Promise.all([
+          [fetchedCardData, binderData] = await Promise.all([
             getCardById(cardId),
             getBinderById(binderId),
           ]);
@@ -102,7 +126,7 @@ export default function CardDetailScreen({ navigation, route }: CardDetailScreen
           return;
         }
 
-        if (!cardData) {
+        if (!fetchedCardData) {
           // Step 32C: Card not found - may have been deleted from API
           setError('This card is no longer available. It may have been removed from the database.');
           setLoading(false);
@@ -115,12 +139,12 @@ export default function CardDetailScreen({ navigation, route }: CardDetailScreen
           return;
         }
 
-        setCard(cardData);
+        setCard(fetchedCardData);
         setBinder(binderData);
         // Trust the navigation param if provided (supports optimistic updates from grid view)
         // Only fall back to database if no param was provided
         if (initialOwnedParam === undefined) {
-          setIsOwned(binderData.cardIds.includes(cardData.id));
+          setIsOwned(binderData.cardIds.includes(fetchedCardData.id));
         }
         // If initialOwnedParam was provided, we already set it in useState, so don't override
       } catch (err) {
@@ -132,7 +156,7 @@ export default function CardDetailScreen({ navigation, route }: CardDetailScreen
     }
 
     fetchData();
-  }, [cardId, binderId, initialOwnedParam, isRegionMode, regionCardData]);
+  }, [cardId, binderId, initialOwnedParam, isRegionMode, regionCardData, cardData]);
 
   // Update header title when card loads
   useEffect(() => {
@@ -322,9 +346,11 @@ export default function CardDetailScreen({ navigation, route }: CardDetailScreen
     <SafeAreaView style={styles.safeArea}>
       <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
         {/* Card Image - Smaller size with high priority loading */}
+        {/* Shows the low-res image instantly (already cached from grid), then swaps to high-res */}
         <View style={styles.imageContainer}>
           <CardImage
             source={card.imageUrlHiRes || card.imageUrl}
+            lowResSource={card.imageUrl}
             isMissing={!isOwned}
             aspectRatio={0.7}
             style={[styles.cardImage, { width: imageWidth }]}

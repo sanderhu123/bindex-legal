@@ -78,6 +78,7 @@ export function logFailedImageSummary(): void {
 
 interface CardImageProps {
   source?: string | ImageSource; // Optional - Region mode doesn't have images
+  lowResSource?: string; // Low-res image to show instantly while high-res loads (progressive loading)
   style?: any;
   isMissing?: boolean;
   aspectRatio?: number;
@@ -98,6 +99,7 @@ interface CardImageProps {
  */
 export default function CardImage({
   source,
+  lowResSource,
   style,
   isMissing = false,
   aspectRatio = 0.7, // Default card aspect ratio (height/width)
@@ -109,7 +111,11 @@ export default function CardImage({
   const [isLoading, setIsLoading] = useState(true);
   const [retryCount, setRetryCount] = useState(0);
   const [retryKey, setRetryKey] = useState(0); // Key to force image remount on retry
+  const [hiResLoaded, setHiResLoaded] = useState(false); // Tracks if high-res image has loaded
   const MAX_RETRIES = 2;
+
+  // Check if we're doing progressive loading (low-res → high-res)
+  const hasLowRes = !!lowResSource && typeof source === 'string' && lowResSource !== source;
 
   const handleLoadEnd = () => {
     // Only log on first successful load (not retries that eventually worked)
@@ -209,19 +215,33 @@ export default function CardImage({
     <View style={containerStyle}>
       {!hasError ? (
         <>
+          {/* Progressive loading: show low-res image instantly (from cache), then high-res on top */}
+          {hasLowRes && !hiResLoaded && (
+            <Image
+              source={{ uri: lowResSource }}
+              style={styles.image}
+              contentFit="contain"
+              cachePolicy="memory-disk"
+              priority="high"
+            />
+          )}
           <Image
             key={retryKey} // Force remount when retrying to trigger new fetch
             source={imageSource}
-            style={styles.image}
+            style={hasLowRes ? styles.imageOverlay : styles.image}
             contentFit="contain"
-            transition={200} // Smooth fade-in
+            transition={hasLowRes ? 300 : 200} // Slightly longer transition for hi-res swap
             cachePolicy="memory-disk" // Cache in memory and disk for offline access
             priority={priority} // Load priority (high for detail view, normal for grid)
             recyclingKey={typeof source === 'string' ? source : undefined} // Help with recycling in lists
-            onLoadEnd={handleLoadEnd}
+            onLoadEnd={() => {
+              handleLoadEnd();
+              if (hasLowRes) setHiResLoaded(true);
+            }}
             onError={handleError}
           />
-          {isLoading && (
+          {/* Only show loading spinner if we don't have a low-res to show */}
+          {isLoading && !hasLowRes && (
             <View style={styles.loadingOverlay}>
               <ActivityIndicator size="small" color="#999" />
               {retryCount > 0 && (
@@ -248,6 +268,14 @@ const styles = StyleSheet.create({
     borderColor: '#ddd',
   },
   image: {
+    width: '100%',
+    height: '100%',
+  },
+  imageOverlay: {
+    // Positioned on top of the low-res image so the high-res replaces it smoothly
+    position: 'absolute',
+    top: 0,
+    left: 0,
     width: '100%',
     height: '100%',
   },

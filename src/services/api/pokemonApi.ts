@@ -1506,12 +1506,12 @@ export interface CardSearchOptions {
    * but will still match "Pidgeot EX", "Pidgeot V", etc.
    */
   exactMatch?: boolean;
-  /** Optional filters for era, set, rarity, illustrator */
+  /** Optional filters for era, set, rarity, illustrator (arrays for multi-select) */
   filters?: {
-    era?: string;
-    setId?: string;
-    rarity?: string;
-    illustrator?: string;
+    eras?: string[];
+    setIds?: string[];
+    rarities?: string[];
+    illustrators?: string[];
   };
 }
 
@@ -1578,7 +1578,12 @@ export async function searchCardsByName(
   const startTime = performance.now();
   
   // Allow empty query when filters are active (browse by filter only)
-  const hasFilters = filters && (filters.era || filters.setId || filters.rarity || filters.illustrator);
+  const hasFilters = filters && (
+    (filters.eras && filters.eras.length > 0) ||
+    (filters.setIds && filters.setIds.length > 0) ||
+    (filters.rarities && filters.rarities.length > 0) ||
+    (filters.illustrators && filters.illustrators.length > 0)
+  );
   
   // Validate: need at least a query or a filter
   if ((!query || query.trim().length === 0) && !hasFilters) {
@@ -1591,7 +1596,7 @@ export async function searchCardsByName(
   
   // Build a cache key that includes filters so different filter combos are cached separately
   const filterKey = filters 
-    ? `-era:${filters.era || ''}-set:${filters.setId || ''}-rar:${filters.rarity || ''}-ill:${filters.illustrator || ''}`
+    ? `-era:${(filters.eras || []).sort().join(',')}-set:${(filters.setIds || []).sort().join(',')}-rar:${(filters.rarities || []).sort().join(',')}-ill:${(filters.illustrators || []).sort().join(',')}`
     : '';
   
   // Create cache key for the FULL sorted list (does not include limit/offset)
@@ -1640,19 +1645,21 @@ export async function searchCardsByName(
       console.log('[28A] Fetching ALL results for stable sorting...');
       
       // Build API URL with query params (name + server-side filters)
+      // Note: TCGDEX API only supports one value per param, so when multiple
+      // values are selected we send the first to the API and filter the rest client-side
       const params = new URLSearchParams();
       if (sanitizedQuery) {
         params.append('name', sanitizedQuery);
       }
-      // Add server-side filters (rarity, illustrator, set)
-      if (filters?.rarity) {
-        params.append('rarity', `eq:${filters.rarity}`);
+      // Add server-side filters (only single values — multi handled client-side below)
+      if (filters?.rarities && filters.rarities.length === 1) {
+        params.append('rarity', `eq:${filters.rarities[0]}`);
       }
-      if (filters?.illustrator) {
-        params.append('illustrator', `like:${filters.illustrator}`);
+      if (filters?.illustrators && filters.illustrators.length === 1) {
+        params.append('illustrator', `like:${filters.illustrators[0]}`);
       }
-      if (filters?.setId) {
-        params.append('set.id', `eq:${filters.setId}`);
+      if (filters?.setIds && filters.setIds.length === 1) {
+        params.append('set.id', `eq:${filters.setIds[0]}`);
       }
       
       const apiUrl = `https://api.tcgdex.net/v2/en/cards?${params.toString()}`;
@@ -1754,35 +1761,79 @@ export async function searchCardsByName(
       
       const transformDuration = performance.now() - transformStartTime;
       
-      // Client-side era filter: keep only cards whose set belongs to the selected era
-      // (The API doesn't support era filtering directly, so we do it here)
-      let eraFilteredCards = allTransformedCards;
-      if (filters?.era) {
-        // Get set IDs for this era from our hard-coded data
-        const eraSetDefs = getSetsByEra(filters.era);
-        const eraSetIds = new Set(eraSetDefs.map(s => s.id.toLowerCase()));
-        const eraSetNames = new Set(eraSetDefs.map(s => s.name.toLowerCase()));
+      // Client-side filtering for multi-select values
+      // (The API only supports single values per param)
+      let clientFilteredCards = allTransformedCards;
+      
+      // Era filter (always client-side — API doesn't support era)
+      if (filters?.eras && filters.eras.length > 0) {
+        // Collect all set IDs and names across all selected eras
+        const eraSetIds = new Set<string>();
+        const eraSetNames = new Set<string>();
+        for (const eraName of filters.eras) {
+          const eraSetDefs = getSetsByEra(eraName);
+          for (const s of eraSetDefs) {
+            eraSetIds.add(s.id.toLowerCase());
+            eraSetNames.add(s.name.toLowerCase());
+          }
+        }
         
-        eraFilteredCards = allTransformedCards.filter(card => {
-          // Check by set ID (extracted from card.id, e.g., "sv08-25" → "sv08")
+        clientFilteredCards = clientFilteredCards.filter(card => {
           const cardSetId = (card.id?.split('-')[0] || '').toLowerCase();
           if (eraSetIds.has(cardSetId)) return true;
-          // Also check by set name
           if (card.set && eraSetNames.has(card.set.toLowerCase())) return true;
           return false;
         });
         
-        console.log('[28A] Filtered by era:', {
-          era: filters.era,
+        console.log('[28A] Filtered by eras:', {
+          eras: filters.eras,
           before: allTransformedCards.length,
-          after: eraFilteredCards.length,
-          eraSetCount: eraSetDefs.length,
+          after: clientFilteredCards.length,
+        });
+      }
+      
+      // Multi-set filter (client-side when >1 set selected)
+      if (filters?.setIds && filters.setIds.length > 1) {
+        const setIdSet = new Set(filters.setIds.map(s => s.toLowerCase()));
+        clientFilteredCards = clientFilteredCards.filter(card => {
+          const cardSetId = (card.id?.split('-')[0] || '').toLowerCase();
+          return setIdSet.has(cardSetId);
+        });
+        console.log('[28A] Filtered by multiple sets (client-side):', {
+          setIds: filters.setIds,
+          remaining: clientFilteredCards.length,
+        });
+      }
+      
+      // Multi-rarity filter (client-side when >1 rarity selected)
+      if (filters?.rarities && filters.rarities.length > 1) {
+        const raritySet = new Set(filters.rarities.map(r => r.toLowerCase()));
+        clientFilteredCards = clientFilteredCards.filter(card => {
+          return card.rarity && raritySet.has(card.rarity.toLowerCase());
+        });
+        console.log('[28A] Filtered by multiple rarities (client-side):', {
+          rarities: filters.rarities,
+          remaining: clientFilteredCards.length,
+        });
+      }
+      
+      // Multi-illustrator filter (client-side when >1 illustrator selected)
+      if (filters?.illustrators && filters.illustrators.length > 1) {
+        const illLower = filters.illustrators.map(i => i.toLowerCase());
+        clientFilteredCards = clientFilteredCards.filter(card => {
+          if (!card.artist) return false;
+          const artistLower = card.artist.toLowerCase();
+          return illLower.some(ill => artistLower.includes(ill));
+        });
+        console.log('[28A] Filtered by multiple illustrators (client-side):', {
+          illustrators: filters.illustrators,
+          remaining: clientFilteredCards.length,
         });
       }
       
       // SORT ALL cards by set release date (newest first) ONCE
       const sortStartTime = performance.now();
-      const allSortedCards = sortCardsBySetDate(eraFilteredCards);
+      const allSortedCards = sortCardsBySetDate(clientFilteredCards);
       const sortDuration = performance.now() - sortStartTime;
       
       console.log('[28A] All cards sorted by release date:', {

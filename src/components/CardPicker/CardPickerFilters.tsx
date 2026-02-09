@@ -66,12 +66,11 @@ const RARITY_OPTIONS: ListPickerItem[] = [
 /**
  * Horizontal filter chips bar for the CardPicker.
  *
- * Shows filter chips for Era, Set, Rarity, and Illustrator.
- * - Tapping Era/Set/Rarity opens a searchable list picker modal.
- * - Illustrator uses an inline text input.
- * - Active chips show the selected value with an X to clear.
- * - Era and Set are linked: selecting an era narrows the set list;
- *   selecting a set auto-fills the era.
+ * Supports multi-select for all four filters:
+ * - Era, Set, Rarity: opens a searchable multi-select list picker
+ * - Illustrator: inline text input, each "Apply" adds a name to the list
+ * - Active chips show the count or single value, with an X to clear
+ * - Era and Set are linked: selecting eras narrows the set list
  */
 export function CardPickerFilters({ filters, onFiltersChange }: CardPickerFiltersProps) {
   // Which picker is currently open
@@ -79,35 +78,38 @@ export function CardPickerFilters({ filters, onFiltersChange }: CardPickerFilter
   // Whether the illustrator inline input is shown
   const [showIllustratorInput, setShowIllustratorInput] = useState(false);
   // Local illustrator text (committed on submit)
-  const [illustratorText, setIllustratorText] = useState(filters.illustrator || '');
+  const [illustratorText, setIllustratorText] = useState('');
 
   // ----- Build era items from hard-coded data -----
   const eraItems: ListPickerItem[] = useMemo(() => {
     return POKEMON_ERAS.map(era => ({
-      id: era.name, // use name as ID because that's what searchCardsByName uses
+      id: era.name,
       label: era.name,
       subtitle: `${era.sets.length} sets`,
     }));
   }, []);
 
-  // ----- Build set items (filtered by era if one is selected) -----
+  // ----- Build set items (filtered by selected eras) -----
   const setItems: ListPickerItem[] = useMemo(() => {
     const items: ListPickerItem[] = [];
+    const selectedEras = filters.eras && filters.eras.length > 0 ? filters.eras : null;
 
-    if (filters.era) {
-      // Only show sets from the selected era
-      const era = POKEMON_ERAS.find(e => e.name === filters.era);
-      if (era) {
-        for (const set of era.sets) {
-          items.push({
-            id: set.id,
-            label: set.name,
-            subtitle: set.releaseDate,
-          });
+    if (selectedEras) {
+      // Only show sets from selected eras
+      for (const eraName of selectedEras) {
+        const era = POKEMON_ERAS.find(e => e.name === eraName);
+        if (era) {
+          for (const set of era.sets) {
+            items.push({
+              id: set.id,
+              label: set.name,
+              subtitle: `${era.name} • ${set.releaseDate}`,
+            });
+          }
         }
       }
     } else {
-      // Show all sets, grouped by era (newest first)
+      // Show all sets (newest first)
       for (const era of POKEMON_ERAS) {
         for (const set of era.sets) {
           items.push({
@@ -120,91 +122,99 @@ export function CardPickerFilters({ filters, onFiltersChange }: CardPickerFilter
     }
 
     return items;
-  }, [filters.era]);
+  }, [filters.eras]);
 
-  // ----- Find which era a set belongs to -----
-  const findEraForSet = useCallback((setId: string): string | undefined => {
-    for (const era of POKEMON_ERAS) {
-      if (era.sets.some(s => s.id === setId)) {
-        return era.name;
-      }
-    }
-    return undefined;
-  }, []);
+  // ----- Convert arrays to Sets for the picker -----
+  const eraSelectedIds = useMemo(() => new Set(filters.eras || []), [filters.eras]);
+  const setSelectedIds = useMemo(() => new Set(filters.setIds || []), [filters.setIds]);
+  const raritySelectedIds = useMemo(() => new Set(filters.rarities || []), [filters.rarities]);
 
-  // ----- Handler: era selected -----
-  const handleEraSelect = useCallback(
-    (item: ListPickerItem) => {
+  // ----- Handler: era picker done -----
+  const handleEraDone = useCallback(
+    (selectedIds: Set<string>) => {
       setActivePicker(null);
-      if (!item.id) {
-        // Clear era (and set, since the set list depends on era)
-        onFiltersChange({ ...filters, era: undefined, setId: undefined });
-      } else {
-        // When era changes, clear the set (it might not belong to new era)
-        onFiltersChange({ ...filters, era: item.id, setId: undefined });
+      const eras = Array.from(selectedIds);
+      // When eras change, remove any set selections that no longer belong
+      let setIds = filters.setIds || [];
+      if (eras.length > 0) {
+        const validSetIds = new Set<string>();
+        for (const eraName of eras) {
+          const era = POKEMON_ERAS.find(e => e.name === eraName);
+          if (era) {
+            for (const s of era.sets) validSetIds.add(s.id);
+          }
+        }
+        setIds = setIds.filter(id => validSetIds.has(id));
       }
+      onFiltersChange({
+        ...filters,
+        eras: eras.length > 0 ? eras : undefined,
+        setIds: setIds.length > 0 ? setIds : undefined,
+      });
     },
     [filters, onFiltersChange]
   );
 
-  // ----- Handler: set selected -----
-  const handleSetSelect = useCallback(
-    (item: ListPickerItem) => {
+  // ----- Handler: set picker done -----
+  const handleSetDone = useCallback(
+    (selectedIds: Set<string>) => {
       setActivePicker(null);
-      if (!item.id) {
-        // Clear set
-        onFiltersChange({ ...filters, setId: undefined });
-      } else {
-        // Auto-fill era when a set is selected
-        const eraName = findEraForSet(item.id);
-        onFiltersChange({
-          ...filters,
-          setId: item.id,
-          era: eraName || filters.era,
-        });
-      }
-    },
-    [filters, onFiltersChange, findEraForSet]
-  );
-
-  // ----- Handler: rarity selected -----
-  const handleRaritySelect = useCallback(
-    (item: ListPickerItem) => {
-      setActivePicker(null);
-      if (!item.id) {
-        onFiltersChange({ ...filters, rarity: undefined });
-      } else {
-        onFiltersChange({ ...filters, rarity: item.id });
-      }
+      const setIds = Array.from(selectedIds);
+      onFiltersChange({
+        ...filters,
+        setIds: setIds.length > 0 ? setIds : undefined,
+      });
     },
     [filters, onFiltersChange]
   );
 
-  // ----- Handler: illustrator submitted -----
-  const handleIllustratorSubmit = useCallback(() => {
+  // ----- Handler: rarity picker done -----
+  const handleRarityDone = useCallback(
+    (selectedIds: Set<string>) => {
+      setActivePicker(null);
+      const rarities = Array.from(selectedIds);
+      onFiltersChange({
+        ...filters,
+        rarities: rarities.length > 0 ? rarities : undefined,
+      });
+    },
+    [filters, onFiltersChange]
+  );
+
+  // ----- Handler: illustrator add -----
+  const handleIllustratorAdd = useCallback(() => {
     Keyboard.dismiss();
     const trimmed = illustratorText.trim();
-    if (trimmed) {
-      onFiltersChange({ ...filters, illustrator: trimmed });
-    } else {
-      onFiltersChange({ ...filters, illustrator: undefined });
+    if (!trimmed) return;
+
+    // Add to the list (avoid duplicates)
+    const current = filters.illustrators || [];
+    if (!current.some(i => i.toLowerCase() === trimmed.toLowerCase())) {
+      onFiltersChange({
+        ...filters,
+        illustrators: [...current, trimmed],
+      });
     }
+    setIllustratorText('');
     setShowIllustratorInput(false);
   }, [illustratorText, filters, onFiltersChange]);
 
-  // ----- Handler: clear illustrator -----
-  const handleClearIllustrator = useCallback(() => {
-    setIllustratorText('');
-    onFiltersChange({ ...filters, illustrator: undefined });
-    setShowIllustratorInput(false);
+  // ----- Handler: remove one illustrator -----
+  const handleRemoveIllustrator = useCallback((name: string) => {
+    const current = filters.illustrators || [];
+    const updated = current.filter(i => i !== name);
+    onFiltersChange({
+      ...filters,
+      illustrators: updated.length > 0 ? updated : undefined,
+    });
   }, [filters, onFiltersChange]);
 
-  // Sync illustratorText if filter is cleared externally
-  React.useEffect(() => {
-    if (!filters.illustrator) {
-      setIllustratorText('');
-    }
-  }, [filters.illustrator]);
+  // ----- Handler: clear all illustrators -----
+  const handleClearIllustrators = useCallback(() => {
+    setIllustratorText('');
+    setShowIllustratorInput(false);
+    onFiltersChange({ ...filters, illustrators: undefined });
+  }, [filters, onFiltersChange]);
 
   // ----- Helper: get display label for a set ID -----
   const getSetLabel = useCallback((setId: string): string => {
@@ -215,8 +225,20 @@ export function CardPickerFilters({ filters, onFiltersChange }: CardPickerFilter
     return setId;
   }, []);
 
-  // Count active filters
-  const activeFilterCount = [filters.era, filters.setId, filters.rarity, filters.illustrator].filter(Boolean).length;
+  // ----- Helper: build chip display text -----
+  const getChipDisplay = useCallback((items: string[] | undefined, getLabel?: (id: string) => string): string | undefined => {
+    if (!items || items.length === 0) return undefined;
+    if (items.length === 1) return getLabel ? getLabel(items[0]) : items[0];
+    return `${items.length} selected`;
+  }, []);
+
+  // Count total active filter categories
+  const activeFilterCount = [
+    filters.eras && filters.eras.length > 0,
+    filters.setIds && filters.setIds.length > 0,
+    filters.rarities && filters.rarities.length > 0,
+    filters.illustrators && filters.illustrators.length > 0,
+  ].filter(Boolean).length;
 
   return (
     <View style={styles.container}>
@@ -229,40 +251,40 @@ export function CardPickerFilters({ filters, onFiltersChange }: CardPickerFilter
         {/* Era chip */}
         <FilterChip
           label="Era"
-          value={filters.era}
+          value={getChipDisplay(filters.eras)}
           onPress={() => { Keyboard.dismiss(); setActivePicker('era'); }}
-          onClear={() => onFiltersChange({ ...filters, era: undefined, setId: undefined })}
+          onClear={() => onFiltersChange({ ...filters, eras: undefined, setIds: undefined })}
         />
 
         {/* Set chip */}
         <FilterChip
           label="Set"
-          value={filters.setId ? getSetLabel(filters.setId) : undefined}
+          value={getChipDisplay(filters.setIds, getSetLabel)}
           onPress={() => { Keyboard.dismiss(); setActivePicker('set'); }}
-          onClear={() => onFiltersChange({ ...filters, setId: undefined })}
+          onClear={() => onFiltersChange({ ...filters, setIds: undefined })}
         />
 
         {/* Rarity chip */}
         <FilterChip
           label="Rarity"
-          value={filters.rarity}
+          value={getChipDisplay(filters.rarities)}
           onPress={() => { Keyboard.dismiss(); setActivePicker('rarity'); }}
-          onClear={() => onFiltersChange({ ...filters, rarity: undefined })}
+          onClear={() => onFiltersChange({ ...filters, rarities: undefined })}
         />
 
         {/* Illustrator chip */}
         <FilterChip
           label="Illustrator"
-          value={filters.illustrator}
+          value={getChipDisplay(filters.illustrators)}
           onPress={() => {
             Keyboard.dismiss();
             setShowIllustratorInput(true);
-            setIllustratorText(filters.illustrator || '');
+            setIllustratorText('');
           }}
-          onClear={handleClearIllustrator}
+          onClear={handleClearIllustrators}
         />
 
-        {/* Clear all (only shown when filters are active) */}
+        {/* Clear all (only shown when 2+ filter categories are active) */}
         {activeFilterCount > 1 && (
           <TouchableOpacity
             style={styles.clearAllChip}
@@ -277,7 +299,34 @@ export function CardPickerFilters({ filters, onFiltersChange }: CardPickerFilter
         )}
       </ScrollView>
 
-      {/* Illustrator inline input (shown below chips when active) */}
+      {/* Show individual illustrator tags when illustrators are selected */}
+      {filters.illustrators && filters.illustrators.length > 0 && !showIllustratorInput && (
+        <View style={styles.tagsRow}>
+          {filters.illustrators.map(name => (
+            <View key={name} style={styles.tag}>
+              <Text style={styles.tagText} numberOfLines={1}>{name}</Text>
+              <TouchableOpacity
+                onPress={() => handleRemoveIllustrator(name)}
+                hitSlop={{ top: 6, bottom: 6, left: 4, right: 6 }}
+              >
+                <Text style={styles.tagRemove}>✕</Text>
+              </TouchableOpacity>
+            </View>
+          ))}
+          <TouchableOpacity
+            style={styles.addMoreButton}
+            onPress={() => {
+              Keyboard.dismiss();
+              setShowIllustratorInput(true);
+              setIllustratorText('');
+            }}
+          >
+            <Text style={styles.addMoreText}>+ Add</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* Illustrator inline input */}
       {showIllustratorInput && (
         <View style={styles.illustratorInputRow}>
           <View style={styles.illustratorInputContainer}>
@@ -291,7 +340,7 @@ export function CardPickerFilters({ filters, onFiltersChange }: CardPickerFilter
               autoCorrect={false}
               autoFocus
               returnKeyType="search"
-              onSubmitEditing={handleIllustratorSubmit}
+              onSubmitEditing={handleIllustratorAdd}
             />
             {illustratorText.length > 0 && (
               <TouchableOpacity
@@ -302,8 +351,8 @@ export function CardPickerFilters({ filters, onFiltersChange }: CardPickerFilter
               </TouchableOpacity>
             )}
           </View>
-          <TouchableOpacity style={styles.illustratorApplyButton} onPress={handleIllustratorSubmit}>
-            <Text style={styles.illustratorApplyText}>Apply</Text>
+          <TouchableOpacity style={styles.illustratorApplyButton} onPress={handleIllustratorAdd}>
+            <Text style={styles.illustratorApplyText}>Add</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.illustratorCancelButton}
@@ -317,30 +366,30 @@ export function CardPickerFilters({ filters, onFiltersChange }: CardPickerFilter
       {/* Searchable list pickers (modals) */}
       <SearchableListPicker
         visible={activePicker === 'era'}
-        title="Select Era"
+        title="Select Eras"
         items={eraItems}
-        selectedId={filters.era}
-        onSelect={handleEraSelect}
+        selectedIds={eraSelectedIds}
+        onDone={handleEraDone}
         onClose={() => setActivePicker(null)}
         searchPlaceholder="Search eras..."
       />
 
       <SearchableListPicker
         visible={activePicker === 'set'}
-        title={filters.era ? `Sets in ${filters.era}` : 'Select Set'}
+        title={filters.eras && filters.eras.length > 0 ? 'Select Sets' : 'Select Sets (all eras)'}
         items={setItems}
-        selectedId={filters.setId}
-        onSelect={handleSetSelect}
+        selectedIds={setSelectedIds}
+        onDone={handleSetDone}
         onClose={() => setActivePicker(null)}
         searchPlaceholder="Search sets..."
       />
 
       <SearchableListPicker
         visible={activePicker === 'rarity'}
-        title="Select Rarity"
+        title="Select Rarities"
         items={RARITY_OPTIONS}
-        selectedId={filters.rarity}
-        onSelect={handleRaritySelect}
+        selectedIds={raritySelectedIds}
+        onDone={handleRarityDone}
         onClose={() => setActivePicker(null)}
         searchPlaceholder="Search rarities..."
       />
@@ -359,13 +408,12 @@ interface FilterChipProps {
 
 /**
  * A single filter chip. Gray when inactive, blue when active.
- * Shows the selected value and an X button to clear.
+ * Shows the selected value (or count) and an X button to clear.
  */
 function FilterChip({ label, value, onPress, onClear }: FilterChipProps) {
   const isActive = !!value;
 
   if (isActive) {
-    // Active chip: label area opens picker, X button clears
     return (
       <View style={[styles.chip, styles.chipActive]}>
         <TouchableOpacity onPress={onPress} activeOpacity={0.7} style={styles.chipLabelTouch}>
@@ -384,7 +432,6 @@ function FilterChip({ label, value, onPress, onClear }: FilterChipProps) {
     );
   }
 
-  // Inactive chip: whole chip opens picker
   return (
     <TouchableOpacity
       style={styles.chip}
@@ -469,6 +516,47 @@ const styles = StyleSheet.create({
     fontSize: typography.sm,
     color: colors.error,
     fontWeight: typography.medium,
+  },
+
+  // -- Illustrator tags row --
+  tagsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.sm,
+    gap: spacing.xs,
+  },
+  tag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#EBF5FF',
+    borderRadius: borderRadius.full,
+    borderWidth: 1,
+    borderColor: colors.primary,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 3,
+  },
+  tagText: {
+    fontSize: typography.xs,
+    color: colors.primary,
+    fontWeight: typography.medium,
+    maxWidth: 120,
+  },
+  tagRemove: {
+    fontSize: 10,
+    color: colors.primary,
+    fontWeight: typography.bold,
+    marginLeft: 4,
+  },
+  addMoreButton: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 3,
+  },
+  addMoreText: {
+    fontSize: typography.xs,
+    color: colors.primary,
+    fontWeight: typography.semibold,
   },
 
   // -- Illustrator inline input --

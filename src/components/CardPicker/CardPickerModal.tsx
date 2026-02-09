@@ -115,7 +115,12 @@ export function CardPickerModal({
   });
 
   // Check if any filters are active (for empty state message)
-  const hasActiveFilters = !!(filters.era || filters.setId || filters.rarity || filters.illustrator);
+  const hasActiveFilters = !!(
+    (filters.eras && filters.eras.length > 0) ||
+    (filters.setIds && filters.setIds.length > 0) ||
+    (filters.rarities && filters.rarities.length > 0) ||
+    (filters.illustrators && filters.illustrators.length > 0)
+  );
 
   /**
    * Dismiss keyboard when scrolling results

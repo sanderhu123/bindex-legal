@@ -36,11 +36,11 @@ export interface SearchableListPickerProps {
   title: string;
   /** Array of items to choose from */
   items: ListPickerItem[];
-  /** Currently selected item ID (or undefined for no selection) */
-  selectedId?: string;
-  /** Called when the user selects an item */
-  onSelect: (item: ListPickerItem) => void;
-  /** Called when the picker is closed without selecting */
+  /** Set of currently selected item IDs (supports multi-select) */
+  selectedIds: Set<string>;
+  /** Called when the user taps Done — receives the final set of selected IDs */
+  onDone: (selectedIds: Set<string>) => void;
+  /** Called when the picker is closed via Cancel or backdrop */
   onClose: () => void;
   /** Placeholder text for the search input */
   searchPlaceholder?: string;
@@ -50,26 +50,36 @@ export interface SearchableListPickerProps {
 const ITEM_HEIGHT = 52;
 
 /**
- * A modal with a search bar and scrollable list for picking one item.
+ * A modal with a search bar and scrollable list for picking multiple items.
  * Used for Era, Set, and Rarity filters in the CardPicker.
  *
  * Features:
- * - Text input at the top filters the list instantly (no API call)
- * - Scrollable list below shows matching items
- * - Tap an item to select and close
- * - Currently selected item is highlighted
- * - "Clear" option to remove the filter
+ * - Multi-select: tap items to toggle checkmarks
+ * - Text input filters the list instantly (no API call)
+ * - "Done" button confirms and closes
+ * - "Clear all" removes all selections
+ * - Selected count shown in header
  */
 export function SearchableListPicker({
   visible,
   title,
   items,
-  selectedId,
-  onSelect,
+  selectedIds,
+  onDone,
   onClose,
   searchPlaceholder = 'Search...',
 }: SearchableListPickerProps) {
   const [searchText, setSearchText] = useState('');
+  // Local selection state so changes aren't applied until "Done"
+  const [localSelected, setLocalSelected] = useState<Set<string>>(new Set(selectedIds));
+
+  // Sync local state when modal opens with new selectedIds
+  React.useEffect(() => {
+    if (visible) {
+      setLocalSelected(new Set(selectedIds));
+      setSearchText('');
+    }
+  }, [visible, selectedIds]);
 
   // Filter items based on search text (instant, local filtering)
   const filteredItems = useMemo(() => {
@@ -82,38 +92,50 @@ export function SearchableListPicker({
     );
   }, [items, searchText]);
 
-  // Reset search text when modal closes
+  // Handle closing without saving
   const handleClose = useCallback(() => {
     setSearchText('');
     onClose();
   }, [onClose]);
 
-  // Handle selecting an item
-  const handleSelect = useCallback(
-    (item: ListPickerItem) => {
-      setSearchText('');
-      onSelect(item);
-    },
-    [onSelect]
-  );
-
-  // Handle clearing the selection
-  const handleClear = useCallback(() => {
+  // Handle Done — save selections
+  const handleDone = useCallback(() => {
     setSearchText('');
-    // Pass a special "clear" item with empty id
-    onSelect({ id: '', label: '' });
-  }, [onSelect]);
+    onDone(localSelected);
+  }, [localSelected, onDone]);
 
-  // Render a single list item
+  // Toggle an item selection
+  const handleToggle = useCallback((itemId: string) => {
+    setLocalSelected(prev => {
+      const next = new Set(prev);
+      if (next.has(itemId)) {
+        next.delete(itemId);
+      } else {
+        next.add(itemId);
+      }
+      return next;
+    });
+  }, []);
+
+  // Clear all selections
+  const handleClearAll = useCallback(() => {
+    setLocalSelected(new Set());
+  }, []);
+
+  // Render a single list item with a checkbox
   const renderItem = useCallback(
     ({ item }: { item: ListPickerItem }) => {
-      const isSelected = item.id === selectedId;
+      const isSelected = localSelected.has(item.id);
       return (
         <TouchableOpacity
           style={[styles.listItem, isSelected && styles.listItemSelected]}
-          onPress={() => handleSelect(item)}
+          onPress={() => handleToggle(item.id)}
           activeOpacity={0.7}
         >
+          {/* Checkbox */}
+          <View style={[styles.checkbox, isSelected && styles.checkboxSelected]}>
+            {isSelected && <Text style={styles.checkboxIcon}>✓</Text>}
+          </View>
           <View style={styles.listItemContent}>
             <Text
               style={[styles.listItemLabel, isSelected && styles.listItemLabelSelected]}
@@ -127,11 +149,10 @@ export function SearchableListPicker({
               </Text>
             ) : null}
           </View>
-          {isSelected && <Text style={styles.checkmark}>✓</Text>}
         </TouchableOpacity>
       );
     },
-    [selectedId, handleSelect]
+    [localSelected, handleToggle]
   );
 
   // getItemLayout for fixed-height items
@@ -143,6 +164,8 @@ export function SearchableListPicker({
     }),
     []
   );
+
+  const selectionCount = localSelected.size;
 
   return (
     <Modal
@@ -170,10 +193,17 @@ export function SearchableListPicker({
             <TouchableOpacity onPress={handleClose} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
               <Text style={styles.cancelText}>Cancel</Text>
             </TouchableOpacity>
-            <Text style={styles.title} numberOfLines={1}>
-              {title}
-            </Text>
-            <TouchableOpacity onPress={handleClose} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+            <View style={styles.titleContainer}>
+              <Text style={styles.title} numberOfLines={1}>
+                {title}
+              </Text>
+              {selectionCount > 0 && (
+                <Text style={styles.selectionCount}>
+                  {selectionCount} selected
+                </Text>
+              )}
+            </View>
+            <TouchableOpacity onPress={handleDone} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
               <Text style={styles.doneText}>Done</Text>
             </TouchableOpacity>
           </View>
@@ -204,12 +234,12 @@ export function SearchableListPicker({
             </View>
           </View>
 
-          {/* Clear filter button (if something is currently selected) */}
-          {selectedId ? (
-            <TouchableOpacity style={styles.clearFilterButton} onPress={handleClear}>
-              <Text style={styles.clearFilterText}>Clear filter</Text>
+          {/* Clear all button (if items are selected) */}
+          {selectionCount > 0 && (
+            <TouchableOpacity style={styles.clearFilterButton} onPress={handleClearAll}>
+              <Text style={styles.clearFilterText}>Clear all selections</Text>
             </TouchableOpacity>
-          ) : null}
+          )}
 
           {/* List */}
           <FlatList
@@ -221,6 +251,7 @@ export function SearchableListPicker({
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode="on-drag"
             getItemLayout={getItemLayout}
+            extraData={localSelected}
             ListEmptyComponent={
               <View style={styles.emptyContainer}>
                 <Text style={styles.emptyText}>
@@ -284,12 +315,21 @@ const styles = StyleSheet.create({
     fontWeight: typography.medium,
     minWidth: 60,
   },
+  titleContainer: {
+    flex: 1,
+    alignItems: 'center',
+  },
   title: {
     fontSize: typography.lg,
     fontWeight: typography.semibold,
     color: colors.text,
     textAlign: 'center',
-    flex: 1,
+  },
+  selectionCount: {
+    fontSize: typography.xs,
+    color: colors.primary,
+    fontWeight: typography.medium,
+    marginTop: 2,
   },
   doneText: {
     fontSize: typography.base,
@@ -357,6 +397,25 @@ const styles = StyleSheet.create({
   listItemSelected: {
     backgroundColor: '#EBF5FF',
   },
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 4,
+    borderWidth: 2,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: spacing.sm,
+  },
+  checkboxSelected: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  checkboxIcon: {
+    fontSize: 14,
+    color: '#fff',
+    fontWeight: typography.bold,
+  },
   listItemContent: {
     flex: 1,
   },
@@ -373,12 +432,6 @@ const styles = StyleSheet.create({
     fontSize: typography.xs,
     color: colors.textTertiary,
     marginTop: 2,
-  },
-  checkmark: {
-    fontSize: 18,
-    color: colors.primary,
-    fontWeight: typography.bold,
-    marginLeft: spacing.sm,
   },
   emptyContainer: {
     padding: spacing.xl,

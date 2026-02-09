@@ -5,17 +5,17 @@ export type CardVariant = 'base' | 'holo' | 'reverse-holo' | 'poke-ball' | 'mast
 
 /**
  * Filters for card search in the CardPicker (add card module).
- * All fields are optional — only active filters are applied.
+ * All fields are optional arrays — multiple values per filter are supported.
  */
 export interface CardSearchFilters {
-  /** Era name (e.g., "Scarlet & Violet"). Used for client-side filtering. */
-  era?: string;
-  /** TCGDEX set ID (e.g., "sv08"). Sent to API as set.id filter. */
-  setId?: string;
-  /** Rarity string (e.g., "Rare"). Sent to API as rarity filter. */
-  rarity?: string;
-  /** Illustrator name (free text). Sent to API as illustrator filter. */
-  illustrator?: string;
+  /** Era names (e.g., ["Scarlet & Violet", "Sword & Shield"]). Client-side filtering. */
+  eras?: string[];
+  /** TCGDEX set IDs (e.g., ["sv08", "sv09"]). Sent to API as set.id filter. */
+  setIds?: string[];
+  /** Rarity strings (e.g., ["Rare", "Ultra Rare"]). Sent to API or client-side filtered. */
+  rarities?: string[];
+  /** Illustrator names (e.g., ["Mitsuhiro Arita"]). Sent to API as illustrator filter. */
+  illustrators?: string[];
 }
 
 /**

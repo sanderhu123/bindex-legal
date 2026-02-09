@@ -107,7 +107,12 @@ export function useCardPicker(options?: UseCardPickerOptions): UseCardPickerRetu
     const sanitizedQuery = sanitizeSearchQuery(searchQuery);
     
     // Check if any filters are active
-    const hasActiveFilters = activeFilters.era || activeFilters.setId || activeFilters.rarity || activeFilters.illustrator;
+    const hasActiveFilters = (
+      (activeFilters.eras && activeFilters.eras.length > 0) ||
+      (activeFilters.setIds && activeFilters.setIds.length > 0) ||
+      (activeFilters.rarities && activeFilters.rarities.length > 0) ||
+      (activeFilters.illustrators && activeFilters.illustrators.length > 0)
+    );
     
     // Skip if no query AND no filters
     if (!sanitizedQuery && !hasActiveFilters) {

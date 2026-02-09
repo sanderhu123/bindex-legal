@@ -72,12 +72,11 @@ export default function OnboardingScreen() {
   };
 
   // Check if variant placement step is needed for master-set mode.
-  // Only needed when user selected regular + at least one other variant type.
+  // Needed when user selected more than one variant type (e.g. Regular + Reverse Holo,
+  // or Pokeball Holo + Masterball Holo, etc.)
   const needsVariantPlacement = (): boolean => {
     if (state.collectionMode !== 'master-set') return false;
-    const hasBase = state.selectedVariants.includes('base');
-    const hasOtherVariants = state.selectedVariants.some(v => v !== 'base');
-    return hasBase && hasOtherVariants;
+    return state.selectedVariants.length > 1;
   };
 
   const handleBack = () => {

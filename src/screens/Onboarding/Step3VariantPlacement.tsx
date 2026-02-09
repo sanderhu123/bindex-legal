@@ -12,7 +12,7 @@ export default function Step3VariantPlacement({ value, onChange }: Step3VariantP
     {
       key: 'grouped',
       label: 'Grouped',
-      description: 'Show variants right after their base card',
+      description: 'Show variants right after their regular card',
     },
     {
       key: 'end',

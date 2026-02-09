@@ -71,11 +71,21 @@ export default function OnboardingScreen() {
     );
   };
 
+  // Check if variant placement step is needed for master-set mode.
+  // Only needed when user selected regular + at least one other variant type.
+  const needsVariantPlacement = (): boolean => {
+    if (state.collectionMode !== 'master-set') return false;
+    const hasBase = state.selectedVariants.includes('base');
+    const hasOtherVariants = state.selectedVariants.some(v => v !== 'base');
+    return hasBase && hasOtherVariants;
+  };
+
   const handleBack = () => {
     if (currentStep > 1) {
       // For custom mode: step 1 → 2 (layout) → 3 (binder name)
       // For region mode: step 1 → 2 → 3 (art style) → 4 (layout) → 5 (binder name)
       // For master-set mode: step 1 → 2 → 3 (variants) → 4 (variant placement) → 5 (layout) → 6 (binder name)
+      //   (step 4 is skipped if variant placement is not needed)
       if (state.collectionMode === 'custom') {
         // Custom mode: simple step-by-step back
         setCurrentStep(currentStep - 1);
@@ -85,6 +95,8 @@ export default function OnboardingScreen() {
         setCurrentStep(3); // Go back from step 4 (layout) to step 3 (art style)
       } else if (state.collectionMode === 'master-set' && currentStep === 6) {
         setCurrentStep(5); // Go back from step 6 (binder name) to step 5 (layout)
+      } else if (state.collectionMode === 'master-set' && currentStep === 5 && !needsVariantPlacement()) {
+        setCurrentStep(3); // Skip step 4 (variant placement) when not needed
       } else {
         setCurrentStep(currentStep - 1);
       }
@@ -93,17 +105,20 @@ export default function OnboardingScreen() {
     }
   };
 
-  // Calculate total steps (3 for custom, 5 for region, 6 for master-set)
+  // Calculate total steps (3 for custom, 5 for region, 5 or 6 for master-set)
   const getTotalSteps = (): number => {
     if (state.collectionMode === 'custom') return 3;
     if (state.collectionMode === 'region') return 5;
-    return 6; // master-set
+    return needsVariantPlacement() ? 6 : 5; // master-set (skip variant placement step if not needed)
   };
 
   // Get the actual step number for display
   const getActualStep = (): number => {
-    // For region mode: step 1 → 1, step 2 → 2, step 3 → 3, step 4 → 4, step 5 → 5
-    // For master-set mode: step 1 → 1, step 2 → 2, step 3 → 3, step 4 → 4, step 5 → 5, step 6 → 6
+    // When variant placement is skipped for master-set, internal steps jump 3 → 5,
+    // so adjust display: step 5 shows as 4, step 6 shows as 5
+    if (state.collectionMode === 'master-set' && !needsVariantPlacement() && currentStep > 4) {
+      return currentStep - 1;
+    }
     return currentStep;
   };
 
@@ -156,14 +171,21 @@ export default function OnboardingScreen() {
       return;
     }
 
-    // Determine the last step based on collection mode (3 for custom, 5 for region, 6 for master-set)
-    const lastStep = getTotalSteps();
+    // The last internal step number (master-set always uses step 6 for binder name)
+    const lastInternalStep = state.collectionMode === 'custom' ? 3
+      : state.collectionMode === 'region' ? 5
+      : 6; // master-set
     
-    if (currentStep === lastStep) {
+    if (currentStep === lastInternalStep) {
       // Last step - finish
       handleFinish();
-    } else if (currentStep < lastStep) {
-      setCurrentStep(currentStep + 1);
+    } else {
+      let nextStep = currentStep + 1;
+      // Skip variant placement (step 4) for master-set when not needed
+      if (state.collectionMode === 'master-set' && nextStep === 4 && !needsVariantPlacement()) {
+        nextStep = 5;
+      }
+      setCurrentStep(nextStep);
     }
   };
 
@@ -387,7 +409,9 @@ export default function OnboardingScreen() {
           disabled={!canProceedToNextStep()}
         >
           <Text style={styles.nextButtonText}>
-            {currentStep === getTotalSteps() ? 'Create Binder' : 'Next'}
+            {currentStep === (state.collectionMode === 'custom' ? 3 : state.collectionMode === 'region' ? 5 : 6)
+              ? 'Create Binder'
+              : 'Next'}
           </Text>
         </TouchableOpacity>
       </View>

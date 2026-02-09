@@ -17,6 +17,7 @@ import {
 } from '../../services/supabase/cards';
 import { getCardsBySet, getCardsByRegion, getCardById, getPokemonImageUrl, type Region } from '../../services/api/pokemonApi';
 import { getAllSelectedCardsForBinder, setSelectedCardForPokemon } from '../../services/supabase/regionCards';
+import { getCardPositionsForBinder } from '../../services/supabase/binderPositions';
 import { startBackgroundPrefetch } from '../../services/imagePrefetch';
 import { recordBinderAccess } from '../../services/cacheManager';
 import type { Binder, Card } from '../../types';
@@ -697,6 +698,46 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
             }
 
             cardsWithOwnership = [...baseCards, ...variants];
+          }
+        }
+
+        // Check for saved positions from binder edit (Step 34I)
+        if (binder.collectionMode !== 'custom') {
+          try {
+            const dbPositions = await getCardPositionsForBinder(binder.id);
+            if (dbPositions.length > 0) {
+              console.log('[BinderDetail] Found', dbPositions.length, 'saved positions from edit view');
+
+              // Build a lookup map from card ID to card data
+              const cardLookup = new Map<string, CardWithOwnership>();
+              cardsWithOwnership.forEach(card => {
+                cardLookup.set(card.id, card);
+              });
+
+              // Create a new array sorted by saved slot positions
+              const reordered: CardWithOwnership[] = [];
+              const sortedPositions = [...dbPositions].sort((a, b) => a.slotIndex - b.slotIndex);
+
+              for (const pos of sortedPositions) {
+                if (pos.cardId) {
+                  const card = cardLookup.get(pos.cardId);
+                  if (card) {
+                    reordered.push(card);
+                    cardLookup.delete(pos.cardId); // Prevent duplicates
+                  }
+                }
+              }
+
+              // Any remaining cards (not in saved positions) go at the end
+              cardLookup.forEach(card => {
+                reordered.push(card);
+              });
+
+              cardsWithOwnership = reordered;
+              console.log('[BinderDetail] Applied saved card order:', reordered.length, 'cards');
+            }
+          } catch (dbErr) {
+            console.warn('[BinderDetail] Could not load saved positions, using default order:', dbErr);
           }
         }
 

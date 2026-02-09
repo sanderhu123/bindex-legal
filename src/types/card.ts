@@ -4,6 +4,21 @@
 export type CardVariant = 'base' | 'holo' | 'reverse-holo' | 'poke-ball' | 'master-ball';
 
 /**
+ * Filters for card search in the CardPicker (add card module).
+ * All fields are optional — only active filters are applied.
+ */
+export interface CardSearchFilters {
+  /** Era name (e.g., "Scarlet & Violet"). Used for client-side filtering. */
+  era?: string;
+  /** TCGDEX set ID (e.g., "sv08"). Sent to API as set.id filter. */
+  setId?: string;
+  /** Rarity string (e.g., "Rare"). Sent to API as rarity filter. */
+  rarity?: string;
+  /** Illustrator name (free text). Sent to API as illustrator filter. */
+  illustrator?: string;
+}
+
+/**
  * Card interface representing a Pokémon TCG card
  */
 export interface Card {

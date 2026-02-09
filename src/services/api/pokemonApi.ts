@@ -1506,6 +1506,13 @@ export interface CardSearchOptions {
    * but will still match "Pidgeot EX", "Pidgeot V", etc.
    */
   exactMatch?: boolean;
+  /** Optional filters for era, set, rarity, illustrator */
+  filters?: {
+    era?: string;
+    setId?: string;
+    rarity?: string;
+    illustrator?: string;
+  };
 }
 
 /**
@@ -1565,23 +1572,31 @@ export async function searchCardsByName(
   query: string,
   options?: CardSearchOptions
 ): Promise<Card[]> {
-  const { limit = 50, offset = 0, pokemonOnly = false, exactMatch = false } = options || {};
+  const { limit = 50, offset = 0, pokemonOnly = false, exactMatch = false, filters } = options || {};
   
-  console.log('[28A] searchCardsByName() called:', { query, limit, offset, pokemonOnly, exactMatch });
+  console.log('[28A] searchCardsByName() called:', { query, limit, offset, pokemonOnly, exactMatch, filters });
   const startTime = performance.now();
   
-  // Validate query
-  if (!query || query.trim().length === 0) {
-    console.log('[28A] Empty query, returning empty array');
+  // Allow empty query when filters are active (browse by filter only)
+  const hasFilters = filters && (filters.era || filters.setId || filters.rarity || filters.illustrator);
+  
+  // Validate: need at least a query or a filter
+  if ((!query || query.trim().length === 0) && !hasFilters) {
+    console.log('[28A] Empty query and no filters, returning empty array');
     return [];
   }
   
   // Sanitize query - remove special characters that could cause issues
-  const sanitizedQuery = query.trim().toLowerCase();
+  const sanitizedQuery = query ? query.trim().toLowerCase() : '';
+  
+  // Build a cache key that includes filters so different filter combos are cached separately
+  const filterKey = filters 
+    ? `-era:${filters.era || ''}-set:${filters.setId || ''}-rar:${filters.rarity || ''}-ill:${filters.illustrator || ''}`
+    : '';
   
   // Create cache key for the FULL sorted list (does not include limit/offset)
   // This allows stable pagination from the same sorted list
-  const sortedCacheKey = `sorted-search-${sanitizedQuery}-${pokemonOnly}-${exactMatch}`;
+  const sortedCacheKey = `sorted-search-${sanitizedQuery}-${pokemonOnly}-${exactMatch}${filterKey}`;
   
   // Step 1: Check if we have a cached sorted list for this query
   const cachedSorted = sortedSearchCache.get(sortedCacheKey);
@@ -1617,15 +1632,30 @@ export async function searchCardsByName(
   
   // Step 3: Fetch ALL results, sort them, cache them, then return requested page
   // We use a deduplicated request for the full fetch
-  const fullFetchCacheKey = `full-fetch-${sanitizedQuery}-${pokemonOnly}`;
+  const fullFetchCacheKey = `full-fetch-${sanitizedQuery}-${pokemonOnly}${filterKey}`;
   
   return deduplicateRequest(fullFetchCacheKey, async () => {
     try {
       const requestStartTime = performance.now();
       console.log('[28A] Fetching ALL results for stable sorting...');
       
-      // Direct API call with name filter (fetches ALL matching cards)
-      const apiUrl = `https://api.tcgdex.net/v2/en/cards?name=${encodeURIComponent(sanitizedQuery)}`;
+      // Build API URL with query params (name + server-side filters)
+      const params = new URLSearchParams();
+      if (sanitizedQuery) {
+        params.append('name', sanitizedQuery);
+      }
+      // Add server-side filters (rarity, illustrator, set)
+      if (filters?.rarity) {
+        params.append('rarity', `eq:${filters.rarity}`);
+      }
+      if (filters?.illustrator) {
+        params.append('illustrator', `like:${filters.illustrator}`);
+      }
+      if (filters?.setId) {
+        params.append('set.id', `eq:${filters.setId}`);
+      }
+      
+      const apiUrl = `https://api.tcgdex.net/v2/en/cards?${params.toString()}`;
       
       console.log('[28A] Fetching from API URL:', apiUrl);
       
@@ -1724,9 +1754,35 @@ export async function searchCardsByName(
       
       const transformDuration = performance.now() - transformStartTime;
       
+      // Client-side era filter: keep only cards whose set belongs to the selected era
+      // (The API doesn't support era filtering directly, so we do it here)
+      let eraFilteredCards = allTransformedCards;
+      if (filters?.era) {
+        // Get set IDs for this era from our hard-coded data
+        const eraSetDefs = getSetsByEra(filters.era);
+        const eraSetIds = new Set(eraSetDefs.map(s => s.id.toLowerCase()));
+        const eraSetNames = new Set(eraSetDefs.map(s => s.name.toLowerCase()));
+        
+        eraFilteredCards = allTransformedCards.filter(card => {
+          // Check by set ID (extracted from card.id, e.g., "sv08-25" → "sv08")
+          const cardSetId = (card.id?.split('-')[0] || '').toLowerCase();
+          if (eraSetIds.has(cardSetId)) return true;
+          // Also check by set name
+          if (card.set && eraSetNames.has(card.set.toLowerCase())) return true;
+          return false;
+        });
+        
+        console.log('[28A] Filtered by era:', {
+          era: filters.era,
+          before: allTransformedCards.length,
+          after: eraFilteredCards.length,
+          eraSetCount: eraSetDefs.length,
+        });
+      }
+      
       // SORT ALL cards by set release date (newest first) ONCE
       const sortStartTime = performance.now();
-      const allSortedCards = sortCardsBySetDate(allTransformedCards);
+      const allSortedCards = sortCardsBySetDate(eraFilteredCards);
       const sortDuration = performance.now() - sortStartTime;
       
       console.log('[28A] All cards sorted by release date:', {

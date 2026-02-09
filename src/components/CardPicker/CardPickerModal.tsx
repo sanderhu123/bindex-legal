@@ -16,6 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import type { Card } from '../../types';
 import { useCardPicker } from '../../hooks/useCardPicker';
 import { CardSearchResults } from './CardSearchResults';
+import { CardPickerFilters } from './CardPickerFilters';
 import { colors, spacing, typography, borderRadius, shadows } from '../../constants/theme';
 
 /** Modal height as percentage of screen (85%) */
@@ -55,8 +56,9 @@ export interface CardPickerModalProps {
  * - Region card selection (pick TCG card for Pokémon slot)
  * 
  * Features:
- * - Bottom sheet style (slides up, covers ~80% of screen)
+ * - Bottom sheet style (slides up, covers ~85% of screen)
  * - Debounced search (300ms delay)
+ * - Filter chips for Era, Set, Rarity, Illustrator
  * - List view showing card images and details
  * - Loading, empty, and error states
  * - Tap backdrop or Cancel button to close
@@ -81,7 +83,7 @@ export function CardPickerModal({
   exactMatch,
 }: CardPickerModalProps) {
   // Get dynamic screen dimensions for responsive layout
-  const { height: screenHeight, width: screenWidth } = useWindowDimensions();
+  const { height: screenHeight } = useWindowDimensions();
   
   // Ref to the search input for managing focus
   const searchInputRef = useRef<TextInput>(null);
@@ -90,7 +92,7 @@ export function CardPickerModal({
   // This prevents "Pidgeot" from matching "Pidgeotto" cards
   const useExactMatch = exactMatch ?? (initialQuery.length > 0);
   
-  // Use the card picker hook
+  // Use the card picker hook (includes filter state)
   const {
     query,
     setQuery,
@@ -102,6 +104,8 @@ export function CardPickerModal({
     loadMore,
     clear,
     search,
+    filters,
+    setFilters,
   } = useCardPicker({
     debounceMs: 300,
     initialQuery,
@@ -109,6 +113,9 @@ export function CardPickerModal({
     pageSize: 30,
     exactMatch: useExactMatch,
   });
+
+  // Check if any filters are active (for empty state message)
+  const hasActiveFilters = !!(filters.era || filters.setId || filters.rarity || filters.illustrator);
 
   /**
    * Dismiss keyboard when scrolling results
@@ -164,6 +171,20 @@ export function CardPickerModal({
 
   // Calculate modal height based on screen size
   const modalHeight = screenHeight * MODAL_HEIGHT_RATIO;
+
+  // Build the empty state message
+  const emptyMessage = (() => {
+    if (query.length > 0 && hasActiveFilters) {
+      return `No cards found for "${query}" with the selected filters`;
+    }
+    if (query.length > 0) {
+      return `No cards found for "${query}"`;
+    }
+    if (hasActiveFilters) {
+      return 'No cards match the selected filters';
+    }
+    return 'Enter a name or select filters to search';
+  })();
 
   return (
     <Modal
@@ -230,7 +251,7 @@ export function CardPickerModal({
                 <TouchableOpacity
                   style={styles.clearButton}
                   onPress={() => {
-                    clear();
+                    setQuery('');
                     searchInputRef.current?.focus();
                   }}
                   hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
@@ -240,6 +261,12 @@ export function CardPickerModal({
               )}
             </View>
           </View>
+
+          {/* Filter Chips */}
+          <CardPickerFilters
+            filters={filters}
+            onFiltersChange={setFilters}
+          />
 
           {/* Results */}
           <View style={styles.resultsContainer}>
@@ -253,11 +280,7 @@ export function CardPickerModal({
               onLoadMore={loadMore}
               onScrollBegin={handleScrollBegin}
               onRetry={search}
-              emptyMessage={
-                query.length > 0
-                  ? `No cards found for "${query}"`
-                  : 'Enter a Pokémon name to search'
-              }
+              emptyMessage={emptyMessage}
             />
           </View>
         </SafeAreaView>
@@ -366,4 +389,3 @@ const styles = StyleSheet.create({
 });
 
 export default CardPickerModal;
-

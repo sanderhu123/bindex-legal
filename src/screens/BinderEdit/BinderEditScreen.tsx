@@ -17,6 +17,7 @@ import { getBinderById } from '../../services/supabase/binders';
 import { getBinderCardsWithPositions } from '../../services/supabase/cards';
 import { getCardsBySet, getCardsByRegion, getCardById, type Region } from '../../services/api/pokemonApi';
 import { getAllSelectedCardsForBinder } from '../../services/supabase/regionCards';
+import { getCardPositionsForBinder, saveCardPositionsForBinder } from '../../services/supabase/binderPositions';
 import { CardSlot, CardPlaceholder, SelectedCardBar, InsertButton, type PlaceholderCard } from '../../components/BinderEdit';
 import type { DragStartData } from '../../components/BinderEdit/CardSlot';
 import PageNavigator from '../../components/Binder/PageNavigator';
@@ -407,6 +408,57 @@ export default function BinderEditScreen() {
         });
       }
 
+      // Check for saved positions in database (user rearrangements)
+      try {
+        const dbPositions = await getCardPositionsForBinder(binderData.id);
+        if (dbPositions.length > 0) {
+          console.log('[BinderEdit] Found', dbPositions.length, 'saved positions in database');
+
+          // Build a lookup map from all loaded cards (API + custom)
+          const cardLookup = new Map<string, { name: string; imageUrl?: string }>();
+          positions.forEach(p => {
+            if (p.cardId) {
+              cardLookup.set(p.cardId, { name: p.cardName || '', imageUrl: p.imageUrl });
+            }
+          });
+
+          // Reset all positions to empty
+          for (let i = 0; i < totalSlotCount; i++) {
+            positions[i] = { cardId: null, cardName: undefined, imageUrl: undefined, slotIndex: i };
+          }
+
+          // Place cards at their saved positions
+          for (const saved of dbPositions) {
+            if (saved.slotIndex < totalSlotCount && saved.cardId) {
+              const cardInfo = cardLookup.get(saved.cardId);
+              if (cardInfo) {
+                positions[saved.slotIndex] = {
+                  slotIndex: saved.slotIndex,
+                  cardId: saved.cardId,
+                  cardName: cardInfo.name,
+                  imageUrl: cardInfo.imageUrl,
+                };
+              } else {
+                // Card not in lookup (maybe added from picker), fetch from API
+                try {
+                  const card = await getCardById(saved.cardId);
+                  if (card) {
+                    positions[saved.slotIndex] = {
+                      slotIndex: saved.slotIndex,
+                      cardId: card.id,
+                      cardName: card.name,
+                      imageUrl: card.imageUrl,
+                    };
+                  }
+                } catch { /* skip this card */ }
+              }
+            }
+          }
+        }
+      } catch (dbErr) {
+        console.warn('[BinderEdit] Could not load saved positions, using defaults:', dbErr);
+      }
+
       setCardPositions(positions);
       setOriginalPositions(positions.map(p => ({ ...p })));
       setLoading(false);
@@ -451,9 +503,18 @@ export default function BinderEditScreen() {
   };
 
   const saveAndExit = async () => {
-    // TODO: Step 34I - Save to database
-    console.log('[BinderEdit] Saving positions...');
-    navigation.goBack();
+    try {
+      console.log('[BinderEdit] Saving positions to database...');
+      await saveCardPositionsForBinder(binderId, cardPositions);
+      setOriginalPositions(cardPositions.map(p => ({ ...p })));
+      setHasChanges(false);
+      setUndoStack([]);
+      console.log('[BinderEdit] Positions saved successfully');
+      navigation.goBack();
+    } catch (err) {
+      console.error('[BinderEdit] Error saving positions:', err);
+      Alert.alert('Error', 'Failed to save changes. Please try again.');
+    }
   };
 
   const handleBack = () => {

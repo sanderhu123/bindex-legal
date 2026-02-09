@@ -305,6 +305,17 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
                 if (card) {
                   reordered.push(card);
                   cardLookup.delete(pos.cardId);
+                } else {
+                  // Card not in lookup (replaced via edit mode) — fetch from API
+                  try {
+                    const fetchedCard = await getCardById(pos.cardId);
+                    if (fetchedCard) {
+                      reordered.push({
+                        ...fetchedCard,
+                        isOwned: latestBinder.cardIds.includes(fetchedCard.id),
+                      } as CardWithOwnership);
+                    }
+                  } catch { /* skip card */ }
                 }
               }
             }
@@ -346,6 +357,17 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
                 if (card) {
                   reordered.push(card);
                   cardLookup.delete(pos.cardId);
+                } else {
+                  // Card not in lookup (replaced via edit mode) — fetch from API
+                  try {
+                    const fetchedCard = await getCardById(pos.cardId);
+                    if (fetchedCard) {
+                      reordered.push({
+                        ...fetchedCard,
+                        isOwned: latestBinder.cardIds.includes(fetchedCard.id),
+                      } as CardWithOwnership);
+                    }
+                  } catch { /* skip card */ }
                 }
               }
             }
@@ -781,6 +803,17 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
                   if (card) {
                     reordered.push(card);
                     cardLookup.delete(pos.cardId); // Prevent duplicates
+                  } else {
+                    // Card not in lookup (replaced via edit mode) — fetch from API
+                    try {
+                      const fetchedCard = await getCardById(pos.cardId);
+                      if (fetchedCard) {
+                        reordered.push({
+                          ...fetchedCard,
+                          isOwned: binder.cardIds?.includes(fetchedCard.id) ?? false,
+                        } as CardWithOwnership);
+                      }
+                    } catch { /* skip card */ }
                   }
                 }
               }

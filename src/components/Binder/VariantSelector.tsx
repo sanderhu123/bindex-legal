@@ -12,6 +12,7 @@ interface VariantSelectorProps {
 }
 
 const AVAILABLE_VARIANTS: { key: string; label: string }[] = [
+  { key: 'base', label: 'Regular' },
   { key: 'reverse-holo', label: 'Reverse Holo' },
   { key: 'poke-ball', label: 'Poké Ball Holo' },
   { key: 'master-ball', label: 'Master Ball Holo' },

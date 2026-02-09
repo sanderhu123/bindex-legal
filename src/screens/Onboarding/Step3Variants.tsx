@@ -14,10 +14,10 @@ export default function Step3Variants({
   selectedVariants,
   onChange,
 }: Step3VariantsProps) {
-  // Get available variants for the selected set (excluding 'base' which is always included)
+  // Get available variants for the selected set
   const availableVariants = selectedSetId 
-    ? getAvailableVariantsForSet(selectedSetId).filter(v => v !== 'base')
-    : ['reverse-holo']; // Fallback to just reverse-holo if no set selected
+    ? getAvailableVariantsForSet(selectedSetId)
+    : ['base', 'reverse-holo']; // Fallback if no set selected
 
   console.log('[Step3Variants] ===== VARIANT SELECTION =====');
   console.log('[Step3Variants] Selected Set ID:', selectedSetId);
@@ -29,7 +29,7 @@ export default function Step3Variants({
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <Text style={styles.title}>Select Variants to Track</Text>
       <Text style={styles.description}>
-        Base cards are always included. Choose additional variants you want to track.
+        Choose which card versions you want to track in your binder.
       </Text>
       <VariantSelector
         selected={selectedVariants}

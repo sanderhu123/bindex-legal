@@ -24,7 +24,7 @@ interface OnboardingState {
   // Step 2A (Master Set)
   selectedSetId: string | null;
   selectedSetName: string | null;
-  selectedVariants: string[]; // Always includes 'base' implicitly
+  selectedVariants: string[]; // User-selected variants (includes 'base' if chosen)
   // Step 2B (Region)
   selectedRegion: Region | null;
   // Step 3 (Region: Pokemon Art Style, Master Set: Variants)
@@ -48,7 +48,7 @@ export default function OnboardingScreen() {
     collectionMode: null,
     selectedSetId: null,
     selectedSetName: null,
-    selectedVariants: [],
+    selectedVariants: ['base'],
     selectedRegion: null,
     pokemonArtStyle: null,
     variantPlacement: null,
@@ -128,8 +128,8 @@ export default function OnboardingScreen() {
         } else if (state.collectionMode === 'region') {
           return state.pokemonArtStyle !== null; // User must select art style
         }
-        // For Master Set, variants are optional (can proceed with empty array)
-        return true;
+        // For Master Set, at least one variant must be selected
+        return state.selectedVariants.length > 0;
       case 4:
         // Step 4: Layout for Region, Variant placement for Master Set
         if (state.collectionMode === 'region') {
@@ -179,12 +179,12 @@ export default function OnboardingScreen() {
       const binderName = state.binderName?.trim() || 'My Binder';
 
       // Prepare variants array based on collection mode
-      // - master-set: include 'base' + selected variants
+      // - master-set: use the user's selected variants (includes 'base' if they chose it)
       // - region: only 'base'
       // - custom: empty array (custom binders don't track variants - user adds any cards)
       let variantsToTrack: string[];
       if (state.collectionMode === 'master-set') {
-        variantsToTrack = ['base', ...state.selectedVariants];
+        variantsToTrack = [...state.selectedVariants];
       } else if (state.collectionMode === 'region') {
         variantsToTrack = ['base'];
       } else {

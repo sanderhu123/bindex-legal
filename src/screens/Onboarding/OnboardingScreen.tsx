@@ -7,6 +7,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { CollectionMode, VariantPlacement, LayoutPreference, PokemonArtStyle } from '../../types';
 import type { Region } from '../../services/api/pokemonApi';
 import { createBinder } from '../../services/supabase/binders';
+import { getAvailableVariantsForSet } from '../../data/cardVariants';
 import Step1CollectionMode from './Step1CollectionMode';
 import Step2MasterSet from './Step2MasterSet';
 import Step2Region from './Step2Region';
@@ -71,11 +72,24 @@ export default function OnboardingScreen() {
     );
   };
 
+  // Check if variant selection step (step 3) is needed for master-set mode.
+  // Not needed for old sets that don't have reverse holos (e.g. Base Set, Neo, Gym).
+  // Those sets only have 'base' as a variant, so there's nothing to choose.
+  const needsVariantStep = (): boolean => {
+    if (state.collectionMode !== 'master-set') return false;
+    if (!state.selectedSetId) return true; // Default to showing it if no set selected yet
+    const available = getAvailableVariantsForSet(state.selectedSetId);
+    // If only 'base' is available, no need to show variant selection
+    return available.length > 1;
+  };
+
   // Check if variant placement step is needed for master-set mode.
   // Needed when user selected more than one variant type (e.g. Regular + Reverse Holo,
   // or Pokeball Holo + Masterball Holo, etc.)
+  // Also not needed if variant step itself was skipped (old sets).
   const needsVariantPlacement = (): boolean => {
     if (state.collectionMode !== 'master-set') return false;
+    if (!needsVariantStep()) return false;
     return state.selectedVariants.length > 1;
   };
 
@@ -83,7 +97,8 @@ export default function OnboardingScreen() {
     if (currentStep > 1) {
       // For custom mode: step 1 → 2 (layout) → 3 (binder name)
       // For region mode: step 1 → 2 → 3 (art style) → 4 (layout) → 5 (binder name)
-      // For master-set mode: step 1 → 2 → 3 (variants) → 4 (variant placement) → 5 (layout) → 6 (binder name)
+      // For master-set mode (full): step 1 → 2 → 3 (variants) → 4 (variant placement) → 5 (layout) → 6 (binder name)
+      //   (step 3 is skipped if set has no reverse holos)
       //   (step 4 is skipped if variant placement is not needed)
       if (state.collectionMode === 'custom') {
         // Custom mode: simple step-by-step back
@@ -94,6 +109,8 @@ export default function OnboardingScreen() {
         setCurrentStep(3); // Go back from step 4 (layout) to step 3 (art style)
       } else if (state.collectionMode === 'master-set' && currentStep === 6) {
         setCurrentStep(5); // Go back from step 6 (binder name) to step 5 (layout)
+      } else if (state.collectionMode === 'master-set' && currentStep === 5 && !needsVariantStep()) {
+        setCurrentStep(2); // Skip back over steps 3+4 to step 2 (set selection) when set has no reverse holos
       } else if (state.collectionMode === 'master-set' && currentStep === 5 && !needsVariantPlacement()) {
         setCurrentStep(3); // Skip step 4 (variant placement) when not needed
       } else {
@@ -104,21 +121,29 @@ export default function OnboardingScreen() {
     }
   };
 
-  // Calculate total steps (3 for custom, 5 for region, 5 or 6 for master-set)
+  // Calculate total steps (3 for custom, 5 for region, 4-6 for master-set)
   const getTotalSteps = (): number => {
     if (state.collectionMode === 'custom') return 3;
     if (state.collectionMode === 'region') return 5;
-    return needsVariantPlacement() ? 6 : 5; // master-set (skip variant placement step if not needed)
+    // master-set: base is 6, minus 1 if no variant step, minus 1 if no variant placement
+    if (!needsVariantStep()) return 4; // old sets: mode → set → layout → name
+    return needsVariantPlacement() ? 6 : 5;
   };
 
   // Get the actual step number for display
   const getActualStep = (): number => {
-    // When variant placement is skipped for master-set, internal steps jump 3 → 5,
-    // so adjust display: step 5 shows as 4, step 6 shows as 5
-    if (state.collectionMode === 'master-set' && !needsVariantPlacement() && currentStep > 4) {
-      return currentStep - 1;
-    }
-    return currentStep;
+    if (state.collectionMode !== 'master-set') return currentStep;
+    
+    // Count how many steps were skipped before the current internal step
+    let skipped = 0;
+    
+    // Step 3 (variants) skipped when set has no reverse holos
+    if (!needsVariantStep() && currentStep > 3) skipped++;
+    
+    // Step 4 (variant placement) skipped when not needed
+    if (!needsVariantPlacement() && currentStep > 4) skipped++;
+    
+    return currentStep - skipped;
   };
 
   const canProceedToNextStep = (): boolean => {
@@ -180,10 +205,20 @@ export default function OnboardingScreen() {
       handleFinish();
     } else {
       let nextStep = currentStep + 1;
-      // Skip variant placement (step 4) for master-set when not needed
-      if (state.collectionMode === 'master-set' && nextStep === 4 && !needsVariantPlacement()) {
-        nextStep = 5;
+      
+      if (state.collectionMode === 'master-set') {
+        // Skip variant selection (step 3) for sets without reverse holos (e.g. Base Set, Neo)
+        // Auto-set variants to just ['base'] since that's the only option
+        if (nextStep === 3 && !needsVariantStep()) {
+          setState(prev => ({ ...prev, selectedVariants: ['base'] }));
+          nextStep = 5; // Skip both step 3 (variants) and step 4 (variant placement)
+        }
+        // Skip variant placement (step 4) for master-set when not needed
+        else if (nextStep === 4 && !needsVariantPlacement()) {
+          nextStep = 5;
+        }
       }
+      
       setCurrentStep(nextStep);
     }
   };

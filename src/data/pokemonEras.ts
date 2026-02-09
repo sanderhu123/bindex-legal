@@ -676,13 +676,26 @@ export function getSetLogoByName(setName: string): string | null {
 }
 
 /**
- * Find which era a set belongs to by set ID
+ * Find which era a set belongs to by set ID (returns era name)
  */
 export function getEraForSetId(setId: string): string | null {
   for (const era of POKEMON_ERAS) {
     const set = era.sets.find(s => s.id === setId);
     if (set) {
       return era.name;
+    }
+  }
+  return null;
+}
+
+/**
+ * Find which era ID a set belongs to by set ID (returns era id, e.g. 'base', 'neo', 'ex')
+ */
+export function getEraIdForSetId(setId: string): string | null {
+  for (const era of POKEMON_ERAS) {
+    const set = era.sets.find(s => s.id === setId);
+    if (set) {
+      return era.id;
     }
   }
   return null;

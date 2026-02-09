@@ -15,9 +15,10 @@
  * - NOT available for higher rarities:
  *   → Double Rare, Ultra Rare, Illustration Rare, etc.
  * 
- * 1. REVERSE HOLO (all sets): 
+ * 1. REVERSE HOLO (most sets, but NOT old sets before Legendary Collection): 
  *    - Available if API says reverse: true
  *    - AND rarity is Common/Uncommon/Rare/Holo Rare
+ *    - NOT available in Base, Gym, Neo, Southern Islands, POP Series, or Promo eras
  * 
  * 2. POKEBALL HOLO (special sets only): Follows EXACT same logic as reverse holo
  *    - Available if API says reverse: true
@@ -33,6 +34,38 @@
  * @author AI Assistant
  * @date 2025-12-21
  */
+
+import { getEraIdForSetId } from './pokemonEras';
+
+/**
+ * Eras that do NOT have reverse holo cards at all.
+ * Reverse holos were introduced with Legendary Collection (2002).
+ * All eras before that, plus POP Series and Promotional sets, have no reverse holos.
+ */
+const NO_REVERSE_HOLO_ERAS = [
+  'base',             // Base Set, Jungle, Fossil, Base Set 2, Team Rocket
+  'gym',              // Gym Heroes, Gym Challenge
+  'neo',              // Neo Genesis, Neo Discovery, Neo Revelation, Neo Destiny
+  'southern-islands', // Southern Islands
+  'pop',              // POP Series 1-9
+  'promos',           // All promotional sets
+] as const;
+
+/**
+ * Check if a set has reverse holo variants.
+ * Returns false for old sets (before Legendary Collection) and promo/POP sets.
+ * 
+ * @param setId - The set ID to check (e.g., "base1", "sv08")
+ * @returns True if the set has reverse holo cards
+ */
+export function setHasReverseHolos(setId: string): boolean {
+  const eraId = getEraIdForSetId(setId);
+  
+  // If we can't find the era, assume it has reverse holos (safer default)
+  if (!eraId) return true;
+  
+  return !NO_REVERSE_HOLO_ERAS.includes(eraId as any);
+}
 
 /**
  * Sets that have special reverse holo patterns (pokeball/masterball)
@@ -122,12 +155,17 @@ export function getSpecialVariantsForCard(
 export function getAvailableVariantsForSet(setId: string): ('base' | 'reverse-holo' | 'poke-ball' | 'master-ball')[] {
   const variants: ('base' | 'reverse-holo' | 'poke-ball' | 'master-ball')[] = [
     'base',
-    'reverse-holo',
   ];
 
-  // Special sets also have pokeball and masterball variants
-  if (hasSpecialVariants(setId)) {
-    variants.push('poke-ball', 'master-ball');
+  // Only add reverse-holo if the set actually has reverse holos
+  // (old sets before Legendary Collection and promo/POP sets don't have them)
+  if (setHasReverseHolos(setId)) {
+    variants.push('reverse-holo');
+
+    // Special sets also have pokeball and masterball variants
+    if (hasSpecialVariants(setId)) {
+      variants.push('poke-ball', 'master-ball');
+    }
   }
 
   return variants;

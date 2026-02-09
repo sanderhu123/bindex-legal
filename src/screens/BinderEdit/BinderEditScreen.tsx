@@ -24,6 +24,7 @@ import { JumpToPageModal } from '../../components/Binder/JumpToPageModal';
 import { CardPickerModal } from '../../components/CardPicker';
 import LoadingScreen from '../../components/Loading/LoadingScreen';
 import ErrorScreen from '../../components/Error/ErrorScreen';
+import RegionBinderEditView from './RegionBinderEditView';
 import type { Binder, Card } from '../../types';
 import { colors, spacing, typography, borderRadius } from '../../constants/theme';
 
@@ -1681,6 +1682,11 @@ export default function BinderEditScreen() {
         onRetry={loadBinderData}
       />
     );
+  }
+
+  // Step 34H: Region binders use a simplified edit view (version picker only)
+  if (binder.collectionMode === 'region') {
+    return <RegionBinderEditView binder={binder} />;
   }
 
   const selectedPlaceholderIndex = selectedCard?.sourceSlot === 'placeholder'

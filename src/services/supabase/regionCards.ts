@@ -1,13 +1,58 @@
 import { supabase } from './client';
 
 // ============================================================================
-// REGION CARD SELECTION SERVICE (Step 31B)
+// REGION CARD SELECTION SERVICE (Step 31B + 32B Performance Optimizations)
 // Manages which TCG card the user selected for each Pokémon slot in Region binders
 // For example: User selects a specific Charizard card to represent Charizard
+//
+// Performance features (Step 32B):
+// - In-memory cache for instant access to binder selections
+// - Batch loading of all selections for a binder in single query
+// - Cache invalidation on updates
 // ============================================================================
 
 /**
+ * In-memory cache for region card selections (Step 32B)
+ * Key: binderId
+ * Value: { selections: Map<pokedexNumber, cardId>, timestamp: number }
+ */
+const selectionsCache = new Map<string, {
+  selections: Map<number, string>;
+  timestamp: number;
+}>();
+
+/**
+ * Cache duration: 5 minutes
+ * Selections don't change often, so we can keep them cached longer
+ */
+const CACHE_DURATION = 5 * 60 * 1000;
+
+/**
+ * Check if cache entry is valid
+ */
+function isCacheValid(timestamp: number): boolean {
+  return Date.now() - timestamp < CACHE_DURATION;
+}
+
+/**
+ * Clear cache for a specific binder (call after updates)
+ */
+function invalidateCache(binderId: string): void {
+  selectionsCache.delete(binderId);
+  console.log('[31B/32B] Cache invalidated for binder:', binderId);
+}
+
+/**
+ * Clear all cached selections (useful for logout/cleanup)
+ */
+export function clearRegionCardsCache(): void {
+  selectionsCache.clear();
+  console.log('[31B/32B] All region cards cache cleared');
+}
+
+/**
  * Get the selected card for a Pokémon in a Region binder
+ * Uses cached data if available (Step 32B optimization)
  * 
  * @param binderId - The binder ID
  * @param pokedexNumber - National Pokédex number (e.g., 1 for Bulbasaur, 25 for Pikachu)
@@ -19,53 +64,21 @@ export async function getSelectedCardForPokemon(
 ): Promise<string | null> {
   console.log('[31B] getSelectedCardForPokemon() called:', { binderId, pokedexNumber });
   
-  const { data: { user } } = await supabase.auth.getUser();
+  // Step 32B: Try to get from cache first
+  const cached = selectionsCache.get(binderId);
+  if (cached && isCacheValid(cached.timestamp)) {
+    const cachedCardId = cached.selections.get(pokedexNumber);
+    console.log('[31B/32B] Cache hit:', { 
+      binderId, 
+      pokedexNumber, 
+      cardId: cachedCardId || 'none' 
+    });
+    return cachedCardId || null;
+  }
   
-  if (!user) {
-    console.warn('[31B] User not authenticated');
-    return null;
-  }
-
-  // Verify binder belongs to user
-  const { data: binder, error: binderError } = await supabase
-    .from('binders')
-    .select('id, collection_mode')
-    .eq('id', binderId)
-    .eq('user_id', user.id)
-    .single();
-
-  if (binderError || !binder) {
-    console.warn('[31B] Binder not found or access denied:', binderError?.message);
-    return null;
-  }
-
-  // Verify this is a Region binder
-  if (binder.collection_mode !== 'region') {
-    console.warn('[31B] Binder is not a Region binder:', binder.collection_mode);
-    return null;
-  }
-
-  // Get the selected card
-  const { data, error } = await supabase
-    .from('region_pokemon_cards')
-    .select('selected_card_id')
-    .eq('user_id', user.id)
-    .eq('binder_id', binderId)
-    .eq('pokedex_number', pokedexNumber)
-    .single();
-
-  if (error) {
-    // PGRST116 = "No rows returned" - this is expected when no selection exists
-    if (error.code === 'PGRST116') {
-      console.log('[31B] No card selected for Pokédex #' + pokedexNumber);
-      return null;
-    }
-    console.error('[31B] Error fetching selected card:', error);
-    return null;
-  }
-
-  console.log('[31B] Found selected card:', data.selected_card_id);
-  return data.selected_card_id;
+  // Cache miss - load all selections for this binder (more efficient)
+  const allSelections = await getAllSelectedCardsForBinder(binderId);
+  return allSelections.get(pokedexNumber) || null;
 }
 
 /**
@@ -132,12 +145,18 @@ export async function setSelectedCardForPokemon(
     throw error;
   }
 
+  // Step 32B: Invalidate cache so next read gets fresh data
+  invalidateCache(binderId);
+
   console.log('[31B] Card selection saved successfully');
 }
 
 /**
- * Get all selected cards for a Region binder
+ * Get all selected cards for a Region binder (with caching - Step 32B)
  * Returns a Map of pokedexNumber → cardId for all Pokémon with custom card selections
+ * 
+ * Performance: Batch loads all selections in a single query and caches the result
+ * for 5 minutes. Subsequent calls return instantly from cache.
  * 
  * @param binderId - The binder ID
  * @returns Map where key is Pokédex number and value is the selected card ID
@@ -146,6 +165,19 @@ export async function getAllSelectedCardsForBinder(
   binderId: string
 ): Promise<Map<number, string>> {
   console.log('[31B] getAllSelectedCardsForBinder() called:', { binderId });
+  const startTime = performance.now();
+  
+  // Step 32B: Check cache first
+  const cached = selectionsCache.get(binderId);
+  if (cached && isCacheValid(cached.timestamp)) {
+    const duration = performance.now() - startTime;
+    console.log('[31B/32B] Cache hit for all selections:', { 
+      binderId, 
+      count: cached.selections.size,
+      duration: `${duration.toFixed(2)}ms`,
+    });
+    return cached.selections;
+  }
   
   const { data: { user } } = await supabase.auth.getUser();
   
@@ -173,7 +205,7 @@ export async function getAllSelectedCardsForBinder(
     return new Map();
   }
 
-  // Get all selections for this binder
+  // Get all selections for this binder (single batch query)
   const { data, error } = await supabase
     .from('region_pokemon_cards')
     .select('pokedex_number, selected_card_id')
@@ -194,9 +226,18 @@ export async function getAllSelectedCardsForBinder(
     });
   }
 
-  console.log('[31B] Found card selections:', { 
+  // Step 32B: Store in cache
+  selectionsCache.set(binderId, {
+    selections: selectionsMap,
+    timestamp: Date.now(),
+  });
+
+  const duration = performance.now() - startTime;
+  console.log('[31B/32B] Fetched and cached card selections:', { 
+    binderId,
     count: selectionsMap.size,
     pokedexNumbers: Array.from(selectionsMap.keys()).slice(0, 10), // Show first 10
+    duration: `${duration.toFixed(2)}ms`,
   });
   
   return selectionsMap;
@@ -244,6 +285,9 @@ export async function clearSelectedCardForPokemon(
     console.error('[31B] Failed to clear card selection:', error);
     throw error;
   }
+
+  // Step 32B: Invalidate cache so next read gets fresh data
+  invalidateCache(binderId);
 
   console.log('[31B] Card selection cleared for Pokédex #' + pokedexNumber);
 }
@@ -311,6 +355,9 @@ export async function setMultipleSelectedCards(
     throw error;
   }
 
+  // Step 32B: Invalidate cache so next read gets fresh data
+  invalidateCache(binderId);
+
   console.log('[31B] Batch card selections saved:', { count: selections.length });
 }
 
@@ -354,6 +401,9 @@ export async function clearAllSelectionsForBinder(
     console.error('[31B] Failed to clear all selections:', error);
     throw error;
   }
+
+  // Step 32B: Invalidate cache so next read gets fresh data
+  invalidateCache(binderId);
 
   console.log('[31B] All card selections cleared for binder');
 }

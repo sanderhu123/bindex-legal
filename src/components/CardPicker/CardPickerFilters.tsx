@@ -24,9 +24,10 @@ export interface CardPickerFiltersProps {
 }
 
 /**
- * Well-known rarity values in the Pokémon TCG (ordered roughly by commonality)
+ * All known rarity values in the Pokémon TCG (ordered roughly by commonality).
+ * This full list is shown when no era or set is selected.
  */
-const RARITY_OPTIONS: ListPickerItem[] = [
+const ALL_RARITY_OPTIONS: ListPickerItem[] = [
   { id: 'Common', label: 'Common' },
   { id: 'Uncommon', label: 'Uncommon' },
   { id: 'Rare', label: 'Rare' },
@@ -62,6 +63,82 @@ const RARITY_OPTIONS: ListPickerItem[] = [
   { id: 'Promo', label: 'Promo' },
   { id: 'Classic Collection', label: 'Classic Collection' },
 ];
+
+/**
+ * Mapping of which rarities are available in each era.
+ * When eras/sets are selected, only the relevant rarities are shown in the picker.
+ */
+const ERA_RARITIES: Record<string, string[]> = {
+  'Mega Evolution': [
+    'Common', 'Uncommon', 'Rare', 'Double Rare', 'Ultra Rare',
+    'Illustration Rare', 'Special Illustration Rare', 'Hyper Rare',
+    'ACE SPEC Rare', 'Shiny Rare', 'Shiny Ultra Rare',
+  ],
+  'Scarlet & Violet': [
+    'Common', 'Uncommon', 'Rare', 'Double Rare', 'Ultra Rare',
+    'Art Rare', 'Special Art Rare', 'Illustration Rare', 'Special Illustration Rare',
+    'Hyper Rare', 'ACE SPEC Rare', 'Shiny Rare', 'Shiny Ultra Rare', 'Promo',
+  ],
+  'Sword & Shield': [
+    'Common', 'Uncommon', 'Rare', 'Holo Rare', 'Ultra Rare',
+    'Rare Holo V', 'Rare Holo VMAX', 'Rare Holo VSTAR',
+    'Rare Rainbow', 'Rare Secret', 'Amazing Rare', 'Radiant Rare',
+    'Classic Collection', 'Promo',
+  ],
+  'Sun & Moon': [
+    'Common', 'Uncommon', 'Rare', 'Holo Rare', 'Ultra Rare', 'Rare Ultra',
+    'Rare Holo GX', 'Rare Rainbow', 'Rare Secret',
+    'Rare Prism Star', 'Rare Shiny', 'Rare Shiny GX', 'Promo',
+  ],
+  'XY': [
+    'Common', 'Uncommon', 'Rare', 'Holo Rare', 'Ultra Rare', 'Rare Ultra',
+    'Rare Holo EX', 'Rare Secret', 'Rare BREAK', 'Promo',
+  ],
+  'Black & White': [
+    'Common', 'Uncommon', 'Rare', 'Holo Rare', 'Ultra Rare', 'Rare Ultra',
+    'Rare Holo EX', 'Rare Secret', 'Promo',
+  ],
+  'HeartGold & SoulSilver': [
+    'Common', 'Uncommon', 'Rare', 'Rare Holo', 'Rare Prime',
+    'Rare Secret', 'LEGEND', 'Promo',
+  ],
+  'Platinum': [
+    'Common', 'Uncommon', 'Rare', 'Rare Holo', 'Rare Secret', 'Promo',
+  ],
+  'Diamond & Pearl': [
+    'Common', 'Uncommon', 'Rare', 'Rare Holo', 'Rare Secret', 'Promo',
+  ],
+  'EX': [
+    'Common', 'Uncommon', 'Rare', 'Rare Holo', 'Rare Holo EX',
+    'Rare Secret', 'Rare Shining', 'Promo',
+  ],
+  'E-Card': [
+    'Common', 'Uncommon', 'Rare', 'Rare Holo', 'Rare Secret', 'Promo',
+  ],
+  'Neo': [
+    'Common', 'Uncommon', 'Rare', 'Rare Holo', 'Rare Secret',
+    'Rare Shining', 'Promo',
+  ],
+  'Gym': [
+    'Common', 'Uncommon', 'Rare', 'Rare Holo', 'Promo',
+  ],
+  'Base': [
+    'Common', 'Uncommon', 'Rare', 'Rare Holo', 'Promo',
+  ],
+};
+
+/**
+ * Find the era name a set belongs to.
+ * Used to determine which rarities to show when sets (but not eras) are selected.
+ */
+function findEraForSetId(setId: string): string | undefined {
+  for (const era of POKEMON_ERAS) {
+    if (era.sets.some(s => s.id === setId)) {
+      return era.name;
+    }
+  }
+  return undefined;
+}
 
 /**
  * Horizontal filter chips bar for the CardPicker.
@@ -124,6 +201,44 @@ export function CardPickerFilters({ filters, onFiltersChange }: CardPickerFilter
     return items;
   }, [filters.eras]);
 
+  // ----- Build rarity items (filtered by selected eras/sets) -----
+  const rarityItems: ListPickerItem[] = useMemo(() => {
+    // Determine which eras are relevant
+    const relevantEras = new Set<string>();
+
+    // Add directly selected eras
+    if (filters.eras && filters.eras.length > 0) {
+      for (const era of filters.eras) {
+        relevantEras.add(era);
+      }
+    }
+
+    // If sets are selected but no eras, figure out which eras those sets belong to
+    if (relevantEras.size === 0 && filters.setIds && filters.setIds.length > 0) {
+      for (const setId of filters.setIds) {
+        const eraName = findEraForSetId(setId);
+        if (eraName) relevantEras.add(eraName);
+      }
+    }
+
+    // If no eras or sets are selected, show ALL rarities
+    if (relevantEras.size === 0) {
+      return ALL_RARITY_OPTIONS;
+    }
+
+    // Union all rarities from the relevant eras
+    const allowedRarities = new Set<string>();
+    for (const eraName of relevantEras) {
+      const rarities = ERA_RARITIES[eraName];
+      if (rarities) {
+        for (const r of rarities) allowedRarities.add(r);
+      }
+    }
+
+    // Filter ALL_RARITY_OPTIONS to only include allowed rarities (preserves order)
+    return ALL_RARITY_OPTIONS.filter(item => allowedRarities.has(item.id));
+  }, [filters.eras, filters.setIds]);
+
   // ----- Convert arrays to Sets for the picker -----
   const eraSelectedIds = useMemo(() => new Set(filters.eras || []), [filters.eras]);
   const setSelectedIds = useMemo(() => new Set(filters.setIds || []), [filters.setIds]);
@@ -136,7 +251,11 @@ export function CardPickerFilters({ filters, onFiltersChange }: CardPickerFilter
       const eras = Array.from(selectedIds);
       // When eras change, remove any set selections that no longer belong
       let setIds = filters.setIds || [];
+      // Also remove any rarity selections that are no longer valid
+      let rarities = filters.rarities || [];
+
       if (eras.length > 0) {
+        // Clean up sets
         const validSetIds = new Set<string>();
         for (const eraName of eras) {
           const era = POKEMON_ERAS.find(e => e.name === eraName);
@@ -145,11 +264,22 @@ export function CardPickerFilters({ filters, onFiltersChange }: CardPickerFilter
           }
         }
         setIds = setIds.filter(id => validSetIds.has(id));
+
+        // Clean up rarities — only keep those that exist in the new eras
+        const validRarities = new Set<string>();
+        for (const eraName of eras) {
+          const eraRarities = ERA_RARITIES[eraName];
+          if (eraRarities) {
+            for (const r of eraRarities) validRarities.add(r);
+          }
+        }
+        rarities = rarities.filter(r => validRarities.has(r));
       }
       onFiltersChange({
         ...filters,
         eras: eras.length > 0 ? eras : undefined,
         setIds: setIds.length > 0 ? setIds : undefined,
+        rarities: rarities.length > 0 ? rarities : undefined,
       });
     },
     [filters, onFiltersChange]
@@ -160,9 +290,30 @@ export function CardPickerFilters({ filters, onFiltersChange }: CardPickerFilter
     (selectedIds: Set<string>) => {
       setActivePicker(null);
       const setIds = Array.from(selectedIds);
+
+      // If no eras are selected but sets changed, clean up rarities
+      // based on which eras the selected sets belong to
+      let rarities = filters.rarities || [];
+      if ((!filters.eras || filters.eras.length === 0) && setIds.length > 0) {
+        const relevantEras = new Set<string>();
+        for (const setId of setIds) {
+          const eraName = findEraForSetId(setId);
+          if (eraName) relevantEras.add(eraName);
+        }
+        const validRarities = new Set<string>();
+        for (const eraName of relevantEras) {
+          const eraRarities = ERA_RARITIES[eraName];
+          if (eraRarities) {
+            for (const r of eraRarities) validRarities.add(r);
+          }
+        }
+        rarities = rarities.filter(r => validRarities.has(r));
+      }
+
       onFiltersChange({
         ...filters,
         setIds: setIds.length > 0 ? setIds : undefined,
+        rarities: rarities.length > 0 ? rarities : undefined,
       });
     },
     [filters, onFiltersChange]
@@ -387,7 +538,7 @@ export function CardPickerFilters({ filters, onFiltersChange }: CardPickerFilter
       <SearchableListPicker
         visible={activePicker === 'rarity'}
         title="Select Rarities"
-        items={RARITY_OPTIONS}
+        items={rarityItems}
         selectedIds={raritySelectedIds}
         onDone={handleRarityDone}
         onClose={() => setActivePicker(null)}

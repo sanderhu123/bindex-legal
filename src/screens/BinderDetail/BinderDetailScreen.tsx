@@ -244,7 +244,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
         console.log('[BinderDetail] Found', selectedCards.size, 'custom card selections on refresh');
         
         // Update cards with latest selections and ownership
-        const updatedCards = await Promise.all(
+        let updatedCards = await Promise.all(
           currentCards.map(async (card) => {
             const pokedexNumber = card.pokedexNumber;
             if (!pokedexNumber) return { ...card, isOwned: latestBinder.cardIds.includes(card.id) };
@@ -291,16 +291,66 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
           })
         );
         
+        // Apply saved positions from edit view
+        try {
+          const dbPositions = await getCardPositionsForBinder(binderId);
+          if (dbPositions.length > 0) {
+            const cardLookup = new Map<string, CardWithOwnership>();
+            updatedCards.forEach(card => cardLookup.set(card.id, card));
+            const reordered: CardWithOwnership[] = [];
+            const sortedPositions = [...dbPositions].sort((a, b) => a.slotIndex - b.slotIndex);
+            for (const pos of sortedPositions) {
+              if (pos.cardId) {
+                const card = cardLookup.get(pos.cardId);
+                if (card) {
+                  reordered.push(card);
+                  cardLookup.delete(pos.cardId);
+                }
+              }
+            }
+            cardLookup.forEach(card => reordered.push(card));
+            updatedCards = reordered;
+            console.log('[BinderDetail] Applied saved positions on refresh:', dbPositions.length);
+          }
+        } catch (dbErr) {
+          console.warn('[BinderDetail] Could not load saved positions on refresh:', dbErr);
+        }
+        
         setCards(updatedCards);
         console.log('[BinderDetail] Region cards refreshed with latest selections');
       } else {
         // For Master Set binders: update based on cardIds
-        setCards((prevCards) =>
-          prevCards.map((card) => ({
-            ...card,
-            isOwned: latestBinder.cardIds.includes(card.id),
-          }))
-        );
+        let updatedMasterCards = cardsRef.current.map((card) => ({
+          ...card,
+          isOwned: latestBinder.cardIds.includes(card.id),
+        }));
+        
+        // Apply saved positions from edit view
+        try {
+          const dbPositions = await getCardPositionsForBinder(binderId);
+          if (dbPositions.length > 0) {
+            const cardLookup = new Map<string, CardWithOwnership>();
+            updatedMasterCards.forEach(card => cardLookup.set(card.id, card));
+            const reordered: CardWithOwnership[] = [];
+            const sortedPositions = [...dbPositions].sort((a, b) => a.slotIndex - b.slotIndex);
+            for (const pos of sortedPositions) {
+              if (pos.cardId) {
+                const card = cardLookup.get(pos.cardId);
+                if (card) {
+                  reordered.push(card);
+                  cardLookup.delete(pos.cardId);
+                }
+              }
+            }
+            cardLookup.forEach(card => reordered.push(card));
+            updatedMasterCards = reordered;
+            console.log('[BinderDetail] Applied saved positions on refresh:', dbPositions.length);
+          }
+        } catch (dbErr) {
+          console.warn('[BinderDetail] Could not load saved positions on refresh:', dbErr);
+        }
+        
+        setCards(updatedMasterCards);
         
         // Also refresh extra cards ownership for Master Set binders
         const extraCardsData = await getExtraCardsWithVariants(binderId);

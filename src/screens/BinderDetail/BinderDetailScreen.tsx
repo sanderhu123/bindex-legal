@@ -320,6 +320,13 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
         console.log('[BinderDetail] Region cards refreshed with latest selections');
       } else {
         // For Master Set binders: update based on cardIds
+        // Guard: skip if cards haven't been loaded yet (prevents race condition
+        // where this refresh overwrites the card list with an empty array
+        // before fetchCards() has finished loading from the API)
+        if (cardsRef.current.length === 0) {
+          console.log('[BinderDetail] No cards loaded yet, skipping Master Set refresh');
+          return;
+        }
         let updatedMasterCards = cardsRef.current.map((card) => ({
           ...card,
           isOwned: latestBinder.cardIds.includes(card.id),

@@ -18,7 +18,6 @@ import {
 import { getCardsBySet, getCardsByRegion, getCardById, getPokemonImageUrl, type Region } from '../../services/api/pokemonApi';
 import { getAllSelectedCardsForBinder, setSelectedCardForPokemon } from '../../services/supabase/regionCards';
 import { getCardPositionsForBinder } from '../../services/supabase/binderPositions';
-import { getCodeForBinder, transferBinderCode } from '../../services/supabase/registeredTags';
 import { startBackgroundPrefetch } from '../../services/imagePrefetch';
 import { recordBinderAccess } from '../../services/cacheManager';
 import type { Binder, Card } from '../../types';
@@ -122,9 +121,6 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
   // Card picker modal state (for Custom binders)
   const [showCardPicker, setShowCardPicker] = useState(false);
   
-  // Step 35I: Whether this binder has an activation code linked
-  const [hasActivationCode, setHasActivationCode] = useState(false);
-  
   // Custom mode: position being filled (when card picker is open)
   const [selectedPosition, setSelectedPosition] = useState<number | null>(null);
   
@@ -181,13 +177,6 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
         });
         
         setBinder(binderData);
-        
-        // Step 35I: Check if this binder has an activation code linked
-        getCodeForBinder(binderData.id).then(codeInfo => {
-          setHasActivationCode(!!codeInfo);
-        }).catch(() => {
-          setHasActivationCode(false);
-        });
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load binder');
         setLoading(false);
@@ -1738,65 +1727,19 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
   // Custom mode uses different progress format
   const isCustomMode = binder.collectionMode === 'custom';
 
-  // Step 35I: Handle transfer binder
-  const handleTransferBinder = () => {
-    if (!binder) return;
-    
-    Alert.alert(
-      'Transfer Binder',
-      'Are you sure you want to transfer this binder?\n\n' +
-      'This will release the activation code so someone else can use it. ' +
-      'Your binder data (cards, progress) will be kept, but your binder limit will decrease by 1.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Transfer',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              const success = await transferBinderCode(binder.id);
-              if (success) {
-                Alert.alert(
-                  'Transfer Complete',
-                  'The activation code has been released. The new owner can now enter the code to use it.'
-                );
-                setHasActivationCode(false);
-              } else {
-                Alert.alert('Error', 'Could not transfer binder. Please try again.');
-              }
-            } catch (err) {
-              Alert.alert('Error', 'Something went wrong. Please try again.');
-            }
-          },
-        },
-      ]
-    );
-  };
-
   // Header component for FlatList (binder info, progress, search, filters)
   const ListHeaderComponent = () => (
     <View style={styles.headerContainer}>
       {/* Step 34A: Header row with title and Edit button */}
       <View style={styles.titleRow}>
         <Text style={styles.title}>{binder.name}</Text>
-        <View style={styles.headerActions}>
-          {/* Step 35I: Transfer button (only visible when binder has activation code) */}
-          {hasActivationCode && (
-            <TouchableOpacity
-              style={styles.transferButton}
-              onPress={handleTransferBinder}
-            >
-              <Text style={styles.transferButtonText}>Transfer</Text>
-            </TouchableOpacity>
-          )}
-          <TouchableOpacity
-            style={styles.editButton}
-            onPress={() => navigation.navigate('BinderEdit', { binderId: binder.id })}
-          >
-            <Text style={styles.editButtonIcon}>📝</Text>
-            <Text style={styles.editButtonText}>Edit</Text>
-          </TouchableOpacity>
-        </View>
+        <TouchableOpacity
+          style={styles.editButton}
+          onPress={() => navigation.navigate('BinderEdit', { binderId: binder.id })}
+        >
+          <Text style={styles.editButtonIcon}>📝</Text>
+          <Text style={styles.editButtonText}>Edit</Text>
+        </TouchableOpacity>
       </View>
       <Text style={styles.subtitle}>Collection Mode: {collectionModeText}</Text>
       {binder.set && <Text style={styles.text}>Set: {binder.set}</Text>}
@@ -2447,26 +2390,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: spacing.lg,
     marginBottom: spacing.sm,
-  },
-  // Step 35I: Header actions row
-  headerActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  // Step 35I: Transfer button
-  transferButton: {
-    backgroundColor: colors.warning + '20',
-    borderRadius: borderRadius.md,
-    paddingVertical: spacing.xs,
-    paddingHorizontal: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.warning,
-  },
-  transferButtonText: {
-    fontSize: typography.sm,
-    fontWeight: typography.semibold,
-    color: colors.warning,
   },
   // Step 34A: Edit button
   editButton: {

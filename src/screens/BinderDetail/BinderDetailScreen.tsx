@@ -1727,8 +1727,11 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
   // Custom mode uses different progress format
   const isCustomMode = binder.collectionMode === 'custom';
 
-  // Header component for FlatList (binder info, progress, search, filters)
-  const ListHeaderComponent = () => (
+  // Header element for FlatList (binder info, progress, search, filters)
+  // IMPORTANT: This must be a JSX element (not an arrow function component)
+  // so that FlatList updates it in place instead of unmounting/remounting,
+  // which would cause the SearchBar's TextInput to lose focus and dismiss the keyboard.
+  const listHeader = (
     <View style={styles.headerContainer}>
       {/* Step 34A: Header row with title and Edit button */}
       <View style={styles.titleRow}>
@@ -1935,7 +1938,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
           renderItem={renderListCard}
           keyExtractor={keyExtractor}
           contentContainerStyle={styles.flatListContainer}
-          ListHeaderComponent={ListHeaderComponent}
+          ListHeaderComponent={listHeader}
           ListFooterComponent={ListFooterComponent}
           ListEmptyComponent={ListEmptyComponent}
           // Performance optimizations
@@ -1957,7 +1960,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
       <SafeAreaView style={styles.safeArea}>
         <ScrollView style={styles.container}>
           {/* Hide header/progress/search/filters in display mode */}
-          {!displayMode && <ListHeaderComponent />}
+          {!displayMode && listHeader}
           
           {/* Display mode toggle bar - shown at top when in display mode */}
           {displayMode && (
@@ -2034,7 +2037,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
           key={`custom-grid-${gridColumns}`}
           columnWrapperStyle={styles.row}
           contentContainerStyle={styles.flatListContainer}
-          ListHeaderComponent={ListHeaderComponent}
+          ListHeaderComponent={listHeader}
           ListFooterComponent={ListFooterComponent}
           onEndReached={loadMoreCustomSlots}
           onEndReachedThreshold={0.5}
@@ -2110,7 +2113,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
           keyExtractor={(row, index) => `row-${index}-${row.map(c => c.id).join('-')}`}
           stickySectionHeadersEnabled={false}
           contentContainerStyle={styles.flatListContainer}
-          ListHeaderComponent={ListHeaderComponent}
+          ListHeaderComponent={listHeader}
           ListFooterComponent={ListFooterComponent}
           ListEmptyComponent={ListEmptyComponent}
         />
@@ -2131,7 +2134,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
           key={`master-set-grid-${gridColumns}`}
           columnWrapperStyle={styles.row}
           contentContainerStyle={styles.flatListContainer}
-          ListHeaderComponent={ListHeaderComponent}
+          ListHeaderComponent={listHeader}
           ListFooterComponent={ListFooterComponent}
           ListEmptyComponent={ListEmptyComponent}
           onEndReached={loadMoreCards}
@@ -2171,7 +2174,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
           key={`region-grid-${gridColumns}`}
           columnWrapperStyle={styles.row}
           contentContainerStyle={styles.flatListContainer}
-          ListHeaderComponent={ListHeaderComponent}
+          ListHeaderComponent={listHeader}
           ListFooterComponent={ListFooterComponent}
           ListEmptyComponent={ListEmptyComponent}
           onEndReached={loadMoreCards}
@@ -2211,7 +2214,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
         key={`grid-${gridColumns}`} // Force re-render when columns change
         columnWrapperStyle={styles.row}
         contentContainerStyle={styles.flatListContainer}
-        ListHeaderComponent={ListHeaderComponent}
+        ListHeaderComponent={listHeader}
         ListFooterComponent={ListFooterComponent}
         ListEmptyComponent={ListEmptyComponent}
         onEndReached={loadMoreCards}

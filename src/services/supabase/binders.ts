@@ -374,7 +374,10 @@ export async function updateBinder(
 }
 
 /**
- * Delete a binder
+ * Delete a binder.
+ * If the binder was created with an activation code, the code stays
+ * claimed by the user (they keep their credit) but the binder_id
+ * link is cleared so it doesn't point to a deleted binder.
  */
 export async function deleteBinder(binderId: string): Promise<void> {
   const { data: { user } } = await supabase.auth.getUser();
@@ -382,6 +385,13 @@ export async function deleteBinder(binderId: string): Promise<void> {
   if (!user) {
     throw new Error('User not authenticated');
   }
+
+  // Unlink any activation code that points to this binder (keep credit)
+  await supabase
+    .from('registered_tags')
+    .update({ binder_id: null })
+    .eq('binder_id', binderId)
+    .eq('claimed_by', user.id);
 
   const { error } = await supabase
     .from('binders')

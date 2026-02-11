@@ -6,6 +6,7 @@ export * from './binders';
 export * from './cards';
 export * from './regionCards';
 export * from './binderPositions';
+export * from './registeredTags';
 
 
 

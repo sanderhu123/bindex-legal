@@ -83,7 +83,7 @@ interface DropTarget {
   placeholderCardIndex?: number;
 }
 
-const TOTAL_PAGES = 20; // Fixed 20 pages for binder edit
+const MIN_PAGES = 20; // Minimum pages for binder edit (more are added if cards need it)
 const PLACEHOLDER_MAX = 18; // Maximum cards in placeholder tray
 const FLOATING_CARD_WIDTH = 70; // Width of the floating drag card
 const FLOATING_CARD_HEIGHT = 100; // Height of the floating drag card
@@ -109,6 +109,7 @@ export default function BinderEditScreen() {
 
   // Navigation
   const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(MIN_PAGES);
   const [showJumpModal, setShowJumpModal] = useState(false);
 
   // Selection state (tap-to-select)
@@ -163,7 +164,7 @@ export default function BinderEditScreen() {
   // Calculated values
   const cardsPerPage = binder?.layoutPreference === '4x3' ? 12 : 9;
   const columnsPerRow = binder?.layoutPreference === '4x3' ? 4 : 3;
-  const totalSlots = cardsPerPage * TOTAL_PAGES;
+  const totalSlots = cardsPerPage * totalPages;
 
   // ── Keep refs in sync with state ──
   useEffect(() => { cardPositionsRef.current = cardPositions; }, [cardPositions]);
@@ -267,13 +268,8 @@ export default function BinderEditScreen() {
       setBinder(binderData);
 
       const slotsPerPage = binderData.layoutPreference === '4x3' ? 12 : 9;
-      const totalSlotCount = slotsPerPage * TOTAL_PAGES;
 
-      const positions: CardPosition[] = [];
-      for (let i = 0; i < totalSlotCount; i++) {
-        positions.push({ cardId: null, cardName: undefined, imageUrl: undefined, slotIndex: i });
-      }
-
+      // We'll determine total pages after loading cards; start with a temporary array
       let cardsToPlace: Card[] = [];
 
       if (binderData.collectionMode === 'master-set' && binderData.set) {
@@ -368,31 +364,78 @@ export default function BinderEditScreen() {
         console.log('[BinderEdit] Region: placing', cardsToPlace.length, 'cards');
       } else if (binderData.collectionMode === 'custom') {
         console.log('[BinderEdit] Loading Custom binder cards');
-        const savedPositions = await getBinderCardsWithPositions(binderData.id);
+      }
 
-        if (savedPositions.size > 0) {
-          const results = await Promise.all(
-            Array.from(savedPositions.entries()).map(async ([position, data]) => {
-              try {
-                const card = await getCardById(data.cardId);
-                return card ? { position, card } : null;
-              } catch { return null; }
-            })
-          );
+      // ── Calculate how many pages we need ──
+      // For master-set / region: based on number of cards to place
+      // For custom: we'll check saved positions to find the highest slot used
+      let neededPages = MIN_PAGES;
 
-          results.forEach((result) => {
-            if (result && result.position < totalSlotCount) {
-              positions[result.position] = {
-                ...positions[result.position],
-                cardId: result.card.id,
-                cardName: result.card.name,
-                imageUrl: result.card.imageUrl,
-              };
-            }
-          });
+      if (binderData.collectionMode !== 'custom') {
+        const pagesForCards = Math.ceil(cardsToPlace.length / slotsPerPage);
+        neededPages = Math.max(MIN_PAGES, pagesForCards);
+      }
 
-          console.log('[BinderEdit] Custom: placed', results.filter(Boolean).length, 'cards from saved positions');
+      // For custom binders, peek at saved positions to determine max slot used
+      let customSavedPositions: Map<number, { cardId: string }> | null = null;
+      if (binderData.collectionMode === 'custom') {
+        customSavedPositions = await getBinderCardsWithPositions(binderData.id);
+        if (customSavedPositions.size > 0) {
+          const maxPosition = Math.max(...Array.from(customSavedPositions.keys()));
+          const pagesForCustom = Math.ceil((maxPosition + 1) / slotsPerPage);
+          neededPages = Math.max(MIN_PAGES, pagesForCustom);
         }
+      }
+
+      // Also check database saved positions (user rearrangements) for max slot
+      let dbPositions: { slotIndex: number; cardId: string | null }[] = [];
+      try {
+        dbPositions = await getCardPositionsForBinder(binderData.id);
+        if (dbPositions.length > 0) {
+          const maxDbSlot = Math.max(...dbPositions.map(p => p.slotIndex));
+          const pagesForDb = Math.ceil((maxDbSlot + 1) / slotsPerPage);
+          neededPages = Math.max(neededPages, pagesForDb);
+        }
+      } catch (dbErr) {
+        console.warn('[BinderEdit] Could not load saved positions, using defaults:', dbErr);
+      }
+
+      // Update the total pages state
+      const computedPages = neededPages;
+      setTotalPages(computedPages);
+      const totalSlotCount = slotsPerPage * computedPages;
+
+      console.log('[BinderEdit] Computed pages:', computedPages, '(slots:', totalSlotCount, ')');
+
+      // ── Create the positions array ──
+      const positions: CardPosition[] = [];
+      for (let i = 0; i < totalSlotCount; i++) {
+        positions.push({ cardId: null, cardName: undefined, imageUrl: undefined, slotIndex: i });
+      }
+
+      // ── Fill positions with loaded cards ──
+      if (binderData.collectionMode === 'custom' && customSavedPositions && customSavedPositions.size > 0) {
+        const results = await Promise.all(
+          Array.from(customSavedPositions.entries()).map(async ([position, data]) => {
+            try {
+              const card = await getCardById(data.cardId);
+              return card ? { position, card } : null;
+            } catch { return null; }
+          })
+        );
+
+        results.forEach((result) => {
+          if (result && result.position < totalSlotCount) {
+            positions[result.position] = {
+              ...positions[result.position],
+              cardId: result.card.id,
+              cardName: result.card.name,
+              imageUrl: result.card.imageUrl,
+            };
+          }
+        });
+
+        console.log('[BinderEdit] Custom: placed', results.filter(Boolean).length, 'cards from saved positions');
       }
 
       if (binderData.collectionMode !== 'custom') {
@@ -409,54 +452,49 @@ export default function BinderEditScreen() {
       }
 
       // Check for saved positions in database (user rearrangements)
-      try {
-        const dbPositions = await getCardPositionsForBinder(binderData.id);
-        if (dbPositions.length > 0) {
-          console.log('[BinderEdit] Found', dbPositions.length, 'saved positions in database');
+      if (dbPositions.length > 0) {
+        console.log('[BinderEdit] Found', dbPositions.length, 'saved positions in database');
 
-          // Build a lookup map from all loaded cards (API + custom)
-          const cardLookup = new Map<string, { name: string; imageUrl?: string }>();
-          positions.forEach(p => {
-            if (p.cardId) {
-              cardLookup.set(p.cardId, { name: p.cardName || '', imageUrl: p.imageUrl });
-            }
-          });
-
-          // Reset all positions to empty
-          for (let i = 0; i < totalSlotCount; i++) {
-            positions[i] = { cardId: null, cardName: undefined, imageUrl: undefined, slotIndex: i };
+        // Build a lookup map from all loaded cards (API + custom)
+        const cardLookup = new Map<string, { name: string; imageUrl?: string }>();
+        positions.forEach(p => {
+          if (p.cardId) {
+            cardLookup.set(p.cardId, { name: p.cardName || '', imageUrl: p.imageUrl });
           }
+        });
 
-          // Place cards at their saved positions
-          for (const saved of dbPositions) {
-            if (saved.slotIndex < totalSlotCount && saved.cardId) {
-              const cardInfo = cardLookup.get(saved.cardId);
-              if (cardInfo) {
-                positions[saved.slotIndex] = {
-                  slotIndex: saved.slotIndex,
-                  cardId: saved.cardId,
-                  cardName: cardInfo.name,
-                  imageUrl: cardInfo.imageUrl,
-                };
-              } else {
-                // Card not in lookup (maybe added from picker), fetch from API
-                try {
-                  const card = await getCardById(saved.cardId);
-                  if (card) {
-                    positions[saved.slotIndex] = {
-                      slotIndex: saved.slotIndex,
-                      cardId: card.id,
-                      cardName: card.name,
-                      imageUrl: card.imageUrl,
-                    };
-                  }
-                } catch { /* skip this card */ }
-              }
+        // Reset all positions to empty
+        for (let i = 0; i < totalSlotCount; i++) {
+          positions[i] = { cardId: null, cardName: undefined, imageUrl: undefined, slotIndex: i };
+        }
+
+        // Place cards at their saved positions
+        for (const saved of dbPositions) {
+          if (saved.slotIndex < totalSlotCount && saved.cardId) {
+            const cardInfo = cardLookup.get(saved.cardId);
+            if (cardInfo) {
+              positions[saved.slotIndex] = {
+                slotIndex: saved.slotIndex,
+                cardId: saved.cardId,
+                cardName: cardInfo.name,
+                imageUrl: cardInfo.imageUrl,
+              };
+            } else {
+              // Card not in lookup (maybe added from picker), fetch from API
+              try {
+                const card = await getCardById(saved.cardId);
+                if (card) {
+                  positions[saved.slotIndex] = {
+                    slotIndex: saved.slotIndex,
+                    cardId: card.id,
+                    cardName: card.name,
+                    imageUrl: card.imageUrl,
+                  };
+                }
+              } catch { /* skip this card */ }
             }
           }
         }
-      } catch (dbErr) {
-        console.warn('[BinderEdit] Could not load saved positions, using defaults:', dbErr);
       }
 
       setCardPositions(positions);
@@ -1779,9 +1817,9 @@ export default function BinderEditScreen() {
         {/* Page Navigator */}
         <PageNavigator
           currentPage={currentPage}
-          totalPages={TOTAL_PAGES}
+          totalPages={totalPages}
           onPreviousPage={() => setCurrentPage(p => Math.max(1, p - 1))}
-          onNextPage={() => setCurrentPage(p => Math.min(TOTAL_PAGES, p + 1))}
+          onNextPage={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
           onJumpToPage={() => setShowJumpModal(true)}
         />
 
@@ -1863,7 +1901,7 @@ export default function BinderEditScreen() {
       <JumpToPageModal
         visible={showJumpModal}
         currentPage={currentPage}
-        totalPages={TOTAL_PAGES}
+        totalPages={totalPages}
         onClose={() => setShowJumpModal(false)}
         onJump={(page) => setCurrentPage(page)}
       />

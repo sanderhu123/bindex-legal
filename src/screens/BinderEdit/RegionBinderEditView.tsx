@@ -45,8 +45,6 @@ interface PokemonSlot {
   displayNumber: string;
 }
 
-const TOTAL_PAGES = 20; // Fixed 20 pages (same as Master Set/Custom)
-
 interface RegionBinderEditViewProps {
   binder: Binder;
 }

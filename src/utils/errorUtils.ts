@@ -202,8 +202,9 @@ export function sanitizeSearchQuery(query: string): string {
   
   // Remove dangerous characters that could break API calls
   // Keep: letters, numbers, spaces, hyphens, apostrophes (for names like "Farfetch'd")
-  // Remove: quotes, brackets, slashes, etc.
-  sanitized = sanitized.replace(/[<>{}[\]\\\/"|`~!@#$%^&*()+=;:]/g, '');
+  // Keep: forward slash (for card numbers like "001/159") and # (for "#001")
+  // Remove: quotes, brackets, backslashes, etc.
+  sanitized = sanitized.replace(/[<>{}[\]\\"|`~!@$%^&*()+=;:]/g, '');
   
   // Collapse multiple spaces into one
   sanitized = sanitized.replace(/\s+/g, ' ');

@@ -1523,6 +1523,27 @@ function escapeRegExp(string: string): string {
 }
 
 /**
+ * Strip leading zeros from a purely numeric string.
+ * "007" → "7", "001" → "1", "0" → "0".
+ * Non-numeric strings like "TG21" are returned as-is.
+ */
+function stripLeadingZeros(value: string): string {
+  if (/^\d+$/.test(value)) {
+    return String(Number(value));
+  }
+  return value;
+}
+
+/**
+ * Check if a search query looks like a card number rather than a card name.
+ * Returns true for "7", "007", "001/159", "#7", "TG21".
+ * Returns false for "oddish", "pikachu".
+ */
+function looksLikeCardNumber(query: string): boolean {
+  return /^#?\d/.test(query) || query.includes('/') || /^[a-z]{1,3}\d/i.test(query);
+}
+
+/**
  * Cache duration for search results (2 minutes - shorter than normal cache)
  * Search results can change more frequently as users search different terms
  */
@@ -1644,49 +1665,120 @@ export async function searchCardsByName(
       const requestStartTime = performance.now();
       console.log('[28A] Fetching ALL results for stable sorting...');
       
-      // Build API URL with query params (name + server-side filters)
-      // Note: TCGDEX API only supports one value per param, so when multiple
-      // values are selected we send the first to the API and filter the rest client-side
-      const params = new URLSearchParams();
-      if (sanitizedQuery) {
-        params.append('name', sanitizedQuery);
-      }
-      // Add server-side filters (only single values — multi handled client-side below)
-      if (filters?.rarities && filters.rarities.length === 1) {
-        params.append('rarity', `eq:${filters.rarities[0]}`);
-      }
-      if (filters?.illustrators && filters.illustrators.length === 1) {
-        params.append('illustrator', `like:${filters.illustrators[0]}`);
-      }
-      if (filters?.setIds && filters.setIds.length === 1) {
-        params.append('set.id', `eq:${filters.setIds[0]}`);
-      }
+      // Detect if the query looks like a card number (e.g., "007", "TG21", "001/159")
+      const isNumberSearch = sanitizedQuery ? looksLikeCardNumber(sanitizedQuery) : false;
       
-      const apiUrl = `https://api.tcgdex.net/v2/en/cards?${params.toString()}`;
-      
-      console.log('[28A] Fetching from API URL:', apiUrl);
-      
-      const response = await fetch(apiUrl);
-      
-      if (!response.ok) {
-        if (response.status === 429) {
-          handleRateLimitError({ status: 429 });
+      // Helper to build common filter params (shared between name and number searches)
+      const buildFilterParams = (): URLSearchParams => {
+        const p = new URLSearchParams();
+        if (filters?.rarities && filters.rarities.length === 1) {
+          p.append('rarity', `eq:${filters.rarities[0]}`);
         }
-        throw new Error(`API request failed: ${response.status} ${response.statusText}`);
+        if (filters?.illustrators && filters.illustrators.length === 1) {
+          p.append('illustrator', `like:${filters.illustrators[0]}`);
+        }
+        if (filters?.setIds && filters.setIds.length === 1) {
+          p.append('set.id', `eq:${filters.setIds[0]}`);
+        }
+        return p;
+      };
+      
+      let cardResults: any[];
+      
+      if (isNumberSearch && sanitizedQuery) {
+        // ---- NUMBER SEARCH ----
+        // Strip "#" prefix and handle slash format ("001/159" → "001")
+        let cleaned = sanitizedQuery.replace(/^#/, '');
+        if (cleaned.includes('/')) {
+          cleaned = cleaned.split('/')[0];
+        }
+        
+        // Get both normalized (no leading zeros) and 3-digit padded versions
+        const normalized = stripLeadingZeros(cleaned);
+        const padded = /^\d+$/.test(normalized) ? normalized.padStart(3, '0') : normalized;
+        
+        // Build unique localId values to search (avoid duplicate API calls)
+        const localIdValues = new Set([cleaned, normalized, padded]);
+        
+        console.log('[28A] Number search detected:', {
+          raw: sanitizedQuery,
+          cleaned,
+          normalized,
+          padded,
+          localIdValues: Array.from(localIdValues),
+        });
+        
+        // Make parallel API calls for each localId format
+        const fetchPromises = Array.from(localIdValues).map(async (localId) => {
+          const p = buildFilterParams();
+          p.append('localId', localId);
+          const url = `https://api.tcgdex.net/v2/en/cards?${p.toString()}`;
+          console.log('[28A] Fetching number search URL:', url);
+          
+          const resp = await fetch(url);
+          if (!resp.ok) {
+            if (resp.status === 429) {
+              handleRateLimitError({ status: 429 });
+            }
+            // Non-fatal: if one format returns an error, we still have the other
+            console.warn('[28A] Number search request failed:', { localId, status: resp.status });
+            return [];
+          }
+          return resp.json();
+        });
+        
+        const allResults = await Promise.all(fetchPromises);
+        
+        // Merge results and deduplicate by card ID
+        const seenIds = new Set<string>();
+        cardResults = [];
+        for (const resultSet of allResults) {
+          for (const card of resultSet) {
+            if (card.id && !seenIds.has(card.id)) {
+              seenIds.add(card.id);
+              cardResults.push(card);
+            }
+          }
+        }
+        
+        const fetchDuration = performance.now() - requestStartTime;
+        console.log('[28A] Number search results merged:', {
+          resultCount: cardResults.length,
+          fetchDuration: `${fetchDuration.toFixed(2)}ms`,
+          localIdValues: Array.from(localIdValues),
+        });
+      } else {
+        // ---- NAME SEARCH (existing behavior) ----
+        const params = buildFilterParams();
+        if (sanitizedQuery) {
+          params.append('name', sanitizedQuery);
+        }
+        
+        const apiUrl = `https://api.tcgdex.net/v2/en/cards?${params.toString()}`;
+        console.log('[28A] Fetching from API URL:', apiUrl);
+        
+        const response = await fetch(apiUrl);
+        
+        if (!response.ok) {
+          if (response.status === 429) {
+            handleRateLimitError({ status: 429 });
+          }
+          throw new Error(`API request failed: ${response.status} ${response.statusText}`);
+        }
+        
+        cardResults = await response.json();
+        
+        const fetchDuration = performance.now() - requestStartTime;
+        console.log('[28A] API response received:', {
+          resultCount: cardResults.length,
+          fetchDuration: `${fetchDuration.toFixed(2)}ms`,
+          sampleCard: cardResults[0] ? {
+            id: cardResults[0].id,
+            name: cardResults[0].name,
+            localId: cardResults[0].localId,
+          } : null,
+        });
       }
-      
-      const cardResults = await response.json();
-      
-      const fetchDuration = performance.now() - requestStartTime;
-      console.log('[28A] API response received:', {
-        resultCount: cardResults.length,
-        fetchDuration: `${fetchDuration.toFixed(2)}ms`,
-        sampleCard: cardResults[0] ? {
-          id: cardResults[0].id,
-          name: cardResults[0].name,
-          localId: cardResults[0].localId,
-        } : null,
-      });
       
       // Filter results if pokemonOnly is requested
       let filteredResults = cardResults;

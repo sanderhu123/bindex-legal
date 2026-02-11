@@ -6,13 +6,6 @@ interface CardWithOwnership extends Card {
 }
 
 /**
- * Escapes special regex characters in a string
- */
-function escapeRegExp(string: string): string {
-  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
-/**
  * Strip leading zeros from a string so "007", "07", and "7" all become "7".
  * Non-numeric prefixes like "TG01" are left as-is (only pure-numeric strings are stripped).
  */
@@ -47,11 +40,6 @@ export function useCardSearch(cards: CardWithOwnership[], searchQuery: string): 
     }
 
     const query = searchQuery.toLowerCase().trim();
-    
-    // Create a regex to match the query as a complete word (not partial)
-    // This prevents "Pidgeot" from matching "Pidgeotto"
-    const escapedQuery = escapeRegExp(query);
-    const wordBoundaryRegex = new RegExp(`\\b${escapedQuery}\\b`, 'i');
 
     // Determine if the query looks like a number search
     const isNumberSearch = looksLikeNumberSearch(query);
@@ -73,9 +61,9 @@ export function useCardSearch(cards: CardWithOwnership[], searchQuery: string): 
     }
     
     return cards.filter((card) => {
-      // Search by name using word boundary (case-insensitive)
-      // Matches "Pidgeot", "Pidgeot EX", "Pidgeot V" but NOT "Pidgeotto"
-      const nameMatch = wordBoundaryRegex.test(card.name);
+      // Search by name using partial matching (case-insensitive)
+      // "Odd" matches "Oddish", "Char" matches "Charizard", etc.
+      const nameMatch = card.name.toLowerCase().includes(query);
       
       // Search by card number (e.g., "007", "7", "001/159", "TG21")
       // Normalize the card's number the same way so "007" == "7"

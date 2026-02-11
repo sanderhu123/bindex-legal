@@ -1732,21 +1732,30 @@ export async function searchCardsByName(
         
         // Merge results and deduplicate by card ID
         const seenIds = new Set<string>();
-        cardResults = [];
+        const mergedResults: any[] = [];
         for (const resultSet of allResults) {
           for (const card of resultSet) {
             if (card.id && !seenIds.has(card.id)) {
               seenIds.add(card.id);
-              cardResults.push(card);
+              mergedResults.push(card);
             }
           }
         }
         
+        // Client-side exact match filter:
+        // Normalize each card's localId and only keep cards that match exactly.
+        // This ensures "1" returns card #1 but NOT #10, #11, #100, etc.
+        cardResults = mergedResults.filter((card) => {
+          const cardLocalId = stripLeadingZeros((card.localId || '').toLowerCase());
+          return cardLocalId === normalized;
+        });
+        
         fetchDuration = performance.now() - requestStartTime;
-        console.log('[28A] Number search results merged:', {
-          resultCount: cardResults.length,
+        console.log('[28A] Number search results:', {
+          apiResults: mergedResults.length,
+          afterExactFilter: cardResults.length,
+          normalized,
           fetchDuration: `${fetchDuration.toFixed(2)}ms`,
-          localIdValues: Array.from(localIdValues),
         });
       } else {
         // ---- NAME SEARCH (existing behavior) ----

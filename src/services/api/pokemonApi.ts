@@ -1544,6 +1544,43 @@ function looksLikeCardNumber(query: string): boolean {
 }
 
 /**
+ * Cached map of set ID → official card count (the printed total on cards, e.g. 159).
+ * Populated lazily on first number search that includes a slash (e.g. "1/159").
+ */
+let setOfficialCountCache: Map<string, number> | null = null;
+
+/**
+ * Fetch (and cache) the official card count for every set from TCGDEX.
+ * The set list endpoint returns { id, name, logo, cardCount: { total, official } }
+ * for each set. We only keep id → cardCount.official.
+ */
+async function getSetOfficialCounts(): Promise<Map<string, number>> {
+  if (setOfficialCountCache) return setOfficialCountCache;
+
+  try {
+    console.log('[28A] Fetching set list for official card counts...');
+    const response = await fetch('https://api.tcgdex.net/v2/en/sets');
+    if (!response.ok) {
+      console.warn('[28A] Failed to fetch set list:', response.status);
+      return new Map();
+    }
+    const sets: any[] = await response.json();
+    const map = new Map<string, number>();
+    for (const s of sets) {
+      if (s.id && s.cardCount?.official != null) {
+        map.set(s.id, Number(s.cardCount.official));
+      }
+    }
+    setOfficialCountCache = map;
+    console.log('[28A] Set official counts cached:', { setCount: map.size });
+    return map;
+  } catch (error) {
+    console.warn('[28A] Error fetching set counts:', error);
+    return new Map();
+  }
+}
+
+/**
  * Cache duration for search results (2 minutes - shorter than normal cache)
  * Search results can change more frequently as users search different terms
  */
@@ -1688,10 +1725,18 @@ export async function searchCardsByName(
       
       if (isNumberSearch && sanitizedQuery) {
         // ---- NUMBER SEARCH ----
-        // Strip "#" prefix and handle slash format ("001/159" → "001")
+        // Strip "#" prefix and extract set total from slash format
+        // "001/159" → cardNumber "001", setTotal 159
+        // "1"       → cardNumber "1",   setTotal undefined
         let cleaned = sanitizedQuery.replace(/^#/, '');
+        let setTotal: number | undefined; // The printed total on the card (e.g. 159)
         if (cleaned.includes('/')) {
-          cleaned = cleaned.split('/')[0];
+          const parts = cleaned.split('/');
+          cleaned = parts[0];
+          const parsedTotal = parseInt(parts[1], 10);
+          if (!isNaN(parsedTotal) && parsedTotal > 0) {
+            setTotal = parsedTotal;
+          }
         }
         
         // Get both normalized (no leading zeros) and 3-digit padded versions
@@ -1706,8 +1751,26 @@ export async function searchCardsByName(
           cleaned,
           normalized,
           padded,
+          setTotal: setTotal ?? '(none)',
           localIdValues: Array.from(localIdValues),
         });
+        
+        // If a set total was provided (e.g. "/159"), fetch the set list so we can
+        // narrow results to only sets whose official card count matches.
+        let allowedSetIds: Set<string> | null = null;
+        if (setTotal != null) {
+          const officialCounts = await getSetOfficialCounts();
+          allowedSetIds = new Set<string>();
+          for (const [setId, count] of officialCounts) {
+            if (count === setTotal) {
+              allowedSetIds.add(setId);
+            }
+          }
+          console.log('[28A] Sets with official count', setTotal, ':', {
+            matchingSetCount: allowedSetIds.size,
+            sampleIds: Array.from(allowedSetIds).slice(0, 5),
+          });
+        }
         
         // Make parallel API calls for each localId format
         const fetchPromises = Array.from(localIdValues).map(async (localId) => {
@@ -1743,11 +1806,23 @@ export async function searchCardsByName(
         }
         
         // Client-side exact match filter:
-        // Normalize each card's localId and only keep cards that match exactly.
-        // This ensures "1" returns card #1 but NOT #10, #11, #100, etc.
+        // 1. Normalize each card's localId and only keep cards that match exactly.
+        //    This ensures "1" returns card #1 but NOT #10, #11, #100, etc.
+        // 2. If a set total was provided (e.g. "/159"), also filter to only
+        //    cards from sets whose official printed count matches.
         cardResults = mergedResults.filter((card) => {
           const cardLocalId = stripLeadingZeros((card.localId || '').toLowerCase());
-          return cardLocalId === normalized;
+          if (cardLocalId !== normalized) return false;
+          
+          // If set total filter is active, check the card's set ID
+          if (allowedSetIds) {
+            // Card ID format: "setId-localId" (e.g. "swsh5-1")
+            // Extract set ID (everything before the last dash+localId)
+            const cardSetId = card.id?.split('-').slice(0, -1).join('-') || '';
+            if (!allowedSetIds.has(cardSetId)) return false;
+          }
+          
+          return true;
         });
         
         fetchDuration = performance.now() - requestStartTime;
@@ -1755,6 +1830,7 @@ export async function searchCardsByName(
           apiResults: mergedResults.length,
           afterExactFilter: cardResults.length,
           normalized,
+          setTotal: setTotal ?? '(none)',
           fetchDuration: `${fetchDuration.toFixed(2)}ms`,
         });
       } else {

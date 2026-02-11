@@ -888,6 +888,116 @@ export async function toggleExtraCardOwnership(
   return newIsOwned;
 }
 
+// ============================================================================
+// CARD NOTES FUNCTIONS
+// Allow users to save a personal note on any card in their binder
+// ============================================================================
+
+/**
+ * Get the note for a specific card in a binder.
+ * Returns the note text, or null if no note exists.
+ *
+ * @param binderId - The binder ID
+ * @param cardId - The card ID
+ * @param variant - Optional variant
+ * @param position - Optional position (for Custom binders)
+ */
+export async function getCardNote(
+  binderId: string,
+  cardId: string,
+  variant?: string,
+  position?: number
+): Promise<string | null> {
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) {
+    throw new Error('User not authenticated');
+  }
+
+  let query = supabase
+    .from('binder_cards')
+    .select('note')
+    .eq('user_id', user.id)
+    .eq('binder_id', binderId)
+    .eq('card_id', cardId);
+
+  // If a position is provided (Custom binder), match by position
+  if (position !== undefined && position !== null) {
+    query = query.eq('position', position);
+  } else {
+    // Match by variant for non-Custom binders
+    if (variant) {
+      query = query.eq('variant', variant);
+    } else {
+      query = query.is('variant', null);
+    }
+  }
+
+  const { data, error } = await query.maybeSingle();
+
+  if (error) {
+    console.error('[CardNote] Failed to get note:', error);
+    return null;
+  }
+
+  return data?.note ?? null;
+}
+
+/**
+ * Save a note for a specific card in a binder.
+ * Pass an empty string or null to remove the note.
+ *
+ * @param binderId - The binder ID
+ * @param cardId - The card ID
+ * @param note - The note text (empty string / null to clear)
+ * @param variant - Optional variant
+ * @param position - Optional position (for Custom binders)
+ */
+export async function saveCardNote(
+  binderId: string,
+  cardId: string,
+  note: string | null,
+  variant?: string,
+  position?: number
+): Promise<void> {
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) {
+    throw new Error('User not authenticated');
+  }
+
+  // Normalise: treat empty string as null (removes the note)
+  const noteValue = note && note.trim().length > 0 ? note.trim() : null;
+
+  let query = supabase
+    .from('binder_cards')
+    .update({ note: noteValue })
+    .eq('user_id', user.id)
+    .eq('binder_id', binderId)
+    .eq('card_id', cardId);
+
+  // If a position is provided (Custom binder), match by position
+  if (position !== undefined && position !== null) {
+    query = query.eq('position', position);
+  } else {
+    // Match by variant for non-Custom binders
+    if (variant) {
+      query = query.eq('variant', variant);
+    } else {
+      query = query.is('variant', null);
+    }
+  }
+
+  const { error } = await query;
+
+  if (error) {
+    console.error('[CardNote] Failed to save note:', error);
+    throw error;
+  }
+
+  console.log('[CardNote] Note saved successfully');
+}
+
 
 
 

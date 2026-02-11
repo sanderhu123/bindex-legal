@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { View, StyleSheet, Text, ScrollView, Dimensions, TouchableOpacity, Alert } from 'react-native';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { View, StyleSheet, Text, ScrollView, Dimensions, TouchableOpacity, Alert, TextInput, Keyboard } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { getCardById } from '../../services/api/pokemonApi';
 import { getBinderById } from '../../services/supabase/binders';
-import { addCardToBinder, removeCardFromBinder, toggleCardOwnershipAtPosition, toggleExtraCardOwnership } from '../../services/supabase/cards';
+import { addCardToBinder, removeCardFromBinder, toggleCardOwnershipAtPosition, toggleExtraCardOwnership, getCardNote, saveCardNote } from '../../services/supabase/cards';
 import { setSelectedCardForPokemon, clearSelectedCardForPokemon } from '../../services/supabase/regionCards';
 import { CardPickerModal } from '../../components/CardPicker';
 import CardImage from '../../components/Card/CardImage';
@@ -31,6 +31,13 @@ export default function CardDetailScreen({ navigation, route }: CardDetailScreen
   const [error, setError] = useState<string | null>(null);
   const [isOwned, setIsOwned] = useState<boolean>(!!initialOwnedParam);
   const [isUpdating, setIsUpdating] = useState(false);
+  
+  // Note state
+  const [note, setNote] = useState('');
+  const [savedNote, setSavedNote] = useState('');
+  const [isSavingNote, setIsSavingNote] = useState(false);
+  const [noteLoaded, setNoteLoaded] = useState(false);
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   
   // Region mode: card picker state
   const [showCardPicker, setShowCardPicker] = useState(false);
@@ -164,6 +171,75 @@ export default function CardDetailScreen({ navigation, route }: CardDetailScreen
       navigation.setOptions({ title: card.name });
     }
   }, [card, navigation]);
+
+  // Load existing note when card is ready
+  useEffect(() => {
+    if (!card || !binder) return;
+
+    async function loadNote() {
+      try {
+        const isCustom = collectionMode === 'custom' && position !== undefined && position !== null;
+        const existingNote = await getCardNote(
+          binder!.id,
+          card!.id,
+          card!.variant,
+          isCustom ? position : undefined
+        );
+        if (existingNote) {
+          setNote(existingNote);
+          setSavedNote(existingNote);
+        }
+      } catch (err) {
+        console.error('[CardDetail] Failed to load note:', err);
+      } finally {
+        setNoteLoaded(true);
+      }
+    }
+
+    loadNote();
+  }, [card, binder, collectionMode, position]);
+
+  // Auto-save note after the user stops typing for 1 second
+  const handleNoteChange = useCallback((text: string) => {
+    setNote(text);
+
+    // Clear any pending save
+    if (saveTimerRef.current) {
+      clearTimeout(saveTimerRef.current);
+    }
+
+    // Schedule a save 1 second after the user stops typing
+    saveTimerRef.current = setTimeout(async () => {
+      if (!card || !binder) return;
+      if (text.trim() === savedNote) return; // Nothing changed
+
+      setIsSavingNote(true);
+      try {
+        const isCustom = collectionMode === 'custom' && position !== undefined && position !== null;
+        await saveCardNote(
+          binder.id,
+          card.id,
+          text,
+          card.variant,
+          isCustom ? position : undefined
+        );
+        setSavedNote(text.trim());
+      } catch (err) {
+        console.error('[CardDetail] Failed to save note:', err);
+      } finally {
+        setIsSavingNote(false);
+      }
+    }, 1000);
+  }, [card, binder, savedNote, collectionMode, position]);
+
+  // Clean up timer on unmount and do a final save if needed
+  useEffect(() => {
+    return () => {
+      if (saveTimerRef.current) {
+        clearTimeout(saveTimerRef.current);
+      }
+    };
+  }, []);
 
   // Handle selecting a new card for Region mode
   // NOTE: All hooks must be defined before any early returns!
@@ -382,6 +458,32 @@ export default function CardDetailScreen({ navigation, route }: CardDetailScreen
           </View>
         )}
 
+        {/* Personal Note */}
+        <View style={styles.noteContainer}>
+          <View style={styles.noteHeader}>
+            <Text style={styles.noteLabel}>My Note</Text>
+            {isSavingNote && (
+              <Text style={styles.noteSaving}>Saving...</Text>
+            )}
+            {!isSavingNote && noteLoaded && note.trim().length > 0 && note.trim() === savedNote && (
+              <Text style={styles.noteSaved}>Saved</Text>
+            )}
+          </View>
+          <TextInput
+            style={styles.noteInput}
+            value={note}
+            onChangeText={handleNoteChange}
+            placeholder="Add a note about this card..."
+            placeholderTextColor={colors.textLight}
+            multiline
+            maxLength={500}
+            textAlignVertical="top"
+            returnKeyType="done"
+            blurOnSubmit={true}
+            onSubmitEditing={() => Keyboard.dismiss()}
+          />
+        </View>
+
         {/* Ownership Toggle Button */}
         <View style={styles.buttonContainer}>
           <TouchableOpacity
@@ -492,6 +594,43 @@ const styles = StyleSheet.create({
     fontSize: typography.base,
     color: colors.textSecondary,
     fontWeight: typography.medium,
+  },
+  // Personal note
+  noteContainer: {
+    width: '100%',
+    marginBottom: spacing.md,
+  },
+  noteHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.xs,
+  },
+  noteLabel: {
+    fontSize: typography.sm,
+    fontWeight: typography.semibold,
+    color: colors.textSecondary,
+  },
+  noteSaving: {
+    fontSize: typography.xs,
+    color: colors.textLight,
+    fontStyle: 'italic',
+  },
+  noteSaved: {
+    fontSize: typography.xs,
+    color: colors.success,
+  },
+  noteInput: {
+    backgroundColor: colors.backgroundLight || '#f5f5f5',
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingHorizontal: spacing.sm + 2,
+    paddingVertical: spacing.sm,
+    fontSize: typography.sm,
+    color: colors.text,
+    minHeight: 60,
+    maxHeight: 120,
   },
   buttonContainer: {
     width: '100%',

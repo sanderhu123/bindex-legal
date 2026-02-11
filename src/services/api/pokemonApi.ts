@@ -1684,6 +1684,7 @@ export async function searchCardsByName(
       };
       
       let cardResults: any[];
+      let fetchDuration = 0;
       
       if (isNumberSearch && sanitizedQuery) {
         // ---- NUMBER SEARCH ----
@@ -1741,7 +1742,7 @@ export async function searchCardsByName(
           }
         }
         
-        const fetchDuration = performance.now() - requestStartTime;
+        fetchDuration = performance.now() - requestStartTime;
         console.log('[28A] Number search results merged:', {
           resultCount: cardResults.length,
           fetchDuration: `${fetchDuration.toFixed(2)}ms`,
@@ -1768,7 +1769,7 @@ export async function searchCardsByName(
         
         cardResults = await response.json();
         
-        const fetchDuration = performance.now() - requestStartTime;
+        fetchDuration = performance.now() - requestStartTime;
         console.log('[28A] API response received:', {
           resultCount: cardResults.length,
           fetchDuration: `${fetchDuration.toFixed(2)}ms`,

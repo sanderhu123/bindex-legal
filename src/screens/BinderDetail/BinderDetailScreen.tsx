@@ -1552,7 +1552,44 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
     return Array.from({ length: Math.min(displayCount, customMaxSlots) }, (_, i) => i);
   }, [binder, displayCount, customMaxSlots]);
 
-  const hasMoreCustomSlots = displayCount < customMaxSlots;
+  // Filtered custom slots: when search or ownership filter is active, only show matching slots
+  const filteredCustomSlots = useMemo(() => {
+    if (!binder || binder.collectionMode !== 'custom') return [];
+    
+    const hasSearch = searchQuery.trim().length > 0;
+    const hasOwnershipFilter = ownershipFilter !== 'all';
+    
+    // No filters active - show all slots (including empty ones)
+    if (!hasSearch && !hasOwnershipFilter) {
+      return customSlots;
+    }
+    
+    const query = searchQuery.toLowerCase().trim();
+    
+    return customSlots.filter((position) => {
+      const card = positionCards.get(position);
+      
+      // Empty slots: hide when searching or filtering
+      if (!card) return false;
+      
+      // Apply search filter
+      if (hasSearch) {
+        const nameMatch = card.name.toLowerCase().includes(query);
+        const numberMatch = card.number.toLowerCase().includes(query);
+        if (!nameMatch && !numberMatch) return false;
+      }
+      
+      // Apply ownership filter
+      if (ownershipFilter === 'owned' && !card.isOwned) return false;
+      if (ownershipFilter === 'missing' && card.isOwned) return false;
+      
+      return true;
+    });
+  }, [binder, customSlots, positionCards, searchQuery, ownershipFilter]);
+
+  // Only allow loading more when no filter is active (filtered mode shows all matching at once)
+  const isCustomFiltering = isCustomMode && (searchQuery.trim().length > 0 || ownershipFilter !== 'all');
+  const hasMoreCustomSlots = !isCustomFiltering && displayCount < customMaxSlots;
 
   // Load more slots for Custom mode
   const loadMoreCustomSlots = useCallback(() => {
@@ -1822,23 +1859,20 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
           </View>
         </View>
         
-        {/* Search and Filter - only show for non-Custom modes */}
-        {!isCustomMode && (
-          <>
-            <SearchBar
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              placeholder="Search by name or number..."
-            />
-            
-            <FilterPanel
-              ownershipFilter={ownershipFilter}
-              onOwnershipFilterChange={setOwnershipFilter}
-              showPageBreaks={showPageBreaks}
-              onShowPageBreaksChange={setShowPageBreaks}
-            />
-          </>
-        )}
+        {/* Search and Filter */}
+        <SearchBar
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          placeholder="Search by name or number..."
+        />
+        
+        {/* Filter panel - page breaks toggle only for non-Custom modes */}
+        <FilterPanel
+          ownershipFilter={ownershipFilter}
+          onOwnershipFilterChange={setOwnershipFilter}
+          showPageBreaks={isCustomMode ? undefined : showPageBreaks}
+          onShowPageBreaksChange={isCustomMode ? undefined : setShowPageBreaks}
+        />
         
         <Text style={styles.helpText}>
           {isCustomMode 
@@ -1860,7 +1894,18 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
 
     // Custom mode footer
     if (isCustomMode) {
-      if (!hasMoreCustomSlots && customSlots.length > 0) {
+      // When filtering, show count of matching cards
+      if (isCustomFiltering && filteredCustomSlots.length > 0) {
+        return (
+          <View style={styles.footerComplete}>
+            <Text style={styles.footerCompleteText}>
+              {filteredCustomSlots.length} card{filteredCustomSlots.length !== 1 ? 's' : ''} found
+            </Text>
+          </View>
+        );
+      }
+      
+      if (!hasMoreCustomSlots && customSlots.length > 0 && !isCustomFiltering) {
         return (
           <View style={styles.footerComplete}>
             <Text style={styles.footerCompleteText}>
@@ -2030,7 +2075,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
     return (
       <SafeAreaView style={styles.safeArea}>
         <FlatList
-          data={customSlots}
+          data={filteredCustomSlots}
           renderItem={renderCustomSlot}
           keyExtractor={customSlotKeyExtractor}
           numColumns={gridColumns}
@@ -2039,13 +2084,21 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
           contentContainerStyle={styles.flatListContainer}
           ListHeaderComponent={listHeader}
           ListFooterComponent={ListFooterComponent}
+          ListEmptyComponent={
+            isCustomFiltering ? (
+              <EmptyState
+                title="No cards match your search"
+                message="Try adjusting your search or filters"
+              />
+            ) : null
+          }
           onEndReached={loadMoreCustomSlots}
           onEndReachedThreshold={0.5}
           removeClippedSubviews={false}
           maxToRenderPerBatch={PAGE_SIZE}
           windowSize={11}
           initialNumToRender={PAGE_SIZE}
-          extraData={[displayCount, positionCards]}
+          extraData={[displayCount, positionCards, searchQuery, ownershipFilter]}
         />
         
         {/* Card Picker Modal for adding cards at a position */}

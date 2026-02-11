@@ -1451,6 +1451,40 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
 
   // === MASTER SET MODE: Combined grid with regular cards, extra cards, and empty slots ===
   
+  // Filter extra cards through the same search & ownership filters as regular cards
+  const filteredExtraCards = useMemo(() => {
+    if (!extraCards.length) return [];
+    
+    let result = extraCards;
+    
+    // Apply search filter (same partial-match logic as useCardSearch)
+    const query = searchQuery.toLowerCase().trim();
+    if (query) {
+      result = result.filter((card) => {
+        // Partial name match
+        if (card.name.toLowerCase().includes(query)) return true;
+        // Number match (exact, normalized)
+        const cardNum = card.number ? card.number.replace(/^0+/, '') || '0' : '';
+        let searchNum = query.replace(/^#/, '');
+        if (searchNum.includes('/')) searchNum = searchNum.split('/')[0];
+        searchNum = searchNum.replace(/^0+/, '') || '0';
+        if (/^#?\d/.test(query) || query.includes('/')) {
+          if (cardNum === searchNum) return true;
+        }
+        return false;
+      });
+    }
+    
+    // Apply ownership filter
+    if (ownershipFilter === 'owned') {
+      result = result.filter((card) => card.isOwned);
+    } else if (ownershipFilter === 'missing') {
+      result = result.filter((card) => !card.isOwned);
+    }
+    
+    return result;
+  }, [extraCards, searchQuery, ownershipFilter]);
+  
   // Create combined data for Master Set mode: regular cards + extra cards + empty slots
   const masterSetGridItems = useMemo((): MasterSetGridItem[] => {
     if (!binder || binder.collectionMode !== 'master-set') return [];
@@ -1465,19 +1499,24 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
     // Only add extra cards and empty slots when ALL regular cards have been loaded
     // This prevents empty slots from flashing while scrolling through paginated cards
     if (!hasMoreCards) {
-      // Add extra cards at the end of regular cards (displayed the same as regular cards)
-      extraCards.forEach((card) => {
+      // Add filtered extra cards at the end of regular cards
+      filteredExtraCards.forEach((card) => {
         items.push({ type: 'extra', card });
       });
       
-      // Add empty slots for adding more cards
-      for (let i = 0; i < EXTRA_CARD_SLOTS; i++) {
-        items.push({ type: 'empty-slot', slotIndex: i });
+      // Only show empty slots when no search/filter is active
+      const hasActiveSearch = searchQuery.trim().length > 0;
+      const hasActiveFilter = ownershipFilter !== 'all';
+      if (!hasActiveSearch && !hasActiveFilter) {
+        // Add empty slots for adding more cards
+        for (let i = 0; i < EXTRA_CARD_SLOTS; i++) {
+          items.push({ type: 'empty-slot', slotIndex: i });
+        }
       }
     }
     
     return items;
-  }, [binder, displayedCards, extraCards, hasMoreCards]);
+  }, [binder, displayedCards, filteredExtraCards, hasMoreCards, searchQuery, ownershipFilter]);
 
   // Render function for Master Set grid items (with long-press enlarge preview)
   const renderMasterSetGridItem = useCallback(
@@ -1933,7 +1972,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
         <View style={styles.footerComplete}>
           <Text style={styles.footerCompleteText}>
             {isMasterSetMode 
-              ? `All ${filteredCards.length + extraCardsCount} cards loaded`
+              ? `All ${filteredCards.length + filteredExtraCards.length} cards loaded`
               : `All ${filteredCards.length} cards loaded`
             }
           </Text>

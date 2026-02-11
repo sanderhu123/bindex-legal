@@ -2,7 +2,7 @@
 
 > **📅 Last Updated:** February 11, 2026  
 > **🎯 Status:** ~90% Complete - Core features done, Phase 10 (Advanced Features) done, Binder Position System done, Binder Edit Mode partially done  
-> **✅ Major Milestones:** All phases 1-8 complete, Phase 10 (Advanced Features) complete, Step 33 (Binder Position System) complete, Step 34 (Binder Edit Mode) partially complete, Phase 9 (Monetization) planned, Phase 11 (NFC Binder Integration) planned
+> **✅ Major Milestones:** All phases 1-8 complete, Phase 10 (Advanced Features) complete, Step 33 (Binder Position System) complete, Step 34 (Binder Edit Mode) partially complete, Phase 9 (Monetization) planned, Phase 11 (Binder Activation System) planned
 
 ## Overview
 
@@ -81,15 +81,15 @@ This guide walks you through building the app step-by-step. We'll build it incre
 - **Step 34I**: Database Storage for Card Positions - Not started
 - **Step 25**: Build for Production - Not started
 - **Step 26**: Deploy to App Stores - Not started
-- **Phase 11**: NFC Binder Integration (Step 35) - Not started
+- **Phase 11**: Binder Activation System (Step 35) - Not started
   - Step 35A: Database - `registered_tags` Table
   - Step 35B: Database - Binder Limits & User Tier
-  - Step 35C: Deep Linking Setup
-  - Step 35D: Landing Web Page
-  - Step 35E: Tag Validation Service
+  - ~~Step 35C: Deep Linking Setup~~ — Skipped (no NFC)
+  - ~~Step 35D: Landing Web Page~~ — Skipped (no NFC)
+  - Step 35E: Activation Code Validation Service
   - Step 35F: Activation Code Entry UI
-  - Step 35G: Update NFC Handler for Tag Validation
-  - Step 35H: View-Only Binder Sharing
+  - ~~Step 35G: Update NFC Handler~~ — Skipped (no NFC)
+  - ~~Step 35H: View-Only Binder Sharing~~ — Skipped (no NFC)
   - Step 35I: Transfer Binder Ownership
   - Step 35J: Binder Limit Enforcement in UI
 
@@ -7122,96 +7122,83 @@ const savePositions = async () => {
 
 ---
 
-## Phase 11: NFC Binder Integration
+## Phase 11: Binder Activation System
 
-### Step 35: NFC Binder Integration
+### Step 35: Binder Activation & Limits
 - [ ] **Status**: Not started
 
-**What we're doing:** Build the complete NFC tag system that connects physical Pokémon TCG binders to the app. Users buy a physical binder with an NFC tag embedded in it. Tapping the tag with their phone opens the app and takes them to their binder. The app is free to download for everyone.
+**What we're doing:** Build the activation code system that connects physical Pokémon TCG binders to the app. Each physical binder comes with a printed activation code. Users enter the code in the app to unlock more binder slots. The app is free to download for everyone.
+
+> **Note:** NFC tag support was considered but deferred. This implementation uses activation codes only (simpler, cheaper, works on every phone). NFC can be added later if needed — the database structure supports it.
 
 **Business Model:**
-- You sell physical Pokémon TCG binders with NFC tags pre-installed
+- You sell physical Pokémon TCG binders
+- Each binder box includes a printed activation code (e.g., `BINDER-7X9K-M2PQ`)
 - The app is free to download
-- Each NFC tag is pre-registered in the database before shipping (prevents fake tags)
-- Each binder box includes a printed activation code as a backup (for phones that can't read NFC)
+- Each activation code is pre-registered in the database before shipping (prevents fake codes)
 - Soft launch in The Netherlands, then expand to Europe
 
 **Binder Limits (Based on Physical Binders Purchased):**
 
-| NFC Tags Activated | Total App Binders Allowed |
-|--------------------|--------------------------|
-| 0 (free user)      | 1                        |
-| 1                  | 3                        |
-| 2                  | 5                        |
-| 3+                 | Unlimited                |
+| Activation Codes Used | Total App Binders Allowed |
+|-----------------------|--------------------------|
+| 0 (free user)         | 1                        |
+| 1                     | 3                        |
+| 2                     | 5                        |
+| 3+                    | Unlimited                |
 
 - All binders have the **same features** — no premium vs. limited distinction
-- The NFC tag is just a shortcut (tap to open binder) + counts as a purchased binder for the limit
+- The activation code counts as a purchased binder for the limit
 - Limited/premium feature tiers can be added later — the database structure supports it
 
-**Complete User Flow (NFC Tap):**
+**Complete User Flow (Activation Code):**
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │  YOUR WORKFLOW (Before Shipping Each Binder)                               │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                            │
-│  1. Buy blank NFC tags (each has a unique hardware UID)                    │
-│  2. Read the tag's UID (e.g., "04A23B7C125E80")                           │
-│  3. Write URL onto tag: https://trackerapp.yourdomain.com/nfc/04A23B7C... │
-│  4. Register the UID in the registered_tags database table                 │
-│  5. Lock the tag (prevents tampering)                                      │
-│  6. Print activation code on card inside binder box (backup)               │
-│  7. Stick tag onto/into the physical binder                                │
-│  8. Ship to customer                                                       │
+│  1. Generate a unique activation code (e.g., "BINDER-7X9K-M2PQ")          │
+│  2. Register the code in the registered_tags database table                │
+│  3. Print the code on a card inside the binder box                         │
+│  4. Ship to customer                                                       │
 │                                                                            │
 └─────────────────────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│  CUSTOMER EXPERIENCE (Tapping NFC Tag)                                     │
+│  CUSTOMER EXPERIENCE                                                       │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                            │
-│  Customer taps NFC tag on binder                                           │
+│  Customer downloads app from App Store / Play Store                        │
 │          ↓                                                                 │
-│  Phone opens URL: trackerapp.yourdomain.com/nfc/04A23B7C125E80            │
+│  Customer creates account (or logs in)                                     │
 │          ↓                                                                 │
-│  App installed?                                                            │
-│     NO → Landing web page detects platform                                 │
-│          → Redirects to App Store (iOS) or Play Store (Android)            │
-│          → Customer downloads & installs app                               │
-│     YES → Deep link opens app directly                                     │
+│  Customer taps "Enter Activation Code" in the app                          │
 │          ↓                                                                 │
-│  App checks: Is tag UID in registered_tags table?                          │
-│     NO → "This is not a valid tag" (rejected)                              │
-│     YES → What is the tag's status?                                        │
+│  Customer types the code from the card in the binder box                   │
+│          ↓                                                                 │
+│  App checks: Is this code in registered_tags table?                        │
+│     NO → "Invalid activation code" (rejected)                              │
+│     YES → What is the code's status?                                       │
 │          ↓                                                                 │
 │  Status = "available" (not yet claimed):                                   │
-│     → Is user logged in?                                                   │
-│        NO → Sign up/Login screen (tag ID saved temporarily)                │
-│             → After auth, tag is processed                                 │
-│        YES → Claim tag → Link to new binder                               │
-│             → Navigate to Questionnaire to set up binder                   │
+│     → Claim code → Link to user                                            │
+│     → Binder limit increases                                               │
+│     → Navigate to Questionnaire to set up a new binder                     │
 │          ↓                                                                 │
-│  Status = "claimed" (already activated):                                   │
-│     → Does it belong to this user?                                         │
-│        YES → Navigate directly to that binder                              │
-│        NO → View-only mode (read-only view of that person's binder)        │
+│  Status = "claimed" (already used):                                        │
+│     → "This code has already been used"                                    │
 │          ↓                                                                 │
 │  Status = "disabled":                                                      │
-│     → "This tag has been deactivated"                                      │
+│     → "This code has been deactivated"                                     │
 │                                                                            │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
 **Features in This Step:**
-- **Pre-registered tags** — Only NFC tags you register in the database will work
-- **Activation codes** — Backup code printed in binder box (manual entry if NFC doesn't work)
-- **View-only sharing** — Tapping someone else's binder shows a read-only view
-- **Transfer binder** — Owner can transfer binder to another person
-- **Replace broken NFC tag** — You handle this on your end (prepare new tag, link to existing binder, ship to customer)
-- **Binder limits** — Based on how many tags a user has activated
-- **Deep linking** — URL on NFC tag opens app or redirects to app store
-- **Landing web page** — Smart redirect for users without the app
+- **Pre-registered activation codes** — Only codes you register in the database will work
+- **Binder limits** — Based on how many codes a user has activated
+- **Transfer binder** — Owner can transfer binder to another person (code becomes available again)
 
 **Sub-Steps Overview:**
 
@@ -7219,12 +7206,12 @@ const savePositions = async () => {
 |----------|-------------|-------------|
 | 35A | Database: `registered_tags` table | Supabase |
 | 35B | Database: Binder limits & user tier | 35A |
-| 35C | Deep linking setup | app.json |
-| 35D | Landing web page | Domain/hosting |
-| 35E | Tag validation service | 35A |
+| ~~35C~~ | ~~Deep linking setup~~ | Skipped (no NFC) |
+| ~~35D~~ | ~~Landing web page~~ | Skipped (no NFC) |
+| 35E | Activation code validation service | 35A |
 | 35F | Activation code entry UI | 35E |
-| 35G | Update NFC handler for tag validation | 35A, 35E |
-| 35H | View-only binder sharing | 35G |
+| ~~35G~~ | ~~Update NFC handler for tag validation~~ | Skipped (no NFC) |
+| ~~35H~~ | ~~View-only binder sharing~~ | Skipped (no NFC) |
 | 35I | Transfer binder ownership | 35A, 35E |
 | 35J | Binder limit enforcement in UI | 35B, 35E |
 
@@ -7233,7 +7220,9 @@ const savePositions = async () => {
 #### Step 35A: Database - `registered_tags` Table
 - [ ] **Status**: Not started
 
-**What we're doing:** Create the `registered_tags` table in Supabase to store all pre-registered NFC tag UIDs and activation codes. This is the core table that prevents fake tags from working.
+**What we're doing:** Create the `registered_tags` table in Supabase to store all pre-registered activation codes. This is the core table that prevents fake codes from working. Only codes you register in this table will be accepted by the app.
+
+> **Note:** The table is named `registered_tags` (not `activation_codes`) to keep compatibility if NFC tags are added later. The `tag_uid` column is optional — it's there for future NFC support but not used in the code-only approach.
 
 **Database Changes:**
 
@@ -7241,30 +7230,27 @@ Run this SQL in Supabase SQL Editor:
 
 ```sql
 -- ============================================
--- REGISTERED TAGS TABLE (NFC Tag Validation)
+-- REGISTERED TAGS TABLE (Activation Code System)
 -- ============================================
--- This table stores every NFC tag you prepare before shipping.
--- Only tags in this table can be used to activate binders.
--- Each tag also has a backup activation code for manual entry.
+-- This table stores every activation code you create before shipping.
+-- Only codes in this table can be used to activate binders.
+-- The tag_uid column is optional (for future NFC support).
 
 CREATE TABLE IF NOT EXISTS public.registered_tags (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   
-  -- Tag identification
-  tag_uid TEXT UNIQUE NOT NULL,                    -- Hardware UID from NFC tag (e.g., "04A23B7C125E80")
-  activation_code TEXT UNIQUE NOT NULL,            -- Backup code (e.g., "BINDER-7X9K-M2PQ")
+  -- Identification
+  activation_code TEXT UNIQUE NOT NULL,            -- Printed code (e.g., "BINDER-7X9K-M2PQ")
+  tag_uid TEXT UNIQUE,                             -- Optional: NFC hardware UID (for future use)
   
   -- Status tracking
   status TEXT NOT NULL DEFAULT 'available'         -- 'available', 'claimed', or 'disabled'
     CHECK (status IN ('available', 'claimed', 'disabled')),
   
   -- Ownership
-  claimed_by UUID REFERENCES auth.users(id),       -- User who activated this tag (null until claimed)
+  claimed_by UUID REFERENCES auth.users(id),       -- User who activated this code (null until claimed)
   claimed_at TIMESTAMP WITH TIME ZONE,             -- When it was activated
   binder_id UUID REFERENCES public.binders(id),    -- The binder it's linked to (null until setup complete)
-  
-  -- Sharing
-  allow_sharing BOOLEAN DEFAULT TRUE,              -- Whether view-only sharing is enabled
   
   -- Transfer history
   previous_owners UUID[] DEFAULT '{}',             -- Array of previous owner user IDs
@@ -7274,18 +7260,14 @@ CREATE TABLE IF NOT EXISTS public.registered_tags (
   notes TEXT,                                      -- Optional: admin notes
   
   -- Timestamps
-  registered_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),  -- When you registered the tag
+  registered_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),  -- When you registered the code
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
 -- ============================================
 -- INDEXES
 -- ============================================
--- Fast lookup by tag UID (main NFC scan flow)
-CREATE INDEX IF NOT EXISTS idx_registered_tags_tag_uid 
-ON public.registered_tags(tag_uid);
-
--- Fast lookup by activation code (manual entry flow)
+-- Fast lookup by activation code (main validation flow)
 CREATE INDEX IF NOT EXISTS idx_registered_tags_activation_code 
 ON public.registered_tags(activation_code);
 
@@ -7293,11 +7275,11 @@ ON public.registered_tags(activation_code);
 CREATE INDEX IF NOT EXISTS idx_registered_tags_status 
 ON public.registered_tags(status);
 
--- Fast lookup by user (count how many tags a user has activated)
+-- Fast lookup by user (count how many codes a user has activated)
 CREATE INDEX IF NOT EXISTS idx_registered_tags_claimed_by 
 ON public.registered_tags(claimed_by);
 
--- Fast lookup by binder (find tag for a specific binder)
+-- Fast lookup by binder (find code for a specific binder)
 CREATE INDEX IF NOT EXISTS idx_registered_tags_binder_id 
 ON public.registered_tags(binder_id);
 
@@ -7306,24 +7288,23 @@ ON public.registered_tags(binder_id);
 -- ============================================
 ALTER TABLE public.registered_tags ENABLE ROW LEVEL SECURITY;
 
--- Policy: Authenticated users can read tags (to validate on scan)
--- They can see status and ownership, but not admin fields
-CREATE POLICY "Users can check tag status"
+-- Policy: Authenticated users can read codes (to validate on entry)
+CREATE POLICY "Users can check code status"
   ON public.registered_tags
   FOR SELECT
   USING (auth.role() = 'authenticated');
 
--- Policy: Users can update tags they are claiming (status = 'available')
--- This allows the claim flow to work from the app
-CREATE POLICY "Users can claim available tags"
+-- Policy: Users can update codes they are claiming (status = 'available')
+-- or codes they already own (e.g., for transfer)
+CREATE POLICY "Users can claim available codes"
   ON public.registered_tags
   FOR UPDATE
   USING (
     auth.role() = 'authenticated' 
     AND (
-      -- Can claim available tags
+      -- Can claim available codes
       (status = 'available')
-      -- Can update own claimed tags (e.g., toggle sharing)
+      -- Can update own claimed codes (e.g., for transfer)
       OR (claimed_by = auth.uid())
     )
   )
@@ -7331,12 +7312,13 @@ CREATE POLICY "Users can claim available tags"
     auth.role() = 'authenticated'
     AND (
       -- When claiming: must set claimed_by to own user ID
-      (claimed_by = auth.uid())
+      -- When transferring: claimed_by can be set to null
+      (claimed_by = auth.uid() OR claimed_by IS NULL)
     )
   );
 
 -- Note: INSERT and DELETE are restricted to service role only (admin/scripts)
--- Regular users cannot add or remove tags — only you manage this
+-- Regular users cannot add or remove codes — only you manage this
 
 -- ============================================
 -- AUTO-UPDATE updated_at TRIGGER
@@ -7364,15 +7346,14 @@ ORDER BY ordinal_position;
 ```
 
 **What gets created:**
-- `registered_tags` table — stores every NFC tag you prepare
-- `tag_uid` — the hardware UID read from the NFC tag
-- `activation_code` — backup code printed in the binder box
+- `registered_tags` table — stores every activation code you create
+- `activation_code` — the printed code from the binder box (primary identifier)
+- `tag_uid` — optional, for future NFC support
 - `status` — `available` (ready to claim), `claimed` (linked to a user), or `disabled` (deactivated)
 - `claimed_by` / `claimed_at` — who activated it and when
 - `binder_id` — which app binder it's linked to
-- `allow_sharing` — whether other users can view this binder via NFC
 - `previous_owners` — transfer history (array of user IDs)
-- RLS policies — users can read tags and claim available ones; only admin can insert/delete
+- RLS policies — users can read codes and claim available ones; only admin can insert/delete
 
 **Testing:**
 - [ ] SQL runs without errors in Supabase
@@ -7381,7 +7362,6 @@ ORDER BY ordinal_position;
 - [ ] Policies are applied
 - [ ] Indexes are created
 - [ ] Status check constraint works (try inserting invalid status → should fail)
-- [ ] Unique constraint on tag_uid works (try duplicate → should fail)
 - [ ] Unique constraint on activation_code works (try duplicate → should fail)
 - [ ] updated_at trigger fires on update
 
@@ -7399,7 +7379,7 @@ ORDER BY ordinal_position;
 
 3. **Test constraints:**
    - Try inserting a row with status = 'invalid' → should fail
-   - Insert a valid row, then try inserting another with the same tag_uid → should fail
+   - Insert a valid row, then try inserting another with the same activation_code → should fail
    - Insert a row, update it, verify updated_at changed
 
 4. **Test RLS:**
@@ -7412,7 +7392,7 @@ ORDER BY ordinal_position;
 #### Step 35B: Database - Binder Limits & User Tier
 - [ ] **Status**: Not started
 
-**What we're doing:** Add the logic to count how many NFC tags a user has activated and enforce binder creation limits based on that count
+**What we're doing:** Add the logic to count how many activation codes a user has used and enforce binder creation limits based on that count
 
 **Database Changes:**
 
@@ -7422,11 +7402,11 @@ Run this SQL in Supabase SQL Editor:
 -- ============================================
 -- FUNCTION: Get number of binders a user is allowed to create
 -- ============================================
--- Based on how many NFC tags they've activated:
--- 0 tags → 1 binder
--- 1 tag  → 3 binders
--- 2 tags → 5 binders
--- 3+ tags → unlimited (returns 999 as "unlimited")
+-- Based on how many activation codes they've used:
+-- 0 codes → 1 binder
+-- 1 code  → 3 binders
+-- 2 codes → 5 binders
+-- 3+ codes → unlimited (returns 999 as "unlimited")
 
 CREATE OR REPLACE FUNCTION get_binder_limit(user_id UUID)
 RETURNS INTEGER AS $$
@@ -7570,315 +7550,23 @@ SELECT * FROM get_user_binder_info('00000000-0000-0000-0000-000000000000');
 ---
 
 #### Step 35C: Deep Linking Setup
-- [ ] **Status**: Not started
+- [x] **Status**: Skipped (not needed for code-only approach)
 
-**What we're doing:** Configure the app to handle deep links from NFC tags. When a user taps an NFC tag, the URL on the tag should open the app (if installed) or the landing web page (if not installed).
-
-**Files to modify:**
-- `app.json` — Add URL scheme, NFC permissions, intent filters
-
-**Changes to `app.json`:**
-
-```json
-{
-  "expo": {
-    "name": "trackerapp",
-    "slug": "trackerapp",
-    "scheme": "trackerapp",
-    "ios": {
-      "supportsTablet": true,
-      "bundleIdentifier": "com.trackerapp",
-      "infoPlist": {
-        "NSAppTransportSecurity": {
-          "NSAllowsArbitraryLoads": true
-        },
-        "NFCReaderUsageDescription": "This app uses NFC to connect your physical binder to the app",
-        "com.apple.developer.nfc.readersession.iso7816.select-identifiers": [
-          "D276000085010100"
-        ]
-      },
-      "entitlements": {
-        "com.apple.developer.nfc.readersession.formats": ["TAG"]
-      },
-      "associatedDomains": [
-        "applinks:trackerapp.yourdomain.com"
-      ]
-    },
-    "android": {
-      "package": "com.trackerapp",
-      "permissions": [
-        "INTERNET",
-        "ACCESS_NETWORK_STATE",
-        "NFC"
-      ],
-      "usesCleartextTraffic": true,
-      "intentFilters": [
-        {
-          "action": "VIEW",
-          "autoVerify": true,
-          "data": [
-            {
-              "scheme": "https",
-              "host": "trackerapp.yourdomain.com",
-              "pathPrefix": "/nfc/"
-            }
-          ],
-          "category": [
-            "BROWSABLE",
-            "DEFAULT"
-          ]
-        },
-        {
-          "action": "NDEF_DISCOVERED",
-          "data": [
-            {
-              "scheme": "https",
-              "host": "trackerapp.yourdomain.com",
-              "pathPrefix": "/nfc/"
-            }
-          ],
-          "category": [
-            "BROWSABLE",
-            "DEFAULT"
-          ]
-        }
-      ]
-    },
-    "plugins": [
-      [
-        "expo-linking"
-      ]
-    ]
-  }
-}
-```
-
-**What changes:**
-- `scheme: "trackerapp"` — Custom URL scheme for deep links (e.g., `trackerapp://nfc/TAG_UID`)
-- `NFCReaderUsageDescription` — iOS requires a description of why the app uses NFC
-- `NFC` permission — Android NFC hardware access
-- `intentFilters` — Android intercepts URLs matching your domain's `/nfc/` path
-- `associatedDomains` — iOS Universal Links configuration
-- `plugins` — Ensure expo-linking is registered
-
-**Important:** Replace `trackerapp.yourdomain.com` with your actual domain when you have one.
-
-**Testing:**
-- [ ] App builds without errors after changes
-- [ ] Custom scheme `trackerapp://` registered
-- [ ] Android NFC permission declared
-- [ ] iOS NFC usage description set
-- [ ] Intent filters configured for NFC URLs
-- [ ] Deep link `trackerapp://nfc/TEST123` opens the app (development build)
-
-**How to Test Step 35C:**
-
-1. **Update `app.json`** with the changes above
-
-2. **Create a new development build:**
-   ```bash
-   eas build --profile development --platform android
-   ```
-
-3. **Test deep links:**
-   - On Android, run:
-   ```bash
-   adb shell am start -a android.intent.action.VIEW -d "trackerapp://nfc/TEST123" com.trackerapp
-   ```
-   - The app should open and navigate to the NFC handler
-
-4. **Test NFC permission:**
-   - Open app on a physical device
-   - Check that NFC scanning works without permission errors
+> **Skipped:** This step was for NFC deep linking (URLs on NFC tags opening the app). Since we're using activation codes only, deep linking is not needed. Can be added later if NFC support is implemented.
 
 ---
 
 #### Step 35D: Landing Web Page
-- [ ] **Status**: Not started
+- [x] **Status**: Skipped (not needed for code-only approach)
 
-**What we're doing:** Create a simple web page hosted at your domain that handles NFC tag URLs. When someone taps an NFC tag and doesn't have the app, this page redirects them to the App Store or Play Store.
-
-**Files to create (hosted on your web server/domain):**
-
-**`index.html`** (the landing page at `trackerapp.yourdomain.com/nfc/{tagId}`):
-
-```html
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Opening Binder Tracker...</title>
-  <style>
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      min-height: 100vh;
-      margin: 0;
-      background: #1a1a2e;
-      color: #fff;
-      text-align: center;
-    }
-    .container {
-      padding: 40px 20px;
-      max-width: 400px;
-    }
-    h1 { font-size: 24px; margin-bottom: 16px; }
-    p { font-size: 16px; color: #aaa; margin-bottom: 24px; }
-    .btn {
-      display: inline-block;
-      padding: 14px 32px;
-      background: #007AFF;
-      color: #fff;
-      text-decoration: none;
-      border-radius: 12px;
-      font-size: 16px;
-      font-weight: 600;
-    }
-    .spinner {
-      width: 40px; height: 40px;
-      border: 4px solid rgba(255,255,255,0.2);
-      border-top-color: #007AFF;
-      border-radius: 50%;
-      animation: spin 0.8s linear infinite;
-      margin: 0 auto 24px;
-    }
-    @keyframes spin { to { transform: rotate(360deg); } }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <div class="spinner"></div>
-    <h1>Opening Binder Tracker...</h1>
-    <p>If the app doesn't open automatically, tap the button below to download it.</p>
-    <a id="storeLink" class="btn" href="#">Download App</a>
-  </div>
-  <script>
-    (function() {
-      // Extract tag ID from URL path: /nfc/TAG_UID
-      var path = window.location.pathname;
-      var tagId = path.split('/nfc/')[1] || '';
-      
-      // Try to open the app via deep link
-      var appUrl = 'trackerapp://nfc/' + tagId;
-      
-      // Detect platform
-      var userAgent = navigator.userAgent || navigator.vendor;
-      var isIOS = /iPad|iPhone|iPod/.test(userAgent);
-      var isAndroid = /android/i.test(userAgent);
-      
-      // Set store link based on platform
-      var storeLink = document.getElementById('storeLink');
-      if (isIOS) {
-        // Replace with your actual App Store URL
-        storeLink.href = 'https://apps.apple.com/app/your-app-id';
-      } else if (isAndroid) {
-        // Replace with your actual Play Store URL
-        storeLink.href = 'https://play.google.com/store/apps/details?id=com.trackerapp';
-      } else {
-        storeLink.href = '#';
-        storeLink.textContent = 'Available on iOS and Android';
-      }
-      
-      // Try to open the app
-      // If the app is installed, the deep link will open it
-      // If not, the user stays on this page and can tap the download button
-      window.location.href = appUrl;
-      
-      // Fallback: if app didn't open after 2 seconds, redirect to store
-      setTimeout(function() {
-        // Only redirect if page is still visible (app didn't open)
-        if (!document.hidden) {
-          window.location.href = storeLink.href;
-        }
-      }, 2000);
-    })();
-  </script>
-</body>
-</html>
-```
-
-**`/.well-known/apple-app-site-association`** (for iOS Universal Links):
-
-```json
-{
-  "applinks": {
-    "apps": [],
-    "details": [
-      {
-        "appID": "YOUR_TEAM_ID.com.trackerapp",
-        "paths": ["/nfc/*"]
-      }
-    ]
-  }
-}
-```
-
-**`/.well-known/assetlinks.json`** (for Android App Links):
-
-```json
-[
-  {
-    "relation": ["delegate_permission/common.handle_all_urls"],
-    "target": {
-      "namespace": "android_app",
-      "package_name": "com.trackerapp",
-      "sha256_cert_fingerprints": ["YOUR_SHA256_FINGERPRINT"]
-    }
-  }
-]
-```
-
-**Where to host this:**
-- Any web hosting service (Vercel, Netlify, GitHub Pages, etc.)
-- Point your domain (e.g., `trackerapp.yourdomain.com`) to this hosting
-- Must be HTTPS (required for Universal Links and App Links)
-
-**Important:** Replace placeholder values:
-- `YOUR_TEAM_ID` — Your Apple Developer Team ID
-- `YOUR_SHA256_FINGERPRINT` — Your Android signing certificate fingerprint
-- App Store / Play Store URLs — Your actual store listing URLs (available after app is published)
-
-**Testing:**
-- [ ] Landing page loads at `trackerapp.yourdomain.com/nfc/TEST123`
-- [ ] Page detects iOS correctly
-- [ ] Page detects Android correctly
-- [ ] Deep link (`trackerapp://nfc/TEST123`) is attempted
-- [ ] Fallback redirect to store after 2 seconds works
-- [ ] `apple-app-site-association` file accessible at `/.well-known/` path
-- [ ] `assetlinks.json` file accessible at `/.well-known/` path
-
-**How to Test Step 35D:**
-
-1. **Deploy the landing page** to your hosting provider
-
-2. **Test in a browser:**
-   - Visit `https://trackerapp.yourdomain.com/nfc/TEST123`
-   - Page should load with spinner and download button
-   - After 2 seconds, should redirect to app store
-
-3. **Test on a phone (app installed):**
-   - Open the URL on your phone
-   - Should attempt to open the app
-   - If deep linking is set up correctly, app opens
-
-4. **Test on a phone (app NOT installed):**
-   - Open the URL on a phone without the app
-   - Should show the landing page briefly, then redirect to store
-
-5. **Verify well-known files:**
-   - Visit `https://trackerapp.yourdomain.com/.well-known/apple-app-site-association`
-   - Visit `https://trackerapp.yourdomain.com/.well-known/assetlinks.json`
-   - Both should return valid JSON
+> **Skipped:** This step was for the NFC landing web page that redirects to app stores. Since we're using activation codes only, no web page is needed. Can be added later if NFC support is implemented.
 
 ---
 
-#### Step 35E: Tag Validation Service
+#### Step 35E: Activation Code Validation Service
 - [ ] **Status**: Not started
 
-**What we're doing:** Create the app-side service that communicates with the `registered_tags` table. This handles tag validation, claiming, and binder limit checks.
+**What we're doing:** Create the app-side service that communicates with the `registered_tags` table. This handles activation code validation, claiming, and binder limit checks.
 
 **Files to create:**
 - `src/services/supabase/registeredTags.ts` — Tag validation and claiming functions
@@ -8093,178 +7781,23 @@ export async function getTagForBinder(binderId: string): Promise<TagInfo | null>
 ---
 
 #### Step 35G: Update NFC Handler for Tag Validation
-- [ ] **Status**: Not started
+- [x] **Status**: Skipped (not needed for code-only approach)
 
-**What we're doing:** Update the existing NFC handler to use the `registered_tags` table for validation. The current handler skips validation — we need to check if a scanned tag is registered before processing it.
-
-**Files to modify:**
-- `src/utils/nfcHandler.ts` — Add tag validation before processing
-- `src/screens/NfcHandler/NfcHandlerScreen.tsx` — Update routing for new flows
-
-**Changes to `nfcHandler.ts`:**
-
-The `handleNfcTag()` function currently:
-1. Checks if tag is linked to a binder (via `getBinderByNfcTagId`)
-2. If linked → returns binder
-3. If not linked → returns `isNewTag: true`
-
-It needs to be updated to:
-1. **First** check if tag UID is in `registered_tags` (via `validateTagByUid`)
-2. If NOT registered → reject ("This is not a valid tag")
-3. If registered and status = `available` → claim flow
-4. If registered and status = `claimed` by current user → navigate to binder
-5. If registered and status = `claimed` by another user → view-only mode
-6. If registered and status = `disabled` → reject ("Tag deactivated")
-
-**New NfcHandleResult fields:**
-
-```typescript
-export interface NfcHandleResult {
-  success: boolean;
-  binder?: Binder;
-  tagId?: string;
-  error?: string;
-  isNewTag?: boolean;
-  isViewOnly?: boolean;      // NEW: tag belongs to another user
-  viewOnlyBinderId?: string; // NEW: binder ID for view-only mode
-}
-```
-
-**Pending tag for unauthenticated users:**
-
-When a user taps an NFC tag but isn't logged in, the tag ID needs to be "remembered" so it can be processed after login. This can be done with:
-- AsyncStorage: save `pendingNfcTagId` before navigating to auth flow
-- After login/signup, check for `pendingNfcTagId` and process it
-
-**Testing:**
-- [ ] Unregistered tag UID → rejected with error message
-- [ ] Registered + available tag → claim flow starts
-- [ ] Registered + claimed (own) → navigates to binder
-- [ ] Registered + claimed (other user, sharing ON) → view-only mode
-- [ ] Registered + claimed (other user, sharing OFF) → "private binder" message
-- [ ] Registered + disabled → rejected with error message
-- [ ] Pending tag ID saved when not logged in
-- [ ] Pending tag ID processed after login
-- [ ] Deep link from URL correctly extracts tag ID
-
-**How to Test Step 35G:**
-
-1. **Test with registered tag:**
-   - Insert a test tag in Supabase (status = 'available')
-   - Scan it via NFC or use deep link
-   - Should proceed to claim flow
-
-2. **Test with unregistered tag:**
-   - Use a random NFC tag not in the database
-   - Scan it → should show "not a valid tag" error
-
-3. **Test view-only mode:**
-   - Have another user claim a tag
-   - Scan that tag → should show view-only mode
-
-4. **Test pending tag (not logged in):**
-   - Log out of the app
-   - Tap an NFC tag → should go to login
-   - Log in → pending tag should be processed automatically
+> **Skipped:** This step was for updating the NFC scanning handler to validate tags. Since we're using activation codes only, the NFC handler doesn't need to be updated. Can be added later if NFC support is implemented.
 
 ---
 
 #### Step 35H: View-Only Binder Sharing
-- [ ] **Status**: Not started
+- [x] **Status**: Skipped (not needed for code-only approach)
 
-**What we're doing:** Create a read-only view of a binder that shows when someone taps another user's NFC tag. They can see the cards and completion percentage but cannot make any changes.
-
-**Files to create:**
-- `src/screens/BinderViewOnly/BinderViewOnlyScreen.tsx` — Read-only binder view
-
-**Files to modify:**
-- `src/navigation/AppNavigator.tsx` — Add BinderViewOnly screen
-- `src/screens/NfcHandler/NfcHandlerScreen.tsx` — Navigate to view-only when appropriate
-
-**Features:**
-- Shows binder name, set/region info
-- Shows completion percentage
-- Shows card grid (all cards visible, owned cards highlighted)
-- NO editing — tapping a card does nothing or shows a simple card detail (no toggle)
-- Clear "View Only" indicator at the top
-- "This is [username]'s binder" label
-- Back button to return to own binder list
-
-**UI Layout:**
-
-```
-┌─────────────────────────────────────┐
-│  ← Back                            │
-│                                     │
-│  Viewing Someone's Binder           │
-│  ──────────────────────────────     │
-│  Prismatic Evolutions               │
-│  Owner: PokeFan123                  │
-│  Progress: 142/195 (73%)            │
-│                                     │
-│  ┌─────┬─────┬─────┐               │
-│  │Card │Card │Card │               │
-│  │  1  │  2  │  3  │               │
-│  ├─────┼─────┼─────┤               │
-│  │Card │Card │Card │               │
-│  │  4  │  5  │  6  │               │
-│  ├─────┼─────┼─────┤               │
-│  │Card │Card │Card │               │
-│  │  7  │  8  │  9  │               │
-│  └─────┴─────┴─────┘               │
-│                                     │
-│  Read-only — this is not your       │
-│  binder.                            │
-│                                     │
-└─────────────────────────────────────┘
-```
-
-**Navigation update:**
-```typescript
-// Add to MainStackParamList
-BinderViewOnly: { binderId: string; ownerName?: string };
-```
-
-**Data access:**
-- Need a Supabase function or RLS policy that allows reading another user's binder data (cards, progress) when the tag has `allow_sharing = true`
-- Only expose: binder name, set, cards, completion — NOT user email or personal data
-
-**Testing:**
-- [ ] View-only screen loads with correct binder data
-- [ ] Shows owner name (display name, not email)
-- [ ] Shows completion percentage
-- [ ] Shows card grid with owned/missing indicators
-- [ ] Tapping a card does NOT toggle ownership
-- [ ] "View Only" indicator clearly visible
-- [ ] Back button returns to own binder list
-- [ ] Cannot edit anything
-- [ ] Works for Master Set binders
-- [ ] Works for Region binders
-- [ ] Works for Custom binders
-
-**How to Test Step 35H:**
-
-1. **Set up test data:**
-   - Have two accounts (Account A and Account B)
-   - Account A creates a binder with some cards marked as owned
-   - Account A's binder is linked to an NFC tag with sharing enabled
-
-2. **Test view-only:**
-   - Log in as Account B
-   - Navigate to `BinderViewOnly` with Account A's binder ID
-   - Should see Account A's binder in read-only mode
-   - Try tapping cards → nothing should happen
-
-3. **Test sharing disabled:**
-   - Set `allow_sharing = false` on Account A's tag
-   - Account B tries to view → should show "private binder" message
+> **Skipped:** This step was for showing a read-only view of another user's binder when tapping their NFC tag. Since there's no NFC trigger for this, it's skipped. Can be added later with a share link or QR code instead of NFC.
 
 ---
 
 #### Step 35I: Transfer Binder Ownership
 - [ ] **Status**: Not started
 
-**What we're doing:** Allow a binder owner to transfer their binder (and its NFC tag) to another user. This is useful when someone sells or gives away their physical binder.
+**What we're doing:** Allow a binder owner to transfer their binder (and its activation code) to another user. This is useful when someone sells or gives away their physical binder.
 
 **Files to create:**
 - `src/services/supabase/transferBinder.ts` — Transfer logic
@@ -8293,14 +7826,14 @@ BinderViewOnly: { binderId: string; ownerName?: string };
 │          ↓                                                                 │
 │  App updates binder:                                                       │
 │     - Keep the binder data (cards, progress) for the old owner             │
-│     - Remove NFC tag link (nfc_tag_id → null)                              │
+│     - Remove activation code link from the binder                          │
 │          ↓                                                                 │
-│  Old owner keeps the binder data in app (just without NFC link)            │
-│  Tag is now available for the new owner to claim by tapping it             │
+│  Old owner keeps the binder data in app (just without code link)           │
+│  Activation code is now available for the new owner                        │
 │          ↓                                                                 │
-│  New owner taps the NFC tag                                                │
-│     → Tag is 'available' → Normal claim flow starts                        │
-│     → New owner sets up a fresh binder linked to this tag                  │
+│  New owner enters the activation code from the binder box                  │
+│     → Code is 'available' → Normal claim flow starts                       │
+│     → New owner sets up a fresh binder linked to this code                 │
 │                                                                            │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -8309,26 +7842,25 @@ BinderViewOnly: { binderId: string; ownerName?: string };
 
 ```typescript
 /**
- * Transfer a binder's NFC tag to make it available for a new owner
- * - Resets the tag to 'available'
- * - Removes the NFC link from the binder (binder data stays)
+ * Transfer a binder's activation code to make it available for a new owner
+ * - Resets the code to 'available'
+ * - Removes the code link from the binder (binder data stays)
  * - Records the transfer in previous_owners
  */
-export async function transferBinderTag(binderId: string): Promise<boolean>
+export async function transferBinderCode(binderId: string): Promise<boolean>
 ```
 
 **Testing:**
-- [ ] Transfer button visible in binder settings (only for NFC-linked binders)
+- [ ] Transfer button visible in binder settings (only for code-linked binders)
 - [ ] Confirmation dialog appears before transfer
-- [ ] After transfer: tag status = 'available'
-- [ ] After transfer: tag claimed_by = null
-- [ ] After transfer: tag binder_id = null
+- [ ] After transfer: code status = 'available'
+- [ ] After transfer: code claimed_by = null
+- [ ] After transfer: code binder_id = null
 - [ ] After transfer: old owner added to previous_owners
 - [ ] After transfer: binder still exists for old owner (data preserved)
-- [ ] After transfer: binder's nfc_tag_id = null
-- [ ] After transfer: old owner's binder count/limit unchanged
-- [ ] New owner can tap the tag and claim it
-- [ ] New owner gets a fresh binder linked to the tag
+- [ ] After transfer: old owner's binder count/limit updates (one fewer activated code)
+- [ ] New owner can enter the activation code and claim it
+- [ ] New owner gets a fresh binder linked to the code
 
 **How to Test Step 35I:**
 
@@ -8435,25 +7967,19 @@ export async function transferBinderTag(binderId: string): Promise<boolean>
 - [ ] `registered_tags` table created with correct schema (Step 35A)
 - [ ] RLS policies work correctly (Step 35A)
 - [ ] Binder limit functions return correct values (Step 35B)
-- [ ] Deep linking configured in `app.json` (Step 35C)
-- [ ] NFC permissions added for iOS and Android (Step 35C)
-- [ ] Landing web page redirects correctly (Step 35D)
-- [ ] Tag validation service works for UID and activation code (Step 35E)
+- [x] ~~Deep linking configured in `app.json` (Step 35C)~~ — Skipped
+- [x] ~~Landing web page redirects correctly (Step 35D)~~ — Skipped
+- [ ] Activation code validation service works (Step 35E)
 - [ ] Activation code entry screen works end-to-end (Step 35F)
-- [ ] NFC handler validates against registered_tags (Step 35G)
-- [ ] Unregistered tags are rejected (Step 35G)
-- [ ] Pending tag works for unauthenticated users (Step 35G)
-- [ ] View-only mode shows other users' binders correctly (Step 35H)
-- [ ] Transfer binder resets tag and preserves data (Step 35I)
+- [x] ~~NFC handler validates against registered_tags (Step 35G)~~ — Skipped
+- [x] ~~View-only mode shows other users' binders (Step 35H)~~ — Skipped
+- [ ] Transfer binder resets code and preserves data (Step 35I)
 - [ ] Binder limit enforced in UI (Step 35J)
 - [ ] Limit message shows correctly with activation options (Step 35J)
-- [ ] Full flow: tap NFC tag → app opens → claim tag → create binder (E2E)
-- [ ] Full flow: tap NFC tag → app opens → view own binder (E2E)
-- [ ] Full flow: tap NFC tag → app opens → view other's binder read-only (E2E)
-- [ ] Full flow: enter activation code → claim tag → create binder (E2E)
-- [ ] Full flow: transfer binder → new owner claims tag (E2E)
-- [ ] Works on Android with NFC (requires development build + physical device)
-- [ ] Works on iOS with NFC (requires development build + physical device)
+- [ ] Full flow: enter activation code → claim code → create binder (E2E)
+- [ ] Full flow: transfer binder → new owner enters code (E2E)
+- [ ] Free user limited to 1 binder (E2E)
+- [ ] 1 code = 3 binders, 2 codes = 5 binders, 3+ = unlimited (E2E)
 - [ ] No TypeScript errors
 - [ ] No console errors
 - [ ] Performance acceptable

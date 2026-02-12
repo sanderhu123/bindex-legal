@@ -7129,7 +7129,7 @@ const savePositions = async () => {
 
 **What we're doing:** Build the activation code system that connects physical Pokémon TCG binders to the app. Each physical binder comes with a printed activation code. Users enter the code in the app to unlock more binder slots. The app is free to download for everyone.
 
-> **Note:** NFC tag support was considered but deferred. This implementation uses activation codes only (simpler, cheaper, works on every phone). NFC can be added later if needed — the database structure supports it.
+> **Note:** This step uses activation codes only. NFC tag support is implemented separately in **Step 36**. The database structure (`registered_tags` table) supports both activation codes and NFC tags.
 
 **Business Model:**
 - You sell physical Pokémon TCG binders
@@ -7206,12 +7206,12 @@ const savePositions = async () => {
 |----------|-------------|-------------|
 | 35A | Database: `registered_tags` table | Supabase |
 | 35B | Database: Binder limits & user tier | 35A |
-| ~~35C~~ | ~~Deep linking setup~~ | Skipped (no NFC) |
-| ~~35D~~ | ~~Landing web page~~ | Skipped (no NFC) |
+| ~~35C~~ | ~~Deep linking setup~~ | Moved to Step 36C |
+| ~~35D~~ | ~~Landing web page~~ | Moved to Step 36C |
 | 35E | Activation code validation service | 35A |
 | 35F | Activation code entry UI | 35E |
-| ~~35G~~ | ~~Update NFC handler for tag validation~~ | Skipped (no NFC) |
-| ~~35H~~ | ~~View-only binder sharing~~ | Skipped (no NFC) |
+| ~~35G~~ | ~~Update NFC handler for tag validation~~ | Moved to Step 36E |
+| ~~35H~~ | ~~View-only binder sharing~~ | Skipped |
 | 35I | Transfer binder ownership | 35A, 35E |
 | 35J | Binder limit enforcement in UI | 35B, 35E |
 
@@ -7980,6 +7980,445 @@ export async function transferBinderCode(binderId: string): Promise<boolean>
 - [ ] Full flow: transfer binder → new owner enters code (E2E)
 - [ ] Free user limited to 1 binder (E2E)
 - [ ] 1 code = 3 binders, 2 codes = 5 binders, 3+ = unlimited (E2E)
+- [ ] No TypeScript errors
+- [ ] No console errors
+- [ ] Performance acceptable
+
+---
+
+### Step 36: NFC Tag Integration (Physical Binder → App)
+- [ ] **Status**: Not started
+
+**What we're doing:** Make the NFC tags inside physical binders actually work. When a user taps their phone on a binder, the app opens and shows that binder. This is the main selling point of the product — a "smart binder" that knows what's inside.
+
+> **Decision:** We write a URL to each NFC tag (instead of relying on raw tag IDs). This gives a consistent experience on both Android and iOS. We're going with Option 4 (no activation code protection for now) — just launch and keep it simple. Activation codes can be added later if needed.
+
+**How NFC Tags Work (Simple Explanation):**
+- Each NFC sticker has a unique ID burned in at the factory
+- We write a URL onto each sticker before placing it in a binder (e.g., `https://yourdomain.com/binder?tag=ABC123`)
+- When a phone taps the sticker, it reads the URL
+- Android/iOS recognize the URL belongs to our app and open it
+- The app reads the tag ID from the URL and shows the correct binder
+
+**What the User Experiences:**
+
+```
+FIRST TIME (new binder):
+  1. User taps phone on binder
+  2. App opens (or notification appears on iOS)
+  3. App says "New binder detected!"
+  4. Questionnaire starts → User picks set/region/layout
+  5. Binder is created and linked to that NFC tag
+  6. Done — binder is ready to use
+
+EVERY TIME AFTER:
+  1. User taps phone on binder
+  2. App opens → Binder shows instantly
+  3. No login, no searching, no menus — just their cards
+```
+
+**Android vs iOS Behavior:**
+
+| | Android | iOS (XS and newer) | iOS (7/8/X) |
+|---|---------|---------------------|-------------|
+| Tap binder → app opens? | Yes, instantly | Yes, via notification | No — must open app first |
+| Needs URL on tag? | Yes (for consistency) | Yes (required) | No (reads from within app) |
+| How it feels | Tap → app opens | Tap → notification → tap → app opens | Open app → tap scan → hold near binder |
+
+**Sub-Steps Overview:**
+
+| Sub-Step | Description | Dependencies |
+|----------|-------------|-------------|
+| 36A | Buy NFC stickers & test hardware | None |
+| 36B | Install NFC library & create development build | EAS configured |
+| 36C | Configure deep linking (URL → app) | Webshop domain |
+| 36D | Write URL to NFC tags (manufacturing step) | 36A |
+| 36E | Update NFC service to handle URL-based tags | 36B, 36C |
+| 36F | Build NFC scan flow in the app | 36E |
+| 36G | Test full flow on Android device | 36A–36F |
+| 36H | iOS Universal Links setup | 36C, webshop domain |
+
+---
+
+#### Step 36A: Buy NFC Stickers & Test Hardware
+- [ ] **Status**: Not started
+
+**What we're doing:** Get physical NFC stickers to test with. This is not a coding step — it's a shopping step.
+
+**What to buy:**
+- **Type:** NTAG215 NFC stickers (same chip as Nintendo Amiibo — widely compatible)
+- **Shape:** Round, 25mm diameter (about the size of a coin)
+- **Quantity:** A pack of 10 for testing is plenty
+- **Where:** Amazon or AliExpress — search "NTAG215 NFC stickers"
+- **Cost:** ~$5–10 for a pack of 10
+
+**Why NTAG215:**
+- Works with both Android and iOS
+- Enough memory to store a URL (504 bytes — more than enough)
+- Industry standard — very reliable
+- Same chip type used in Amiibo, so it's well-tested
+
+**Testing the stickers (no code needed):**
+1. Download a free NFC reader app on your Android phone (e.g., "NFC Tools" from Play Store)
+2. Enable NFC on your phone (Settings → NFC → On)
+3. Tap a sticker to the back of your phone
+4. The app should show the tag's unique ID and type (NTAG215)
+5. If it reads → your phone and stickers work
+
+**Testing checklist:**
+- [ ] Bought NTAG215 NFC stickers
+- [ ] Phone can read the stickers (using NFC Tools or similar app)
+- [ ] Sticker reads through binder cover material (test by placing sticker inside a binder)
+- [ ] Note which position on the phone reads best (usually center-back)
+
+---
+
+#### Step 36B: Install NFC Library & Create Development Build
+- [ ] **Status**: Not started
+
+**What we're doing:** Install the `react-native-nfc-manager` library and create a development build. The NFC library uses native phone features, so it can't run in Expo Go — we need a real build.
+
+> **Note:** The NFC service code (`nfcService.ts`, `useNfcScan.ts`, `nfcHandler.ts`) already exists from Step 8. This step just installs the actual library and creates a build that can use it.
+
+**Commands:**
+```bash
+# Install the NFC library
+npm install react-native-nfc-manager
+
+# Create a development build for Android
+eas build --profile development --platform android
+```
+
+**What happens:**
+- `npm install` adds the NFC library to your project
+- `eas build` creates an APK (Android app file) that includes the native NFC code
+- The build takes 10–15 minutes on EAS servers
+- Once done, download the APK and install it on your Android phone
+
+**Files already created (from Step 8):**
+- `src/services/nfc/nfcService.ts` — NFC reading functions (init, read tag ID, check availability)
+- `src/hooks/useNfcScan.ts` — Hook for NFC scanning in components
+- `src/utils/nfcHandler.ts` — Handle NFC intents and routing logic
+
+**Files to verify:**
+- `app.json` — Should already have NFC permissions and intent filters (added in Step 8)
+
+**Testing:**
+- [ ] `react-native-nfc-manager` installed in package.json
+- [ ] Development build created successfully
+- [ ] Development build installed on Android phone
+- [ ] App launches on phone via development build
+- [ ] NFC permission prompt appears when app tries to use NFC
+
+---
+
+#### Step 36C: Configure Deep Linking (URL → App)
+- [ ] **Status**: Not started
+
+**What we're doing:** Set up deep linking so that when a phone reads a URL from an NFC tag, it opens our app instead of the browser. This is the bridge between the physical NFC sticker and the app.
+
+**How deep linking works (simple explanation):**
+- The NFC tag contains a URL like `https://yourdomain.com/binder?tag=ABC123`
+- We tell Android: "When someone opens a URL from yourdomain.com/binder, open our app instead of Chrome"
+- Android sees the URL → opens our app → passes the URL to the app → app reads the tag ID from the URL
+
+**URL format on NFC tags:**
+```
+https://yourdomain.com/binder?tag=UNIQUE_TAG_ID
+```
+
+Example: `https://yourdomain.com/binder?tag=04A2B3C4D5E6F7`
+
+**Files to modify:**
+
+1. **`app.json`** — Add intent filters for your domain
+2. **`src/utils/nfcHandler.ts`** — Update URL parsing to handle the new URL format
+3. **Webshop domain** — Add a Digital Asset Links file (`.well-known/assetlinks.json`) so Android trusts the link
+
+**What gets configured:**
+
+**In `app.json`:**
+```json
+{
+  "expo": {
+    "android": {
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "https",
+              "host": "yourdomain.com",
+              "pathPrefix": "/binder"
+            }
+          ],
+          "category": ["BROWSABLE", "DEFAULT"]
+        }
+      ]
+    }
+  }
+}
+```
+
+**On your webshop (one-time setup):**
+You need to host a small file at `https://yourdomain.com/.well-known/assetlinks.json` that tells Android "yes, the Bindr app is allowed to handle URLs from this domain." This is a simple JSON file.
+
+**Testing:**
+- [ ] Intent filters added to `app.json`
+- [ ] `assetlinks.json` hosted on webshop domain
+- [ ] Opening `https://yourdomain.com/binder?tag=TEST123` on phone opens the app (not browser)
+- [ ] App receives the full URL and can extract the tag ID
+- [ ] If app is not installed, URL opens in browser (shows a "Download Bindr" page or your webshop)
+
+---
+
+#### Step 36D: Write URL to NFC Tags (Manufacturing Step)
+- [ ] **Status**: Not started
+
+**What we're doing:** Write a URL onto each NFC sticker before placing it in a binder. This is your manufacturing/preparation step — done once per binder before shipping.
+
+**Why write a URL (instead of leaving the tag blank):**
+- iOS requires a URL on the tag to trigger background reading
+- Android also benefits — it can match the URL to your app automatically
+- The URL contains the tag's unique ID, making it easy for the app to identify which binder it is
+
+**How to write URLs to tags:**
+
+**Option A: Use a free app (easiest for small batches)**
+1. Download "NFC Tools" on your Android phone (free on Play Store)
+2. Open NFC Tools → tap "Write"
+3. Add a record → URL
+4. Enter: `https://yourdomain.com/binder?tag=UNIQUE_ID_HERE`
+   - Replace `UNIQUE_ID_HERE` with the tag's actual unique ID (you can read it first using NFC Tools → "Read")
+5. Tap "Write" → hold tag to phone → done
+6. Stick the tag inside the binder cover
+
+**Option B: Build a simple writer tool (better for large batches)**
+- Later, you could build a small screen in your app (or a separate tool) that:
+  1. Reads the tag's unique ID automatically
+  2. Writes the correct URL to the tag
+  3. Registers the tag in your database
+  4. All in one tap
+- This is optional and can be built later when you're manufacturing many binders
+
+**Important notes:**
+- Each tag gets a **unique URL** (because each tag has a unique ID)
+- The tag can be written once and then **locked** (optional — prevents someone from overwriting it)
+- NTAG215 has 504 bytes of storage — a URL like `https://yourdomain.com/binder?tag=04A2B3C4D5E6F7` uses about 60 bytes, so plenty of room
+
+**Where to place the sticker:**
+- Inside the front cover of the binder
+- Print a small "tap here" icon or text on the outside of the binder so users know where to hold their phone
+- Make sure there's no metal between the sticker and where the phone will be — NFC doesn't work through metal (plastic, paper, fabric, and leather are all fine)
+
+**Testing:**
+- [ ] Can write a URL to an NFC sticker using NFC Tools app
+- [ ] Can read the URL back from the sticker
+- [ ] URL format is correct: `https://yourdomain.com/binder?tag=TAG_ID`
+- [ ] Tapping the sticker on phone opens a browser to that URL (before deep linking is set up)
+- [ ] Sticker reads through binder cover material
+
+---
+
+#### Step 36E: Update NFC Service to Handle URL-Based Tags
+- [ ] **Status**: Not started
+
+**What we're doing:** Update the existing NFC code to handle URL-based tags instead of raw tag IDs. When the app opens from an NFC URL, it needs to extract the tag ID from the URL and look up the binder.
+
+**Files to modify:**
+- `src/utils/nfcHandler.ts` — Update `extractNfcTagIdFromUrl()` to parse the new URL format
+- `src/services/nfc/nfcService.ts` — No major changes needed (raw tag reading still works as fallback)
+
+**What changes:**
+
+The current `extractNfcTagIdFromUrl()` in `nfcHandler.ts` expects URLs like:
+```
+trackerapp://nfc?tagId=ABC123
+```
+
+We update it to also handle:
+```
+https://yourdomain.com/binder?tag=ABC123
+```
+
+**Logic flow:**
+```
+App receives URL from NFC tap or deep link
+    ↓
+Parse URL → extract "tag" parameter
+    ↓
+Look up tag ID in database → find linked binder
+    ↓
+Binder found? → Open binder
+No binder? → Start questionnaire (new binder setup)
+Tag belongs to someone else? → Show error
+```
+
+**Testing:**
+- [ ] App correctly parses `https://yourdomain.com/binder?tag=TAG_ID`
+- [ ] App extracts the tag ID from the URL
+- [ ] App falls back to old URL format (`trackerapp://nfc?tagId=...`) for backward compatibility
+- [ ] Tag ID is used to look up binder in database
+- [ ] New tag → routes to questionnaire
+- [ ] Existing tag (own binder) → opens binder
+- [ ] Existing tag (someone else's binder) → shows error
+
+---
+
+#### Step 36F: Build NFC Scan Flow in the App
+- [ ] **Status**: Not started
+
+**What we're doing:** Build the screens and navigation that handle an NFC tap from start to finish. This connects the NFC reading to the actual binder creation/viewing experience.
+
+**Screens involved:**
+
+1. **NFC Handler Screen** — The "landing" screen when app opens from NFC
+   - Shows a brief loading state ("Reading binder...")
+   - Determines: new tag or existing tag
+   - Routes to the right place
+
+2. **Questionnaire Screen** (already exists) — For new tags, starts binder setup
+   - Receives the tag ID so the new binder gets linked to the tag
+
+3. **Binder Detail Screen** (already exists) — For existing tags, opens the binder directly
+
+**What gets built:**
+
+```
+NFC tap → App opens
+    ↓
+NFC Handler Screen (loading...)
+    ↓
+┌─────────────────────────┐     ┌──────────────────────────┐
+│  New tag detected        │     │  Existing tag detected    │
+│                          │     │                           │
+│  "Let's set up your     │     │  → Opens binder directly  │
+│   new binder!"          │     │    (no extra screens)      │
+│                          │     │                           │
+│  [Start Setup]          │     └──────────────────────────┘
+│                          │
+│  → Goes to Questionnaire │
+│  → Binder created        │
+│  → Tag linked to binder  │
+└─────────────────────────┘
+```
+
+**Files to create/modify:**
+- `src/screens/NfcHandler/NfcHandlerScreen.tsx` — The handler screen (may already exist as placeholder)
+- `src/navigation/` — Update navigation to handle NFC deep link routing
+- `src/screens/Onboarding/OnboardingScreen.tsx` — Accept tag ID parameter so binder gets linked on creation
+
+**Testing:**
+- [ ] Tapping NFC tag opens the NFC Handler Screen
+- [ ] New tag → shows "New binder detected" → navigates to questionnaire
+- [ ] Questionnaire creates binder AND links it to the NFC tag ID
+- [ ] Existing tag → opens the linked binder directly (skips handler screen)
+- [ ] Tag belonging to another user → shows "This binder belongs to someone else"
+- [ ] If NFC read fails → shows error message with option to go to binder list manually
+- [ ] Back button on handler screen goes to binder list
+
+---
+
+#### Step 36G: Test Full Flow on Android Device
+- [ ] **Status**: Not started
+
+**What we're doing:** Test the entire NFC experience end-to-end on your Android phone with a real NFC sticker.
+
+**Prerequisites:**
+- Development build installed on Android phone (Step 36B)
+- Deep linking configured (Step 36C)
+- At least one NFC sticker with URL written to it (Step 36D)
+- NFC service code updated (Step 36E)
+- NFC scan flow built (Step 36F)
+- NFC enabled on your phone (Settings → NFC → On)
+
+**Test 1: First-time binder setup (new tag)**
+1. Use an NFC sticker that hasn't been linked to any binder yet
+2. Close the app completely
+3. Tap the NFC sticker to the back of your phone
+4. **Expected:** App opens → NFC Handler Screen → "New binder detected!"
+5. Tap "Start Setup" → Questionnaire starts
+6. Complete the questionnaire (pick a set, layout, etc.)
+7. **Expected:** Binder is created and linked to that NFC tag
+8. You should see your new binder with cards
+
+**Test 2: Returning to an existing binder (existing tag)**
+1. Use the same NFC sticker from Test 1 (now linked to a binder)
+2. Close the app completely
+3. Tap the NFC sticker to the back of your phone
+4. **Expected:** App opens → goes directly to the binder (no questionnaire, no handler screen delay)
+
+**Test 3: Multiple binders**
+1. Write a URL to a second NFC sticker (different tag ID)
+2. Tap the second sticker → should trigger new binder setup
+3. Set up a second binder
+4. Now alternate tapping both stickers → each should open the correct binder
+
+**Test 4: Error handling**
+1. Turn off NFC on your phone → tap sticker → nothing should happen (phone doesn't read it)
+2. Turn NFC back on → tap sticker → should work again
+3. Test with a thick phone case on → should still work (if not, note the distance limitation)
+
+**Test 5: App not running**
+1. Force-close the app completely
+2. Tap the NFC sticker
+3. **Expected:** App launches from scratch and opens the correct binder
+
+**Testing checklist:**
+- [ ] New tag → questionnaire → binder created → tag linked
+- [ ] Existing tag → binder opens directly
+- [ ] Second binder with second tag works
+- [ ] Alternating between tags opens correct binder each time
+- [ ] App launches from NFC tap when app is closed
+- [ ] App handles NFC tap when app is already open
+- [ ] Error states handled gracefully (NFC off, tag read failure)
+- [ ] No crashes during NFC flow
+- [ ] No TypeScript errors
+- [ ] No console errors
+
+---
+
+#### Step 36H: iOS Universal Links Setup (Later)
+- [ ] **Status**: Not started
+
+**What we're doing:** Set up Universal Links so iOS devices can also open the app when tapping an NFC tag. This step requires a Mac for iOS builds and can be done later.
+
+> **Note:** This step is deferred until you have access to an iOS device for testing. The NFC tags already contain URLs (from Step 36D), so when you set up Universal Links later, the existing tags will automatically work with iOS too — no need to rewrite the tags.
+
+**What's needed (when you're ready):**
+1. **Apple Developer Account** — Required for Universal Links
+2. **`apple-app-site-association` file** — Host on your webshop domain at `https://yourdomain.com/.well-known/apple-app-site-association`
+3. **Xcode configuration** — Add Associated Domains entitlement
+4. **iOS build** — Create via `eas build --profile development --platform ios` (requires Mac)
+
+**Why this can wait:**
+- Android is your primary test platform right now
+- The NFC tags are already set up with URLs that will work on iOS once Universal Links are configured
+- No NFC sticker changes needed — just app and domain configuration
+- You can do this when you get access to a Mac or iOS device
+
+**Testing (when implemented):**
+- [ ] `apple-app-site-association` hosted on webshop domain
+- [ ] iOS app has Associated Domains entitlement
+- [ ] Tapping NFC tag on iPhone XS+ shows notification
+- [ ] Tapping notification opens the app
+- [ ] App receives URL and extracts tag ID
+- [ ] Same flow works: new tag → questionnaire, existing tag → binder
+
+---
+
+**Overall Testing Checklist for Step 36:**
+- [ ] NTAG215 stickers purchased and tested (Step 36A)
+- [ ] `react-native-nfc-manager` installed (Step 36B)
+- [ ] Development build created and working (Step 36B)
+- [ ] Deep linking configured for Android (Step 36C)
+- [ ] `assetlinks.json` hosted on webshop domain (Step 36C)
+- [ ] Can write URLs to NFC stickers (Step 36D)
+- [ ] NFC service handles URL-based tags (Step 36E)
+- [ ] NFC scan flow works in the app (Step 36F)
+- [ ] Full end-to-end test passes on Android (Step 36G)
+- [ ] iOS Universal Links setup (Step 36H — deferred)
 - [ ] No TypeScript errors
 - [ ] No console errors
 - [ ] Performance acceptable

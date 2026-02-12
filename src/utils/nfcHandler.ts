@@ -1,4 +1,4 @@
-import { Linking, Platform } from 'react-native';
+import { Linking } from 'react-native';
 import * as LinkingExpo from 'expo-linking';
 import { getBinderByNfcTagId, checkNfcTagOwnership } from '../services/supabase/binders';
 import type { Binder } from '../types';
@@ -86,40 +86,66 @@ export async function handleNfcTag(tagId: string): Promise<NfcHandleResult> {
 
 /**
  * Extract NFC tag ID from app launch URL/intent
- * Handles both Android NFC intents and iOS NFC deep links
+ * 
+ * Supports multiple URL formats:
+ * 1. Web URL (NFC tag):   https://yourdomain.com/binder?tag=ABC123
+ * 2. App scheme (legacy):  trackerapp://nfc?tagId=ABC123
+ * 3. App scheme path:      trackerapp://nfc/ABC123
  */
 export function extractNfcTagIdFromUrl(url: string): string | null {
   try {
-    // Parse the URL
+    console.log('[NFC] Extracting tag ID from URL:', url);
+
+    // Method 1: Check for web URL format (from NFC tag)
+    // Format: https://yourdomain.com/binder?tag=TAG_ID
+    if (url.includes('/binder')) {
+      // Use URL constructor for https URLs
+      try {
+        const urlObj = new URL(url);
+        const tag = urlObj.searchParams.get('tag');
+        if (tag) {
+          console.log('[NFC] Found tag from web URL:', tag);
+          return tag;
+        }
+      } catch {
+        // URL constructor may fail for non-standard URLs, continue to other methods
+      }
+    }
+
+    // Method 2: Parse with expo-linking (handles app scheme URLs)
     const parsed = LinkingExpo.parse(url);
     
-    // Check for NFC tag ID in query parameters or path
-    // Format: trackerapp://nfc?tagId=ABC123 or trackerapp://nfc/ABC123
+    // Check for ?tag= query param (new format, works with any URL scheme)
+    if (parsed.queryParams?.tag) {
+      console.log('[NFC] Found tag from query param:', parsed.queryParams.tag);
+      return parsed.queryParams.tag as string;
+    }
+
+    // Check for ?tagId= query param (legacy format)
+    if (parsed.queryParams?.tagId) {
+      console.log('[NFC] Found tag from legacy tagId param:', parsed.queryParams.tagId);
+      return parsed.queryParams.tagId as string;
+    }
+
+    // Check for ?nfcTagId= query param (legacy Android format)
+    if (parsed.queryParams?.nfcTagId) {
+      console.log('[NFC] Found tag from legacy nfcTagId param:', parsed.queryParams.nfcTagId);
+      return parsed.queryParams.nfcTagId as string;
+    }
+
+    // Method 3: Check path-based format (trackerapp://nfc/ABC123)
     if (parsed.path === 'nfc' || parsed.path?.startsWith('nfc/')) {
-      // Try query parameter first
-      if (parsed.queryParams?.tagId) {
-        return parsed.queryParams.tagId as string;
-      }
-      
-      // Try path parameter: nfc/ABC123
       const pathParts = parsed.path.split('/');
       if (pathParts.length > 1 && pathParts[1]) {
+        console.log('[NFC] Found tag from path:', pathParts[1]);
         return pathParts[1];
       }
     }
 
-    // Android NFC intent format
-    // The tag ID might be in the intent data
-    if (Platform.OS === 'android') {
-      // Check for NFC-related query params
-      if (parsed.queryParams?.nfcTagId) {
-        return parsed.queryParams.nfcTagId as string;
-      }
-    }
-
+    console.log('[NFC] No tag ID found in URL');
     return null;
   } catch (error) {
-    console.error('Error extracting NFC tag ID from URL:', error);
+    console.error('[NFC] Error extracting tag ID from URL:', error);
     return null;
   }
 }
@@ -181,6 +207,7 @@ export function subscribeToNfcLinks(
     },
   };
 }
+
 
 
 

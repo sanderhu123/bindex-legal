@@ -1,4 +1,4 @@
-import NfcManager, { NfcTech, Ndef } from 'react-native-nfc-manager';
+import NfcManager, { NfcTech } from 'react-native-nfc-manager';
 import { Platform } from 'react-native';
 
 /**

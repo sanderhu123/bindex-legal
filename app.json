@@ -14,16 +14,44 @@
       "infoPlist": {
         "NSAppTransportSecurity": {
           "NSAllowsArbitraryLoads": true
-        }
+        },
+        "NFCReaderUsageDescription": "This app uses NFC to connect to your physical binder",
+        "com.apple.developer.nfc.readersession.iso7816.select-identifiers": ["D276000085010100"]
       }
     },
     "android": {
       "package": "com.trackerapp",
       "permissions": [
         "INTERNET",
-        "ACCESS_NETWORK_STATE"
+        "ACCESS_NETWORK_STATE",
+        "NFC"
       ],
-      "usesCleartextTraffic": true
+      "usesCleartextTraffic": true,
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "https",
+              "host": "yourdomain.com",
+              "pathPrefix": "/binder"
+            }
+          ],
+          "category": ["BROWSABLE", "DEFAULT"]
+        },
+        {
+          "action": "NDEF_DISCOVERED",
+          "data": [
+            {
+              "scheme": "https",
+              "host": "yourdomain.com",
+              "pathPrefix": "/binder"
+            }
+          ],
+          "category": ["DEFAULT"]
+        }
+      ]
     },
     "web": {},
     "extra": {
@@ -31,6 +59,8 @@
         "projectId": "cf1e564f-825d-49a4-8d35-2c596b286813"
       }
     },
-    "plugins": []
+    "plugins": [
+      "react-native-nfc-manager"
+    ]
   }
 }

@@ -14,7 +14,6 @@ import type { MainStackParamList } from '../../navigation/AppNavigator';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { signOut } from '../../services/supabase/auth';
 import { getBinders, deleteBinder } from '../../services/supabase/binders';
-import { getUserBinderInfo, type BinderUsageInfo } from '../../services/supabase/registeredTags';
 import type { Binder } from '../../types';
 import BinderCard from '../../components/Binder/BinderCard';
 import LoadingScreen from '../../components/Loading/LoadingScreen';
@@ -31,17 +30,12 @@ interface BinderWithProgress extends Binder {
 export default function BinderListScreen() {
   const navigation = useNavigation<NavigationProp>();
   const [binders, setBinders] = useState<BinderWithProgress[]>([]);
-  const [binderInfo, setBinderInfo] = useState<BinderUsageInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
   const loadBinders = async () => {
     try {
-      const [fetchedBinders, usageInfo] = await Promise.all([
-        getBinders(),
-        getUserBinderInfo(),
-      ]);
-      setBinderInfo(usageInfo);
+      const fetchedBinders = await getBinders();
       
       // Calculate progress from cached values (instant!)
       const bindersWithProgress = fetchedBinders.map((binder) => {
@@ -88,30 +82,6 @@ export default function BinderListScreen() {
   };
 
   const handleCreateBinder = () => {
-    // Check binder limit before allowing creation
-    if (binderInfo && binderInfo.currentBinders >= binderInfo.binderLimit) {
-      const limitText = binderInfo.isUnlimited
-        ? 'Unlimited'
-        : `${binderInfo.binderLimit}`;
-
-      Alert.alert(
-        'Binder Limit Reached',
-        `You've reached your limit of ${limitText} binder${binderInfo.binderLimit !== 1 ? 's' : ''}.\n\n` +
-        'Buy a physical binder and enter its activation code to unlock more!\n\n' +
-        '1 binder purchased = 3 app binders\n' +
-        '2 binders purchased = 5 app binders\n' +
-        '3+ binders = Unlimited',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'Enter Code',
-            onPress: () => navigation.navigate('ActivationCode'),
-          },
-        ]
-      );
-      return;
-    }
-
     navigation.navigate('Questionnaire');
   };
 
@@ -254,15 +224,6 @@ export default function BinderListScreen() {
         </View>
       </View>
 
-      {/* Binder count indicator */}
-      {binderInfo && !binderInfo.isUnlimited && (
-        <View style={styles.binderCountBar}>
-          <Text style={styles.binderCountText}>
-            {binderInfo.currentBinders} / {binderInfo.binderLimit} binders
-          </Text>
-        </View>
-      )}
-
       <FlatList
         data={binders}
         renderItem={renderBinderCard}
@@ -277,12 +238,6 @@ export default function BinderListScreen() {
       <View style={styles.footer}>
         <TouchableOpacity style={styles.createButton} onPress={handleCreateBinder}>
           <Text style={styles.createButtonText}>Create New Binder</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.activationCodeButton}
-          onPress={() => navigation.navigate('ActivationCode')}
-        >
-          <Text style={styles.activationCodeText}>Have an activation code?</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -335,18 +290,6 @@ const styles = StyleSheet.create({
     fontSize: typography.sm,
     fontWeight: typography.semibold,
   },
-  binderCountBar: {
-    backgroundColor: colors.backgroundLight,
-    paddingVertical: spacing.xs,
-    paddingHorizontal: screenPadding,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.borderLight,
-  },
-  binderCountText: {
-    fontSize: typography.xs,
-    color: colors.textTertiary,
-    textAlign: 'center',
-  },
   listContainer: {
     padding: screenPadding,
   },
@@ -368,16 +311,6 @@ const styles = StyleSheet.create({
   createButtonText: {
     color: colors.background,
     fontSize: typography.base,
-    fontWeight: typography.semibold,
-  },
-  activationCodeButton: {
-    marginTop: spacing.sm,
-    alignItems: 'center',
-    padding: spacing.sm,
-  },
-  activationCodeText: {
-    color: colors.primary,
-    fontSize: typography.sm,
     fontWeight: typography.semibold,
   },
 });

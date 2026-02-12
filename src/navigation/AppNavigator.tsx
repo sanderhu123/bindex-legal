@@ -8,12 +8,12 @@ import BinderEditScreen from '../screens/BinderEdit/BinderEditScreen';
 import CardListScreen from '../screens/CardList/CardListScreen';
 import CardDetailScreen from '../screens/CardDetail/CardDetailScreen';
 import CardSearchTestScreen from '../screens/CardSearchTest/CardSearchTestScreen';
-import ActivationCodeScreen from '../screens/ActivationCode/ActivationCodeScreen';
+// ActivationCodeScreen kept in codebase but hidden from UI (Step 36A)
+// import ActivationCodeScreen from '../screens/ActivationCode/ActivationCodeScreen';
 
 export type MainStackParamList = {
   NfcHandler: { tagId?: string } | undefined;
   Questionnaire: { nfcTagId?: string; activationCodeId?: string } | undefined;
-  ActivationCode: undefined;
   BinderList: undefined;
   BinderDetail: { binderId: string };
   BinderEdit: { binderId: string }; // Step 34A: Binder Edit mode
@@ -88,10 +88,6 @@ export default function AppNavigator() {
       <Stack.Screen
         name="CardSearchTest"
         component={CardSearchTestScreen}
-      />
-      <Stack.Screen
-        name="ActivationCode"
-        component={ActivationCodeScreen}
       />
     </Stack.Navigator>
   );

@@ -1381,7 +1381,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
   
   // Binder view mode calculations
   const cardsPerPage = gridColumns === 4 ? 12 : 9; // 4×3 = 12, 3×3 = 9
-  const totalPages = Math.ceil(filteredCards.length / cardsPerPage) || 1;
+  const totalPages = Math.max(40, Math.ceil(filteredCards.length / cardsPerPage));
   
   // Get cards for current binder page
   const pageCards = useMemo(() => {

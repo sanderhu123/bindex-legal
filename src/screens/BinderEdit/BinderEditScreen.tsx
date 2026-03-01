@@ -83,7 +83,7 @@ interface DropTarget {
   placeholderCardIndex?: number;
 }
 
-const MIN_PAGES = 20; // Minimum pages for binder edit (more are added if cards need it)
+const MIN_PAGES = 40; // Minimum pages for binder edit (more are added if cards need it)
 const PLACEHOLDER_MAX = 18; // Maximum cards in placeholder tray
 const FLOATING_CARD_WIDTH = 70; // Width of the floating drag card
 const FLOATING_CARD_HEIGHT = 100; // Height of the floating drag card

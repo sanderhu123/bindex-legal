@@ -88,7 +88,7 @@ export default function RegionBinderEditView({ binder }: RegionBinderEditViewPro
   const cardsPerPage = binder.layoutPreference === '4x3' ? 12 : 9;
   const columnsPerRow = binder.layoutPreference === '4x3' ? 4 : 3;
   const totalPages = useMemo(() => {
-    return Math.max(1, Math.ceil(pokemonSlots.length / cardsPerPage));
+    return Math.max(40, Math.ceil(pokemonSlots.length / cardsPerPage));
   }, [pokemonSlots.length, cardsPerPage]);
 
   // ─────────────────────────────────────────────────────────────────────────────

@@ -3,15 +3,26 @@ import { Platform } from 'react-native';
 
 /**
  * Initialize NFC manager
- * Should be called when app starts
+ * Should be called when app starts.
+ * Has a timeout to prevent the app from hanging if NFC gets stuck
+ * (common when reopening the app after it's been in the background for a while).
  */
 export async function initNfc(): Promise<boolean> {
   try {
     if (Platform.OS === 'web') {
       return false;
     }
-    await NfcManager.start();
-    return true;
+    const NFC_INIT_TIMEOUT = 5000;
+    const result = await Promise.race([
+      NfcManager.start().then(() => true),
+      new Promise<boolean>((resolve) =>
+        setTimeout(() => {
+          console.warn('[NFC] Initialization timed out after 5s - continuing without NFC');
+          resolve(false);
+        }, NFC_INIT_TIMEOUT)
+      ),
+    ]);
+    return result;
   } catch (error) {
     console.error('Error initializing NFC:', error);
     return false;

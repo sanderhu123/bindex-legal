@@ -87,21 +87,36 @@ export function AuthProvider({ children }: AuthProviderProps) {
   }, []);
 
   const checkSession = async () => {
+    const AUTH_TIMEOUT = 8000;
+    const timeoutPromise = new Promise<'timeout'>((resolve) =>
+      setTimeout(() => resolve('timeout'), AUTH_TIMEOUT)
+    );
+
     try {
       console.log('[AuthContext] Checking session...');
-      const session = await getSession();
-      if (session) {
-        const currentUser = await getCurrentUser();
-        console.log('[AuthContext] Session found, user:', currentUser?.email || 'null');
-        setUser(currentUser);
-      } else {
-        console.log('[AuthContext] No session found');
+
+      const result = await Promise.race([
+        (async () => {
+          const session = await getSession();
+          if (session) {
+            const currentUser = await getCurrentUser();
+            console.log('[AuthContext] Session found, user:', currentUser?.email || 'null');
+            return currentUser;
+          }
+          console.log('[AuthContext] No session found');
+          return null;
+        })(),
+        timeoutPromise,
+      ]);
+
+      if (result === 'timeout') {
+        console.warn('[AuthContext] Session check timed out after 8s - continuing without auth');
         setUser(null);
+      } else {
+        setUser(result);
       }
     } catch (error) {
       console.error('[AuthContext] Error checking session:', error);
-      // Network errors are common on app startup in Expo Go
-      // Don't crash the app, just assume no user is logged in
       if (error instanceof Error && error.message.includes('Network request failed')) {
         console.warn('[AuthContext] Network error on startup - this is normal in Expo Go. Continuing without auth check.');
       }

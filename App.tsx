@@ -58,11 +58,18 @@ function AppContent() {
         setCacheInitialized(true);
       } catch (error) {
         console.warn('[App] Failed to initialize cache:', error);
-        setCacheInitialized(true); // Continue anyway
+        setCacheInitialized(true);
       }
     }
 
-    initializeApp();
+    // Safety timeout: if initialization takes more than 10 seconds, skip it and open the app anyway.
+    // This prevents the app from being stuck on the loading screen forever.
+    const safetyTimeout = setTimeout(() => {
+      console.warn('[App] Initialization timed out after 10s - opening app anyway');
+      setCacheInitialized(true);
+    }, 10000);
+
+    initializeApp().finally(() => clearTimeout(safetyTimeout));
   }, []);
 
   // Show loading screen while checking auth state or initializing cache

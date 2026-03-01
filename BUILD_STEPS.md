@@ -1,8 +1,8 @@
 # Build Steps - Pokémon TCG Binder Tracker App
 
 > **📅 Last Updated:** March 1, 2026  
-> **🎯 Status:** ~95% Complete - Core features done, Phase 10 (Advanced Features) done, Binder Position System done, Binder Edit Mode complete, Phase 11 (Binder Activation System) mostly done  
-> **✅ Major Milestones:** All phases 1-8 complete, Phase 10 (Advanced Features) complete, Step 33 (Binder Position System) complete, Step 34 (Binder Edit Mode) complete, Phase 11 (Binder Activation System) mostly complete (35A/35B/35E/35F/35I done, 35J pending)
+> **🎯 Status:** ~90% Complete - Core features done, Phase 10 (Advanced Features) done, Binder Position System done, Binder Edit Mode complete. Monetization redesigned: In-App Purchase (Pro upgrade) via RevenueCat — replaces old activation code system.  
+> **✅ Major Milestones:** All phases 1-8 complete, Phase 10 (Advanced Features) complete, Step 33 (Binder Position System) complete, Step 34 (Binder Edit Mode) complete. Phase 9 (Monetization) redesigned and not yet started. Old Phase 11 (Activation Codes) removed.
 
 ## Overview
 
@@ -67,30 +67,31 @@ This guide walks you through building the app step-by-step. We'll build it incre
   - Step 34G: Implement Undo & Save System ✅
   - Step 34H: Region Binder Edit (Simple Version Picker) ✅
   - Step 34I: Database Storage for Card Positions ✅
-- **Phase 11**: Binder Activation System (Step 35) - Mostly complete
-  - Step 35A: Database - `registered_tags` Table ✅
-  - Step 35B: Database - Binder Limits & User Tier ✅
-  - ~~Step 35C: Deep Linking Setup~~ — Skipped (no NFC)
-  - ~~Step 35D: Landing Web Page~~ — Skipped (no NFC)
-  - Step 35E: Activation Code Validation Service ✅
-  - Step 35F: Activation Code Entry UI ✅
-  - ~~Step 35G: Update NFC Handler~~ — Skipped (no NFC)
-  - ~~Step 35H: View-Only Binder Sharing~~ — Skipped (no NFC)
-  - Step 35I: Transfer Binder Ownership ✅ (service done, no UI yet)
-
 ### ⚠️ **Partially Implemented**
 - **Step 16**: Add/Remove Cards - Basic tap-to-toggle works, but dedicated AddCardScreen not created
 - **Step 19**: Offline Support - React Query caching exists, but dedicated offline storage files not created
 - **Step 24F**: Variant Handling - Comprehensive logic implemented, needs integration testing
 
 ### ❌ **Not Yet Implemented**
+- **Phase 9**: Monetization — Pro Upgrade via In-App Purchase (RevenueCat) - Not started
+  - Step 27A: Database Schema for Pro System
+  - Step 27B: RevenueCat Account & SDK Setup
+  - Step 27C: Pro Check Service (`isUserPro()`)
+  - Step 27D: Binder Creation Limit (1 free binder)
+  - Step 27E: Binder Deletion Limit (1 free do-over)
+  - Step 27F: Upgrade Screen UI
+  - Step 27G: Restore Purchases
+  - Step 27H: Integration & Testing
 - **Step 23**: Comprehensive Testing - Needs user testing
-- **Step 27**: Premium System (Freemium Model) - Not started (see Step 35 for updated NFC/monetization plan)
-- **Step 35J**: Binder Limit Enforcement in UI - Not started (service functions exist, but no UI integration)
 - **Step 25**: Build for Production - Not started
 - **Step 26**: Deploy to App Stores - Not started
 
-### 📊 **Overall Progress**: ~95% Complete (Core features done, Phase 10 advanced features done, Binder Position System done, Binder Edit Mode complete, Phase 11 activation system mostly done. Remaining: binder limit UI enforcement, premium system, testing, production build)
+### 🗑️ **Removed / Replaced**
+- **Old Phase 11**: Binder Activation System (Step 35) — **Removed.** Was based on physical binders with activation codes. Replaced by Phase 9 (In-App Purchase Pro model). Code to remove: `registeredTags.ts`, `ActivationCodeScreen.tsx`, `add_registered_tags.sql`, `test_activation_codes.sql`.
+- **Old Step 27**: Premium System (NFC-based Freemium) — **Replaced** with new Step 27 (In-App Purchase Pro).
+- **Step 36**: NFC Tag Integration — **Removed.** No longer needed for app-only monetization.
+
+### 📊 **Overall Progress**: ~90% Complete (Core features done, Phase 10 advanced features done, Binder Position System done, Binder Edit Mode complete. Remaining: monetization (Pro upgrade), old activation code cleanup, testing, production build)
 
 ---
 
@@ -1797,1466 +1798,441 @@ Each step uses a unique log prefix to make debugging easier:
 
 ---
 
-## Phase 9: Monetization
+## Phase 9: Monetization (Pro Upgrade via In-App Purchase)
 
-### Step 27: Premium System (Freemium Model)
+### Step 27: Pro System (One-Time In-App Purchase)
 - [ ] **Status**: Not started
 
-> **⚠️ NOTE:** The NFC and monetization approach has been redesigned in **Step 35 (Phase 11: NFC Binder Integration)**. Step 35 replaces the premium activation model below with a binder-count-based limit system (0 tags = 1 binder, 1 tag = 3 binders, 2 tags = 5 binders, 3+ tags = unlimited). All binders have the same features — no premium vs. free distinction. See Step 35 for the updated plan. The information below is kept for reference but is **outdated**.
+**What we're doing:** Implement a one-time in-app purchase ("Pro Upgrade") using RevenueCat. The app is free to download. Free users get 1 binder to try the app. Pro users get unlimited binders. All features are the same — the only difference is binder quantity.
 
-**What we're doing:** Implement freemium monetization with generous free tier and lifetime premium via binder purchase
+> **Note:** This replaces the old monetization plans (NFC premium activation in old Step 27, and activation code system in old Phase 11/Step 35). Those systems have been removed. The app is now app-only — no physical binder dependency.
 
 **Business Model:**
-- **Free Tier**: 3 binders max, unlimited cards per binder, all core features (no NFC, no cloud sync)
-- **Premium Tier**: Unlimited binders, NFC tap-to-open, cloud sync, export, analytics
-- **How to Get Premium**: Buy a physical smart binder ($24.99) → Lifetime premium unlocked via NFC activation
 
----
+| | Free | Pro (one-time purchase, $4.99–$6.99) |
+|---|---|---|
+| Binders | 1 | Unlimited |
+| Cards per binder | Unlimited | Unlimited |
+| All collection modes | Yes | Yes |
+| Search & filter | Yes | Yes |
+| Grid, list & binder views | Yes | Yes |
+| Progress tracking | Yes | Yes |
+| Cloud sync | Yes | Yes |
+| Binder edit mode | Yes | Yes |
+| Delete binders | 1 do-over (lifetime) | Unlimited |
 
-**How NFC Premium Activation Works (End-to-End Flow):**
+**Why one-time purchase (not subscription):**
+- A card tracker is a long-term tool, not a daily-content app
+- Collectors already spend money on cards — another monthly bill feels wrong
+- One-time purchase = better reviews, less churn, simpler to manage
+- RevenueCat supports both models, so subscriptions can be added later if needed
+
+**Free tier anti-gaming:**
+- Free users can create 1 binder (lifetime count, not active count)
+- Free users get 1 "do-over" — they can delete their binder once and create a new one
+- After the do-over is used, they cannot delete or create new binders without upgrading
+- This prevents users from cycling through binders to avoid paying
+
+**Complete User Flow:**
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│  YOUR WORKFLOW (Before Shipping)                                             │
+│  FREE USER FLOW                                                             │
 ├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                              │
-│  1. Order NFC tags from manufacturer                                         │
-│     └── Ask for: CSV with tag UIDs + tags encoded with Firebase link         │
-│                                                                              │
-│  2. Import tag UIDs to database                                              │
-│     └── INSERT INTO premium_tags (nfc_tag_id, batch_id) VALUES (...)         │
-│                                                                              │
-│  3. Stick tags on binders → Ship to customers                                │
-│                                                                              │
+│                                                                             │
+│  User downloads app from App Store / Play Store (free)                      │
+│          ↓                                                                  │
+│  Creates account (or logs in)                                               │
+│          ↓                                                                  │
+│  Creates 1st binder → works normally                                        │
+│          ↓                                                                  │
+│  Tries to create 2nd binder → "Upgrade to Pro" prompt                      │
+│          ↓                                                                  │
+│  Wants to start over? → Can delete binder (1 do-over)                      │
+│     Shows warning: "This is your only do-over. Are you sure?"              │
+│          ↓                                                                  │
+│  After do-over is used:                                                     │
+│     - Can create 1 new binder                                               │
+│     - Cannot delete again → "Upgrade to Pro"                                │
+│                                                                             │
 └─────────────────────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│  CUSTOMER EXPERIENCE                                                         │
+│  PRO UPGRADE FLOW                                                           │
 ├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                              │
-│  Customer taps NFC tag on binder                                             │
-│          ↓                                                                   │
-│  App installed?                                                              │
-│     NO → Firebase Dynamic Link redirects to App Store / Play Store           │
-│          Customer downloads app                                              │
-│     YES → App opens directly                                                 │
-│          ↓                                                                   │
-│  App reads tag hardware ID                                                   │
-│          ↓                                                                   │
-│  Is tag ID in premium_tags table?                                            │
-│     NO → "This tag is not recognized" (random tag rejected!)                 │
-│     YES → Is tag already used?                                               │
-│              YES → "This tag was already used"                               │
-│              NO → ✅ PREMIUM ACTIVATED!                                      │
-│                    - User profile → premium_status = 'lifetime'              │
-│                    - Tag → is_used = true                                    │
-│                                                                              │
-│  Customer now has lifetime premium access 🎉                                 │
-│                                                                              │
+│                                                                             │
+│  User taps "Upgrade to Pro" (from limit prompt or Settings)                 │
+│          ↓                                                                  │
+│  Upgrade screen shows:                                                      │
+│     - What Pro includes (unlimited binders)                                 │
+│     - Price ($4.99–$6.99, one-time)                                         │
+│     - "Buy Pro" button                                                      │
+│     - "Restore Purchase" link                                               │
+│          ↓                                                                  │
+│  User taps "Buy Pro" → Apple/Google payment sheet appears                   │
+│          ↓                                                                  │
+│  Payment successful → RevenueCat confirms → user_tier = 'pro'              │
+│          ↓                                                                  │
+│  User now has unlimited binders forever                                     │
+│                                                                             │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-**Security:**
-- Only tags you register in `premium_tags` table work
-- Each tag can only activate premium ONCE
-- Random NFC tags purchased elsewhere won't work
+**Sub-Steps Overview:**
+
+| Sub-Step | Description | Dependencies |
+|----------|-------------|-------------|
+| 27A | Database: Add `user_tier` and `free_deletions_used` | Supabase |
+| 27B | RevenueCat Account & SDK Setup | Apple/Google dev accounts |
+| 27C | Pro Check Service (`isUserPro()`) | 27A, 27B |
+| 27D | Binder Creation Limit (1 free binder) | 27C |
+| 27E | Binder Deletion Limit (1 free do-over) | 27C |
+| 27F | Upgrade Screen UI | 27B, 27C |
+| 27G | Restore Purchases | 27B |
+| 27H | Integration & Testing | All above |
 
 ---
 
-#### Step 27A: Update Database Schema for Premium
+#### Step 27A: Database Schema for Pro System
 - [ ] **Status**: Not started
 
-**What we're doing:** Add premium tracking fields to database
+**What we're doing:** Add two fields to the `user_profiles` table in Supabase to track whether a user is Pro and how many times they've used their free delete.
 
 **Database Changes:**
 
 Run this SQL in Supabase SQL Editor:
 
 ```sql
--- Add premium fields to user_profiles table
+-- Add Pro system fields to user_profiles table
 ALTER TABLE public.user_profiles 
-ADD COLUMN IF NOT EXISTS premium_status TEXT DEFAULT 'free' CHECK (premium_status IN ('free', 'lifetime')),
-ADD COLUMN IF NOT EXISTS premium_activated_at TIMESTAMP WITH TIME ZONE,
-ADD COLUMN IF NOT EXISTS premium_source TEXT; -- 'nfc-binder' or 'manual'
+ADD COLUMN IF NOT EXISTS user_tier TEXT DEFAULT 'free' CHECK (user_tier IN ('free', 'pro')),
+ADD COLUMN IF NOT EXISTS free_deletions_used INTEGER DEFAULT 0,
+ADD COLUMN IF NOT EXISTS lifetime_binders_created INTEGER DEFAULT 0,
+ADD COLUMN IF NOT EXISTS pro_purchased_at TIMESTAMP WITH TIME ZONE;
 
--- Add premium_activated flag to binders table
--- (Tracks if this binder has been used to activate premium)
-ALTER TABLE public.binders
-ADD COLUMN IF NOT EXISTS premium_activated BOOLEAN DEFAULT FALSE;
-
--- Create index for premium status lookups
-CREATE INDEX IF NOT EXISTS idx_user_profiles_premium_status 
-ON public.user_profiles(premium_status);
-
--- ============================================
--- PREMIUM TAGS TABLE (NFC Tag Validation)
--- ============================================
--- This table stores pre-registered NFC tag IDs from binders you sell.
--- Only tags in this table can activate premium (prevents random tags from working).
-
-CREATE TABLE IF NOT EXISTS public.premium_tags (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  nfc_tag_id TEXT UNIQUE NOT NULL,           -- Hardware ID from NFC tag (e.g., "04A3B21FC82E80")
-  is_used BOOLEAN DEFAULT FALSE,              -- Has this tag been used to activate premium?
-  used_by UUID REFERENCES public.user_profiles(id), -- Which user activated with this tag?
-  used_at TIMESTAMP WITH TIME ZONE,           -- When was premium activated?
-  batch_id TEXT,                              -- Optional: track inventory batches (e.g., "batch-2024-01")
-  order_id TEXT,                              -- Optional: link to Shopify order ID
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
--- Create indexes for fast lookups
-CREATE INDEX IF NOT EXISTS idx_premium_tags_nfc_tag_id 
-ON public.premium_tags(nfc_tag_id);
-
-CREATE INDEX IF NOT EXISTS idx_premium_tags_is_used 
-ON public.premium_tags(is_used);
-
--- Enable RLS (Row Level Security)
-ALTER TABLE public.premium_tags ENABLE ROW LEVEL SECURITY;
-
--- Policy: Only authenticated users can read premium_tags (to check if tag is valid)
-CREATE POLICY "Users can check if tag is valid" ON public.premium_tags
-  FOR SELECT
-  USING (auth.role() = 'authenticated');
-
--- Policy: Only service role can insert/update premium_tags (you manage this via admin/scripts)
--- Note: Regular users cannot add tags - only your backend/admin can
-
--- Verification query
-SELECT column_name, data_type, column_default 
-FROM information_schema.columns 
-WHERE table_name = 'premium_tags';
+-- Create index for tier lookups
+CREATE INDEX IF NOT EXISTS idx_user_profiles_user_tier 
+ON public.user_profiles(user_tier);
 ```
 
 **What gets created:**
-- `user_profiles.premium_status` - User's premium status ('free' or 'lifetime')
-- `user_profiles.premium_activated_at` - When premium was activated
-- `user_profiles.premium_source` - How they got premium ('nfc-binder')
-- `binders.premium_activated` - Has this binder activated premium for someone (prevents reuse)
-- `premium_tags` table - **Pre-registered NFC tags that can activate premium**
-
-**Why `premium_tags` table is important:**
-- Without this, ANY NFC tag could activate premium (security hole!)
-- Only tags you sell should grant premium access
-- You register tag IDs before shipping binders
-- When user taps tag, app checks if tag ID is in this table
+- `user_tier` — `'free'` or `'pro'` (default: `'free'`)
+- `free_deletions_used` — starts at 0, max 1 for free users (tracks the do-over)
+- `lifetime_binders_created` — total binders ever created (doesn't decrease on delete)
+- `pro_purchased_at` — when the user bought Pro (null if free)
 
 **Testing:**
 - [ ] SQL runs without errors in Supabase
 - [ ] New columns appear in user_profiles table
-- [ ] New column appears in binders table
-- [ ] **premium_tags table created**
-- [ ] Default values are correct (free, FALSE)
-- [ ] Check constraints work
-- [ ] Indexes created successfully
-- [ ] RLS policies created
+- [ ] Default values are correct (`'free'`, 0, 0, null)
+- [ ] Check constraint works (try setting user_tier to 'invalid' — should fail)
 
 ---
 
-#### Step 27A-2: Set Up Firebase Dynamic Links
+#### Step 27B: RevenueCat Account & SDK Setup
 - [ ] **Status**: Not started
 
-**What we're doing:** Create smart links that redirect users to the correct app store (iOS or Android) when they tap an NFC tag without having the app installed.
-
-**Why this is needed:**
-- When someone taps your NFC tag, the tag contains a URL
-- If the app isn't installed, the URL should redirect to App Store (iOS) or Play Store (Android)
-- Firebase Dynamic Links handles this automatically (free!)
-
-**Step-by-Step Setup:**
-
-**1. Create Firebase Project (or use existing):**
-- Go to [Firebase Console](https://console.firebase.google.com)
-- Click "Add project" or select existing project
-- Follow the setup wizard
-
-**2. Enable Dynamic Links:**
-- In Firebase Console, go to **Engage → Dynamic Links**
-- Click "Get Started"
-- Set up your URL prefix:
-  - Option A: Use Firebase subdomain (free): `yourapp.page.link`
-  - Option B: Use custom domain (requires domain ownership)
-- For now, use the free subdomain: `pokemontcgtracker.page.link` (or your app name)
-
-**3. Create Your NFC Dynamic Link:**
-- Click "New Dynamic Link"
-- Configure:
-  - **Short URL**: `pokemontcgtracker.page.link/nfc`
-  - **Deep link URL**: `https://pokemontcgtracker.app/nfc` (or your app's scheme)
-  - **iOS behavior**: 
-    - Select "Open App Store page for your app"
-    - Enter your App Store ID (get this after publishing)
-  - **Android behavior**:
-    - Select "Open Google Play page for your app"
-    - Enter your package name: `com.yourcompany.pokemontcgtracker`
-  - **When app is installed**: Open the deep link in the app
-
-**4. Get Your Final Link:**
-- After creating, you'll get a link like: `https://pokemontcgtracker.page.link/nfc`
-- This is the URL you'll encode on NFC tags
-
-**What the link does:**
-| User's Device | App Installed? | What Happens |
-|---------------|----------------|--------------|
-| iPhone | No | Opens App Store |
-| iPhone | Yes | Opens app directly |
-| Android | No | Opens Play Store |
-| Android | Yes | Opens app directly |
-| Desktop | N/A | Shows fallback page |
-
-**Testing:**
-- [ ] Firebase project created
-- [ ] Dynamic Links enabled
-- [ ] URL prefix configured
-- [ ] Dynamic link created
-- [ ] Link opens App Store on iOS (when app not installed)
-- [ ] Link opens Play Store on Android (when app not installed)
-- [ ] Link opens app directly when installed
-
-**Notes:**
-- You'll need your App Store ID and Play Store package name
-- These are available after you submit your app to the stores
-- For testing, you can set up the link now and update the store IDs later
-
----
-
-#### Step 27A-3: Set Up Universal Links & App Links
-- [ ] **Status**: Not started
-
-**What we're doing:** Configure iOS Universal Links and Android App Links so the app opens directly when users tap NFC tags (instead of opening browser first).
-
-**Why this is needed:**
-- Without this: User taps NFC → Browser opens → Redirects to app (slow, clunky)
-- With this: User taps NFC → App opens directly (fast, seamless)
+**What we're doing:** Create a RevenueCat account, set up the product in Apple/Google stores, and install the RevenueCat SDK in the app.
 
 **Prerequisites:**
-- You need a domain you control (e.g., `pokemontcgtracker.app` or use Firebase Hosting)
-- Your app must be published (or use a test version)
+- Apple Developer Account ($99/year) — needed for App Store in-app purchases
+- Google Play Developer Account ($25 one-time) — needed for Play Store in-app purchases
 
-**For iOS - Universal Links:**
+**Steps:**
 
-**1. Create `apple-app-site-association` file:**
+**1. Create RevenueCat Account:**
+- Go to [https://www.revenuecat.com](https://www.revenuecat.com)
+- Sign up for a free account
+- Create a new project in the RevenueCat dashboard
 
-Create a JSON file (no `.json` extension) with this content:
+**2. Set Up Product in Apple App Store Connect:**
+- Go to App Store Connect → Your App → In-App Purchases
+- Create a new "Non-Consumable" in-app purchase
+- Product ID: `pro_upgrade` (or similar)
+- Reference Name: "Pro Upgrade"
+- Price: $4.99–$6.99 (choose your price tier)
+- Add description and screenshot for App Review
 
-```json
-{
-  "applinks": {
-    "apps": [],
-    "details": [
-      {
-        "appID": "TEAMID.com.yourcompany.pokemontcgtracker",
-        "paths": ["/nfc/*", "/nfc"]
-      }
-    ]
-  }
-}
-```
+**3. Set Up Product in Google Play Console:**
+- Go to Google Play Console → Your App → Monetize → Products → In-app products
+- Create a new "One-time product"
+- Product ID: `pro_upgrade` (must match Apple's ID for simplicity)
+- Price: Same as Apple
+- Add description
 
-Replace:
-- `TEAMID` with your Apple Developer Team ID (find in Apple Developer Portal)
-- `com.yourcompany.pokemontcgtracker` with your app's bundle ID
+**4. Connect Stores to RevenueCat:**
+- In RevenueCat dashboard, add your Apple and Google apps
+- Enter your App Store shared secret and Google service account credentials
+- RevenueCat will verify the connection
 
-**2. Host the file:**
-- Upload to: `https://yourdomain.com/.well-known/apple-app-site-association`
-- Must be served over HTTPS
-- Must NOT have `.json` extension
-- Must have `Content-Type: application/json`
+**5. Create Entitlement & Offering in RevenueCat:**
+- Create an Entitlement called `pro` (this is what your app checks)
+- Create an Offering called `default`
+- Add your `pro_upgrade` product to the offering
+- Link the entitlement to the product
 
-**3. Update `app.json`:**
-- Ensure `ios.associatedDomains` is configured:
+**6. Install SDK in App:**
 
-```json
-{
-  "expo": {
-    "ios": {
-      "associatedDomains": ["applinks:yourdomain.com"]
-    }
-  }
-}
-```
-
-**For Android - App Links:**
-
-**1. Create `assetlinks.json` file:**
-
-```json
-[{
-  "relation": ["delegate_permission/common.handle_all_urls"],
-  "target": {
-    "namespace": "android_app",
-    "package_name": "com.yourcompany.pokemontcgtracker",
-    "sha256_cert_fingerprints": [
-      "YOUR_APP_SIGNING_FINGERPRINT"
-    ]
-  }
-}]
-```
-
-To get your fingerprint:
 ```bash
-# For debug builds:
-keytool -list -v -keystore ~/.android/debug.keystore -alias androiddebugkey -storepass android -keypass android
-
-# For production (EAS builds):
-# Get from Expo dashboard → Project → Credentials → Android
+npm install react-native-purchases
 ```
 
-**2. Host the file:**
-- Upload to: `https://yourdomain.com/.well-known/assetlinks.json`
-- Must be served over HTTPS
-
-**3. Update `app.json`:**
-- Ensure `android.intentFilters` is configured:
-
-```json
-{
-  "expo": {
-    "android": {
-      "intentFilters": [
-        {
-          "action": "VIEW",
-          "autoVerify": true,
-          "data": [
-            {
-              "scheme": "https",
-              "host": "yourdomain.com",
-              "pathPrefix": "/nfc"
-            }
-          ],
-          "category": ["BROWSABLE", "DEFAULT"]
-        }
-      ]
-    }
-  }
-}
-```
-
-**Where to Host These Files:**
-
-| Option | Difficulty | Cost |
-|--------|------------|------|
-| Firebase Hosting | Easy | Free |
-| Vercel | Easy | Free |
-| Netlify | Easy | Free |
-| Your own server | Medium | Varies |
-
-**Quick Setup with Firebase Hosting:**
-```bash
-# Install Firebase CLI
-npm install -g firebase-tools
-
-# Login
-firebase login
-
-# Initialize hosting
-firebase init hosting
-
-# Create .well-known folder and add files
-# Then deploy:
-firebase deploy --only hosting
-```
-
-**Testing:**
-- [ ] `apple-app-site-association` file hosted correctly
-- [ ] `assetlinks.json` file hosted correctly
-- [ ] iOS app opens directly from NFC link
-- [ ] Android app opens directly from NFC link
-- [ ] app.json updated with associated domains / intent filters
-
-**Notes:**
-- This step is optional for initial launch
-- The app will still work via Firebase Dynamic Links
-- Universal/App Links provide a better user experience
-- You can add this later after the app is published
-
----
-
-#### Step 27A-4: NFC Tag Preparation Workflow
-- [ ] **Status**: Not started
-
-**What we're doing:** Document the workflow for preparing NFC tags before shipping binders to customers.
-
-**Overview:**
-Before you ship a binder with an NFC tag, you need to:
-1. Get the tag's unique hardware ID
-2. Register it in your `premium_tags` database table
-3. Encode the tag with your Firebase Dynamic Link URL
-
-**Option A: Manufacturer Provides Tag IDs (Recommended)**
-
-This is the easiest approach for bulk orders:
-
-**1. Order NFC Tags with UID List:**
-- Order NTAG215 or NTAG216 tags in bulk (100+ recommended)
-- Ask the manufacturer:
-  > "Please provide a CSV/spreadsheet with all tag UIDs (unique IDs)."
-  > "Please encode this URL on all tags: `https://pokemontcgtracker.page.link/nfc`"
-
-**2. Import Tag IDs to Database:**
-
-When you receive the CSV, import to Supabase:
-
-```sql
--- Bulk insert tag IDs from manufacturer's CSV
--- Replace with actual values from your CSV
-INSERT INTO premium_tags (nfc_tag_id, batch_id) VALUES
-  ('04A3B21FC82E80', 'batch-2024-01'),
-  ('04A3B21FC82E81', 'batch-2024-01'),
-  ('04A3B21FC82E82', 'batch-2024-01'),
-  -- ... more tags
-  ('04A3B21FC82E99', 'batch-2024-01');
-```
-
-Or use a script to import from CSV:
-
-```javascript
-// Example Node.js script to import tags
-const { createClient } = require('@supabase/supabase-js');
-const fs = require('fs');
-
-const supabase = createClient('YOUR_SUPABASE_URL', 'YOUR_SERVICE_ROLE_KEY');
-
-async function importTags(csvPath, batchId) {
-  const csv = fs.readFileSync(csvPath, 'utf8');
-  const lines = csv.split('\n').filter(line => line.trim());
-  
-  // Skip header row if present
-  const tagIds = lines.slice(1).map(line => line.split(',')[0].trim());
-  
-  const records = tagIds.map(nfc_tag_id => ({
-    nfc_tag_id,
-    batch_id: batchId,
-  }));
-  
-  const { data, error } = await supabase
-    .from('premium_tags')
-    .insert(records);
-    
-  if (error) {
-    console.error('Error importing tags:', error);
-  } else {
-    console.log(`Imported ${records.length} tags`);
-  }
-}
-
-importTags('./tags.csv', 'batch-2024-01');
-```
-
-**3. Ship Binders:**
-- Stick one pre-encoded tag on each binder
-- Ship to customer
-- Done!
-
-**Option B: Manual Tag Registration (Small Batches)**
-
-For small orders or DIY:
-
-**1. Get an NFC Reader/Writer:**
-- Buy a USB NFC reader (~$20-30 on Amazon)
-- Or use the "NFC Tools" app on your phone
-
-**2. For Each Tag:**
-```
-1. Scan tag → Get hardware ID (e.g., "04:A3:B2:1F:C8:2E:80")
-2. Add to database:
-   INSERT INTO premium_tags (nfc_tag_id) VALUES ('04A3B21FC82E80');
-3. Write URL to tag: https://pokemontcgtracker.page.link/nfc
-4. Stick tag on binder
-5. Ship
-```
-
-**3. Use NFC Tools App to Write URL:**
-- Open NFC Tools app
-- Go to "Write" tab
-- Add record → URL
-- Enter: `https://pokemontcgtracker.page.link/nfc`
-- Tap tag to write
-
-**Where to Buy NFC Tags:**
-
-| Supplier | UID List? | Pre-Encoding? | Min Order |
-|----------|-----------|---------------|-----------|
-| GoToTags (US) | Yes | Yes | 50 |
-| NFC Direct (UK) | Yes | Yes | 100 |
-| RapidNFC | Yes | Yes | 50 |
-| Alibaba suppliers | Ask | Ask | 500+ |
-| Amazon | No | No | 10 |
-
-**What to Tell Your Supplier:**
-> "I need [quantity] NTAG215 NFC stickers.
-> 
-> Please:
-> 1. Encode this URL on all tags: `https://pokemontcgtracker.page.link/nfc`
-> 2. Send me a CSV file with all tag UIDs (unique hardware IDs)
-> 
-> Thank you!"
-
-**Tag Types:**
-- **NTAG213**: 144 bytes storage (enough for URL)
-- **NTAG215**: 504 bytes storage (recommended)
-- **NTAG216**: 888 bytes storage (overkill but works)
-
-All three will work. NTAG215 is the sweet spot.
-
-**Testing:**
-- [ ] Received CSV of tag IDs from manufacturer (or scanned manually)
-- [ ] Tag IDs imported to `premium_tags` table
-- [ ] Tags encoded with Firebase Dynamic Link URL
-- [ ] Tapping tag (without app) redirects to app store
-- [ ] Tapping tag (with app) opens app
-
----
-
-#### Step 27A-5: Create Tag Validation Service
-- [ ] **Status**: Not started
-
-**What we're doing:** Create a service to validate NFC tags against the `premium_tags` table before activating premium.
-
-**Files to create:**
-
-**Create `src/services/premium/tagValidation.ts`:**
+**7. Initialize RevenueCat in App.tsx:**
 
 ```typescript
-import { supabase } from '../supabase/client';
-
-/**
- * Result of tag validation
- */
-export interface TagValidationResult {
-  isValid: boolean;        // Is this a valid pre-registered tag?
-  isUsed: boolean;         // Has this tag already been used?
-  usedBy?: string;         // User ID who used it (if used)
-  error?: string;          // Error message if validation failed
-}
-
-/**
- * Validate an NFC tag ID against the premium_tags table
- * 
- * @param nfcTagId - The hardware ID of the NFC tag
- * @returns Validation result
- */
-export async function validatePremiumTag(nfcTagId: string): Promise<TagValidationResult> {
-  try {
-    console.log('[TagValidation] Checking tag:', nfcTagId);
-
-    // Look up tag in premium_tags table
-    const { data: tag, error } = await supabase
-      .from('premium_tags')
-      .select('id, nfc_tag_id, is_used, used_by')
-      .eq('nfc_tag_id', nfcTagId)
-      .single();
-
-    if (error) {
-      if (error.code === 'PGRST116') {
-        // Tag not found in table - not a valid premium tag
-        console.log('[TagValidation] Tag not found in premium_tags table');
-        return {
-          isValid: false,
-          isUsed: false,
-          error: 'This NFC tag is not recognized. Only tags from official binders can activate premium.',
-        };
-      }
-      throw error;
-    }
-
-    // Tag found - check if already used
-    if (tag.is_used) {
-      console.log('[TagValidation] Tag already used by:', tag.used_by);
-      return {
-        isValid: true,
-        isUsed: true,
-        usedBy: tag.used_by,
-        error: 'This tag has already been used to activate premium.',
-      };
-    }
-
-    // Tag is valid and not used
-    console.log('[TagValidation] Tag is valid and available');
-    return {
-      isValid: true,
-      isUsed: false,
-    };
-  } catch (error: any) {
-    console.error('[TagValidation] Error validating tag:', error);
-    return {
-      isValid: false,
-      isUsed: false,
-      error: 'Failed to validate tag. Please try again.',
-    };
-  }
-}
-
-/**
- * Mark a tag as used after successful premium activation
- * 
- * @param nfcTagId - The hardware ID of the NFC tag
- * @param userId - The user ID who activated premium
- */
-export async function markTagAsUsed(nfcTagId: string, userId: string): Promise<boolean> {
-  try {
-    console.log('[TagValidation] Marking tag as used:', nfcTagId);
-
-    const { error } = await supabase
-      .from('premium_tags')
-      .update({
-        is_used: true,
-        used_by: userId,
-        used_at: new Date().toISOString(),
-      })
-      .eq('nfc_tag_id', nfcTagId);
-
-    if (error) {
-      console.error('[TagValidation] Error marking tag as used:', error);
-      return false;
-    }
-
-    console.log('[TagValidation] Tag marked as used successfully');
-    return true;
-  } catch (error) {
-    console.error('[TagValidation] Error in markTagAsUsed:', error);
-    return false;
-  }
-}
-```
-
-**Update `src/services/premium/index.ts`:**
-
-```typescript
-export { activatePremiumFromNFC } from './activation';
-export { validatePremiumTag, markTagAsUsed } from './tagValidation';
-export type { TagValidationResult } from './tagValidation';
-```
-
-**Testing:**
-- [ ] validatePremiumTag() returns `isValid: false` for unknown tags
-- [ ] validatePremiumTag() returns `isValid: true, isUsed: false` for new registered tags
-- [ ] validatePremiumTag() returns `isValid: true, isUsed: true` for already-used tags
-- [ ] markTagAsUsed() updates the database correctly
-- [ ] No TypeScript errors
-
----
-
-#### Step 27B: Update TypeScript Types
-- [ ] **Status**: Not started
-
-**What we're doing:** Add premium fields to TypeScript interfaces
-
-**Files to modify:**
-
-**1. Update `src/types/user.ts`:**
-
-```typescript
-/**
- * Premium status types
- */
-export type PremiumStatus = 'free' | 'lifetime';
-
-/**
- * User interface representing a user account
- */
-export interface User {
-  id: string;
-  email: string;
-  displayName?: string;
-  binders: string[]; // Binder IDs
-  
-  // Premium fields
-  premiumStatus: PremiumStatus;
-  premiumActivatedAt?: Date;
-  premiumSource?: string; // 'nfc-binder' or 'manual'
-}
-
-/**
- * Check if user has active premium
- */
-export function isPremiumActive(user: User): boolean {
-  return user.premiumStatus === 'lifetime';
-}
-
-/**
- * Check if user is on free tier
- */
-export function isFreeTier(user: User): boolean {
-  return user.premiumStatus === 'free';
-}
-```
-
-**2. Update `src/types/binder.ts`:**
-
-Add `premiumActivated` field to Binder interface:
-
-```typescript
-export interface Binder {
-  id: string;
-  userId: string;
-  name: string;
-  collectionMode: CollectionMode;
-  set?: string;
-  region?: string;
-  variantsToTrack?: string[];
-  variantPlacement?: VariantPlacement;
-  layoutPreference?: LayoutPreference;
-  pokemonArtStyle?: PokemonArtStyle;
-  nfcTagId?: string;
-  premiumActivated?: boolean; // NEW: Has this binder activated premium?
-  cardIds: string[];
-  totalCards: number;
-  ownedCards: number;
-  createdAt: Date;
-  updatedAt: Date;
-}
-```
-
-**Testing:**
-- [ ] Run `npx tsc --noEmit` - no TypeScript errors
-- [ ] Types import correctly in other files
-- [ ] isPremiumActive() function works
-- [ ] isFreeTier() function works
-
----
-
-#### Step 27C: Update Supabase Services
-- [ ] **Status**: Not started
-
-**What we're doing:** Update auth and binder services to handle premium data
-
-**Files to modify:**
-
-**1. Update `src/services/supabase/auth.ts`:**
-
-In `getCurrentUser()` function, add premium fields to return object:
-
-```typescript
-// In getCurrentUser() function, update the return statement:
-return {
-  id: profile.id,
-  email: profile.email,
-  displayName: profile.display_name || undefined,
-  binders: userBinders?.map((b) => b.id) || [],
-  // Add premium fields:
-  premiumStatus: profile.premium_status || 'free',
-  premiumActivatedAt: profile.premium_activated_at ? new Date(profile.premium_activated_at) : undefined,
-  premiumSource: profile.premium_source || undefined,
-};
-
-// Also update the fallback return (when profile doesn't exist):
-return {
-  id: user.id,
-  email: user.email || '',
-  displayName: user.user_metadata?.display_name,
-  binders: [],
-  premiumStatus: 'free', // Default to free
-  premiumActivatedAt: undefined,
-  premiumSource: undefined,
-};
-```
-
-**2. Update `src/services/supabase/binders.ts`:**
-
-In `BinderRow` interface and `rowToBinder()` function:
-
-```typescript
-// Update BinderRow interface to include premium_activated:
-interface BinderRow {
-  // ... existing fields
-  premium_activated: boolean; // ADD THIS
-  // ... rest of fields
-}
-
-// Update rowToBinder() to map premium_activated:
-function rowToBinder(row: BinderRow, cardIds: string[]): Binder {
-  return {
-    // ... existing fields
-    premiumActivated: row.premium_activated || false, // ADD THIS
-    // ... rest of fields
-  };
-}
-```
-
-**Testing:**
-- [ ] getCurrentUser() returns premium fields
-- [ ] Premium status defaults to 'free' for new users
-- [ ] Binder premium_activated field is returned
-- [ ] No TypeScript errors
-
----
-
-#### Step 27D: Create Premium Gate Utilities
-- [ ] **Status**: Not started
-
-**What we're doing:** Create functions to check premium access and show upgrade prompts
-
-**Files to create:**
-
-**Create `src/utils/premiumGates.ts`:**
-
-```typescript
-import { Alert, Linking } from 'react-native';
-import { supabase } from '../services/supabase/client';
-import { getCurrentUser } from '../services/supabase/auth';
-import { isPremiumActive } from '../types/user';
-
-/**
- * Your store website URL
- * TODO: Update with your actual store URL
- */
-const STORE_URL = 'https://your-store.com'; // UPDATE THIS!
-
-/**
- * Open store website in browser
- */
-export function openStore() {
-  Linking.openURL(STORE_URL).catch((err) => {
-    console.error('Failed to open store URL:', err);
-    Alert.alert('Error', 'Could not open store. Please visit ' + STORE_URL);
-  });
-}
-
-/**
- * Check if user can create a new binder
- * Free users limited to 3 binders
- * Premium users have unlimited binders
- * 
- * @returns true if user can create binder, false if limit reached
- */
-export async function checkCanCreateBinder(): Promise<boolean> {
-  try {
-    const user = await getCurrentUser();
-    if (!user) {
-      Alert.alert('Error', 'Please log in to create binders');
-      return false;
-    }
-
-    // Premium users can create unlimited binders
-    if (isPremiumActive(user)) {
-      return true;
-    }
-
-    // Free users - check binder count
-    const { data: binders, error } = await supabase
-      .from('binders')
-      .select('id')
-      .eq('user_id', user.id);
-
-    if (error) {
-      console.error('Error checking binder count:', error);
-      // Allow creation on error (fail open)
-      return true;
-    }
-
-    const binderCount = binders?.length || 0;
-
-    if (binderCount >= 3) {
-      // Show upgrade prompt
-      Alert.alert(
-        '🎴 Upgrade to Premium',
-        `Free users can create up to 3 binders.\n\nYou have ${binderCount}/3 binders.\n\nBuy a smart binder to unlock:\n✅ Unlimited binders\n✅ NFC tap-to-open\n✅ Cloud sync\n✅ Lifetime premium access`,
-        [
-          { text: 'Maybe Later', style: 'cancel' },
-          {
-            text: 'Buy Binder',
-            onPress: openStore,
-            style: 'default',
-          },
-        ]
-      );
-      return false;
-    }
-
-    return true;
-  } catch (error) {
-    console.error('Error in checkCanCreateBinder:', error);
-    // Allow creation on error (fail open)
-    return true;
-  }
-}
-
-/**
- * Check if user can use NFC features
- * Only premium users can use NFC
- * 
- * @returns true if user has NFC access, false otherwise
- */
-export async function checkCanUseNFC(): Promise<boolean> {
-  try {
-    const user = await getCurrentUser();
-    if (!user) {
-      return false;
-    }
-
-    // Premium users can use NFC
-    if (isPremiumActive(user)) {
-      return true;
-    }
-
-    // Free users cannot use NFC
-    Alert.alert(
-      '🎴 Premium Feature',
-      'NFC tap-to-open requires premium.\n\nBuy a smart binder to unlock:\n✅ NFC tap-to-open magic\n✅ Unlimited binders\n✅ Cloud sync\n✅ Lifetime premium access\n\nStarting at $24.99 (one-time payment)',
-      [
-        { text: 'Not Now', style: 'cancel' },
-        {
-          text: 'Learn More',
-          onPress: openStore,
-          style: 'default',
-        },
-      ]
-    );
-    return false;
-  } catch (error) {
-    console.error('Error in checkCanUseNFC:', error);
-    return false;
-  }
-}
-
-/**
- * Show premium upsell message for any feature
- * 
- * @param featureName - Name of the feature that requires premium
- */
-export function showPremiumUpsell(featureName: string = 'This feature') {
-  Alert.alert(
-    '✨ Premium Feature',
-    `${featureName} requires premium.\n\nBuy a smart binder to get lifetime premium access!`,
-    [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Buy Binder', onPress: openStore },
-    ]
-  );
-}
-```
-
-**Testing:**
-- [ ] checkCanCreateBinder() returns true for premium users
-- [ ] checkCanCreateBinder() shows alert when free user has 3 binders
-- [ ] checkCanUseNFC() returns true for premium users
-- [ ] checkCanUseNFC() shows alert for free users
-- [ ] openStore() opens browser with store URL
-- [ ] No TypeScript errors
-
----
-
-#### Step 27E: Create Premium Activation Service
-- [ ] **Status**: Not started
-
-**What we're doing:** Handle NFC premium activation when user taps their new binder. **This now includes tag validation** to ensure only tags you sold can activate premium.
-
-**⚠️ IMPORTANT:** This step depends on:
-- Step 27A (database with `premium_tags` table)
-- Step 27A-5 (tag validation service)
-
-**Files to create:**
-
-**Create `src/services/premium/activation.ts`:**
-
-```typescript
-import { supabase } from '../supabase/client';
-import { getCurrentUser } from '../supabase/auth';
-import { isPremiumActive } from '../../types/user';
-import { validatePremiumTag, markTagAsUsed } from './tagValidation';
-
-/**
- * Activate premium for a user via NFC binder purchase
- * 
- * SECURITY: Only tags registered in the `premium_tags` table can activate premium.
- * This prevents random NFC tags from granting free premium access.
- * 
- * @param nfcTagId - The NFC tag ID from the binder
- * @returns Object with success status and message
- */
-export async function activatePremiumFromNFC(nfcTagId: string): Promise<{
-  success: boolean;
-  message: string;
-  alreadyPremium?: boolean;
-}> {
-  try {
-    console.log('[Premium] Attempting to activate premium from NFC:', nfcTagId);
-
-    // ========================================
-    // Step 1: Check if user is logged in
-    // ========================================
-    const user = await getCurrentUser();
-    if (!user) {
-      return {
-        success: false,
-        message: 'Please log in to activate premium',
-      };
-    }
-
-    // ========================================
-    // Step 2: Check if user already has premium
-    // ========================================
-    if (isPremiumActive(user)) {
-      console.log('[Premium] User already has premium');
-      return {
-        success: false,
-        message: 'You already have premium access!',
-        alreadyPremium: true,
-      };
-    }
-
-    // ========================================
-    // Step 3: VALIDATE TAG (Security Check!)
-    // ========================================
-    // This is the critical security check - only tags registered
-    // in the premium_tags table can activate premium
-    const tagValidation = await validatePremiumTag(nfcTagId);
-    
-    if (!tagValidation.isValid) {
-      console.log('[Premium] Tag validation failed:', tagValidation.error);
-      return {
-        success: false,
-        message: tagValidation.error || 'This NFC tag cannot activate premium.',
-      };
-    }
-
-    if (tagValidation.isUsed) {
-      console.log('[Premium] Tag already used by:', tagValidation.usedBy);
-      return {
-        success: false,
-        message: 'This binder has already been used to activate premium.',
-      };
-    }
-
-    // ========================================
-    // Step 4: Activate Premium!
-    // ========================================
-    console.log('[Premium] Tag validated! Activating premium for user:', user.id);
-
-    // Update user profile to premium
-    const { error: profileError } = await supabase
-      .from('user_profiles')
-      .update({
-        premium_status: 'lifetime',
-        premium_activated_at: new Date().toISOString(),
-        premium_source: 'nfc-binder',
-      })
-      .eq('id', user.id);
-
-    if (profileError) {
-      console.error('[Premium] Error updating user profile:', profileError);
-      return {
-        success: false,
-        message: 'Failed to activate premium. Please try again.',
-      };
-    }
-
-    // ========================================
-    // Step 5: Mark tag as used (prevent reuse)
-    // ========================================
-    await markTagAsUsed(nfcTagId, user.id);
-
-    // ========================================
-    // Step 6: Also mark binder if it exists
-    // ========================================
-    // (Optional - for backwards compatibility with binder-based tracking)
-    const { data: binder } = await supabase
-      .from('binders')
-      .select('id')
-      .eq('nfc_tag_id', nfcTagId)
-      .eq('user_id', user.id)
-      .single();
-
-    if (binder) {
-      await supabase
-        .from('binders')
-        .update({ premium_activated: true })
-        .eq('id', binder.id);
-    }
-
-    console.log('[Premium] Premium activated successfully!');
-    return {
-      success: true,
-      message: 'Premium activated! You now have lifetime access. 🎉',
-    };
-  } catch (error) {
-    console.error('[Premium] Error activating premium:', error);
-    return {
-      success: false,
-      message: 'An error occurred. Please try again.',
-    };
-  }
-}
-```
-
-**Create `src/services/premium/index.ts`:**
-
-```typescript
-export { activatePremiumFromNFC } from './activation';
-export { validatePremiumTag, markTagAsUsed } from './tagValidation';
-export type { TagValidationResult } from './tagValidation';
-```
-
-**Testing:**
-- [ ] activatePremiumFromNFC() activates premium for valid registered tag
-- [ ] **Returns error for unregistered/random NFC tags** (security!)
-- [ ] Returns error if tag already used to activate premium
-- [ ] Returns error if user already has premium
-- [ ] Returns success message on successful activation
-- [ ] User profile updated correctly in database (`premium_status = 'lifetime'`)
-- [ ] Tag marked as used in `premium_tags` table
-- [ ] Binder marked as `premium_activated` in database (if binder exists)
-- [ ] No TypeScript errors
-
-**How to Test Tag Validation:**
-1. Try with a random NFC tag (not in `premium_tags` table) → Should fail with "not recognized" message
-2. Add a tag ID to `premium_tags` table manually
-3. Try again with that tag → Should succeed
-4. Try same tag again → Should fail with "already used" message
-
----
-
-#### Step 27F: Add Premium Gates to UI
-- [ ] **Status**: Not started
-
-**What we're doing:** Add premium checks to key user actions
-
-**Files to modify:**
-
-**1. Update `src/screens/BinderList/BinderListScreen.tsx`:**
-
-Add premium check before creating binder:
-
-```typescript
-// At top of file, add import:
-import { checkCanCreateBinder } from '../../utils/premiumGates';
-
-// In BinderListScreen component, update handleCreateBinder:
-const handleCreateBinder = async () => {
-  // NEW: Check if user can create binder (premium gate)
-  const canCreate = await checkCanCreateBinder();
-  if (!canCreate) {
-    return; // User hit limit, alert shown by checkCanCreateBinder()
-  }
-
-  // Existing code: Navigate to questionnaire
-  navigation.navigate('Questionnaire');
-};
-```
-
-**2. Update NFC handler (if implemented):**
-
-If you have `src/utils/nfcHandler.ts` or similar:
-
-```typescript
-// Add import:
-import { checkCanUseNFC } from './premiumGates';
-import { activatePremiumFromNFC } from '../services/premium';
-
-// In handleNfcScan function, add premium check:
-export async function handleNfcScan(nfcTagId: string, navigation: any) {
-  try {
-    // Check if user can use NFC
-    const canUseNFC = await checkCanUseNFC();
-    if (!canUseNFC) {
-      return; // Free user, alert shown
-    }
-
-    // Try to activate premium with this NFC tag
-    const activationResult = await activatePremiumFromNFC(nfcTagId);
-    if (activationResult.success) {
-      Alert.alert('🎉 Premium Unlocked!', activationResult.message);
-    }
-
-    // Continue with existing NFC logic...
-    const binder = await getBinderByNfcTagId(nfcTagId);
-    // ... rest of existing code
-  } catch (error) {
-    // Error handling
-  }
-}
-```
-
-**Testing:**
-- [ ] Creating 4th binder shows upgrade prompt for free users
-- [ ] Premium users can create unlimited binders
-- [ ] NFC scan shows upgrade prompt for free users
-- [ ] Premium users can use NFC features
-- [ ] Upgrade alerts display correctly
-- [ ] "Buy Binder" button opens store URL
-
----
-
-#### Step 27G: Create Premium Status Screen (Optional)
-- [ ] **Status**: Not started
-
-**What we're doing:** Create a screen showing premium status and benefits
-
-**Files to create:**
-
-**Create `src/screens/Premium/PremiumScreen.tsx`:**
-
-```typescript
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
-import { useAuth } from '../../context/AuthContext';
-import { isPremiumActive } from '../../types/user';
-import { openStore } from '../../utils/premiumGates';
-import { COLORS, SPACING, TYPOGRAPHY } from '../../constants/theme';
-
-export default function PremiumScreen() {
-  const { user } = useAuth();
-  const hasPremium = user ? isPremiumActive(user) : false;
-
-  if (hasPremium) {
-    return (
-      <ScrollView style={styles.container}>
-        <View style={styles.header}>
-          <Text style={styles.headerEmoji}>✨</Text>
-          <Text style={styles.headerTitle}>You Have Premium!</Text>
-          <Text style={styles.headerSubtitle}>Enjoy all features, forever.</Text>
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Your Premium Benefits:</Text>
-          <View style={styles.benefit}>
-            <Text style={styles.benefitIcon}>✅</Text>
-            <Text style={styles.benefitText}>Unlimited binders</Text>
-          </View>
-          <View style={styles.benefit}>
-            <Text style={styles.benefitIcon}>✅</Text>
-            <Text style={styles.benefitText}>NFC tap-to-open magic</Text>
-          </View>
-          <View style={styles.benefit}>
-            <Text style={styles.benefitIcon}>✅</Text>
-            <Text style={styles.benefitText}>Cloud sync across devices</Text>
-          </View>
-          <View style={styles.benefit}>
-            <Text style={styles.benefitIcon}>✅</Text>
-            <Text style={styles.benefitText}>Export to CSV/PDF</Text>
-          </View>
-          <View style={styles.benefit}>
-            <Text style={styles.benefitIcon}>✅</Text>
-            <Text style={styles.benefitText}>Priority support</Text>
-          </View>
-        </View>
-
-        {user?.premiumActivatedAt && (
-          <View style={styles.section}>
-            <Text style={styles.infoText}>
-              Premium since: {user.premiumActivatedAt.toLocaleDateString()}
-            </Text>
-          </View>
-        )}
-      </ScrollView>
-    );
-  }
-
-  // Free tier view
-  return (
-    <ScrollView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.headerEmoji}>🎴</Text>
-        <Text style={styles.headerTitle}>Unlock Premium</Text>
-        <Text style={styles.headerSubtitle}>Get lifetime access to all features</Text>
-      </View>
-
-      <View style={styles.section}>
-        <Text style={styles.optionTitle}>Buy a Smart Binder</Text>
-        <Text style={styles.optionPrice}>$24.99 one-time</Text>
-        <Text style={styles.optionDescription}>
-          Get a premium physical binder + lifetime premium app access
-        </Text>
-        <View style={styles.benefitList}>
-          <View style={styles.benefit}>
-            <Text style={styles.benefitIcon}>✅</Text>
-            <Text style={styles.benefitText}>Premium 9-pocket binder</Text>
-          </View>
-          <View style={styles.benefit}>
-            <Text style={styles.benefitIcon}>✅</Text>
-            <Text style={styles.benefitText}>Pre-installed NFC tag</Text>
-          </View>
-          <View style={styles.benefit}>
-            <Text style={styles.benefitIcon}>✅</Text>
-            <Text style={styles.benefitText}>Lifetime premium access</Text>
-          </View>
-          <View style={styles.benefit}>
-            <Text style={styles.benefitIcon}>✅</Text>
-            <Text style={styles.benefitText}>All premium features</Text>
-          </View>
-        </View>
-        <TouchableOpacity style={styles.button} onPress={openStore}>
-          <Text style={styles.buttonText}>Buy Smart Binder</Text>
-        </TouchableOpacity>
-      </View>
-
-      <View style={styles.comparison}>
-        <Text style={styles.comparisonText}>
-          💡 One binder = lifetime premium. Never pay a subscription!
-        </Text>
-      </View>
-    </ScrollView>
-  );
-}
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.background,
-  },
-  header: {
-    alignItems: 'center',
-    padding: SPACING.xl,
-    backgroundColor: COLORS.primary,
-  },
-  headerEmoji: {
-    fontSize: 64,
-    marginBottom: SPACING.md,
-  },
-  headerTitle: {
-    ...TYPOGRAPHY.h1,
-    color: COLORS.white,
-    marginBottom: SPACING.sm,
-  },
-  headerSubtitle: {
-    ...TYPOGRAPHY.body,
-    color: COLORS.white,
-    opacity: 0.9,
-  },
-  section: {
-    padding: SPACING.lg,
-    backgroundColor: COLORS.surface,
-    marginVertical: SPACING.md,
-  },
-  sectionTitle: {
-    ...TYPOGRAPHY.h2,
-    marginBottom: SPACING.md,
-  },
-  optionTitle: {
-    ...TYPOGRAPHY.h2,
-    marginBottom: SPACING.xs,
-  },
-  optionPrice: {
-    ...TYPOGRAPHY.h3,
-    color: COLORS.primary,
-    marginBottom: SPACING.sm,
-  },
-  optionDescription: {
-    ...TYPOGRAPHY.body,
-    color: COLORS.textSecondary,
-    marginBottom: SPACING.md,
-  },
-  benefitList: {
-    marginBottom: SPACING.lg,
-  },
-  benefit: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: SPACING.sm,
-  },
-  benefitIcon: {
-    fontSize: 20,
-    marginRight: SPACING.sm,
-  },
-  benefitText: {
-    ...TYPOGRAPHY.body,
-    flex: 1,
-  },
-  button: {
-    backgroundColor: COLORS.primary,
-    padding: SPACING.md,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  buttonText: {
-    ...TYPOGRAPHY.button,
-    color: COLORS.white,
-  },
-  comparison: {
-    padding: SPACING.lg,
-    backgroundColor: COLORS.accent + '20',
-    marginHorizontal: SPACING.md,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  comparisonText: {
-    ...TYPOGRAPHY.body,
-    textAlign: 'center',
-  },
-  infoText: {
-    ...TYPOGRAPHY.caption,
-    color: COLORS.textSecondary,
-    textAlign: 'center',
-  },
+import Purchases from 'react-native-purchases';
+
+// In your App initialization:
+Purchases.configure({
+  apiKey: Platform.OS === 'ios' 
+    ? 'your_apple_api_key_from_revenuecat' 
+    : 'your_google_api_key_from_revenuecat',
 });
 ```
 
 **Testing:**
-- [ ] Premium screen displays correctly for free users
-- [ ] Premium screen displays correctly for premium users
-- [ ] "Buy Smart Binder" button opens store URL
-- [ ] All benefits listed correctly
-- [ ] Premium activation date shows for premium users
+- [ ] RevenueCat account created
+- [ ] Apple in-app purchase product created (`pro_upgrade`)
+- [ ] Google in-app purchase product created (`pro_upgrade`)
+- [ ] RevenueCat connected to both stores
+- [ ] Entitlement `pro` created in RevenueCat
+- [ ] `react-native-purchases` installed in project
+- [ ] SDK initializes without errors
 - [ ] No TypeScript errors
 
 ---
 
-#### Step 27H: Add Premium Badge to UI (Optional)
+#### Step 27C: Pro Check Service (`isUserPro()`)
 - [ ] **Status**: Not started
 
-**What we're doing:** Show premium badge/indicator in app UI
+**What we're doing:** Create a centralized service that checks if a user is Pro. Every screen that needs to know the user's tier calls this one function.
 
-**Files to modify:**
+**Files to create:**
+- `src/services/pro/proService.ts` — Pro check functions
 
-**Update `src/screens/BinderList/BinderListScreen.tsx` or navigation header:**
-
-Add premium badge near user's name or in header:
+**What gets implemented:**
 
 ```typescript
-// Example: Add to header or user profile area
-{user && isPremiumActive(user) && (
-  <View style={styles.premiumBadge}>
-    <Text style={styles.premiumBadgeText}>✨ Premium</Text>
-  </View>
-)}
+// src/services/pro/proService.ts
+
+import Purchases from 'react-native-purchases';
+import { supabase } from '../supabase/client';
+
+/**
+ * Check if the current user has Pro access.
+ * Checks RevenueCat first (source of truth for purchases),
+ * then syncs with Supabase user_tier.
+ */
+export async function isUserPro(): Promise<boolean>
+
+/**
+ * Get the user's current binder usage info.
+ * Returns: canCreate, canDelete, currentBinders, lifetimeBinders, tier
+ */
+export async function getBinderUsage(): Promise<BinderUsage>
+
+/**
+ * Check if the user can create a new binder.
+ * Free users: lifetime_binders_created < 2 (1 original + 1 do-over recreation)
+ * Pro users: always true
+ */
+export async function canCreateBinder(): Promise<boolean>
+
+/**
+ * Check if the user can delete a binder.
+ * Free users: free_deletions_used < 1
+ * Pro users: always true
+ */
+export async function canDeleteBinder(): Promise<boolean>
+
+/**
+ * Record that a binder was created (increments lifetime counter).
+ */
+export async function recordBinderCreated(): Promise<void>
+
+/**
+ * Record that a free deletion was used (increments do-over counter).
+ */
+export async function recordDeletionUsed(): Promise<void>
 ```
 
 **Testing:**
-- [ ] Premium badge shows for premium users
-- [ ] Premium badge hidden for free users
-- [ ] Badge displays correctly in UI
+- [ ] `isUserPro()` returns `false` for free users
+- [ ] `isUserPro()` returns `true` for Pro users
+- [ ] `canCreateBinder()` returns `true` when under limit
+- [ ] `canCreateBinder()` returns `false` when at limit (free user)
+- [ ] `canDeleteBinder()` returns `true` when do-over not used
+- [ ] `canDeleteBinder()` returns `false` when do-over already used (free user)
+- [ ] Pro users can always create and delete
+- [ ] No TypeScript errors
 
 ---
 
-**Overall Testing for Step 27:**
+#### Step 27D: Binder Creation Limit (1 Free Binder)
+- [ ] **Status**: Not started
 
-**Database:**
-- [ ] Database schema updated correctly (user_profiles + binders)
-- [ ] `premium_tags` table created with RLS policies
-- [ ] Tag IDs can be imported to `premium_tags` table
-- [ ] TypeScript types updated and working
+**What we're doing:** Add a check before binder creation. Free users can only create 1 binder (with 1 do-over). If they're at their limit, show an "Upgrade to Pro" prompt instead.
 
-**Premium Gates:**
-- [ ] Premium status persists across app restarts
-- [ ] Free users limited to 3 binders
-- [ ] Premium users can create unlimited binders
-- [ ] Premium gates show appropriate alerts
-- [ ] Store URL opens correctly
-- [ ] Premium screen displays correctly
+**Files to modify:**
+- `src/screens/BinderList/BinderListScreen.tsx` — Check limit before "Create Binder"
+- `src/screens/Onboarding/OnboardingScreen.tsx` — Check limit at start of questionnaire
 
-**NFC Tag Validation (Security):**
-- [ ] Random/unregistered NFC tags are REJECTED
-- [ ] Only tags in `premium_tags` table can activate premium
-- [ ] Already-used tags are rejected with clear message
-- [ ] Tag marked as used after successful activation
+**What gets implemented:**
+- Before creating a binder, call `canCreateBinder()`
+- If allowed → proceed normally (and call `recordBinderCreated()`)
+- If blocked → show modal: "Upgrade to Pro for unlimited binders"
 
-**NFC Premium Activation:**
-- [ ] NFC activation works (requires physical device + registered NFC tag)
-- [ ] User profile updated to `premium_status = 'lifetime'`
-- [ ] Binder marked as `premium_activated = true`
+**Testing:**
+- [ ] Free user can create 1st binder → works
+- [ ] Free user tries 2nd binder → blocked with upgrade prompt
+- [ ] Pro user can create unlimited binders → always works
+- [ ] Upgrade prompt has "Upgrade to Pro" button
+- [ ] Upgrade button navigates to upgrade screen
 
-**Firebase Dynamic Links:**
-- [ ] Dynamic link created and working
-- [ ] Link redirects to App Store on iOS (when app not installed)
-- [ ] Link redirects to Play Store on Android (when app not installed)
-- [ ] Link opens app directly when installed
+---
+
+#### Step 27E: Binder Deletion Limit (1 Free Do-Over)
+- [ ] **Status**: Not started
+
+**What we're doing:** Add a check before binder deletion. Free users get 1 "do-over" delete. After that, deleting requires Pro.
+
+**Files to modify:**
+- `src/screens/BinderList/BinderListScreen.tsx` — Check before allowing delete
+- `src/screens/BinderDetail/BinderDetailScreen.tsx` — If delete is available there too
+
+**What gets implemented:**
+- Before deleting, call `canDeleteBinder()`
+- If allowed (do-over not used):
+  - Show warning: "This is your only do-over. After this, you won't be able to delete binders unless you upgrade to Pro. Continue?"
+  - On confirm → delete binder + call `recordDeletionUsed()`
+- If blocked (do-over already used):
+  - Show: "You've used your free do-over. Upgrade to Pro to manage your binders."
+- Pro users → normal delete with standard confirmation
+
+**Testing:**
+- [ ] Free user can delete 1st binder → works (with warning)
+- [ ] Warning message is clear about do-over
+- [ ] Free user tries 2nd delete → blocked with upgrade prompt
+- [ ] Pro user can delete any binder → always works
+- [ ] After do-over, user can create a new binder (slot freed up)
+
+---
+
+#### Step 27F: Upgrade Screen UI
+- [ ] **Status**: Not started
+
+**What we're doing:** Create a screen or modal that shows what Pro includes and lets users purchase it.
+
+**Files to create:**
+- `src/screens/Upgrade/UpgradeScreen.tsx` — Upgrade screen
+
+**UI Layout:**
+
+```
+┌─────────────────────────────────────┐
+│  ← Back                            │
+│                                     │
+│  Upgrade to Pro                     │
+│                                     │
+│  ┌─────────────────────────────┐    │
+│  │  ✓ Unlimited binders        │    │
+│  │  ✓ Delete & recreate freely │    │
+│  │  ✓ All features included    │    │
+│  │  ✓ One-time purchase        │    │
+│  │  ✓ No subscription          │    │
+│  └─────────────────────────────┘    │
+│                                     │
+│  ┌─────────────────────────────┐    │
+│  │  Buy Pro — $X.XX             │    │
+│  │  (one-time, forever yours)   │    │
+│  └─────────────────────────────┘    │
+│                                     │
+│  Already purchased?                 │
+│  [Restore Purchase]                 │
+│                                     │
+└─────────────────────────────────────┘
+```
+
+**What gets implemented:**
+- List of Pro benefits
+- "Buy Pro" button → triggers RevenueCat purchase flow
+- "Restore Purchase" link → restores previous purchases
+- Success state → "You're now Pro!" with confetti or check mark
+- Error state → "Purchase failed. Please try again."
+- Loading state during purchase
+
+**Testing:**
+- [ ] Screen displays correctly
+- [ ] Pro benefits listed clearly
+- [ ] "Buy Pro" button triggers purchase flow
+- [ ] Successful purchase updates user_tier to 'pro'
+- [ ] Failed purchase shows error message
+- [ ] "Restore Purchase" works for previous buyers
+- [ ] Back button works
+- [ ] Accessible from Settings and from limit prompts
+
+---
+
+#### Step 27G: Restore Purchases
+- [ ] **Status**: Not started
+
+**What we're doing:** Allow users to restore their Pro purchase on a new device or after reinstalling. Apple requires this button to exist.
+
+**What gets implemented:**
+- "Restore Purchases" button on Upgrade screen and in Settings
+- Calls `Purchases.restorePurchases()` from RevenueCat
+- If Pro entitlement found → update user_tier to 'pro'
+- If nothing found → "No previous purchases found"
+
+**Testing:**
+- [ ] Restore button exists on Upgrade screen
+- [ ] Restore button exists in Settings
+- [ ] Restoring finds previous purchase → unlocks Pro
+- [ ] Restoring with no purchase → shows "No purchases found"
+- [ ] Works on new device with same Apple/Google account
+
+---
+
+#### Step 27H: Integration & Testing
+- [ ] **Status**: Not started
+
+**What we're doing:** Test the complete Pro system end-to-end.
+
+**Testing Checklist:**
+
+**Free User Flow:**
+- [ ] New user starts with `user_tier = 'free'`
+- [ ] Can create 1 binder → works
+- [ ] Tries 2nd binder → sees upgrade prompt
+- [ ] Can delete binder (do-over) → works with warning
+- [ ] Tries 2nd delete → sees upgrade prompt
+- [ ] After do-over delete, can create 1 new binder
+
+**Pro Purchase Flow:**
+- [ ] Upgrade screen shows correct price
+- [ ] "Buy Pro" triggers Apple/Google payment
+- [ ] Successful payment → `user_tier = 'pro'`
+- [ ] Can now create unlimited binders
+- [ ] Can now delete binders freely
+- [ ] Pro status persists across app restarts
+
+**Restore Flow:**
+- [ ] Uninstall and reinstall app
+- [ ] Log in with same account
+- [ ] "Restore Purchase" finds the Pro purchase
+- [ ] Pro status is restored
+
+**Edge Cases:**
+- [ ] Purchase fails → stays on free, shows error
+- [ ] Network error during purchase → handled gracefully
+- [ ] User cancels purchase → stays on free, no error
+- [ ] RevenueCat is unreachable → app still works (free mode)
 
 **General:**
 - [ ] No TypeScript errors
 - [ ] No console errors
-- [ ] App doesn't crash on premium checks
+- [ ] App doesn't crash on Pro checks
+
 
 ---
 
@@ -7129,1340 +6105,20 @@ const savePositions = async () => {
 
 ---
 
-## Phase 11: Binder Activation System
+## Phase 11: Binder Activation System — REMOVED
 
-### Step 35: Binder Activation & Limits
-- [x] **Status**: Mostly complete (35A ✅, 35B ✅, 35C skipped, 35D skipped, 35E ✅, 35F ✅, 35G skipped, 35H skipped, 35I ✅ service only, 35J not started)
-
-**What we're doing:** Build the activation code system that connects physical Pokémon TCG binders to the app. Each physical binder comes with a printed activation code. Users enter the code in the app to unlock more binder slots. The app is free to download for everyone.
-
-> **Note:** This step uses activation codes only. NFC tag support is implemented separately in **Step 36**. The database structure (`registered_tags` table) supports both activation codes and NFC tags.
-
-**Business Model:**
-- You sell physical Pokémon TCG binders
-- Each binder box includes a printed activation code (e.g., `BINDER-7X9K-M2PQ`)
-- The app is free to download
-- Each activation code is pre-registered in the database before shipping (prevents fake codes)
-- Soft launch in The Netherlands, then expand to Europe
-
-**Binder Limits (Based on Physical Binders Purchased):**
-
-| Activation Codes Used | Total App Binders Allowed |
-|-----------------------|--------------------------|
-| 0 (free user)         | 1                        |
-| 1                     | 3                        |
-| 2                     | 5                        |
-| 3+                    | Unlimited                |
-
-- All binders have the **same features** — no premium vs. limited distinction
-- The activation code counts as a purchased binder for the limit
-- Limited/premium feature tiers can be added later — the database structure supports it
-
-**Complete User Flow (Activation Code):**
-
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│  YOUR WORKFLOW (Before Shipping Each Binder)                               │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                            │
-│  1. Generate a unique activation code (e.g., "BINDER-7X9K-M2PQ")          │
-│  2. Register the code in the registered_tags database table                │
-│  3. Print the code on a card inside the binder box                         │
-│  4. Ship to customer                                                       │
-│                                                                            │
-└─────────────────────────────────────────────────────────────────────────────┘
-
-┌─────────────────────────────────────────────────────────────────────────────┐
-│  CUSTOMER EXPERIENCE                                                       │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                            │
-│  Customer downloads app from App Store / Play Store                        │
-│          ↓                                                                 │
-│  Customer creates account (or logs in)                                     │
-│          ↓                                                                 │
-│  Customer taps "Enter Activation Code" in the app                          │
-│          ↓                                                                 │
-│  Customer types the code from the card in the binder box                   │
-│          ↓                                                                 │
-│  App checks: Is this code in registered_tags table?                        │
-│     NO → "Invalid activation code" (rejected)                              │
-│     YES → What is the code's status?                                       │
-│          ↓                                                                 │
-│  Status = "available" (not yet claimed):                                   │
-│     → Claim code → Link to user                                            │
-│     → Binder limit increases                                               │
-│     → Navigate to Questionnaire to set up a new binder                     │
-│          ↓                                                                 │
-│  Status = "claimed" (already used):                                        │
-│     → "This code has already been used"                                    │
-│          ↓                                                                 │
-│  Status = "disabled":                                                      │
-│     → "This code has been deactivated"                                     │
-│                                                                            │
-└─────────────────────────────────────────────────────────────────────────────┘
-```
-
-**Features in This Step:**
-- **Pre-registered activation codes** — Only codes you register in the database will work
-- **Binder limits** — Based on how many codes a user has activated
-- **Transfer binder** — Owner can transfer binder to another person (code becomes available again)
-
-**Sub-Steps Overview:**
-
-| Sub-Step | Description | Dependencies |
-|----------|-------------|-------------|
-| 35A | Database: `registered_tags` table | Supabase |
-| 35B | Database: Binder limits & user tier | 35A |
-| ~~35C~~ | ~~Deep linking setup~~ | Moved to Step 36C |
-| ~~35D~~ | ~~Landing web page~~ | Moved to Step 36C |
-| 35E | Activation code validation service | 35A |
-| 35F | Activation code entry UI | 35E |
-| ~~35G~~ | ~~Update NFC handler for tag validation~~ | Moved to Step 36E |
-| ~~35H~~ | ~~View-only binder sharing~~ | Skipped |
-| 35I | Transfer binder ownership | 35A, 35E |
-| 35J | Binder limit enforcement in UI | 35B, 35E |
-
----
-
-#### Step 35A: Database - `registered_tags` Table
-- [x] **Status**: Complete ✅
-
-**What we're doing:** Create the `registered_tags` table in Supabase to store all pre-registered activation codes. This is the core table that prevents fake codes from working. Only codes you register in this table will be accepted by the app.
-
-> **Note:** The table is named `registered_tags` (not `activation_codes`) to keep compatibility if NFC tags are added later. The `tag_uid` column is optional — it's there for future NFC support but not used in the code-only approach.
-
-**Database Changes:**
-
-Run this SQL in Supabase SQL Editor:
-
-```sql
--- ============================================
--- REGISTERED TAGS TABLE (Activation Code System)
--- ============================================
--- This table stores every activation code you create before shipping.
--- Only codes in this table can be used to activate binders.
--- The tag_uid column is optional (for future NFC support).
-
-CREATE TABLE IF NOT EXISTS public.registered_tags (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  
-  -- Identification
-  activation_code TEXT UNIQUE NOT NULL,            -- Printed code (e.g., "BINDER-7X9K-M2PQ")
-  tag_uid TEXT UNIQUE,                             -- Optional: NFC hardware UID (for future use)
-  
-  -- Status tracking
-  status TEXT NOT NULL DEFAULT 'available'         -- 'available', 'claimed', or 'disabled'
-    CHECK (status IN ('available', 'claimed', 'disabled')),
-  
-  -- Ownership
-  claimed_by UUID REFERENCES auth.users(id),       -- User who activated this code (null until claimed)
-  claimed_at TIMESTAMP WITH TIME ZONE,             -- When it was activated
-  binder_id UUID REFERENCES public.binders(id),    -- The binder it's linked to (null until setup complete)
-  
-  -- Transfer history
-  previous_owners UUID[] DEFAULT '{}',             -- Array of previous owner user IDs
-  
-  -- Admin/inventory tracking
-  batch_id TEXT,                                   -- Optional: track inventory batches (e.g., "batch-2026-01")
-  notes TEXT,                                      -- Optional: admin notes
-  
-  -- Timestamps
-  registered_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),  -- When you registered the code
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
--- ============================================
--- INDEXES
--- ============================================
--- Fast lookup by activation code (main validation flow)
-CREATE INDEX IF NOT EXISTS idx_registered_tags_activation_code 
-ON public.registered_tags(activation_code);
-
--- Fast lookup by status (admin queries)
-CREATE INDEX IF NOT EXISTS idx_registered_tags_status 
-ON public.registered_tags(status);
-
--- Fast lookup by user (count how many codes a user has activated)
-CREATE INDEX IF NOT EXISTS idx_registered_tags_claimed_by 
-ON public.registered_tags(claimed_by);
-
--- Fast lookup by binder (find code for a specific binder)
-CREATE INDEX IF NOT EXISTS idx_registered_tags_binder_id 
-ON public.registered_tags(binder_id);
-
--- ============================================
--- ROW LEVEL SECURITY (RLS)
--- ============================================
-ALTER TABLE public.registered_tags ENABLE ROW LEVEL SECURITY;
-
--- Policy: Authenticated users can read codes (to validate on entry)
-CREATE POLICY "Users can check code status"
-  ON public.registered_tags
-  FOR SELECT
-  USING (auth.role() = 'authenticated');
-
--- Policy: Users can update codes they are claiming (status = 'available')
--- or codes they already own (e.g., for transfer)
-CREATE POLICY "Users can claim available codes"
-  ON public.registered_tags
-  FOR UPDATE
-  USING (
-    auth.role() = 'authenticated' 
-    AND (
-      -- Can claim available codes
-      (status = 'available')
-      -- Can update own claimed codes (e.g., for transfer)
-      OR (claimed_by = auth.uid())
-    )
-  )
-  WITH CHECK (
-    auth.role() = 'authenticated'
-    AND (
-      -- When claiming: must set claimed_by to own user ID
-      -- When transferring: claimed_by can be set to null
-      (claimed_by = auth.uid() OR claimed_by IS NULL)
-    )
-  );
-
--- Note: INSERT and DELETE are restricted to service role only (admin/scripts)
--- Regular users cannot add or remove codes — only you manage this
-
--- ============================================
--- AUTO-UPDATE updated_at TRIGGER
--- ============================================
-CREATE OR REPLACE FUNCTION update_registered_tags_updated_at()
-RETURNS TRIGGER AS $$
-BEGIN
-  NEW.updated_at = NOW();
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE TRIGGER trigger_registered_tags_updated_at
-  BEFORE UPDATE ON public.registered_tags
-  FOR EACH ROW
-  EXECUTE FUNCTION update_registered_tags_updated_at();
-
--- ============================================
--- VERIFICATION
--- ============================================
-SELECT column_name, data_type, column_default 
-FROM information_schema.columns 
-WHERE table_name = 'registered_tags'
-ORDER BY ordinal_position;
-```
-
-**What gets created:**
-- `registered_tags` table — stores every activation code you create
-- `activation_code` — the printed code from the binder box (primary identifier)
-- `tag_uid` — optional, for future NFC support
-- `status` — `available` (ready to claim), `claimed` (linked to a user), or `disabled` (deactivated)
-- `claimed_by` / `claimed_at` — who activated it and when
-- `binder_id` — which app binder it's linked to
-- `previous_owners` — transfer history (array of user IDs)
-- RLS policies — users can read codes and claim available ones; only admin can insert/delete
-
-**Testing:**
-- [ ] SQL runs without errors in Supabase
-- [ ] Table created with all columns
-- [ ] RLS is enabled
-- [ ] Policies are applied
-- [ ] Indexes are created
-- [ ] Status check constraint works (try inserting invalid status → should fail)
-- [ ] Unique constraint on activation_code works (try duplicate → should fail)
-- [ ] updated_at trigger fires on update
-
-**How to Test Step 35A:**
-
-1. **Run the migration:**
-   - Go to Supabase Dashboard → SQL Editor
-   - Paste and run the SQL above
-   - Should complete without errors
-
-2. **Verify the table:**
-   - Go to Table Editor → registered_tags
-   - Verify all columns exist with correct types
-   - Check that RLS is enabled (lock icon on table)
-
-3. **Test constraints:**
-   - Try inserting a row with status = 'invalid' → should fail
-   - Insert a valid row, then try inserting another with the same activation_code → should fail
-   - Insert a row, update it, verify updated_at changed
-
-4. **Test RLS:**
-   - As an authenticated user, try SELECT → should work
-   - As an authenticated user, try INSERT → should fail (admin only)
-   - As an authenticated user, try DELETE → should fail (admin only)
-
----
-
-#### Step 35B: Database - Binder Limits & User Tier
-- [x] **Status**: Complete ✅
-
-**What we're doing:** Add the logic to count how many activation codes a user has used and enforce binder creation limits based on that count
-
-**Database Changes:**
-
-Run this SQL in Supabase SQL Editor:
-
-```sql
--- ============================================
--- FUNCTION: Get number of binders a user is allowed to create
--- ============================================
--- Based on how many activation codes they've used:
--- 0 codes → 1 binder
--- 1 code  → 3 binders
--- 2 codes → 5 binders
--- 3+ codes → unlimited (returns 999 as "unlimited")
-
-CREATE OR REPLACE FUNCTION get_binder_limit(user_id UUID)
-RETURNS INTEGER AS $$
-DECLARE
-  tag_count INTEGER;
-BEGIN
-  -- Count how many tags this user has claimed
-  SELECT COUNT(*) INTO tag_count
-  FROM public.registered_tags
-  WHERE claimed_by = user_id
-    AND status = 'claimed';
-  
-  -- Return binder limit based on tag count
-  IF tag_count >= 3 THEN
-    RETURN 999; -- Unlimited
-  ELSIF tag_count = 2 THEN
-    RETURN 5;
-  ELSIF tag_count = 1 THEN
-    RETURN 3;
-  ELSE
-    RETURN 1;
-  END IF;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
--- ============================================
--- FUNCTION: Check if user can create a new binder
--- ============================================
--- Returns true if user hasn't reached their binder limit
-
-CREATE OR REPLACE FUNCTION can_user_create_binder(user_id UUID)
-RETURNS BOOLEAN AS $$
-DECLARE
-  current_binders INTEGER;
-  binder_limit INTEGER;
-BEGIN
-  -- Count current binders
-  SELECT COUNT(*) INTO current_binders
-  FROM public.binders
-  WHERE binders.user_id = can_user_create_binder.user_id;
-  
-  -- Get limit
-  binder_limit := get_binder_limit(user_id);
-  
-  -- Check
-  RETURN current_binders < binder_limit;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
--- ============================================
--- FUNCTION: Get user's binder usage info
--- ============================================
--- Returns current count, limit, and tags activated
--- Useful for displaying in the UI
-
-CREATE OR REPLACE FUNCTION get_user_binder_info(user_id UUID)
-RETURNS TABLE(
-  current_binders INTEGER,
-  binder_limit INTEGER,
-  tags_activated INTEGER,
-  is_unlimited BOOLEAN
-) AS $$
-DECLARE
-  tag_count INTEGER;
-  b_limit INTEGER;
-  b_count INTEGER;
-BEGIN
-  -- Count claimed tags
-  SELECT COUNT(*)::INTEGER INTO tag_count
-  FROM public.registered_tags
-  WHERE claimed_by = get_user_binder_info.user_id
-    AND status = 'claimed';
-  
-  -- Get limit
-  b_limit := get_binder_limit(get_user_binder_info.user_id);
-  
-  -- Count current binders
-  SELECT COUNT(*)::INTEGER INTO b_count
-  FROM public.binders
-  WHERE binders.user_id = get_user_binder_info.user_id;
-  
-  -- Return results
-  current_binders := b_count;
-  binder_limit := b_limit;
-  tags_activated := tag_count;
-  is_unlimited := (tag_count >= 3);
-  
-  RETURN NEXT;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
--- ============================================
--- VERIFICATION
--- ============================================
--- Test with a non-existent user (should return limit = 1)
-SELECT * FROM get_user_binder_info('00000000-0000-0000-0000-000000000000');
-```
-
-**What gets created:**
-- `get_binder_limit(user_id)` — returns the max binders allowed (1, 3, 5, or 999)
-- `can_user_create_binder(user_id)` — returns true/false
-- `get_user_binder_info(user_id)` — returns current count, limit, tags activated, and whether unlimited
-
-**Testing:**
-- [ ] `get_binder_limit()` returns 1 for user with 0 tags
-- [ ] `get_binder_limit()` returns 3 for user with 1 tag
-- [ ] `get_binder_limit()` returns 5 for user with 2 tags
-- [ ] `get_binder_limit()` returns 999 for user with 3+ tags
-- [ ] `can_user_create_binder()` returns true when under limit
-- [ ] `can_user_create_binder()` returns false when at limit
-- [ ] `get_user_binder_info()` returns correct info
-
-**How to Test Step 35B:**
-
-1. **Run the SQL** in Supabase SQL Editor
-
-2. **Test with no tags:**
-   ```sql
-   -- Should return limit = 1
-   SELECT get_binder_limit('your-user-id-here');
-   ```
-
-3. **Test after inserting a tag:**
-   ```sql
-   -- Insert a test tag and claim it
-   INSERT INTO registered_tags (tag_uid, activation_code, status, claimed_by, claimed_at)
-   VALUES ('TEST001', 'TEST-CODE-001', 'claimed', 'your-user-id-here', NOW());
-   
-   -- Should now return limit = 3
-   SELECT get_binder_limit('your-user-id-here');
-   
-   -- Clean up test data
-   DELETE FROM registered_tags WHERE tag_uid = 'TEST001';
-   ```
-
-4. **Test binder info:**
-   ```sql
-   SELECT * FROM get_user_binder_info('your-user-id-here');
-   ```
-
----
-
-#### Step 35C: Deep Linking Setup
-- [x] **Status**: Skipped (not needed for code-only approach)
-
-> **Skipped:** This step was for NFC deep linking (URLs on NFC tags opening the app). Since we're using activation codes only, deep linking is not needed. Can be added later if NFC support is implemented.
-
----
-
-#### Step 35D: Landing Web Page
-- [x] **Status**: Skipped (not needed for code-only approach)
-
-> **Skipped:** This step was for the NFC landing web page that redirects to app stores. Since we're using activation codes only, no web page is needed. Can be added later if NFC support is implemented.
-
----
-
-#### Step 35E: Activation Code Validation Service
-- [x] **Status**: Complete ✅
-
-**What we're doing:** Create the app-side service that communicates with the `registered_tags` table. This handles activation code validation, claiming, and binder limit checks.
-
-**Files to create:**
-- `src/services/supabase/registeredTags.ts` — Tag validation and claiming functions
-
-**What gets implemented:**
-
-```typescript
-// src/services/supabase/registeredTags.ts
-
-import { supabase } from './supabaseClient';
-
-/**
- * Tag status returned from validation
- */
-export interface TagInfo {
-  id: string;
-  tagUid: string;
-  activationCode: string;
-  status: 'available' | 'claimed' | 'disabled';
-  claimedBy: string | null;
-  claimedAt: string | null;
-  binderId: string | null;
-  allowSharing: boolean;
-}
-
-/**
- * Binder usage info for the current user
- */
-export interface BinderUsageInfo {
-  currentBinders: number;
-  binderLimit: number;
-  tagsActivated: number;
-  isUnlimited: boolean;
-}
-
-/**
- * Validate a tag by its hardware UID
- * Returns tag info if found, null if not registered
- */
-export async function validateTagByUid(tagUid: string): Promise<TagInfo | null>
-
-/**
- * Validate a tag by its activation code (manual entry)
- * Returns tag info if found, null if not registered
- */
-export async function validateTagByCode(activationCode: string): Promise<TagInfo | null>
-
-/**
- * Claim an available tag for the current user
- * Sets status to 'claimed', links to user, creates binder association
- */
-export async function claimTag(tagId: string, binderId: string): Promise<boolean>
-
-/**
- * Get how many tags the current user has activated
- */
-export async function getUserActivatedTagCount(): Promise<number>
-
-/**
- * Get the current user's binder limit based on activated tags
- * 0 tags → 1, 1 tag → 3, 2 tags → 5, 3+ → 999 (unlimited)
- */
-export async function getUserBinderLimit(): Promise<number>
-
-/**
- * Check if the current user can create a new binder
- */
-export async function canUserCreateBinder(): Promise<boolean>
-
-/**
- * Get full binder usage info for the current user
- * (current count, limit, tags activated, is unlimited)
- */
-export async function getUserBinderInfo(): Promise<BinderUsageInfo>
-
-/**
- * Toggle sharing on/off for a tag owned by the current user
- */
-export async function toggleTagSharing(tagId: string, allow: boolean): Promise<boolean>
-
-/**
- * Get tag info for a specific binder (if it has an NFC tag linked)
- */
-export async function getTagForBinder(binderId: string): Promise<TagInfo | null>
-```
-
-**Testing:**
-- [ ] `validateTagByUid()` returns tag info for registered tag
-- [ ] `validateTagByUid()` returns null for unregistered tag
-- [ ] `validateTagByCode()` returns tag info for valid code
-- [ ] `validateTagByCode()` returns null for invalid code
-- [ ] `claimTag()` updates status to 'claimed' and links user
-- [ ] `claimTag()` fails for already-claimed tag
-- [ ] `getUserActivatedTagCount()` returns correct count
-- [ ] `getUserBinderLimit()` returns correct limit based on tag count
-- [ ] `canUserCreateBinder()` returns true when under limit
-- [ ] `canUserCreateBinder()` returns false when at limit
-- [ ] `getUserBinderInfo()` returns correct full info
-- [ ] `toggleTagSharing()` updates allow_sharing
-- [ ] `getTagForBinder()` returns tag info for linked binder
-- [ ] `getTagForBinder()` returns null for binder without NFC tag
-
-**How to Test Step 35E:**
-
-1. **Insert a test tag in Supabase:**
-   ```sql
-   INSERT INTO registered_tags (tag_uid, activation_code, status)
-   VALUES ('TEST_UID_001', 'TEST-CODE-001', 'available');
-   ```
-
-2. **Test validation:**
-   - Call `validateTagByUid('TEST_UID_001')` → should return tag info
-   - Call `validateTagByUid('FAKE_UID')` → should return null
-   - Call `validateTagByCode('TEST-CODE-001')` → should return tag info
-   - Call `validateTagByCode('FAKE-CODE')` → should return null
-
-3. **Test claiming:**
-   - Call `claimTag(tagId, binderId)` → should succeed
-   - Check database: status should be 'claimed', claimed_by should be your user ID
-   - Call `claimTag()` again on same tag → should fail
-
-4. **Test binder limits:**
-   - With 0 claimed tags: `getUserBinderLimit()` → 1
-   - With 1 claimed tag: `getUserBinderLimit()` → 3
-   - `canUserCreateBinder()` should reflect the current count vs limit
-
----
-
-#### Step 35F: Activation Code Entry UI
-- [x] **Status**: Complete ✅
-
-**What we're doing:** Create a screen where users can manually type their activation code (from the card inside the binder box) as an alternative to NFC scanning.
-
-**Files to create:**
-- `src/screens/ActivationCode/ActivationCodeScreen.tsx` — Screen for entering activation code
-
-**Features:**
-- Text input field for the activation code
-- "Activate" button
-- Validates code against `registered_tags` table
-- Shows success/error feedback
-- On success: claims the tag and navigates to binder setup (Questionnaire)
-- On error: shows clear message ("Invalid code", "Code already used", etc.)
-- Accessible from binder list screen (e.g., "Have an activation code?" link)
-
-**UI Layout:**
-
-```
-┌─────────────────────────────────────┐
-│  ← Back                            │
-│                                     │
-│  Activate Your Binder               │
-│                                     │
-│  Enter the activation code from     │
-│  the card inside your binder box.   │
-│                                     │
-│  ┌─────────────────────────────┐    │
-│  │  BINDER-____-____           │    │
-│  └─────────────────────────────┘    │
-│                                     │
-│  [     Activate Binder      ]       │
-│                                     │
-│  ─── or ───                         │
-│                                     │
-│  Tap the NFC tag on your binder     │
-│  for automatic setup.               │
-│                                     │
-└─────────────────────────────────────┘
-```
-
-**Navigation changes:**
-- Add `ActivationCode` screen to `MainStackParamList` in `AppNavigator.tsx`:
-  ```typescript
-  ActivationCode: { returnTo?: string } | undefined;
-  ```
-- Add button/link on `BinderListScreen` to access this screen
-- After successful activation, navigate to `Questionnaire` with `nfcTagId` param
-
-**Testing:**
-- [ ] Screen loads correctly
-- [ ] Can type activation code
-- [ ] Valid code → claims tag and navigates to Questionnaire
-- [ ] Invalid code → shows "Invalid activation code" error
-- [ ] Already-used code → shows "This code has already been used" error
-- [ ] Disabled code → shows "This code has been deactivated" error
-- [ ] Loading state shows during validation
-- [ ] Back button works
-
-**How to Test Step 35F:**
-
-1. **Insert a test tag in Supabase:**
-   ```sql
-   INSERT INTO registered_tags (tag_uid, activation_code, status)
-   VALUES ('TEST_UID_002', 'TEST-ABCD-1234', 'available');
-   ```
-
-2. **Open the activation code screen** from binder list
-
-3. **Test valid code:**
-   - Type `TEST-ABCD-1234`
-   - Tap "Activate Binder"
-   - Should succeed and navigate to Questionnaire
-
-4. **Test invalid code:**
-   - Type `WRONG-CODE-9999`
-   - Should show error message
-
-5. **Test already-used code:**
-   - Try entering `TEST-ABCD-1234` again (already claimed)
-   - Should show "already used" error
-
----
-
-#### Step 35G: Update NFC Handler for Tag Validation
-- [x] **Status**: Skipped (not needed for code-only approach)
-
-> **Skipped:** This step was for updating the NFC scanning handler to validate tags. Since we're using activation codes only, the NFC handler doesn't need to be updated. Can be added later if NFC support is implemented.
-
----
-
-#### Step 35H: View-Only Binder Sharing
-- [x] **Status**: Skipped (not needed for code-only approach)
-
-> **Skipped:** This step was for showing a read-only view of another user's binder when tapping their NFC tag. Since there's no NFC trigger for this, it's skipped. Can be added later with a share link or QR code instead of NFC.
-
----
-
-#### Step 35I: Transfer Binder Ownership
-- [x] **Status**: Partially complete (service function done, no UI yet)
-
-**What we're doing:** Allow a binder owner to transfer their binder (and its activation code) to another user. This is useful when someone sells or gives away their physical binder.
-
-**Files to create:**
-- `src/services/supabase/transferBinder.ts` — Transfer logic
-
-**Files to modify:**
-- Binder settings/detail screen — Add "Transfer Binder" option
-
-**Transfer Flow:**
-
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│  TRANSFER BINDER FLOW                                                      │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                            │
-│  Current owner taps "Transfer Binder" in binder settings                   │
-│          ↓                                                                 │
-│  Confirmation: "Are you sure? You will lose access to this binder."        │
-│          ↓                                                                 │
-│  Owner confirms                                                            │
-│          ↓                                                                 │
-│  App updates registered_tags:                                              │
-│     - status → 'available'                                                 │
-│     - claimed_by → null                                                    │
-│     - binder_id → null                                                     │
-│     - Add old owner to previous_owners array                               │
-│          ↓                                                                 │
-│  App updates binder:                                                       │
-│     - Keep the binder data (cards, progress) for the old owner             │
-│     - Remove activation code link from the binder                          │
-│          ↓                                                                 │
-│  Old owner keeps the binder data in app (just without code link)           │
-│  Activation code is now available for the new owner                        │
-│          ↓                                                                 │
-│  New owner enters the activation code from the binder box                  │
-│     → Code is 'available' → Normal claim flow starts                       │
-│     → New owner sets up a fresh binder linked to this code                 │
-│                                                                            │
-└─────────────────────────────────────────────────────────────────────────────┘
-```
-
-**What gets implemented:**
-
-```typescript
-/**
- * Transfer a binder's activation code to make it available for a new owner
- * - Resets the code to 'available'
- * - Removes the code link from the binder (binder data stays)
- * - Records the transfer in previous_owners
- */
-export async function transferBinderCode(binderId: string): Promise<boolean>
-```
-
-**Testing:**
-- [ ] Transfer button visible in binder settings (only for code-linked binders)
-- [ ] Confirmation dialog appears before transfer
-- [ ] After transfer: code status = 'available'
-- [ ] After transfer: code claimed_by = null
-- [ ] After transfer: code binder_id = null
-- [ ] After transfer: old owner added to previous_owners
-- [ ] After transfer: binder still exists for old owner (data preserved)
-- [ ] After transfer: old owner's binder count/limit updates (one fewer activated code)
-- [ ] New owner can enter the activation code and claim it
-- [ ] New owner gets a fresh binder linked to the code
-
-**How to Test Step 35I:**
-
-1. **Set up:**
-   - Account A has a binder linked to an NFC tag
-
-2. **Transfer:**
-   - Log in as Account A
-   - Go to binder settings → tap "Transfer Binder"
-   - Confirm the transfer
-
-3. **Verify old owner:**
-   - Account A's binder should still exist (but without NFC link)
-   - Account A can still view their card data
-
-4. **Verify new owner:**
-   - Log in as Account B
-   - Tap the NFC tag → should be treated as a new available tag
-   - Account B goes through the claim flow and sets up a new binder
-
-5. **Check database:**
-   - `registered_tags` row: status = 'available', claimed_by = null
-   - `previous_owners` array contains Account A's user ID
-
----
-
-#### Step 35J: Binder Limit Enforcement in UI
-- [ ] **Status**: Not started
-
-**What we're doing:** Enforce the binder creation limit in the app's UI. When a user tries to create a binder but has reached their limit, show a helpful message instead.
-
-**Files to modify:**
-- `src/screens/BinderList/BinderListScreen.tsx` — Check limit before allowing "Create Binder"
-- `src/screens/Onboarding/OnboardingScreen.tsx` — Check limit at start of questionnaire
-
-**What gets implemented:**
-- Before creating a binder, call `canUserCreateBinder()`
-- If under limit: proceed normally
-- If at limit: show a message explaining the limit and how to unlock more binders
-
-**UI when limit is reached:**
-
-```
-┌─────────────────────────────────────┐
-│                                     │
-│  You've reached your binder limit   │
-│                                     │
-│  You currently have 1 binder.       │
-│  Buy a physical binder to unlock    │
-│  more!                              │
-│                                     │
-│  1 binder purchased → 3 app binders │
-│  2 binders purchased → 5 app binders│
-│  3+ binders → Unlimited             │
-│                                     │
-│  [Enter Activation Code]            │
-│  [Tap NFC Tag on Binder]            │
-│                                     │
-│  ─── or ───                         │
-│                                     │
-│  [Visit Our Store]                  │
-│                                     │
-└─────────────────────────────────────┘
-```
-
-**Also display on binder list screen:**
-- Show "X / Y binders" indicator (e.g., "1 / 3 binders" or "5 / Unlimited binders")
-- Only show when relevant (not for unlimited users)
-
-**Testing:**
-- [ ] Free user (0 tags): can create 1 binder, blocked from 2nd
-- [ ] 1-tag user: can create up to 3 binders, blocked from 4th
-- [ ] 2-tag user: can create up to 5 binders, blocked from 6th
-- [ ] 3+-tag user: can create unlimited binders, never blocked
-- [ ] Limit message shows correct counts
-- [ ] "Enter Activation Code" button navigates to activation screen
-- [ ] Binder count indicator shows correctly on binder list
-- [ ] After activating a new tag, limit increases immediately
-
-**How to Test Step 35J:**
-
-1. **Test free user (0 tags):**
-   - Log in with a fresh account (no tags activated)
-   - Create 1 binder → should succeed
-   - Try to create 2nd binder → should show limit message
-
-2. **Test after activating 1 tag:**
-   - Activate a tag (via NFC or activation code)
-   - Now create 2nd and 3rd binders → should succeed
-   - Try to create 4th binder → should show limit message
-
-3. **Test binder count indicator:**
-   - On binder list, check that "1 / 3 binders" shows correctly
-   - Activate another tag → should update to "1 / 5 binders"
-
-4. **Test unlimited:**
-   - Activate 3+ tags
-   - Binder count indicator should show "Unlimited" or disappear
-   - Should be able to create as many binders as desired
-
----
-
-**Overall Testing Checklist for Step 35:**
-- [x] `registered_tags` table created with correct schema (Step 35A) ✅
-- [ ] RLS policies work correctly (Step 35A) - Ready to test
-- [x] Binder limit functions return correct values (Step 35B) ✅
-- [x] ~~Deep linking configured in `app.json` (Step 35C)~~ — Skipped
-- [x] ~~Landing web page redirects correctly (Step 35D)~~ — Skipped
-- [x] Activation code validation service works (Step 35E) ✅
-- [x] Activation code entry screen works end-to-end (Step 35F) ✅
-- [x] ~~NFC handler validates against registered_tags (Step 35G)~~ — Skipped
-- [x] ~~View-only mode shows other users' binders (Step 35H)~~ — Skipped
-- [ ] Transfer binder resets code and preserves data (Step 35I) - Service done, needs UI + testing
-- [ ] Binder limit enforced in UI (Step 35J) - NOT IMPLEMENTED
-- [ ] Limit message shows correctly with activation options (Step 35J) - NOT IMPLEMENTED
-- [ ] Full flow: enter activation code → claim code → create binder (E2E)
-- [ ] Full flow: transfer binder → new owner enters code (E2E)
-- [ ] Free user limited to 1 binder (E2E)
-- [ ] 1 code = 3 binders, 2 codes = 5 binders, 3+ = unlimited (E2E)
-- [ ] No TypeScript errors
-- [ ] No console errors
-- [ ] Performance acceptable
-
----
-
-### Step 36: NFC Tag Integration (Physical Binder → App)
-- [ ] **Status**: Not started
-
-**What we're doing:** Make the NFC tags inside physical binders actually work. When a user taps their phone on a binder, the app opens and shows that binder. This is the main selling point of the product — a "smart binder" that knows what's inside.
-
-> **Decision:** We write a URL to each NFC tag (instead of relying on raw tag IDs). This gives a consistent experience on both Android and iOS. We're going with Option 4 (no freeloader protection) — the NFC tap replaces the activation code as the primary way to connect physical binders to the app.
+> **Removed:** This entire phase has been replaced by the new Phase 9 (Pro Upgrade via In-App Purchase). The activation code system and NFC tag integration are no longer part of the app's monetization strategy.
 >
-> **Activation codes (Step 35):** The code stays in the codebase but is **hidden from the UI**. The "Have an activation code?" button and the ActivationCodeScreen are not shown to users. The activation code system can be re-enabled later if needed — nothing is deleted. Binder limits are also disabled for now (no limit enforcement).
+> **Code to clean up (when ready):**
+> - `src/services/supabase/registeredTags.ts` — delete
+> - `src/screens/ActivationCode/ActivationCodeScreen.tsx` — delete
+> - `database/migrations/add_registered_tags.sql` — delete (don't run; if already run in Supabase, drop the table)
+> - `database/test_activation_codes.sql` — delete
+> - Remove activation code references from `AppNavigator.tsx`, `OnboardingScreen.tsx`, `binders.ts`, `services/supabase/index.ts`
+> - Remove `registered_tags` table from Supabase (if created)
+> - Remove old `get_binder_limit()`, `can_user_create_binder()`, `get_user_binder_info()` SQL functions from Supabase (if created)
+>
+> **If you want physical binders later:** The old plan is documented earlier in this file (old Step 35 content). You can re-implement it alongside the Pro system.
 
-**How NFC Tags Work (Simple Explanation):**
-- Each NFC sticker has a unique ID burned in at the factory
-- We write a URL onto each sticker before placing it in a binder (e.g., `https://yourdomain.com/binder?tag=ABC123`)
-- When a phone taps the sticker, it reads the URL
-- Android/iOS recognize the URL belongs to our app and open it
-- The app reads the tag ID from the URL and shows the correct binder
-
-**What the User Experiences:**
-
-```
-FIRST TIME (new binder):
-  1. User taps phone on binder
-  2. App opens (or notification appears on iOS)
-  3. App says "New binder detected!"
-  4. Questionnaire starts → User picks set/region/layout
-  5. Binder is created and linked to that NFC tag
-  6. Done — binder is ready to use
-
-EVERY TIME AFTER:
-  1. User taps phone on binder
-  2. App opens → Binder shows instantly
-  3. No login, no searching, no menus — just their cards
-```
-
-**Android vs iOS Behavior:**
-
-| | Android | iOS (XS and newer) | iOS (7/8/X) |
-|---|---------|---------------------|-------------|
-| Tap binder → app opens? | Yes, instantly | Yes, via notification | No — must open app first |
-| Needs URL on tag? | Yes (for consistency) | Yes (required) | No (reads from within app) |
-| How it feels | Tap → app opens | Tap → notification → tap → app opens | Open app → tap scan → hold near binder |
-
-**Sub-Steps Overview:**
-
-| Sub-Step | Description | Dependencies |
-|----------|-------------|-------------|
-| 36A | Hide activation code UI (keep code, hide from users) | None |
-| 36B | Buy NFC stickers & test hardware | None |
-| 36C | Install NFC library & create development build | EAS configured |
-| 36D | Configure deep linking (URL → app) | Webshop domain |
-| 36E | Write URL to NFC tags (manufacturing step) | 36B |
-| 36F | Update NFC service to handle URL-based tags | 36C, 36D |
-| 36G | Build NFC scan flow in the app | 36F |
-| 36H | Test full flow on Android device | 36B–36G |
-| 36I | iOS Universal Links setup | 36D, webshop domain |
 
 ---
-
-#### Step 36A: Hide Activation Code UI
-- [ ] **Status**: Not started
-
-**What we're doing:** Hide the activation code system from the user-facing app. The code stays in the codebase (not deleted) so it can be re-enabled later if needed. We just remove it from what users see.
-
-> **Important:** We are NOT deleting any code. We're only hiding UI elements so users don't see the activation code option.
-
-**What to hide:**
-
-1. **BinderListScreen** — Remove the "Have an activation code?" button
-2. **BinderListScreen** — Remove the binder limit check that blocks binder creation (let users create unlimited binders)
-3. **BinderListScreen** — Remove the binder count indicator (e.g., "1 / 3 binders")
-4. **Navigation** — Remove the `ActivationCode` screen from the navigation stack (so it can't be navigated to)
-
-**What to keep (do NOT delete):**
-- `src/screens/ActivationCode/ActivationCodeScreen.tsx` — Keep the file
-- `src/services/supabase/registeredTags.ts` — Keep the service
-- `database/migrations/add_registered_tags.sql` — Keep the migration
-- All activation code logic in `OnboardingScreen.tsx` — Keep (it only runs if `activationCodeId` is passed, which won't happen)
-
-**Testing:**
-- [ ] "Have an activation code?" button is gone from binder list
-- [ ] Binder limit message never appears (users can create unlimited binders)
-- [ ] Binder count indicator is gone
-- [ ] ActivationCode screen is not accessible via navigation
-- [ ] No errors from leftover references
-- [ ] App still works normally (create binders, view binders, etc.)
-
----
-
-#### Step 36B: Buy NFC Stickers & Test Hardware
-- [ ] **Status**: Not started
-
-**What we're doing:** Get physical NFC stickers to test with. This is not a coding step — it's a shopping step.
-
-**What to buy:**
-- **Type:** NTAG215 NFC stickers (same chip as Nintendo Amiibo — widely compatible)
-- **Shape:** Round, 25mm diameter (about the size of a coin)
-- **Quantity:** A pack of 10 for testing is plenty
-- **Where:** Amazon or AliExpress — search "NTAG215 NFC stickers"
-- **Cost:** ~$5–10 for a pack of 10
-
-**Why NTAG215:**
-- Works with both Android and iOS
-- Enough memory to store a URL (504 bytes — more than enough)
-- Industry standard — very reliable
-- Same chip type used in Amiibo, so it's well-tested
-
-**Testing the stickers (no code needed):**
-1. Download a free NFC reader app on your Android phone (e.g., "NFC Tools" from Play Store)
-2. Enable NFC on your phone (Settings → NFC → On)
-3. Tap a sticker to the back of your phone
-4. The app should show the tag's unique ID and type (NTAG215)
-5. If it reads → your phone and stickers work
-
-**Testing checklist:**
-- [ ] Bought NTAG215 NFC stickers
-- [ ] Phone can read the stickers (using NFC Tools or similar app)
-- [ ] Sticker reads through binder cover material (test by placing sticker inside a binder)
-- [ ] Note which position on the phone reads best (usually center-back)
-
----
-
-#### Step 36C: Install NFC Library & Create Development Build
-- [ ] **Status**: Not started
-
-**What we're doing:** Install the `react-native-nfc-manager` library and create a development build. The NFC library uses native phone features, so it can't run in Expo Go — we need a real build.
-
-> **Note:** The NFC service code (`nfcService.ts`, `useNfcScan.ts`, `nfcHandler.ts`) already exists from Step 8. This step just installs the actual library and creates a build that can use it.
-
-**Commands:**
-```bash
-# Install the NFC library
-npm install react-native-nfc-manager
-
-# Create a development build for Android
-eas build --profile development --platform android
-```
-
-**What happens:**
-- `npm install` adds the NFC library to your project
-- `eas build` creates an APK (Android app file) that includes the native NFC code
-- The build takes 10–15 minutes on EAS servers
-- Once done, download the APK and install it on your Android phone
-
-**Files already created (from Step 8):**
-- `src/services/nfc/nfcService.ts` — NFC reading functions (init, read tag ID, check availability)
-- `src/hooks/useNfcScan.ts` — Hook for NFC scanning in components
-- `src/utils/nfcHandler.ts` — Handle NFC intents and routing logic
-
-**Files to verify:**
-- `app.json` — Should already have NFC permissions and intent filters (added in Step 8)
-
-**Testing:**
-- [ ] `react-native-nfc-manager` installed in package.json
-- [ ] Development build created successfully
-- [ ] Development build installed on Android phone
-- [ ] App launches on phone via development build
-- [ ] NFC permission prompt appears when app tries to use NFC
-
----
-
-#### Step 36D: Configure Deep Linking (URL → App)
-- [ ] **Status**: Not started
-
-**What we're doing:** Set up deep linking so that when a phone reads a URL from an NFC tag, it opens our app instead of the browser. This is the bridge between the physical NFC sticker and the app.
-
-**How deep linking works (simple explanation):**
-- The NFC tag contains a URL like `https://yourdomain.com/binder?tag=ABC123`
-- We tell Android: "When someone opens a URL from yourdomain.com/binder, open our app instead of Chrome"
-- Android sees the URL → opens our app → passes the URL to the app → app reads the tag ID from the URL
-
-**URL format on NFC tags:**
-```
-https://yourdomain.com/binder?tag=UNIQUE_TAG_ID
-```
-
-Example: `https://yourdomain.com/binder?tag=04A2B3C4D5E6F7`
-
-**Files to modify:**
-
-1. **`app.json`** — Add intent filters for your domain
-2. **`src/utils/nfcHandler.ts`** — Update URL parsing to handle the new URL format
-3. **Webshop domain** — Add a Digital Asset Links file (`.well-known/assetlinks.json`) so Android trusts the link
-
-**What gets configured:**
-
-**In `app.json`:**
-```json
-{
-  "expo": {
-    "android": {
-      "intentFilters": [
-        {
-          "action": "VIEW",
-          "autoVerify": true,
-          "data": [
-            {
-              "scheme": "https",
-              "host": "yourdomain.com",
-              "pathPrefix": "/binder"
-            }
-          ],
-          "category": ["BROWSABLE", "DEFAULT"]
-        }
-      ]
-    }
-  }
-}
-```
-
-**On your webshop (one-time setup):**
-You need to host a small file at `https://yourdomain.com/.well-known/assetlinks.json` that tells Android "yes, the Bindr app is allowed to handle URLs from this domain." This is a simple JSON file.
-
-**Testing:**
-- [ ] Intent filters added to `app.json`
-- [ ] `assetlinks.json` hosted on webshop domain
-- [ ] Opening `https://yourdomain.com/binder?tag=TEST123` on phone opens the app (not browser)
-- [ ] App receives the full URL and can extract the tag ID
-- [ ] If app is not installed, URL opens in browser (shows a "Download Bindr" page or your webshop)
-
----
-
-#### Step 36E: Write URL to NFC Tags (Manufacturing Step)
-- [ ] **Status**: Not started
-
-**What we're doing:** Write a URL onto each NFC sticker before placing it in a binder. This is your manufacturing/preparation step — done once per binder before shipping.
-
-**Why write a URL (instead of leaving the tag blank):**
-- iOS requires a URL on the tag to trigger background reading
-- Android also benefits — it can match the URL to your app automatically
-- The URL contains the tag's unique ID, making it easy for the app to identify which binder it is
-
-**How to write URLs to tags:**
-
-**Option A: Use a free app (easiest for small batches)**
-1. Download "NFC Tools" on your Android phone (free on Play Store)
-2. Open NFC Tools → tap "Write"
-3. Add a record → URL
-4. Enter: `https://yourdomain.com/binder?tag=UNIQUE_ID_HERE`
-   - Replace `UNIQUE_ID_HERE` with the tag's actual unique ID (you can read it first using NFC Tools → "Read")
-5. Tap "Write" → hold tag to phone → done
-6. Stick the tag inside the binder cover
-
-**Option B: Build a simple writer tool (better for large batches)**
-- Later, you could build a small screen in your app (or a separate tool) that:
-  1. Reads the tag's unique ID automatically
-  2. Writes the correct URL to the tag
-  3. Registers the tag in your database
-  4. All in one tap
-- This is optional and can be built later when you're manufacturing many binders
-
-**Important notes:**
-- Each tag gets a **unique URL** (because each tag has a unique ID)
-- The tag can be written once and then **locked** (optional — prevents someone from overwriting it)
-- NTAG215 has 504 bytes of storage — a URL like `https://yourdomain.com/binder?tag=04A2B3C4D5E6F7` uses about 60 bytes, so plenty of room
-
-**Where to place the sticker:**
-- Inside the front cover of the binder
-- Print a small "tap here" icon or text on the outside of the binder so users know where to hold their phone
-- Make sure there's no metal between the sticker and where the phone will be — NFC doesn't work through metal (plastic, paper, fabric, and leather are all fine)
-
-**Testing:**
-- [ ] Can write a URL to an NFC sticker using NFC Tools app
-- [ ] Can read the URL back from the sticker
-- [ ] URL format is correct: `https://yourdomain.com/binder?tag=TAG_ID`
-- [ ] Tapping the sticker on phone opens a browser to that URL (before deep linking is set up)
-- [ ] Sticker reads through binder cover material
-
----
-
-#### Step 36F: Update NFC Service to Handle URL-Based Tags
-- [ ] **Status**: Not started
-
-**What we're doing:** Update the existing NFC code to handle URL-based tags instead of raw tag IDs. When the app opens from an NFC URL, it needs to extract the tag ID from the URL and look up the binder.
-
-**Files to modify:**
-- `src/utils/nfcHandler.ts` — Update `extractNfcTagIdFromUrl()` to parse the new URL format
-- `src/services/nfc/nfcService.ts` — No major changes needed (raw tag reading still works as fallback)
-
-**What changes:**
-
-The current `extractNfcTagIdFromUrl()` in `nfcHandler.ts` expects URLs like:
-```
-trackerapp://nfc?tagId=ABC123
-```
-
-We update it to also handle:
-```
-https://yourdomain.com/binder?tag=ABC123
-```
-
-**Logic flow:**
-```
-App receives URL from NFC tap or deep link
-    ↓
-Parse URL → extract "tag" parameter
-    ↓
-Look up tag ID in database → find linked binder
-    ↓
-Binder found? → Open binder
-No binder? → Start questionnaire (new binder setup)
-Tag belongs to someone else? → Show error
-```
-
-**Testing:**
-- [ ] App correctly parses `https://yourdomain.com/binder?tag=TAG_ID`
-- [ ] App extracts the tag ID from the URL
-- [ ] App falls back to old URL format (`trackerapp://nfc?tagId=...`) for backward compatibility
-- [ ] Tag ID is used to look up binder in database
-- [ ] New tag → routes to questionnaire
-- [ ] Existing tag (own binder) → opens binder
-- [ ] Existing tag (someone else's binder) → shows error
-
----
-
-#### Step 36G: Build NFC Scan Flow in the App
-- [ ] **Status**: Not started
-
-**What we're doing:** Build the screens and navigation that handle an NFC tap from start to finish. This connects the NFC reading to the actual binder creation/viewing experience.
-
-**Screens involved:**
-
-1. **NFC Handler Screen** — The "landing" screen when app opens from NFC
-   - Shows a brief loading state ("Reading binder...")
-   - Determines: new tag or existing tag
-   - Routes to the right place
-
-2. **Questionnaire Screen** (already exists) — For new tags, starts binder setup
-   - Receives the tag ID so the new binder gets linked to the tag
-
-3. **Binder Detail Screen** (already exists) — For existing tags, opens the binder directly
-
-**What gets built:**
-
-```
-NFC tap → App opens
-    ↓
-NFC Handler Screen (loading...)
-    ↓
-┌─────────────────────────┐     ┌──────────────────────────┐
-│  New tag detected        │     │  Existing tag detected    │
-│                          │     │                           │
-│  "Let's set up your     │     │  → Opens binder directly  │
-│   new binder!"          │     │    (no extra screens)      │
-│                          │     │                           │
-│  [Start Setup]          │     └──────────────────────────┘
-│                          │
-│  → Goes to Questionnaire │
-│  → Binder created        │
-│  → Tag linked to binder  │
-└─────────────────────────┘
-```
-
-**Files to create/modify:**
-- `src/screens/NfcHandler/NfcHandlerScreen.tsx` — The handler screen (may already exist as placeholder)
-- `src/navigation/` — Update navigation to handle NFC deep link routing
-- `src/screens/Onboarding/OnboardingScreen.tsx` — Accept tag ID parameter so binder gets linked on creation
-
-**Testing:**
-- [ ] Tapping NFC tag opens the NFC Handler Screen
-- [ ] New tag → shows "New binder detected" → navigates to questionnaire
-- [ ] Questionnaire creates binder AND links it to the NFC tag ID
-- [ ] Existing tag → opens the linked binder directly (skips handler screen)
-- [ ] Tag belonging to another user → shows "This binder belongs to someone else"
-- [ ] If NFC read fails → shows error message with option to go to binder list manually
-- [ ] Back button on handler screen goes to binder list
-
----
-
-#### Step 36H: Test Full Flow on Android Device
-- [ ] **Status**: Not started
-
-**What we're doing:** Test the entire NFC experience end-to-end on your Android phone with a real NFC sticker.
-
-**Prerequisites:**
-- Development build installed on Android phone (Step 36C)
-- Deep linking configured (Step 36D)
-- At least one NFC sticker with URL written to it (Step 36E)
-- NFC service code updated (Step 36F)
-- NFC scan flow built (Step 36G)
-- NFC enabled on your phone (Settings → NFC → On)
-
-**Test 1: First-time binder setup (new tag)**
-1. Use an NFC sticker that hasn't been linked to any binder yet
-2. Close the app completely
-3. Tap the NFC sticker to the back of your phone
-4. **Expected:** App opens → NFC Handler Screen → "New binder detected!"
-5. Tap "Start Setup" → Questionnaire starts
-6. Complete the questionnaire (pick a set, layout, etc.)
-7. **Expected:** Binder is created and linked to that NFC tag
-8. You should see your new binder with cards
-
-**Test 2: Returning to an existing binder (existing tag)**
-1. Use the same NFC sticker from Test 1 (now linked to a binder)
-2. Close the app completely
-3. Tap the NFC sticker to the back of your phone
-4. **Expected:** App opens → goes directly to the binder (no questionnaire, no handler screen delay)
-
-**Test 3: Multiple binders**
-1. Write a URL to a second NFC sticker (different tag ID)
-2. Tap the second sticker → should trigger new binder setup
-3. Set up a second binder
-4. Now alternate tapping both stickers → each should open the correct binder
-
-**Test 4: Error handling**
-1. Turn off NFC on your phone → tap sticker → nothing should happen (phone doesn't read it)
-2. Turn NFC back on → tap sticker → should work again
-3. Test with a thick phone case on → should still work (if not, note the distance limitation)
-
-**Test 5: App not running**
-1. Force-close the app completely
-2. Tap the NFC sticker
-3. **Expected:** App launches from scratch and opens the correct binder
-
-**Testing checklist:**
-- [ ] New tag → questionnaire → binder created → tag linked
-- [ ] Existing tag → binder opens directly
-- [ ] Second binder with second tag works
-- [ ] Alternating between tags opens correct binder each time
-- [ ] App launches from NFC tap when app is closed
-- [ ] App handles NFC tap when app is already open
-- [ ] Error states handled gracefully (NFC off, tag read failure)
-- [ ] No crashes during NFC flow
-- [ ] No TypeScript errors
-- [ ] No console errors
-
----
-
-#### Step 36I: iOS Universal Links Setup (Later)
-- [ ] **Status**: Not started
-
-**What we're doing:** Set up Universal Links so iOS devices can also open the app when tapping an NFC tag. This step requires a Mac for iOS builds and can be done later.
-
-> **Note:** This step is deferred until you have access to an iOS device for testing. The NFC tags already contain URLs (from Step 36D), so when you set up Universal Links later, the existing tags will automatically work with iOS too — no need to rewrite the tags.
-
-**What's needed (when you're ready):**
-1. **Apple Developer Account** — Required for Universal Links
-2. **`apple-app-site-association` file** — Host on your webshop domain at `https://yourdomain.com/.well-known/apple-app-site-association`
-3. **Xcode configuration** — Add Associated Domains entitlement
-4. **iOS build** — Create via `eas build --profile development --platform ios` (requires Mac)
-
-**Why this can wait:**
-- Android is your primary test platform right now
-- The NFC tags are already set up with URLs that will work on iOS once Universal Links are configured
-- No NFC sticker changes needed — just app and domain configuration
-- You can do this when you get access to a Mac or iOS device
-
-**Testing (when implemented):**
-- [ ] `apple-app-site-association` hosted on webshop domain
-- [ ] iOS app has Associated Domains entitlement
-- [ ] Tapping NFC tag on iPhone XS+ shows notification
-- [ ] Tapping notification opens the app
-- [ ] App receives URL and extracts tag ID
-- [ ] Same flow works: new tag → questionnaire, existing tag → binder
-
----
-
-**Overall Testing Checklist for Step 36:**
-- [ ] Activation code UI hidden from app (Step 36A)
-- [ ] NTAG215 stickers purchased and tested (Step 36B)
-- [ ] `react-native-nfc-manager` installed (Step 36C)
-- [ ] Development build created and working (Step 36C)
-- [ ] Deep linking configured for Android (Step 36D)
-- [ ] `assetlinks.json` hosted on webshop domain (Step 36D)
-- [ ] Can write URLs to NFC stickers (Step 36E)
-- [ ] NFC service handles URL-based tags (Step 36F)
-- [ ] NFC scan flow works in the app (Step 36G)
-- [ ] Full end-to-end test passes on Android (Step 36H)
-- [ ] iOS Universal Links setup (Step 36I — deferred)
-- [ ] No TypeScript errors
-- [ ] No console errors
-- [ ] Performance acceptable
-
----
-

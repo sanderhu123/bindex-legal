@@ -1019,6 +1019,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
         setCards(cardsWithOwnership);
         
         // Load extra cards for Master Set binders
+        let loadedExtraCards: CardWithOwnership[] = [];
         if (binder.collectionMode === 'master-set') {
           console.log('[BinderDetail] Loading extra cards for Master Set binder');
           try {
@@ -1026,7 +1027,6 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
             console.log('[BinderDetail] Found', extraCardsData.length, 'extra cards');
             
             if (extraCardsData.length > 0) {
-              // Fetch card details for each extra card
               const extraCardsWithDetails = await Promise.all(
                 extraCardsData.map(async (extraCardInfo) => {
                   try {
@@ -1045,10 +1045,9 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
                 })
               );
               
-              // Filter out nulls and set state
-              const validExtraCards = extraCardsWithDetails.filter((c): c is CardWithOwnership => c !== null);
-              setExtraCards(validExtraCards);
-              console.log('[BinderDetail] Loaded', validExtraCards.length, 'extra cards with details');
+              loadedExtraCards = extraCardsWithDetails.filter((c): c is CardWithOwnership => c !== null);
+              setExtraCards(loadedExtraCards);
+              console.log('[BinderDetail] Loaded', loadedExtraCards.length, 'extra cards with details');
             } else {
               setExtraCards([]);
             }
@@ -1060,9 +1059,11 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
           setExtraCards([]);
         }
         
-        // Sync binder.ownedCards with the actual card data so the progress bar
-        // doesn't briefly show stale DB values while cards are loading
-        const actualOwnedCount = cardsWithOwnership.filter(c => c.isOwned).length;
+        // Sync binder.ownedCards with the actual card data (regular + extras)
+        // so the progress bar doesn't briefly show stale DB values
+        const regularOwnedCount = cardsWithOwnership.filter(c => c.isOwned).length;
+        const extraOwnedCount = loadedExtraCards.filter(c => c.isOwned).length;
+        const actualOwnedCount = regularOwnedCount + extraOwnedCount;
         setBinder(prev => {
           if (!prev || prev.ownedCards === actualOwnedCount) return prev;
           return { ...prev, ownedCards: actualOwnedCount };
@@ -1333,6 +1334,13 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
       };
       
       setExtraCards((prev) => [...prev, newExtraCard]);
+
+      // Update binder.totalCards so the progress bar reflects the new card
+      setBinder((prev) => {
+        if (!prev) return prev;
+        return { ...prev, totalCards: (prev.totalCards || 0) + 1 };
+      });
+
       console.log('[BinderDetail] Card added successfully (starts as missing)');
     } catch (err) {
       console.error('[BinderDetail] Failed to add extra card:', err);
@@ -1360,8 +1368,17 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
     setExtraCards((prev) =>
       prev.map((c) => (c.id === cardId ? { ...c, isOwned: newIsOwned } : c))
     );
-    
-    // Extra cards don't affect the main progress bar — they are tracked separately
+
+    // Update binder.ownedCards so the progress bar reflects the change
+    setBinder((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        ownedCards: newIsOwned
+          ? (prev.ownedCards || 0) + 1
+          : Math.max(0, (prev.ownedCards || 0) - 1),
+      };
+    });
     
     try {
       await toggleExtraCardOwnership(currentBinderId, cardId, cardVariant);
@@ -1372,6 +1389,15 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
       setExtraCards((prev) =>
         prev.map((c) => (c.id === cardId ? { ...c, isOwned: !newIsOwned } : c))
       );
+      setBinder((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          ownedCards: !newIsOwned
+            ? (prev.ownedCards || 0) + 1
+            : Math.max(0, (prev.ownedCards || 0) - 1),
+        };
+      });
       Alert.alert('Error', 'Failed to update card. Please try again.');
     }
   }, [binder]);

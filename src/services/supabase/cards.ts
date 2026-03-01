@@ -95,8 +95,8 @@ export { syncBinderCardCount };
  * - owned_cards = number of cards with is_owned = true
  * 
  * For Master Set/Region binders:
- * - total_cards = fixed (set at creation, not updated here)
- * - owned_cards = number of non-extra cards with is_owned = true
+ * - total_cards = not updated here (managed by add/remove extra card functions)
+ * - owned_cards = number of cards with is_owned = true (includes extras)
  */
 async function syncBinderCardCount(binderId: string): Promise<void> {
   // First, check if this is a Custom binder (has cards with positions)
@@ -151,13 +151,12 @@ async function syncBinderCardCount(binderId: string): Promise<void> {
       console.error('Failed to update card counts:', updateError);
     }
   } else {
-    // Master Set / Region binder: count only regular (non-extra) cards marked as owned
+    // Master Set / Region binder: count all cards marked as owned (regular + extra)
     const { count, error: countError } = await supabase
       .from('binder_cards')
       .select('*', { count: 'exact', head: true })
       .eq('binder_id', binderId)
-      .eq('is_owned', true)
-      .or('is_extra.is.null,is_extra.eq.false');
+      .eq('is_owned', true);
 
     if (countError) {
       console.error('Failed to count binder cards:', countError);
@@ -683,10 +682,21 @@ export async function addExtraCardToBinder(
     throw error;
   }
 
+  // Increment total_cards so the progress bar includes the new extra card
+  const { data: currentBinder } = await supabase
+    .from('binders')
+    .select('total_cards')
+    .eq('id', binderId)
+    .single();
+
+  if (currentBinder) {
+    await supabase
+      .from('binders')
+      .update({ total_cards: (currentBinder.total_cards || 0) + 1 })
+      .eq('id', binderId);
+  }
+
   console.log('[30B] Extra card added successfully');
-  
-  // Note: We don't sync binder card counts for extra cards
-  // Extra cards are tracked separately and don't affect the main completion percentage
 }
 
 /**
@@ -864,10 +874,10 @@ export async function removeExtraCardFromBinder(
     throw new Error('User not authenticated');
   }
 
-  // Verify binder belongs to user
+  // Verify binder belongs to user and get current counts
   const { data: binder, error: binderError } = await supabase
     .from('binders')
-    .select('id')
+    .select('id, total_cards, owned_cards')
     .eq('id', binderId)
     .eq('user_id', user.id)
     .single();
@@ -876,8 +886,25 @@ export async function removeExtraCardFromBinder(
     throw new Error('Binder not found or access denied');
   }
 
+  // Check if the card being removed was owned (needed to update owned_cards)
+  let checkQuery = supabase
+    .from('binder_cards')
+    .select('is_owned')
+    .eq('user_id', user.id)
+    .eq('binder_id', binderId)
+    .eq('card_id', cardId)
+    .eq('is_extra', true);
+
+  if (variant) {
+    checkQuery = checkQuery.eq('variant', variant);
+  } else {
+    checkQuery = checkQuery.is('variant', null);
+  }
+
+  const { data: cardData } = await checkQuery.single();
+  const wasOwned = cardData?.is_owned ?? false;
+
   // Delete only the extra card (is_extra = true)
-  // Note: Must use .is('variant', null) for null values
   let deleteQuery = supabase
     .from('binder_cards')
     .delete()
@@ -898,6 +925,15 @@ export async function removeExtraCardFromBinder(
     console.error('[30B] Failed to remove extra card:', error);
     throw error;
   }
+
+  // Decrement total_cards (and owned_cards if the card was owned)
+  const updates: { total_cards: number; owned_cards?: number } = {
+    total_cards: Math.max(0, (binder.total_cards || 0) - 1),
+  };
+  if (wasOwned) {
+    updates.owned_cards = Math.max(0, (binder.owned_cards || 0) - 1);
+  }
+  await supabase.from('binders').update(updates).eq('id', binderId);
 
   console.log('[30B] Extra card removed successfully');
 }
@@ -970,6 +1006,25 @@ export async function toggleExtraCardOwnership(
   if (updateError) {
     console.error('[30B] Failed to toggle extra card ownership:', updateError);
     throw updateError;
+  }
+
+  // Update owned_cards on the binder to keep progress bar in sync
+  const { data: binderData } = await supabase
+    .from('binders')
+    .select('owned_cards')
+    .eq('id', binderId)
+    .single();
+
+  if (binderData) {
+    const currentOwned = binderData.owned_cards || 0;
+    const newOwned = newIsOwned
+      ? currentOwned + 1
+      : Math.max(0, currentOwned - 1);
+
+    await supabase
+      .from('binders')
+      .update({ owned_cards: newOwned })
+      .eq('id', binderId);
   }
 
   console.log('[30B] Extra card ownership toggled:', { newIsOwned });

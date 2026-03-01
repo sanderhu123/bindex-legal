@@ -17,7 +17,7 @@ import { getBinderById } from '../../services/supabase/binders';
 import { getBinderCardsWithPositions } from '../../services/supabase/cards';
 import { getCardsBySet, getCardsByRegion, getCardById, type Region } from '../../services/api/pokemonApi';
 import { getAllSelectedCardsForBinder } from '../../services/supabase/regionCards';
-import { getCardPositionsForBinder, saveCardPositionsForBinder } from '../../services/supabase/binderPositions';
+import { getCardPositionsForBinder, saveCardPositionsForBinder, getPlaceholderCardsForBinder, savePlaceholderCardsForBinder } from '../../services/supabase/binderPositions';
 import { CardSlot, CardPlaceholder, SelectedCardBar, InsertButton, type PlaceholderCard } from '../../components/BinderEdit';
 import type { DragStartData } from '../../components/BinderEdit/CardSlot';
 import PageNavigator from '../../components/Binder/PageNavigator';
@@ -499,6 +499,41 @@ export default function BinderEditScreen() {
 
       setCardPositions(positions);
       setOriginalPositions(positions.map(p => ({ ...p })));
+
+      // ── Load saved placeholder cards ──
+      try {
+        const savedPlaceholder = await getPlaceholderCardsForBinder(binderData.id);
+        if (savedPlaceholder.length > 0) {
+          console.log('[BinderEdit] Loading', savedPlaceholder.length, 'saved placeholder cards');
+
+          // Build lookup from positions already loaded above
+          const cardLookupForPlaceholder = new Map<string, { name: string; imageUrl?: string }>();
+          positions.forEach(p => {
+            if (p.cardId) {
+              cardLookupForPlaceholder.set(p.cardId, { name: p.cardName || '', imageUrl: p.imageUrl });
+            }
+          });
+
+          const loadedPlaceholder: PlaceholderCard[] = [];
+          for (const saved of savedPlaceholder) {
+            const cached = cardLookupForPlaceholder.get(saved.cardId);
+            if (cached) {
+              loadedPlaceholder.push({ cardId: saved.cardId, cardName: cached.name, imageUrl: cached.imageUrl });
+            } else {
+              try {
+                const card = await getCardById(saved.cardId);
+                if (card) {
+                  loadedPlaceholder.push({ cardId: card.id, cardName: card.name, imageUrl: card.imageUrl });
+                }
+              } catch { /* skip cards that can't be fetched */ }
+            }
+          }
+          setPlaceholderCards(loadedPlaceholder);
+        }
+      } catch (phErr) {
+        console.warn('[BinderEdit] Could not load placeholder cards:', phErr);
+      }
+
       setLoading(false);
     } catch (err) {
       console.error('[BinderEdit] Error loading binder:', err);
@@ -544,10 +579,11 @@ export default function BinderEditScreen() {
     try {
       console.log('[BinderEdit] Saving positions to database...');
       await saveCardPositionsForBinder(binderId, cardPositions);
+      await savePlaceholderCardsForBinder(binderId, placeholderCards);
       setOriginalPositions(cardPositions.map(p => ({ ...p })));
       setHasChanges(false);
       setUndoStack([]);
-      console.log('[BinderEdit] Positions saved successfully');
+      console.log('[BinderEdit] Positions and placeholder saved successfully');
       navigation.goBack();
     } catch (err) {
       console.error('[BinderEdit] Error saving positions:', err);

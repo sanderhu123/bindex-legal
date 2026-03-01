@@ -10,7 +10,6 @@ import AppNavigator from './src/navigation/AppNavigator';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { initializePersistentCache } from './src/services/api/pokemonApi';
 import { performCacheCleanup } from './src/services/cacheManager';
-import { initNfc } from './src/services/nfc/nfcService';
 
 // Create React Query client with caching configuration
 const queryClient = new QueryClient({
@@ -39,10 +38,6 @@ function AppContent() {
   useEffect(() => {
     async function initializeApp() {
       try {
-        // Initialize NFC manager (no-op on web or if NFC not available)
-        const nfcReady = await initNfc();
-        console.log('[App] NFC initialized:', nfcReady);
-
         // Initialize persistent cache
         await initializePersistentCache();
         console.log('[App] Persistent cache initialized');

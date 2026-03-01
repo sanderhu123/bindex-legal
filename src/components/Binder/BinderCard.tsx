@@ -54,11 +54,6 @@ export default function BinderCard({ binder, completionPercentage, totalCards, o
             <Text style={styles.title} numberOfLines={1}>
               {binder.name}
             </Text>
-            {binder.nfcTagId && (
-              <View style={styles.nfcBadge}>
-                <Text style={styles.nfcText}>NFC</Text>
-              </View>
-            )}
           </View>
           {onDelete && (
             <TouchableOpacity
@@ -152,18 +147,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#000',
     flex: 1,
-  },
-  nfcBadge: {
-    backgroundColor: '#007AFF',
-    borderRadius: 4,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    marginLeft: 8,
-  },
-  nfcText: {
-    color: '#fff',
-    fontSize: 10,
-    fontWeight: '600',
   },
   deleteButton: {
     padding: 4,

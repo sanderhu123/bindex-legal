@@ -32,7 +32,6 @@ export interface Binder {
   variantPlacement?: VariantPlacement; // How to display variants
   layoutPreference?: LayoutPreference; // Grid layout preference
   pokemonArtStyle?: PokemonArtStyle; // Pokemon art style for region mode
-  nfcTagId?: string; // NFC tag ID (1:1 relationship, optional for manual binders)
   cardIds: string[]; // IDs of owned cards (for backward compatibility)
   totalCards: number; // Total number of cards expected in this binder (cached)
   ownedCards: number; // Number of cards currently owned in this binder (cached)

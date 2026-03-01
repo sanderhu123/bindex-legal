@@ -1,6 +1,5 @@
 import React from 'react';
 import { createStackNavigator } from '@react-navigation/stack';
-import NfcHandlerScreen from '../screens/NfcHandler/NfcHandlerScreen';
 import OnboardingScreen from '../screens/Onboarding/OnboardingScreen';
 import BinderListScreen from '../screens/BinderList/BinderListScreen';
 import BinderDetailScreen from '../screens/BinderDetail/BinderDetailScreen';
@@ -8,12 +7,9 @@ import BinderEditScreen from '../screens/BinderEdit/BinderEditScreen';
 import CardListScreen from '../screens/CardList/CardListScreen';
 import CardDetailScreen from '../screens/CardDetail/CardDetailScreen';
 import CardSearchTestScreen from '../screens/CardSearchTest/CardSearchTestScreen';
-// ActivationCodeScreen kept in codebase but hidden from UI (Step 36A)
-// import ActivationCodeScreen from '../screens/ActivationCode/ActivationCodeScreen';
 
 export type MainStackParamList = {
-  NfcHandler: { tagId?: string } | undefined;
-  Questionnaire: { nfcTagId?: string; activationCodeId?: string } | undefined;
+  Questionnaire: undefined;
   BinderList: undefined;
   BinderDetail: { binderId: string };
   BinderEdit: { binderId: string }; // Step 34A: Binder Edit mode
@@ -55,12 +51,8 @@ export default function AppNavigator() {
       screenOptions={{
         headerShown: false,
       }}
-      initialRouteName="NfcHandler"
+      initialRouteName="BinderList"
     >
-      <Stack.Screen
-        name="NfcHandler"
-        component={NfcHandlerScreen}
-      />
       <Stack.Screen
         name="Questionnaire"
         component={OnboardingScreen}

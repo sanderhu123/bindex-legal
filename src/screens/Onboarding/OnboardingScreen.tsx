@@ -7,7 +7,6 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { CollectionMode, VariantPlacement, LayoutPreference, PokemonArtStyle } from '../../types';
 import type { Region } from '../../services/api/pokemonApi';
 import { createBinder } from '../../services/supabase/binders';
-import { linkCodeToBinder } from '../../services/supabase/registeredTags';
 import { getAvailableVariantsForSet } from '../../data/cardVariants';
 import Step1CollectionMode from './Step1CollectionMode';
 import Step2MasterSet from './Step2MasterSet';
@@ -42,8 +41,6 @@ interface OnboardingState {
 export default function OnboardingScreen() {
   const navigation = useNavigation<NavigationProp>();
   const route = useRoute();
-  const nfcTagId = (route.params as { nfcTagId?: string })?.nfcTagId;
-  const activationCodeId = (route.params as { activationCodeId?: string })?.activationCodeId;
 
   const [currentStep, setCurrentStep] = useState(1);
   const [saving, setSaving] = useState(false);
@@ -268,7 +265,6 @@ export default function OnboardingScreen() {
         variantPlacement: state.collectionMode === 'master-set' ? (state.variantPlacement || undefined) : undefined,
         layoutPreference: state.layoutPreference || undefined,
         pokemonArtStyle: state.collectionMode === 'region' ? (state.pokemonArtStyle || undefined) : undefined,
-        nfcTagId: nfcTagId || undefined,
       });
 
       console.log('[Questionnaire] ===== BINDER CREATED =====');
@@ -276,13 +272,6 @@ export default function OnboardingScreen() {
       console.log('[Questionnaire] Binder collectionMode:', binder.collectionMode);
       console.log('[Questionnaire] Binder variantsToTrack:', binder.variantsToTrack);
       console.log('[Questionnaire] ===========================');
-
-      // Step 35: Link activation code to the newly created binder
-      if (activationCodeId) {
-        console.log('[Questionnaire] Linking activation code to binder...');
-        await linkCodeToBinder(activationCodeId, binder.id);
-        console.log('[Questionnaire] Activation code linked successfully');
-      }
 
       // Navigate to binder detail
       navigation.replace('BinderDetail', { binderId: binder.id });

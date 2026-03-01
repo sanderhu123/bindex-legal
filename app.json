@@ -5,62 +5,25 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
-    "assetBundlePatterns": [
-      "**/*"
-    ],
+    "scheme": "trackerapp",
+    "assetBundlePatterns": ["**/*"],
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.trackerapp",
       "infoPlist": {
-        "NSAppTransportSecurity": {
-          "NSAllowsArbitraryLoads": true
-        },
-        "NFCReaderUsageDescription": "This app uses NFC to connect to your physical binder",
-        "com.apple.developer.nfc.readersession.iso7816.select-identifiers": ["D276000085010100"]
+        "NSAppTransportSecurity": { "NSAllowsArbitraryLoads": true }
       }
     },
     "android": {
       "package": "com.trackerapp",
-      "permissions": [
-        "INTERNET",
-        "ACCESS_NETWORK_STATE",
-        "NFC"
-      ],
-      "usesCleartextTraffic": true,
-      "intentFilters": [
-        {
-          "action": "VIEW",
-          "autoVerify": true,
-          "data": [
-            {
-              "scheme": "https",
-              "host": "yourdomain.com",
-              "pathPrefix": "/binder"
-            }
-          ],
-          "category": ["BROWSABLE", "DEFAULT"]
-        },
-        {
-          "action": "NDEF_DISCOVERED",
-          "data": [
-            {
-              "scheme": "https",
-              "host": "yourdomain.com",
-              "pathPrefix": "/binder"
-            }
-          ],
-          "category": ["DEFAULT"]
-        }
-      ]
+      "permissions": ["INTERNET", "ACCESS_NETWORK_STATE"],
+      "usesCleartextTraffic": true
     },
     "web": {},
     "extra": {
       "eas": {
         "projectId": "cf1e564f-825d-49a4-8d35-2c596b286813"
       }
-    },
-    "plugins": [
-      "react-native-nfc-manager"
-    ]
+    }
   }
 }

@@ -17,7 +17,6 @@ interface BinderRow {
   variant_placement: VariantPlacement | null;
   layout_preference: LayoutPreference | null;
   pokemon_art_style: PokemonArtStyle | null;
-  nfc_tag_id: string | null;
   total_cards: number;
   owned_cards: number;
   created_at: string;
@@ -39,7 +38,6 @@ function rowToBinder(row: BinderRow, cardIds: string[]): Binder {
     variantPlacement: row.variant_placement || undefined,
     layoutPreference: row.layout_preference || undefined,
     pokemonArtStyle: row.pokemon_art_style || undefined,
-    nfcTagId: row.nfc_tag_id || undefined,
     cardIds,
     totalCards: row.total_cards || 0,
     ownedCards: row.owned_cards || 0,
@@ -122,69 +120,6 @@ export async function getBinderById(binderId: string): Promise<Binder | null> {
 }
 
 /**
- * Get a binder by NFC tag ID
- */
-export async function getBinderByNfcTagId(nfcTagId: string): Promise<Binder | null> {
-  const { data: { user } } = await supabase.auth.getUser();
-  
-  if (!user) {
-    throw new Error('User not authenticated');
-  }
-
-  // Fetch binder by NFC tag ID
-  const { data: binder, error } = await supabase
-    .from('binders')
-    .select('*')
-    .eq('nfc_tag_id', nfcTagId)
-    .single();
-
-  if (error) {
-    if (error.code === 'PGRST116') {
-      // Not found
-      return null;
-    }
-    throw error;
-  }
-
-  // Check if binder belongs to current user
-  if (binder.user_id !== user.id) {
-    throw new Error('NFC tag belongs to another user');
-  }
-
-  // Fetch card IDs
-  const { data: binderCards } = await supabase
-    .from('binder_cards')
-    .select('card_id')
-    .eq('binder_id', binder.id);
-
-  const cardIds = binderCards?.map((bc) => bc.card_id) || [];
-  return rowToBinder(binder as BinderRow, cardIds);
-}
-
-/**
- * Check if an NFC tag ID belongs to the current user
- */
-export async function checkNfcTagOwnership(nfcTagId: string): Promise<boolean> {
-  const { data: { user } } = await supabase.auth.getUser();
-  
-  if (!user) {
-    return false;
-  }
-
-  const { data, error } = await supabase
-    .from('binders')
-    .select('user_id')
-    .eq('nfc_tag_id', nfcTagId)
-    .single();
-
-  if (error || !data) {
-    return false;
-  }
-
-  return data.user_id === user.id;
-}
-
-/**
  * Calculate total cards for a binder based on collection mode
  * Applies variant filtering if specified (for master-set mode)
  */
@@ -235,7 +170,6 @@ export async function createBinder(binder: {
   variantPlacement?: VariantPlacement;
   layoutPreference?: LayoutPreference;
   pokemonArtStyle?: PokemonArtStyle;
-  nfcTagId?: string;
 }): Promise<Binder> {
   const { data: { user } } = await supabase.auth.getUser();
   
@@ -264,7 +198,6 @@ export async function createBinder(binder: {
       variant_placement: binder.variantPlacement || null,
       layout_preference: binder.layoutPreference || null,
       pokemon_art_style: binder.pokemonArtStyle || null,
-      nfc_tag_id: binder.nfcTagId || null,
       total_cards: totalCards,
       owned_cards: 0, // New binder starts with 0 owned cards
     })
@@ -335,7 +268,6 @@ export async function updateBinder(
     variantsToTrack?: string[];
     variantPlacement?: VariantPlacement;
     layoutPreference?: LayoutPreference;
-    nfcTagId?: string;
   }
 ): Promise<Binder> {
   const { data: { user } } = await supabase.auth.getUser();
@@ -349,7 +281,6 @@ export async function updateBinder(
   if (updates.variantsToTrack !== undefined) updateData.variants_to_track = updates.variantsToTrack;
   if (updates.variantPlacement !== undefined) updateData.variant_placement = updates.variantPlacement;
   if (updates.layoutPreference !== undefined) updateData.layout_preference = updates.layoutPreference;
-  if (updates.nfcTagId !== undefined) updateData.nfc_tag_id = updates.nfcTagId || null;
 
   const { data, error } = await supabase
     .from('binders')
@@ -374,10 +305,7 @@ export async function updateBinder(
 }
 
 /**
- * Delete a binder.
- * If the binder was created with an activation code, the code stays
- * claimed by the user (they keep their credit) but the binder_id
- * link is cleared so it doesn't point to a deleted binder.
+ * Delete a binder and all associated data.
  */
 export async function deleteBinder(binderId: string): Promise<void> {
   const { data: { user } } = await supabase.auth.getUser();
@@ -385,13 +313,6 @@ export async function deleteBinder(binderId: string): Promise<void> {
   if (!user) {
     throw new Error('User not authenticated');
   }
-
-  // Unlink any activation code that points to this binder (keep credit)
-  await supabase
-    .from('registered_tags')
-    .update({ binder_id: null })
-    .eq('binder_id', binderId)
-    .eq('claimed_by', user.id);
 
   const { error } = await supabase
     .from('binders')

@@ -12,7 +12,7 @@ import type { CardSearchFilters } from '../../types';
 import { POKEMON_ERAS } from '../../data/pokemonEras';
 import { SearchableListPicker, type ListPickerItem } from './SearchableListPicker';
 import { colors, spacing, typography, borderRadius } from '../../constants/theme';
-import { getRarities } from '../../services/api/pokemonApi';
+import { getRarities, getRaritiesForSets } from '../../services/api/pokemonApi';
 
 /**
  * Props for CardPickerFilters
@@ -41,12 +41,17 @@ export function CardPickerFilters({ filters, onFiltersChange }: CardPickerFilter
   const [showIllustratorInput, setShowIllustratorInput] = useState(false);
   // Local illustrator text (committed on submit)
   const [illustratorText, setIllustratorText] = useState('');
-  // Rarities fetched from the TCGDEX API
+  // Rarities fetched from the TCGDEX API (filtered by selected sets when applicable)
   const [apiRarities, setApiRarities] = useState<string[]>([]);
 
   useEffect(() => {
-    getRarities().then(setApiRarities);
-  }, []);
+    const setIds = filters.setIds && filters.setIds.length > 0 ? filters.setIds : [];
+    if (setIds.length > 0) {
+      getRaritiesForSets(setIds).then(setApiRarities);
+    } else {
+      getRarities().then(setApiRarities);
+    }
+  }, [filters.setIds]);
 
   // ----- Build era items from hard-coded data -----
   const eraItems: ListPickerItem[] = useMemo(() => {

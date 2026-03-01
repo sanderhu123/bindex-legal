@@ -2111,5 +2111,51 @@ export async function getRarities(): Promise<string[]> {
   }
 }
 
+/**
+ * Fetch which rarities actually exist in specific set(s).
+ * For each rarity from the global list, checks if any cards with that rarity
+ * exist in the given set via the API. Results are cached per set.
+ */
+const setRarityCache: Record<string, string[]> = {};
+
+export async function getRaritiesForSets(setIds: string[]): Promise<string[]> {
+  if (setIds.length === 0) {
+    return getRarities();
+  }
+
+  const allRarities = await getRarities();
+  if (allRarities.length === 0) return [];
+
+  const uncachedSetIds = setIds.filter(id => !setRarityCache[id]);
+  
+  if (uncachedSetIds.length > 0) {
+    await Promise.all(uncachedSetIds.map(async (setId) => {
+      const found: string[] = [];
+      await Promise.all(allRarities.map(async (rarity) => {
+        try {
+          const url = `https://api.tcgdex.net/v2/en/cards?rarity=${encodeURIComponent(rarity)}&set.id=${encodeURIComponent(setId)}`;
+          const res = await fetch(url);
+          if (res.ok) {
+            const cards = await res.json();
+            if (Array.isArray(cards) && cards.length > 0) {
+              found.push(rarity);
+            }
+          }
+        } catch {
+          // skip this rarity on error
+        }
+      }));
+      setRarityCache[setId] = found.sort((a, b) => a.localeCompare(b));
+    }));
+  }
+
+  const merged = new Set<string>();
+  for (const setId of setIds) {
+    const rarities = setRarityCache[setId] || [];
+    for (const r of rarities) merged.add(r);
+  }
+  return [...merged].sort((a, b) => a.localeCompare(b));
+}
+
 
 

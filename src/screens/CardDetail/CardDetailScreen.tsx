@@ -103,6 +103,30 @@ export default function CardDetailScreen({ navigation, route }: CardDetailScreen
             setIsOwned(binderData.cardIds.includes(cardData.id));
           }
           setLoading(false);
+
+          // Cards from the search picker only have minimal data (id, name, image).
+          // If key detail fields are empty, fetch full details in the background.
+          const hasDetailFields = !!(cardData.rarity || cardData.illustrator || cardData.supertype);
+          if (!hasDetailFields && cardData.id) {
+            console.log('[CardDetail] Card data is incomplete, fetching full details for:', cardData.id);
+            try {
+              const fullCard = await getCardById(cardData.id);
+              if (fullCard) {
+                setCard((prev) => prev ? {
+                  ...prev,
+                  rarity: fullCard.rarity || prev.rarity,
+                  illustrator: fullCard.illustrator || prev.illustrator,
+                  set: fullCard.set || prev.set,
+                  supertype: fullCard.supertype || prev.supertype,
+                  setTotal: fullCard.setTotal || prev.setTotal,
+                  imageUrlHiRes: fullCard.imageUrlHiRes || prev.imageUrlHiRes,
+                } : fullCard);
+                console.log('[CardDetail] Card details enriched from API');
+              }
+            } catch (enrichErr) {
+              console.warn('[CardDetail] Could not fetch full card details:', enrichErr);
+            }
+          }
           return;
         }
 

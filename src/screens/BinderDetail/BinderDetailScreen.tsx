@@ -1224,7 +1224,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
         return {
           ...prevBinder,
           cardIds: [...prevBinder.cardIds, selectedCard.id],
-          // Don't increment ownedCards since card starts as missing
+          totalCards: (prevBinder.totalCards || 0) + 1,
         };
       });
       
@@ -1361,9 +1361,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
       prev.map((c) => (c.id === cardId ? { ...c, isOwned: newIsOwned } : c))
     );
     
-    // Note: We don't update binder.ownedCards here because extra cards are counted
-    // separately in the progress calculation (see ownedCount/totalCount calculation above)
-    // The progress bar will update automatically when extraCards state changes
+    // Extra cards don't affect the main progress bar — they are tracked separately
     
     try {
       await toggleExtraCardOwnership(currentBinderId, cardId, cardVariant);
@@ -2101,21 +2099,13 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
     binder.collectionMode === 'region' ? 'Region' :
     'Custom';
 
-  // Progress uses cached values from binder for consistency with BinderList
-  // Fallback to counting cards if cached value not available (shouldn't happen)
-  // For Master Set: include extra cards in the count (they're treated as regular cards)
-  const baseOwnedCount = binder.ownedCards ?? cards.filter(c => c.isOwned).length;
-  const baseTotalCount = binder.totalCards ?? cards.length;
-  const extraCardsCount = extraCards.length;
-  const ownedExtraCardsCount = extraCards.filter(c => c.isOwned).length;
-  
-  // Include extra cards in the main count for Master Set binders
   const isMasterSetMode = binder.collectionMode === 'master-set';
-  const ownedCount = isMasterSetMode ? baseOwnedCount + ownedExtraCardsCount : baseOwnedCount;
-  const totalCount = isMasterSetMode ? baseTotalCount + extraCardsCount : baseTotalCount;
+
+  // Progress: all modes use owned / total from binder state (kept in sync with DB)
+  // Extra cards (Master Set) are tracked separately and don't affect progress
+  const ownedCount = binder.ownedCards ?? cards.filter(c => c.isOwned).length;
+  const totalCount = binder.totalCards ?? cards.length;
   const progressPercentage = totalCount > 0 ? Math.round((ownedCount / totalCount) * 100) : 0;
-  
-  // Custom mode uses different progress format (isCustomMode defined earlier, near custom mode section)
 
   // Header element for FlatList (binder info, progress, search, filters)
   // IMPORTANT: This must be a JSX element (not an arrow function component)
@@ -2138,34 +2128,19 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
       {binder.set && <Text style={styles.text}>Set: {binder.set}</Text>}
       {binder.region && <Text style={styles.text}>Region: {binder.region}</Text>}
       
-      {/* Progress Summary */}
+      {/* Progress Summary — same formula for all modes */}
       <View style={styles.progressContainer}>
-        {isCustomMode ? (
-          // Custom mode: progress bar showing owned / filled, plus slot info
-          <>
-            <ProgressBar
-              current={Array.from(positionCards.values()).filter(c => c.isOwned).length}
-              total={positionCards.size}
-              percentage={positionCards.size > 0 
-                ? Math.round((Array.from(positionCards.values()).filter(c => c.isOwned).length / positionCards.size) * 100) 
-                : 0
-              }
-              format="full"
-              textSize="large"
-            />
-            <Text style={styles.customSlotInfo}>
-              {positionCards.size} / {customMaxSlots} slots filled
-            </Text>
-          </>
-        ) : (
-          // Master Set / Region mode: show progress bar with percentage
-          <ProgressBar
-            current={ownedCount}
-            total={totalCount}
-            percentage={progressPercentage}
-            format="full"
-            textSize="large"
-          />
+        <ProgressBar
+          current={ownedCount}
+          total={totalCount}
+          percentage={progressPercentage}
+          format="full"
+          textSize="large"
+        />
+        {isCustomMode && (
+          <Text style={styles.customSlotInfo}>
+            {positionCards.size} / {customMaxSlots} slots filled
+          </Text>
         )}
       </View>
       

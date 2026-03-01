@@ -96,7 +96,7 @@ export { syncBinderCardCount };
  * 
  * For Master Set/Region binders:
  * - total_cards = fixed (set at creation, not updated here)
- * - owned_cards = number of cards in binder_cards table
+ * - owned_cards = number of non-extra cards with is_owned = true
  */
 async function syncBinderCardCount(binderId: string): Promise<void> {
   // First, check if this is a Custom binder (has cards with positions)
@@ -151,11 +151,13 @@ async function syncBinderCardCount(binderId: string): Promise<void> {
       console.error('Failed to update card counts:', updateError);
     }
   } else {
-    // Master Set / Region binder: count all cards as owned
+    // Master Set / Region binder: count only regular (non-extra) cards marked as owned
     const { count, error: countError } = await supabase
       .from('binder_cards')
       .select('*', { count: 'exact', head: true })
-      .eq('binder_id', binderId);
+      .eq('binder_id', binderId)
+      .eq('is_owned', true)
+      .or('is_extra.is.null,is_extra.eq.false');
 
     if (countError) {
       console.error('Failed to count binder cards:', countError);

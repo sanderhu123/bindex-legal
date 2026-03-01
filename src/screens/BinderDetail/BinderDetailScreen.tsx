@@ -342,30 +342,43 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
           if (dbPositions.length > 0) {
             const cardLookup = new Map<string, CardWithOwnership>();
             updatedCards.forEach(card => cardLookup.set(card.id, card));
-            const reordered: CardWithOwnership[] = [];
-            const sortedPositions = [...dbPositions].sort((a, b) => a.slotIndex - b.slotIndex);
-            for (const pos of sortedPositions) {
+
+            const maxSlot = dbPositions.reduce((max, p) => Math.max(max, p.slotIndex), 0);
+            const arraySize = Math.max(maxSlot + 1, updatedCards.length);
+            const reordered: (CardWithOwnership | null)[] = new Array(arraySize).fill(null);
+
+            for (const pos of dbPositions) {
               if (pos.cardId) {
                 const card = cardLookup.get(pos.cardId);
                 if (card) {
-                  reordered.push(card);
+                  reordered[pos.slotIndex] = card;
                   cardLookup.delete(pos.cardId);
                 } else {
-                  // Card not in lookup (replaced via edit mode) — fetch from API
                   try {
                     const fetchedCard = await getCardById(pos.cardId);
                     if (fetchedCard) {
-                      reordered.push({
+                      reordered[pos.slotIndex] = {
                         ...fetchedCard,
                         isOwned: latestBinder.cardIds.includes(fetchedCard.id),
-                      } as CardWithOwnership);
+                      } as CardWithOwnership;
                     }
                   } catch { /* skip card */ }
                 }
               }
             }
-            cardLookup.forEach(card => reordered.push(card));
-            updatedCards = reordered;
+
+            const remaining = Array.from(cardLookup.values());
+            let remainingIdx = 0;
+            for (let i = 0; i < reordered.length; i++) {
+              if (reordered[i] === null && remainingIdx < remaining.length) {
+                reordered[i] = remaining[remainingIdx++];
+              }
+            }
+            while (remainingIdx < remaining.length) {
+              reordered.push(remaining[remainingIdx++]);
+            }
+
+            updatedCards = reordered.filter(c => c !== null) as CardWithOwnership[];
             console.log('[BinderDetail] Applied saved positions on refresh:', dbPositions.length);
           }
         } catch (dbErr) {
@@ -394,30 +407,43 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
           if (dbPositions.length > 0) {
             const cardLookup = new Map<string, CardWithOwnership>();
             updatedMasterCards.forEach(card => cardLookup.set(card.id, card));
-            const reordered: CardWithOwnership[] = [];
-            const sortedPositions = [...dbPositions].sort((a, b) => a.slotIndex - b.slotIndex);
-            for (const pos of sortedPositions) {
+
+            const maxSlot = dbPositions.reduce((max, p) => Math.max(max, p.slotIndex), 0);
+            const arraySize = Math.max(maxSlot + 1, updatedMasterCards.length);
+            const reordered: (CardWithOwnership | null)[] = new Array(arraySize).fill(null);
+
+            for (const pos of dbPositions) {
               if (pos.cardId) {
                 const card = cardLookup.get(pos.cardId);
                 if (card) {
-                  reordered.push(card);
+                  reordered[pos.slotIndex] = card;
                   cardLookup.delete(pos.cardId);
                 } else {
-                  // Card not in lookup (replaced via edit mode) — fetch from API
                   try {
                     const fetchedCard = await getCardById(pos.cardId);
                     if (fetchedCard) {
-                      reordered.push({
+                      reordered[pos.slotIndex] = {
                         ...fetchedCard,
                         isOwned: latestBinder.cardIds.includes(fetchedCard.id),
-                      } as CardWithOwnership);
+                      } as CardWithOwnership;
                     }
                   } catch { /* skip card */ }
                 }
               }
             }
-            cardLookup.forEach(card => reordered.push(card));
-            updatedMasterCards = reordered;
+
+            const remaining = Array.from(cardLookup.values());
+            let remainingIdx = 0;
+            for (let i = 0; i < reordered.length; i++) {
+              if (reordered[i] === null && remainingIdx < remaining.length) {
+                reordered[i] = remaining[remainingIdx++];
+              }
+            }
+            while (remainingIdx < remaining.length) {
+              reordered.push(remaining[remainingIdx++]);
+            }
+
+            updatedMasterCards = reordered.filter(c => c !== null) as CardWithOwnership[];
             console.log('[BinderDetail] Applied saved positions on refresh:', dbPositions.length);
           }
         } catch (dbErr) {

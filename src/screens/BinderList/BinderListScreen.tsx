@@ -14,7 +14,7 @@ import type { MainStackParamList } from '../../navigation/AppNavigator';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { signOut } from '../../services/supabase/auth';
 import { getBinders, deleteBinder } from '../../services/supabase/binders';
-import { canCreateBinder, canDeleteBinder, recordDeletionUsed, getBinderUsage } from '../../services/pro/proService';
+import { canCreateBinder, canDeleteBinder, recordDeletionUsed, getBinderUsage, presentProPaywall, isUserPro } from '../../services/pro/proService';
 import type { Binder } from '../../types';
 import BinderCard from '../../components/Binder/BinderCard';
 import LoadingScreen from '../../components/Loading/LoadingScreen';
@@ -33,14 +33,13 @@ export default function BinderListScreen() {
   const [binders, setBinders] = useState<BinderWithProgress[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [isPro, setIsPro] = useState(false);
 
   const loadBinders = async () => {
     try {
       const fetchedBinders = await getBinders();
       
-      // Calculate progress from cached values (instant!)
       const bindersWithProgress = fetchedBinders.map((binder) => {
-        // Progress is calculated from cached totalCards and ownedCards
         const progress = binder.totalCards > 0 
           ? Math.round((binder.ownedCards / binder.totalCards) * 100)
           : 0;
@@ -53,6 +52,9 @@ export default function BinderListScreen() {
       });
 
       setBinders(bindersWithProgress);
+
+      // Check Pro status (non-blocking)
+      isUserPro().then(setIsPro).catch(() => {});
     } catch (error: any) {
       console.error('Error loading binders:', error);
       Alert.alert('Error', error.message || 'Failed to load binders. Please try again.');
@@ -87,13 +89,18 @@ export default function BinderListScreen() {
       const allowed = await canCreateBinder();
       if (!allowed) {
         Alert.alert(
-          'Upgrade to Pro',
+          'Upgrade to Bindex Pro',
           'Free accounts can create 1 binder. Upgrade to Pro for unlimited binders!',
           [
             { text: 'Not Now', style: 'cancel' },
             {
               text: 'Upgrade to Pro',
-              onPress: () => navigation.navigate('Upgrade'),
+              onPress: async () => {
+                const purchased = await presentProPaywall();
+                if (purchased) {
+                  navigation.navigate('Questionnaire');
+                }
+              },
             },
           ]
         );
@@ -176,13 +183,13 @@ export default function BinderListScreen() {
       // Free user — check if they can still delete
       if (!usage.canDelete) {
         Alert.alert(
-          'Upgrade to Pro',
+          'Upgrade to Bindex Pro',
           "You've used your free do-over. Upgrade to Pro to manage your binders freely.",
           [
             { text: 'Not Now', style: 'cancel' },
             {
               text: 'Upgrade to Pro',
-              onPress: () => navigation.navigate('Upgrade'),
+              onPress: () => presentProPaywall(),
             },
           ]
         );
@@ -304,6 +311,18 @@ export default function BinderListScreen() {
           <TouchableOpacity style={styles.fixButton} onPress={handleFixBinders}>
             <Text style={styles.fixButtonText}>🔧 Fix</Text>
           </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.proButton, isPro && styles.proButtonActive]}
+            onPress={() => {
+              if (isPro) {
+                Alert.alert('Bindex Pro', 'You have Bindex Pro! Unlimited binders are unlocked.');
+              } else {
+                navigation.navigate('Upgrade');
+              }
+            }}
+          >
+            <Text style={styles.proButtonText}>{isPro ? 'Pro ✓' : 'Pro'}</Text>
+          </TouchableOpacity>
           <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
             <Text style={styles.logoutText}>Logout</Text>
           </TouchableOpacity>
@@ -366,6 +385,20 @@ const styles = StyleSheet.create({
     color: colors.background,
     fontSize: typography.xs,
     fontWeight: typography.semibold,
+  },
+  proButton: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    backgroundColor: colors.warning,
+    borderRadius: borderRadius.sm,
+  },
+  proButtonActive: {
+    backgroundColor: colors.success,
+  },
+  proButtonText: {
+    color: colors.background,
+    fontSize: typography.xs,
+    fontWeight: typography.bold,
   },
   logoutButton: {
     paddingHorizontal: spacing.md,

@@ -1,15 +1,15 @@
 import Purchases from 'react-native-purchases';
+import RevenueCatUI, { PAYWALL_RESULT } from 'react-native-purchases-ui';
 import { Platform } from 'react-native';
 import { supabase } from '../supabase/client';
 import type { BinderUsage, UserTier } from '../../types';
 
 // ── RevenueCat Configuration ──────────────────────────────────────────────
-// Replace these with your actual RevenueCat API keys from:
-// https://app.revenuecat.com → Project → API Keys
-const REVENUECAT_API_KEY_APPLE = 'YOUR_APPLE_API_KEY_HERE';
-const REVENUECAT_API_KEY_GOOGLE = 'YOUR_GOOGLE_API_KEY_HERE';
+// Test API key from RevenueCat dashboard
+// When you're ready for production, replace with your production Apple/Google keys
+const REVENUECAT_API_KEY = 'test_lGmWpspQuKtclxqeQpOoPbXKrFy';
 
-const PRO_ENTITLEMENT_ID = 'pro';
+const PRO_ENTITLEMENT_ID = 'Bindex Pro';
 
 // Free tier limits
 const FREE_MAX_LIFETIME_BINDERS = 2; // 1 original + 1 do-over recreation
@@ -20,11 +20,7 @@ const FREE_MAX_DELETIONS = 1;        // 1 do-over
  */
 export async function initializeRevenueCat(): Promise<void> {
   try {
-    const apiKey = Platform.OS === 'ios'
-      ? REVENUECAT_API_KEY_APPLE
-      : REVENUECAT_API_KEY_GOOGLE;
-
-    await Purchases.configure({ apiKey });
+    await Purchases.configure({ apiKey: REVENUECAT_API_KEY });
     console.log('[Pro] RevenueCat initialized');
   } catch (error) {
     console.warn('[Pro] Failed to initialize RevenueCat:', error);
@@ -33,6 +29,7 @@ export async function initializeRevenueCat(): Promise<void> {
 
 /**
  * Identify the current user with RevenueCat (call after login).
+ * Links the RevenueCat customer to your Supabase user ID.
  */
 export async function identifyUser(userId: string): Promise<void> {
   try {
@@ -44,7 +41,7 @@ export async function identifyUser(userId: string): Promise<void> {
 }
 
 /**
- * Check if the current user has Pro access.
+ * Check if the current user has the "Bindex Pro" entitlement.
  * Checks RevenueCat first (source of truth), then syncs with Supabase.
  */
 export async function isUserPro(): Promise<boolean> {
@@ -52,7 +49,6 @@ export async function isUserPro(): Promise<boolean> {
     const customerInfo = await Purchases.getCustomerInfo();
     const hasPro = customerInfo.entitlements.active[PRO_ENTITLEMENT_ID] !== undefined;
 
-    // Sync with Supabase if RevenueCat says Pro
     if (hasPro) {
       await syncProStatus('pro');
     }
@@ -60,8 +56,65 @@ export async function isUserPro(): Promise<boolean> {
     return hasPro;
   } catch (error) {
     console.warn('[Pro] RevenueCat check failed, falling back to Supabase:', error);
-    // Fallback: check Supabase directly
     return await checkSupabaseTier();
+  }
+}
+
+/**
+ * Present the RevenueCat Paywall modally.
+ * The paywall design is configured in the RevenueCat dashboard.
+ * Returns true if the user purchased or restored Pro.
+ */
+export async function presentProPaywall(): Promise<boolean> {
+  try {
+    const result: PAYWALL_RESULT = await RevenueCatUI.presentPaywallIfNeeded({
+      requiredEntitlementIdentifier: PRO_ENTITLEMENT_ID,
+    });
+
+    switch (result) {
+      case PAYWALL_RESULT.PURCHASED:
+      case PAYWALL_RESULT.RESTORED:
+        await syncProStatus('pro');
+        console.log('[Pro] Paywall result: purchased/restored');
+        return true;
+      case PAYWALL_RESULT.NOT_PRESENTED:
+        // User already has the entitlement
+        console.log('[Pro] Paywall not presented — user already Pro');
+        return true;
+      case PAYWALL_RESULT.CANCELLED:
+        console.log('[Pro] Paywall dismissed by user');
+        return false;
+      case PAYWALL_RESULT.ERROR:
+        console.warn('[Pro] Paywall encountered an error');
+        return false;
+      default:
+        return false;
+    }
+  } catch (error) {
+    console.error('[Pro] Failed to present paywall:', error);
+    return false;
+  }
+}
+
+/**
+ * Present the paywall unconditionally (even if user is already Pro).
+ * Useful for the Upgrade screen where user explicitly navigated there.
+ */
+export async function presentPaywallAlways(): Promise<boolean> {
+  try {
+    const result: PAYWALL_RESULT = await RevenueCatUI.presentPaywall();
+
+    switch (result) {
+      case PAYWALL_RESULT.PURCHASED:
+      case PAYWALL_RESULT.RESTORED:
+        await syncProStatus('pro');
+        return true;
+      default:
+        return false;
+    }
+  } catch (error) {
+    console.error('[Pro] Failed to present paywall:', error);
+    return false;
   }
 }
 
@@ -84,7 +137,6 @@ export async function getBinderUsage(): Promise<BinderUsage> {
   const lifetimeCreated = profile.lifetime_binders_created || 0;
   const deletionsUsed = profile.free_deletions_used || 0;
 
-  // Count current active binders
   const { count } = await supabase
     .from('binders')
     .select('id', { count: 'exact', head: true })
@@ -106,7 +158,7 @@ export async function getBinderUsage(): Promise<BinderUsage> {
 
 /**
  * Check if the user can create a new binder.
- * Free users: lifetime_binders_created < 2 (1 original + 1 do-over)
+ * Free users: lifetime_binders_created < 2
  * Pro users: always true
  */
 export async function canCreateBinder(): Promise<boolean> {
@@ -130,7 +182,7 @@ export async function canDeleteBinder(): Promise<boolean> {
     return usage.canDelete;
   } catch (error) {
     console.error('[Pro] Error checking delete permission:', error);
-    return true; // Fail open
+    return true;
   }
 }
 
@@ -145,7 +197,6 @@ export async function recordBinderCreated(): Promise<void> {
     user_id_input: user.id,
   });
 
-  // Fallback if RPC doesn't exist yet: manual update
   if (error) {
     console.warn('[Pro] RPC fallback for recordBinderCreated:', error.message);
     const { data: profile } = await supabase
@@ -174,7 +225,6 @@ export async function recordDeletionUsed(): Promise<void> {
     user_id_input: user.id,
   });
 
-  // Fallback if RPC doesn't exist yet
   if (error) {
     console.warn('[Pro] RPC fallback for recordDeletionUsed:', error.message);
     const { data: profile } = await supabase
@@ -189,41 +239,6 @@ export async function recordDeletionUsed(): Promise<void> {
         free_deletions_used: (profile?.free_deletions_used || 0) + 1,
       })
       .eq('id', user.id);
-  }
-}
-
-/**
- * Purchase Pro upgrade via RevenueCat.
- * Returns true if purchase was successful.
- */
-export async function purchasePro(): Promise<boolean> {
-  try {
-    const offerings = await Purchases.getOfferings();
-    const currentOffering = offerings.current;
-
-    if (!currentOffering || !currentOffering.availablePackages.length) {
-      throw new Error('No offerings available');
-    }
-
-    // Get the first available package (our Pro product)
-    const proPackage = currentOffering.availablePackages[0];
-    const { customerInfo } = await Purchases.purchasePackage(proPackage);
-
-    const hasPro = customerInfo.entitlements.active[PRO_ENTITLEMENT_ID] !== undefined;
-
-    if (hasPro) {
-      await syncProStatus('pro');
-      console.log('[Pro] Purchase successful!');
-    }
-
-    return hasPro;
-  } catch (error: any) {
-    if (error.userCancelled) {
-      console.log('[Pro] User cancelled purchase');
-      return false;
-    }
-    console.error('[Pro] Purchase failed:', error);
-    throw error;
   }
 }
 

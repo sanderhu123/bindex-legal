@@ -1,8 +1,8 @@
 # Build Steps - Pokémon TCG Binder Tracker App
 
-> **📅 Last Updated:** February 11, 2026  
-> **🎯 Status:** ~90% Complete - Core features done, Phase 10 (Advanced Features) done, Binder Position System done, Binder Edit Mode partially done  
-> **✅ Major Milestones:** All phases 1-8 complete, Phase 10 (Advanced Features) complete, Step 33 (Binder Position System) complete, Step 34 (Binder Edit Mode) partially complete, Phase 9 (Monetization) planned, Phase 11 (Binder Activation System) planned
+> **📅 Last Updated:** March 1, 2026  
+> **🎯 Status:** ~95% Complete - Core features done, Phase 10 (Advanced Features) done, Binder Position System done, Binder Edit Mode complete, Phase 11 (Binder Activation System) mostly done  
+> **✅ Major Milestones:** All phases 1-8 complete, Phase 10 (Advanced Features) complete, Step 33 (Binder Position System) complete, Step 34 (Binder Edit Mode) complete, Phase 11 (Binder Activation System) mostly complete (35A/35B/35E/35F/35I done, 35J pending)
 
 ## Overview
 
@@ -57,43 +57,40 @@ This guide walks you through building the app step-by-step. We'll build it incre
   - Step 33F: Page Headers Toggle in Grid View ✅
   - Step 33G: Variants in Position System ✅
 
-### ⚠️ **Partially Implemented**
-- **Step 16**: Add/Remove Cards - Basic tap-to-toggle works, but dedicated AddCardScreen not created
-- **Step 19**: Offline Support - React Query caching exists, but dedicated offline storage files not created
-- **Step 24F**: Variant Handling - Comprehensive logic implemented, needs integration testing
-- **Step 34**: Binder Edit Mode - Partially complete (34A-D + 34G done, 34E/34F/34H/34I not done)
+- **Step 34**: Binder Edit Mode - All complete
   - Step 34A: Update View Modes UI & Interactions ✅
   - Step 34B: Create Binder Edit Screen (Master Set / Custom) ✅
   - Step 34C: Implement Tap-to-Select System (with Remove button) ✅
   - Step 34D: Implement Card Placeholder Tray & Trash Zone ✅
-  - Step 34E: Implement Insert Functionality (Plus Signs) - Not started
-  - Step 34F: Implement Drag & Drop System - Not started
+  - Step 34E: Implement Insert Functionality (Plus Signs) ✅
+  - Step 34F: Implement Drag & Drop System ✅
   - Step 34G: Implement Undo & Save System ✅
   - Step 34H: Region Binder Edit (Simple Version Picker) ✅
-  - Step 34I: Database Storage for Card Positions - Not started
+  - Step 34I: Database Storage for Card Positions ✅
+- **Phase 11**: Binder Activation System (Step 35) - Mostly complete
+  - Step 35A: Database - `registered_tags` Table ✅
+  - Step 35B: Database - Binder Limits & User Tier ✅
+  - ~~Step 35C: Deep Linking Setup~~ — Skipped (no NFC)
+  - ~~Step 35D: Landing Web Page~~ — Skipped (no NFC)
+  - Step 35E: Activation Code Validation Service ✅
+  - Step 35F: Activation Code Entry UI ✅
+  - ~~Step 35G: Update NFC Handler~~ — Skipped (no NFC)
+  - ~~Step 35H: View-Only Binder Sharing~~ — Skipped (no NFC)
+  - Step 35I: Transfer Binder Ownership ✅ (service done, no UI yet)
+
+### ⚠️ **Partially Implemented**
+- **Step 16**: Add/Remove Cards - Basic tap-to-toggle works, but dedicated AddCardScreen not created
+- **Step 19**: Offline Support - React Query caching exists, but dedicated offline storage files not created
+- **Step 24F**: Variant Handling - Comprehensive logic implemented, needs integration testing
 
 ### ❌ **Not Yet Implemented**
 - **Step 23**: Comprehensive Testing - Needs user testing
 - **Step 27**: Premium System (Freemium Model) - Not started (see Step 35 for updated NFC/monetization plan)
-- **Step 34E**: Insert Functionality (Plus Signs) - Not started
-- **Step 34F**: Drag & Drop System - Not started
-- **Step 34H**: Region Binder Edit (Simple Version Picker) ✅
-- **Step 34I**: Database Storage for Card Positions - Not started
+- **Step 35J**: Binder Limit Enforcement in UI - Not started (service functions exist, but no UI integration)
 - **Step 25**: Build for Production - Not started
 - **Step 26**: Deploy to App Stores - Not started
-- **Phase 11**: Binder Activation System (Step 35) - Not started
-  - Step 35A: Database - `registered_tags` Table
-  - Step 35B: Database - Binder Limits & User Tier
-  - ~~Step 35C: Deep Linking Setup~~ — Skipped (no NFC)
-  - ~~Step 35D: Landing Web Page~~ — Skipped (no NFC)
-  - Step 35E: Activation Code Validation Service
-  - Step 35F: Activation Code Entry UI
-  - ~~Step 35G: Update NFC Handler~~ — Skipped (no NFC)
-  - ~~Step 35H: View-Only Binder Sharing~~ — Skipped (no NFC)
-  - Step 35I: Transfer Binder Ownership
-  - Step 35J: Binder Limit Enforcement in UI
 
-### 📊 **Overall Progress**: ~90% Complete (Core features done, Phase 10 advanced features done, Binder Position System done, Binder Edit Mode partially done. Remaining: NFC binder integration, premium system, insert/drag-drop in edit mode, region edit, position storage, testing, production build)
+### 📊 **Overall Progress**: ~95% Complete (Core features done, Phase 10 advanced features done, Binder Position System done, Binder Edit Mode complete, Phase 11 activation system mostly done. Remaining: binder limit UI enforcement, premium system, testing, production build)
 
 ---
 
@@ -3378,11 +3375,11 @@ I'll begin with Phase 1, Step 1, and we'll build it step by step! 🚀
    - Create premium status screen
    - Test premium flow end-to-end
 
-2. **Binder Edit Mode - Remaining Steps** (Step 34):
-   - **Step 34E**: Insert Functionality (Plus Signs) - Not started
-   - **Step 34F**: Drag & Drop System - Not started
+2. **Binder Edit Mode** (Step 34): ✅ All complete
+   - **Step 34E**: Insert Functionality (Plus Signs) ✅
+   - **Step 34F**: Drag & Drop System ✅
    - **Step 34H**: Region Binder Edit (Simple Version Picker) ✅
-   - **Step 34I**: Database Storage for Card Positions - Not started
+   - **Step 34I**: Database Storage for Card Positions ✅
 
 3. **Install NFC Package** (if you want NFC functionality):
    ```bash
@@ -3438,13 +3435,23 @@ I'll begin with Phase 1, Step 1, and we'll build it step by step! 🚀
   - Page navigator with arrows and jump-to-page
   - Position info (Page X, Slot Y) in card details
   - Page headers toggle in grid view
-- **Binder Edit Mode (partially complete - Step 34):**
+- **Binder Edit Mode (complete - Step 34):**
   - Edit button in binder header (Step 34A)
   - Long-press enlarge preview in Grid/Binder views (Step 34A)
   - Full Binder Edit Screen with page navigation (Step 34B)
   - Tap-to-select with cross-page selection (Step 34C)
   - Card Placeholder tray with trash zone (Step 34D)
+  - Insert functionality with plus signs (Step 34E)
+  - Drag & drop system (Step 34F)
   - Undo stack and save system (Step 34G)
+  - Region binder edit with version picker (Step 34H)
+  - Database storage for card positions (Step 34I)
+- **Binder Activation System (mostly complete - Step 35):**
+  - Database registered_tags table with RLS (Step 35A)
+  - Binder limit functions (Step 35B)
+  - Activation code validation service (Step 35E)
+  - Activation code entry UI screen (Step 35F)
+  - Transfer binder ownership service (Step 35I)
 - **Additional features:**
   - Migration system for database schema updates
   - Admin screen for fixing existing binders
@@ -3456,9 +3463,9 @@ I'll begin with Phase 1, Step 1, and we'll build it step by step! 🚀
   - Persistent search cache (memory + AsyncStorage)
 
 ### 🎯 **Current State:** 
-The app is **~90% complete** and fully functional for core and advanced features. You can create binders (Master Set, Region, Custom), add cards, track progress, search globally, add extra cards, select region card versions, view binder pages, and edit card positions. What remains is:
+The app is **~95% complete** and fully functional for core and advanced features. You can create binders (Master Set, Region, Custom), add cards, track progress, search globally, add extra cards, select region card versions, view binder pages, edit card positions (insert, drag & drop), and activate binder codes. What remains is:
 - **Phase 9** (Step 27): Premium/monetization system
-- **Step 34E/F/H/I**: Insert functionality, drag & drop, region edit, position database storage
+- **Step 35J**: Binder limit enforcement in UI
 - **Testing** (Step 23): Comprehensive testing
 - **Production** (Steps 25-26): Build and deploy to app stores
 
@@ -7106,11 +7113,11 @@ const savePositions = async () => {
 - [x] Card Placeholder works correctly (Step 34D) ✅
 - [ ] Trash zone for removing cards works (Step 34D) - Ready to test
 - [ ] Placeholder full handling works (Step 34D) - Ready to test
-- [ ] Insert (plus signs) works correctly (Step 34E) - NOT IMPLEMENTED
-- [ ] Drag & drop works correctly (Step 34F) - NOT IMPLEMENTED
+- [ ] Insert (plus signs) works correctly (Step 34E) - Ready to test
+- [ ] Drag & drop works correctly (Step 34F) - Ready to test
 - [x] Undo and save system works (Step 34G) ✅
 - [x] Region binder has simplified edit mode (Step 34H) ✅
-- [ ] Database positions save and load correctly (Step 34I) - NOT IMPLEMENTED
+- [ ] Database positions save and load correctly (Step 34I) - Ready to test
 - [ ] Works for Master Set binders - Ready to test
 - [ ] Works for Custom binders - Ready to test
 - [x] Works for Region binders ✅ (Step 34H)
@@ -7125,7 +7132,7 @@ const savePositions = async () => {
 ## Phase 11: Binder Activation System
 
 ### Step 35: Binder Activation & Limits
-- [ ] **Status**: Not started
+- [x] **Status**: Mostly complete (35A ✅, 35B ✅, 35C skipped, 35D skipped, 35E ✅, 35F ✅, 35G skipped, 35H skipped, 35I ✅ service only, 35J not started)
 
 **What we're doing:** Build the activation code system that connects physical Pokémon TCG binders to the app. Each physical binder comes with a printed activation code. Users enter the code in the app to unlock more binder slots. The app is free to download for everyone.
 
@@ -7218,7 +7225,7 @@ const savePositions = async () => {
 ---
 
 #### Step 35A: Database - `registered_tags` Table
-- [ ] **Status**: Not started
+- [x] **Status**: Complete ✅
 
 **What we're doing:** Create the `registered_tags` table in Supabase to store all pre-registered activation codes. This is the core table that prevents fake codes from working. Only codes you register in this table will be accepted by the app.
 
@@ -7390,7 +7397,7 @@ ORDER BY ordinal_position;
 ---
 
 #### Step 35B: Database - Binder Limits & User Tier
-- [ ] **Status**: Not started
+- [x] **Status**: Complete ✅
 
 **What we're doing:** Add the logic to count how many activation codes a user has used and enforce binder creation limits based on that count
 
@@ -7564,7 +7571,7 @@ SELECT * FROM get_user_binder_info('00000000-0000-0000-0000-000000000000');
 ---
 
 #### Step 35E: Activation Code Validation Service
-- [ ] **Status**: Not started
+- [x] **Status**: Complete ✅
 
 **What we're doing:** Create the app-side service that communicates with the `registered_tags` table. This handles activation code validation, claiming, and binder limit checks.
 
@@ -7696,7 +7703,7 @@ export async function getTagForBinder(binderId: string): Promise<TagInfo | null>
 ---
 
 #### Step 35F: Activation Code Entry UI
-- [ ] **Status**: Not started
+- [x] **Status**: Complete ✅
 
 **What we're doing:** Create a screen where users can manually type their activation code (from the card inside the binder box) as an alternative to NFC scanning.
 
@@ -7795,7 +7802,7 @@ export async function getTagForBinder(binderId: string): Promise<TagInfo | null>
 ---
 
 #### Step 35I: Transfer Binder Ownership
-- [ ] **Status**: Not started
+- [x] **Status**: Partially complete (service function done, no UI yet)
 
 **What we're doing:** Allow a binder owner to transfer their binder (and its activation code) to another user. This is useful when someone sells or gives away their physical binder.
 
@@ -7964,18 +7971,18 @@ export async function transferBinderCode(binderId: string): Promise<boolean>
 ---
 
 **Overall Testing Checklist for Step 35:**
-- [ ] `registered_tags` table created with correct schema (Step 35A)
-- [ ] RLS policies work correctly (Step 35A)
-- [ ] Binder limit functions return correct values (Step 35B)
+- [x] `registered_tags` table created with correct schema (Step 35A) ✅
+- [ ] RLS policies work correctly (Step 35A) - Ready to test
+- [x] Binder limit functions return correct values (Step 35B) ✅
 - [x] ~~Deep linking configured in `app.json` (Step 35C)~~ — Skipped
 - [x] ~~Landing web page redirects correctly (Step 35D)~~ — Skipped
-- [ ] Activation code validation service works (Step 35E)
-- [ ] Activation code entry screen works end-to-end (Step 35F)
+- [x] Activation code validation service works (Step 35E) ✅
+- [x] Activation code entry screen works end-to-end (Step 35F) ✅
 - [x] ~~NFC handler validates against registered_tags (Step 35G)~~ — Skipped
 - [x] ~~View-only mode shows other users' binders (Step 35H)~~ — Skipped
-- [ ] Transfer binder resets code and preserves data (Step 35I)
-- [ ] Binder limit enforced in UI (Step 35J)
-- [ ] Limit message shows correctly with activation options (Step 35J)
+- [ ] Transfer binder resets code and preserves data (Step 35I) - Service done, needs UI + testing
+- [ ] Binder limit enforced in UI (Step 35J) - NOT IMPLEMENTED
+- [ ] Limit message shows correctly with activation options (Step 35J) - NOT IMPLEMENTED
 - [ ] Full flow: enter activation code → claim code → create binder (E2E)
 - [ ] Full flow: transfer binder → new owner enters code (E2E)
 - [ ] Free user limited to 1 binder (E2E)

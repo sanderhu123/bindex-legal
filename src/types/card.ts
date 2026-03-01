@@ -27,7 +27,7 @@ export interface Card {
   number: string; // Set number (e.g., "001/150") or Pokédex number for Region mode
   set: string; // Set name (or region name for Region mode)
   rarity: string; // Rarity (Common, Uncommon, Rare, etc.) - empty for Region mode
-  artist: string; // Artist name - empty for Region mode
+  illustrator: string; // Illustrator name - empty for Region mode
   imageUrl?: string; // Low-res image for grid view - Optional for Region mode
   imageUrlHiRes?: string; // High-res image for detail view - Optional
   pokedexNumber?: number; // For region mode
@@ -37,7 +37,7 @@ export interface Card {
   selectedCardId?: string; // For Region mode: ID of the custom TCG card selected for this Pokemon slot
   // For Region mode: Store TCG card details when a custom selection is made
   selectedCardRarity?: string;
-  selectedCardArtist?: string;
+  selectedCardIllustrator?: string;
   selectedCardSet?: string;
 }
 

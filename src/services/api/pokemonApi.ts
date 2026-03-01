@@ -704,8 +704,7 @@ async function transformTcgdexCardToCard(tcgdexCard: any): Promise<Card> {
     localId: tcgdexCard.localId,
     imageField: tcgdexCard.image,
     rarity: tcgdexCard.rarity,
-    artist: tcgdexCard.artist,
-    illustrator: tcgdexCard.illustrator, // TCGDEX might use "illustrator" instead of "artist"
+    illustrator: tcgdexCard.illustrator,
     category: tcgdexCard.category, // Supertype field
     set: tcgdexCard.set, // To check cardCount
     allKeys: Object.keys(tcgdexCard),
@@ -729,20 +728,20 @@ async function transformTcgdexCardToCard(tcgdexCard: any): Promise<Card> {
     ? String(tcgdexCard.set.cardCount.official) 
     : '';
   
-  // Artist field - TCGDEX uses "illustrator" (not "artist")
+  // Illustrator field - TCGDEX uses "illustrator"
   // According to the REST API, illustrator should be a direct string on full card objects
   // But the TypeScript SDK might wrap it, so we try multiple approaches
-  let artist = '';
+  let illustratorName = '';
   
   // Try direct access first (should work for full cards from tcgdex.card.get())
   try {
-    artist = tcgdexCard.illustrator || '';
+    illustratorName = tcgdexCard.illustrator || '';
   } catch (e) {
     console.warn('[24C] Direct illustrator access failed:', e);
   }
   
   // If still empty, try alternative approaches
-  if (!artist && tcgdexCard.illustrator) {
+  if (!illustratorName && tcgdexCard.illustrator) {
     const ill = tcgdexCard.illustrator;
     
     // Log the illustrator object to debug
@@ -755,26 +754,26 @@ async function transformTcgdexCardToCard(tcgdexCard: any): Promise<Card> {
     
     // Try different ways to extract the value
     if (typeof ill === 'string') {
-      artist = ill;
+      illustratorName = ill;
     } else if (typeof ill === 'object') {
-      artist = ill?.name || ill?.value || String(ill) || '';
+      illustratorName = ill?.name || ill?.value || String(ill) || '';
     }
   }
   
   // Final fallback: try getIllustrator() method if it exists
-  if (!artist && typeof tcgdexCard.getIllustrator === 'function') {
+  if (!illustratorName && typeof tcgdexCard.getIllustrator === 'function') {
     try {
       const result = await tcgdexCard.getIllustrator();
-      artist = typeof result === 'string' ? result : result?.name || '';
-      console.log('[24C] Got illustrator from getIllustrator():', artist);
+      illustratorName = typeof result === 'string' ? result : result?.name || '';
+      console.log('[24C] Got illustrator from getIllustrator():', illustratorName);
     } catch (error) {
       console.warn('[24C] getIllustrator() failed:', error);
     }
   }
   
-  console.log('[24C] Final artist value:', {
-    artist,
-    hasArtist: !!artist,
+  console.log('[24C] Final illustrator value:', {
+    illustrator: illustratorName,
+    hasIllustrator: !!illustratorName,
     cardId,
     cardName,
   });
@@ -889,7 +888,7 @@ async function transformTcgdexCardToCard(tcgdexCard: any): Promise<Card> {
     number: cardNumber,
     set: setName,
     rarity: rarity,
-    artist: artist,
+    illustrator: illustratorName,
     imageUrl: imageUrl, // Low-res for grid view
     imageUrlHiRes: imageUrlHiRes, // High-res for detail view
     variant: 'base' as const, // Default to base variant for now (Step 24F will handle variants)
@@ -1320,7 +1319,7 @@ export async function getCardsByRegion(region: Region, pokemonArtStyle?: Pokemon
     number: `#${pokemon.number.toString().padStart(3, '0')}`, // Format as #001, #002, etc.
     set: `${region} Region`, // Use region name as "set"
     rarity: '', // No rarity for Region mode
-    artist: '', // No artist for Region mode
+    illustrator: '', // No illustrator for Region mode
     imageUrl: pokemonArtStyle ? getPokemonImageUrl(pokemon.number, pokemonArtStyle) : undefined,
     pokedexNumber: pokemon.number,
     variant: 'base' as const, // Always base for Region mode
@@ -1932,7 +1931,7 @@ export async function searchCardsByName(
           number: card.localId || '',
           set: card.set?.name || setId, // Set name if available, otherwise set ID
           rarity: card.rarity || '',
-          artist: card.illustrator || '',
+          illustrator: card.illustrator || '',
           imageUrl,
           imageUrlHiRes,
           variant: 'base' as const,
@@ -2003,9 +2002,9 @@ export async function searchCardsByName(
       if (filters?.illustrators && filters.illustrators.length > 1) {
         const illLower = filters.illustrators.map(i => i.toLowerCase());
         clientFilteredCards = clientFilteredCards.filter(card => {
-          if (!card.artist) return false;
-          const artistLower = card.artist.toLowerCase();
-          return illLower.some(ill => artistLower.includes(ill));
+          if (!card.illustrator) return false;
+          const illustratorLower = card.illustrator.toLowerCase();
+          return illLower.some(ill => illustratorLower.includes(ill));
         });
         console.log('[28A] Filtered by multiple illustrators (client-side):', {
           illustrators: filters.illustrators,

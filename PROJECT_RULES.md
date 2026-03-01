@@ -152,7 +152,7 @@ interface Card {
   number: string;        // Set number (e.g., "001/150")
   set: string;           // Set name
   rarity: string;        // Rarity (Common, Uncommon, Rare, etc.)
-  artist: string;
+  illustrator: string;
   imageUrl: string;
   pokedexNumber?: number; // For region mode
 }

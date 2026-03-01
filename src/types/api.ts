@@ -47,7 +47,7 @@ export interface TcgdexCard {
     name: string;
   };
   rarity?: string;
-  artist?: string;
+  illustrator?: string;
   images?: {
     small?: string;
     large?: string;

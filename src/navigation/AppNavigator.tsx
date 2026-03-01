@@ -30,7 +30,7 @@ export type MainStackParamList = {
       number: string;
       set: string;
       rarity: string;
-      artist: string;
+      illustrator: string;
       imageUrl?: string;
       imageUrlHiRes?: string;
       variant?: string;

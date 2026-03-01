@@ -400,7 +400,7 @@ export default function CardDetailScreen({ navigation, route }: CardDetailScreen
   // Estimate space needed for other elements:
   // - Header: ~60px
   // - Padding top/bottom: 24px (12px * 2)
-  // - Card details: ~110px (name, number, set, rarity, artist with reduced spacing)
+  // - Card details: ~110px (name, number, set, rarity, illustrator with reduced spacing)
   // - Button: ~48px
   // - Spacing between elements: ~24px (8px * 3)
   const estimatedOtherContentHeight = 60 + 24 + 110 + 48 + 24; // ~266px
@@ -442,7 +442,7 @@ export default function CardDetailScreen({ navigation, route }: CardDetailScreen
             variant="full"
             showSet={true}
             showRarity={true}
-            showArtist={true}
+            showIllustrator={true}
             showVariantBadge={true}
             showPokedex={false}
           />

@@ -593,7 +593,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
                         selectedCardId: selectedCardId,
                         // Store TCG card details for the detail view
                         selectedCardRarity: tcgCard.rarity,
-                        selectedCardArtist: tcgCard.artist,
+                        selectedCardIllustrator: tcgCard.illustrator,
                         selectedCardSet: tcgCard.set,
                       };
                     }
@@ -1310,7 +1310,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
       const perPage = gridCols === 4 ? 12 : 9;
       
       // Custom card selected - navigate to card detail
-      // Use the stored TCG card details (rarity, artist, set) from when the card was loaded
+      // Use the stored TCG card details (rarity, illustrator, set) from when the card was loaded
       navigation.navigate('CardDetail', {
         cardId: pokemon.id,
         binderId: binder?.id || '',
@@ -1328,7 +1328,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
           number: pokemon.pokedexNumber?.toString() || '',
           set: pokemon.selectedCardSet || binder?.region || '',
           rarity: pokemon.selectedCardRarity || '',
-          artist: pokemon.selectedCardArtist || '',
+          illustrator: pokemon.selectedCardIllustrator || '',
           imageUrl: pokemon.imageUrl,
           imageUrlHiRes: pokemon.imageUrlHiRes || pokemon.imageUrl,
           pokedexNumber: pokemon.pokedexNumber,
@@ -1363,7 +1363,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
               selectedCardId: selectedCard.id, // Mark as having custom selection
               // Store TCG card details for the detail view
               selectedCardRarity: selectedCard.rarity,
-              selectedCardArtist: selectedCard.artist,
+              selectedCardIllustrator: selectedCard.illustrator,
               selectedCardSet: selectedCard.set,
             };
           }
@@ -1876,7 +1876,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
             variant="compact"
             showSet={false}
             showRarity={false}
-            showArtist={false}
+            showIllustrator={false}
             showVariantBadge={false}
           />
         </TouchableOpacity>

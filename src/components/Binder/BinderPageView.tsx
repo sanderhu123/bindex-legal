@@ -165,7 +165,7 @@ function BinderPageViewComponent({
           number: card.number,
           set: card.set,
           rarity: card.rarity,
-          artist: card.artist,
+          illustrator: card.illustrator,
           imageUrl: card.imageUrl,
           imageUrlHiRes: card.imageUrlHiRes,
           variant: card.variant,

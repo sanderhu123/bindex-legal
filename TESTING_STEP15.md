@@ -8,7 +8,7 @@ This guide will help you test that Step 15 has been implemented correctly. Step 
 
 Step 15 created three new card display components:
 1. **CardImage** - Shows card images with loading placeholders and error handling
-2. **CardDetails** - Shows card information (name, number, set, rarity, artist)
+2. **CardDetails** - Shows card information (name, number, set, rarity, illustrator)
 3. **CardItem** - The complete card display (uses CardImage and CardDetails)
 
 ---
@@ -229,6 +229,7 @@ If something doesn't work as expected:
 ---
 
 **Happy Testing! 🎮**
+
 
 
 

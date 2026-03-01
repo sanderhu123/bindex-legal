@@ -31,7 +31,7 @@ export const mockSets: MockSet[] = [
   },
 ];
 
-// Mock cards from multiple sets, regions, rarities, and artists
+// Mock cards from multiple sets, regions, rarities, and illustrators
 export const mockCards: Card[] = [
   {
     id: 'base1-4',
@@ -39,7 +39,7 @@ export const mockCards: Card[] = [
     number: '004/102',
     set: 'Base Set',
     rarity: 'Rare Holo',
-    artist: 'Mitsuhiro Arita',
+    illustrator: 'Mitsuhiro Arita',
     imageUrl: 'https://images.pokemontcg.io/base1/4.png',
     pokedexNumber: 6, // Kanto
   },
@@ -49,7 +49,7 @@ export const mockCards: Card[] = [
     number: '058/102',
     set: 'Base Set',
     rarity: 'Common',
-    artist: 'Ken Sugimori',
+    illustrator: 'Ken Sugimori',
     imageUrl: 'https://images.pokemontcg.io/base1/58.png',
     pokedexNumber: 25, // Kanto
   },
@@ -59,7 +59,7 @@ export const mockCards: Card[] = [
     number: '001/64',
     set: 'Jungle',
     rarity: 'Rare Holo',
-    artist: 'Mitsuhiro Arita',
+    illustrator: 'Mitsuhiro Arita',
     imageUrl: 'https://images.pokemontcg.io/jungle/1.png',
     pokedexNumber: 115, // Kanto
   },
@@ -69,7 +69,7 @@ export const mockCards: Card[] = [
     number: '039/64',
     set: 'Jungle',
     rarity: 'Common',
-    artist: 'Kagemaru Himeno',
+    illustrator: 'Kagemaru Himeno',
     imageUrl: 'https://images.pokemontcg.io/jungle/39.png',
     pokedexNumber: 133, // Kanto
   },
@@ -79,7 +79,7 @@ export const mockCards: Card[] = [
     number: '009/111',
     set: 'Neo Genesis',
     rarity: 'Rare Holo',
-    artist: 'Hironobu Yoshida',
+    illustrator: 'Hironobu Yoshida',
     imageUrl: 'https://images.pokemontcg.io/neo1/9.png',
     pokedexNumber: 249, // Johto
   },
@@ -89,7 +89,7 @@ export const mockCards: Card[] = [
     number: '086/198',
     set: 'Scarlet & Violet',
     rarity: 'Double Rare',
-    artist: '5ban Graphics',
+    illustrator: '5ban Graphics',
     imageUrl: 'https://images.pokemontcg.io/sv1/86.png',
     pokedexNumber: 282, // Hoenn
   },
@@ -99,7 +99,7 @@ export const mockCards: Card[] = [
     number: '001/198',
     set: 'Scarlet & Violet',
     rarity: 'Common',
-    artist: 'Souichirou Gunjima',
+    illustrator: 'Souichirou Gunjima',
     imageUrl: 'https://images.pokemontcg.io/sv1/1.png',
     pokedexNumber: 204, // Johto
   },
@@ -109,7 +109,7 @@ export const mockCards: Card[] = [
     number: '013/198',
     set: 'Scarlet & Violet',
     rarity: 'Common',
-    artist: 'Souichirou Gunjima',
+    illustrator: 'Souichirou Gunjima',
     imageUrl: 'https://images.pokemontcg.io/sv1/13.png',
     pokedexNumber: 906, // Paldea
   },
@@ -119,7 +119,7 @@ export const mockCards: Card[] = [
     number: '015/198',
     set: 'Scarlet & Violet',
     rarity: 'Rare Holo',
-    artist: 'Mitsuhiro Arita',
+    illustrator: 'Mitsuhiro Arita',
     imageUrl: 'https://images.pokemontcg.io/sv1/15.png',
     pokedexNumber: 908, // Paldea
   },
@@ -130,7 +130,7 @@ export const mockCards: Card[] = [
     number: '004/102',
     set: 'Base Set',
     rarity: 'Rare Holo',
-    artist: 'Mitsuhiro Arita',
+    illustrator: 'Mitsuhiro Arita',
     imageUrl: 'https://images.pokemontcg.io/base1/4.png',
     pokedexNumber: 6, // Kanto
     variant: 'reverse-holo',
@@ -141,7 +141,7 @@ export const mockCards: Card[] = [
     number: '058/102',
     set: 'Base Set',
     rarity: 'Common',
-    artist: 'Ken Sugimori',
+    illustrator: 'Ken Sugimori',
     imageUrl: 'https://images.pokemontcg.io/base1/58.png',
     pokedexNumber: 25, // Kanto
     variant: 'reverse-holo',
@@ -152,7 +152,7 @@ export const mockCards: Card[] = [
     number: '058/102',
     set: 'Base Set',
     rarity: 'Common',
-    artist: 'Ken Sugimori',
+    illustrator: 'Ken Sugimori',
     imageUrl: 'https://images.pokemontcg.io/base1/58.png',
     pokedexNumber: 25, // Kanto
     variant: 'poke-ball',
@@ -163,7 +163,7 @@ export const mockCards: Card[] = [
     number: '013/198',
     set: 'Scarlet & Violet',
     rarity: 'Common',
-    artist: 'Souichirou Gunjima',
+    illustrator: 'Souichirou Gunjima',
     imageUrl: 'https://images.pokemontcg.io/sv1/13.png',
     pokedexNumber: 906, // Paldea
     variant: 'reverse-holo',
@@ -174,7 +174,7 @@ export const mockCards: Card[] = [
     number: '013/198',
     set: 'Scarlet & Violet',
     rarity: 'Common',
-    artist: 'Souichirou Gunjima',
+    illustrator: 'Souichirou Gunjima',
     imageUrl: 'https://images.pokemontcg.io/sv1/13.png',
     pokedexNumber: 906, // Paldea
     variant: 'master-ball',

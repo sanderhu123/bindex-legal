@@ -39,7 +39,7 @@
   - Variant placement preference
   - Layout preference (Auto, 3×3, or 4×3)
 - **Card Display**: Grid view (3x3 or 4x3) or list view
-- **Card Details**: Name, number, set, rarity, artist
+- **Card Details**: Name, number, set, rarity, illustrator
 - **Visual Indicators**: Missing cards shown slightly transparent
 - **Progress Tracking**: Completion percentage per binder (based on selected variants)
 - **Search**: Both within binder and globally

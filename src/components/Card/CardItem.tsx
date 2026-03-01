@@ -86,7 +86,7 @@ function CardItemComponent({
         number: card.number,
         set: card.set,
         rarity: card.rarity,
-        artist: card.artist,
+        illustrator: card.illustrator,
         imageUrl: card.imageUrl,
         imageUrlHiRes: card.imageUrlHiRes,
         variant: card.variant,
@@ -196,7 +196,7 @@ function CardItemComponent({
         variant="compact"
         showSet={false}
         showRarity={false}
-        showArtist={false}
+        showIllustrator={false}
         showVariantBadge={false}
       />
     </TouchableOpacity>

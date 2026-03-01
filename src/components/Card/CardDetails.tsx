@@ -7,7 +7,7 @@ interface CardDetailsProps {
   variant?: 'compact' | 'full';
   showSet?: boolean;
   showRarity?: boolean;
-  showArtist?: boolean;
+  showIllustrator?: boolean;
   showVariantBadge?: boolean;
   showPokedex?: boolean;
 }
@@ -28,7 +28,7 @@ function getVariantBadge(variant?: string) {
 /**
  * CardDetails component for displaying card information
  * Features:
- * - Name, number, set, rarity, artist
+ * - Name, number, set, rarity, illustrator
  * - Variant badge display
  * - Compact or full display mode
  */
@@ -37,7 +37,7 @@ export default function CardDetails({
   variant = 'compact',
   showSet = true,
   showRarity = true,
-  showArtist = true,
+  showIllustrator = true,
   showVariantBadge = true,
   showPokedex = true,
 }: CardDetailsProps) {
@@ -94,10 +94,10 @@ export default function CardDetails({
           <Text style={styles.fullValue}>{card.rarity}</Text>
         </View>
       )}
-      {showArtist && (
+      {showIllustrator && (
         <View style={styles.fullRow}>
-          <Text style={styles.fullLabel}>Artist:</Text>
-          <Text style={styles.fullValue}>{card.artist}</Text>
+          <Text style={styles.fullLabel}>Illustrator:</Text>
+          <Text style={styles.fullValue}>{card.illustrator}</Text>
         </View>
       )}
       {showPokedex && card.pokedexNumber && (

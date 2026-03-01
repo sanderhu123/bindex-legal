@@ -226,7 +226,7 @@ Each binder stores:
 - Number (set number, e.g., "001/150")
 - Set (set name)
 - Rarity
-- Artist
+- Illustrator
 - Image URL (from API)
 - Pokédex Number (for region mode)
 

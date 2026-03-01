@@ -603,7 +603,7 @@ npx expo install expo-linking
 **Features:**
 - Grid view (uses layout preference: 3×3, or 4×3)
 - List view toggle
-- Filter by rarity, artist
+- Filter by rarity, illustrator
 - Search cards within binder
 - Add/remove cards
 - Show missing cards (50% transparent)
@@ -621,7 +621,7 @@ npx expo install expo-linking
 - [x] Can switch to list view
 - [x] Missing cards show at 50% opacity
 - [x] Can filter by rarity
-- [ ] Can filter by artist - Not implemented yet (only rarity filter exists)
+- [ ] Can filter by illustrator - Not implemented yet (only rarity filter exists)
 - [x] Can search cards by name/number
 - [x] Can add card to binder (tap to toggle)
 - [x] Can remove card from binder (tap to toggle)
@@ -647,7 +647,7 @@ npx expo install expo-linking
 
 **Features:**
 - Card image display (with caching via expo-image)
-- Card details (name, number, set, rarity, artist)
+- Card details (name, number, set, rarity, illustrator)
 - Missing card indicator (50% transparency)
 - Tap to view details (navigation prepared - CardDetail screen will be Step 17)
 - Placeholder while image loads
@@ -743,7 +743,7 @@ npx expo install expo-linking
 
 **Features:**
 - Full card image (large view)
-- All card information (name, number, set, rarity, artist)
+- All card information (name, number, set, rarity, illustrator)
 - Navigation back
 - Can mark card as owned or missing
 - Show if card is owned or missing
@@ -1247,7 +1247,7 @@ Each step uses a unique log prefix to make debugging easier:
 - ✅ Using TCGDEX SDK: `tcgdex.set.get(setId)` to fetch set with cards
 - ✅ SDK handles API communication internally (uses `https://api.tcgdex.net/v2/` internally)
 - ✅ Transform TCGDEX SDK response to match existing `Card` type
-- ✅ Map TCGDEX fields (id, name, localId, set, rarity, artist, image) to our Card type
+- ✅ Map TCGDEX fields (id, name, localId, set, rarity, illustrator, image) to our Card type
 - ✅ Card images use high-quality images from TCGDEX image object
 - ✅ Fallback to mockup data on error
 - ✅ Support for both set ID and set name as input (automatic lookup)
@@ -1263,7 +1263,7 @@ Each step uses a unique log prefix to make debugging easier:
 - [ ] Cards fetch from API when viewing a binder - Ready to test
 - [ ] Cards display correctly in binder detail screen - Ready to test
 - [ ] Card images load from API URLs - Ready to test
-- [ ] All card fields display correctly (name, number, set, rarity, artist) - Ready to test
+- [ ] All card fields display correctly (name, number, set, rarity, illustrator) - Ready to test
 - [ ] Fallback to mockup data works if API fails - Ready to test
 - [ ] Performance is acceptable (loading doesn't take too long) - Ready to test
 
@@ -1275,7 +1275,7 @@ Each step uses a unique log prefix to make debugging easier:
 2. **Test card loading:**
    - Cards should display in grid/list view
    - Card images should load from API (not placeholders)
-   - Cards should have correct information (name, number, set, rarity, artist)
+   - Cards should have correct information (name, number, set, rarity, illustrator)
    - For large sets (like Scarlet & Violet with 198 cards), all cards should load
 
 3. **Test pagination (if applicable):**
@@ -1369,7 +1369,7 @@ Each step uses a unique log prefix to make debugging easier:
 - [ ] Can fetch single card by ID from API - Ready to test
 - [ ] Card detail screen loads correctly - Ready to test
 - [ ] Full card image displays (large view) - Ready to test
-- [ ] All card information shows (name, number, set, rarity, artist) - Ready to test
+- [ ] All card information shows (name, number, set, rarity, illustrator) - Ready to test
 - [ ] Fallback to mockup data works if API fails - Ready to test
 - [ ] Navigation to card detail works - Ready to test
 
@@ -1380,7 +1380,7 @@ Each step uses a unique log prefix to make debugging easier:
 
 2. **Test card detail:**
    - Full card image should display (large, clear image)
-   - Card name, number, set, rarity, artist should all show
+   - Card name, number, set, rarity, illustrator should all show
    - Image should load from API URL
    - Information should match what's shown in the binder list
 
@@ -2366,7 +2366,7 @@ I'll begin with Phase 1, Step 1, and we'll build it step by step! 🚀
 
 4. **Optional Enhancements:**
    - Implement full offline sync (currently has basic caching)
-   - Add artist filter to BinderDetailScreen (currently only rarity filter)
+   - Add illustrator filter to BinderDetailScreen (currently only rarity filter)
 
 5. **Testing** (Step 23):
    - Test all features thoroughly
@@ -3753,7 +3753,7 @@ const binderPosition = useMemo(() => {
 │                                     │
 │  📍 Page 1, Slot 6                  │  ← NEW
 │                                     │
-│  Artist: Mitsuhiro Arita            │
+│  Illustrator: Mitsuhiro Arita        │
 └─────────────────────────────────────┘
 ```
 

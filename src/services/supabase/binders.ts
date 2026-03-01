@@ -70,10 +70,15 @@ export async function getBinders(): Promise<Binder[]> {
   // Fetch card IDs for each binder
   const bindersWithCards = await Promise.all(
     (binders || []).map(async (binder) => {
-      const { data: binderCards } = await supabase
+      const { data: binderCards, error: cardsError } = await supabase
         .from('binder_cards')
         .select('card_id')
-        .eq('binder_id', binder.id);
+        .eq('binder_id', binder.id)
+        .limit(5000);
+
+      if (cardsError) {
+        console.error('[Binders] Failed to fetch card IDs for binder', binder.id, ':', cardsError);
+      }
 
       const cardIds = binderCards?.map((bc) => bc.card_id) || [];
       return rowToBinder(binder as BinderRow, cardIds);
@@ -110,10 +115,16 @@ export async function getBinderById(binderId: string): Promise<Binder | null> {
   }
 
   // Fetch card IDs
-  const { data: binderCards } = await supabase
+  const { data: binderCards, error: cardsError } = await supabase
     .from('binder_cards')
     .select('card_id')
-    .eq('binder_id', binderId);
+    .eq('binder_id', binderId)
+    .limit(5000);
+
+  if (cardsError) {
+    console.error('[Binders] Failed to fetch card IDs for binder', binderId, ':', cardsError);
+    throw new Error('Failed to load card collection data. Please check your connection and try again.');
+  }
 
   const cardIds = binderCards?.map((bc) => bc.card_id) || [];
   return rowToBinder(binder as BinderRow, cardIds);
@@ -295,10 +306,15 @@ export async function updateBinder(
   }
 
   // Fetch card IDs
-  const { data: binderCards } = await supabase
+  const { data: binderCards, error: cardsError } = await supabase
     .from('binder_cards')
     .select('card_id')
-    .eq('binder_id', binderId);
+    .eq('binder_id', binderId)
+    .limit(5000);
+
+  if (cardsError) {
+    console.error('[Binders] Failed to fetch card IDs after update for binder', binderId, ':', cardsError);
+  }
 
   const cardIds = binderCards?.map((bc) => bc.card_id) || [];
   return rowToBinder(data as BinderRow, cardIds);

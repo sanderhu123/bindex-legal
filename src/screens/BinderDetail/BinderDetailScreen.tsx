@@ -140,6 +140,9 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
   
   // Flag to prevent concurrent refreshes
   const isRefreshingRef = useRef(false);
+  
+  // Flag to prevent refreshOwnershipFromDb from running while fetchCards is still loading
+  const isFetchingCardsRef = useRef(false);
 
   // Update screen width on dimension changes
   useEffect(() => {
@@ -195,6 +198,13 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
       console.log('[BinderDetail] Refresh already in progress, skipping');
       return;
     }
+    
+    // Don't refresh while fetchCards is still loading (prevents race condition
+    // where refresh overwrites card data that fetchCards is building)
+    if (isFetchingCardsRef.current) {
+      console.log('[BinderDetail] Cards still loading, skipping refresh to prevent data loss');
+      return;
+    }
     isRefreshingRef.current = true;
 
     try {
@@ -204,8 +214,18 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
         return;
       }
 
-      // Update binder counts/cardIds
-      setBinder((prev) => prev ? { ...prev, ...latestBinder } : latestBinder);
+      // Only update ownership-related fields (cardIds, ownedCards, totalCards)
+      // to avoid changing settings (variantsToTrack, variantPlacement, etc.)
+      // which would trigger fetchCards to re-run and rebuild all card data
+      setBinder((prev) => {
+        if (!prev) return latestBinder;
+        return {
+          ...prev,
+          cardIds: latestBinder.cardIds,
+          ownedCards: latestBinder.ownedCards,
+          totalCards: latestBinder.totalCards,
+        };
+      });
 
       // For Custom binders: refresh positionCards with latest ownership status from database
       if (latestBinder.collectionMode === 'custom') {
@@ -416,6 +436,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
       if (!binder) return;
 
       try {
+        isFetchingCardsRef.current = true;
         setLoading(true);
         // Reset pagination state when fetching new cards
         setDisplayCount(PAGE_SIZE);
@@ -899,6 +920,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load cards');
       } finally {
+        isFetchingCardsRef.current = false;
         setLoading(false);
       }
     }

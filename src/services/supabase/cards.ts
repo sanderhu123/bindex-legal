@@ -1,5 +1,91 @@
 import { supabase } from './client';
 
+// Cache the user ID to avoid repeated auth calls during rapid card toggling
+let cachedUserId: string | null = null;
+
+async function getCachedUserId(): Promise<string> {
+  if (cachedUserId) return cachedUserId;
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session?.user?.id) {
+    throw new Error('User not authenticated');
+  }
+  cachedUserId = session.user.id;
+  return cachedUserId;
+}
+
+// Clear cached user ID on auth state changes
+supabase.auth.onAuthStateChange(() => {
+  cachedUserId = null;
+});
+
+/**
+ * Fast version of addCardToBinder - only 1 DB call instead of 5-7.
+ * Skips user re-fetch, binder verification, and count sync.
+ * Use when the binder is already loaded and verified (e.g., from BinderDetailScreen).
+ */
+export async function addCardToBinderFast(
+  binderId: string,
+  cardId: string,
+  variant?: string,
+): Promise<void> {
+  const userId = await getCachedUserId();
+
+  const { error } = await supabase
+    .from('binder_cards')
+    .upsert({
+      user_id: userId,
+      binder_id: binderId,
+      card_id: cardId,
+      variant: variant || null,
+      position: null,
+      is_owned: true,
+    }, {
+      onConflict: 'binder_id,card_id,variant',
+    });
+
+  if (error) {
+    throw error;
+  }
+}
+
+/**
+ * Fast version of removeCardFromBinder - only 1 DB call instead of 5-7.
+ * Skips user re-fetch, binder verification, and count sync.
+ * Use when the binder is already loaded and verified (e.g., from BinderDetailScreen).
+ */
+export async function removeCardFromBinderFast(
+  binderId: string,
+  cardId: string,
+  variant?: string,
+): Promise<void> {
+  const userId = await getCachedUserId();
+
+  let query = supabase
+    .from('binder_cards')
+    .delete()
+    .eq('user_id', userId)
+    .eq('binder_id', binderId)
+    .eq('card_id', cardId);
+
+  if (variant) {
+    query = query.eq('variant', variant);
+  } else {
+    query = query.is('variant', null);
+  }
+
+  const { error } = await query;
+
+  if (error) {
+    throw error;
+  }
+}
+
+/**
+ * Sync the owned_cards count on the binder.
+ * Call this after a batch of toggles (not after every single toggle).
+ */
+export { syncBinderCardCount };
+
 /**
  * Helper to count actual cards in a binder and update owned_cards/total_cards
  * This avoids race conditions when adding/removing cards quickly

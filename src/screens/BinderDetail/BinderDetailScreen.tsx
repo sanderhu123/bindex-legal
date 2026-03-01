@@ -6,7 +6,10 @@ import { useFocusEffect } from '@react-navigation/native';
 import { getBinderById } from '../../services/supabase/binders';
 import { 
   addCardToBinder, 
-  removeCardFromBinder, 
+  removeCardFromBinder,
+  addCardToBinderFast,
+  removeCardFromBinderFast,
+  syncBinderCardCount,
   getBinderCardsWithPositions, 
   addCardAtPosition, 
   removeCardByPosition, 
@@ -143,6 +146,28 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
   
   // Flag to prevent refreshOwnershipFromDb from running while fetchCards is still loading
   const isFetchingCardsRef = useRef(false);
+  
+  // Debounced count sync: waits for a pause in toggling before syncing the owned_cards count
+  const countSyncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const scheduleCountSync = useCallback((binderId: string) => {
+    if (countSyncTimerRef.current) {
+      clearTimeout(countSyncTimerRef.current);
+    }
+    countSyncTimerRef.current = setTimeout(() => {
+      syncBinderCardCount(binderId).catch(err => {
+        console.error('[BinderDetail] Failed to sync card count:', err);
+      });
+    }, 2000);
+  }, []);
+
+  // Clean up debounced count sync timer on unmount
+  useEffect(() => {
+    return () => {
+      if (countSyncTimerRef.current) {
+        clearTimeout(countSyncTimerRef.current);
+      }
+    };
+  }, []);
 
   // Update screen width on dimension changes
   useEffect(() => {
@@ -937,25 +962,22 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
   ]);
 
   // Toggle card ownership (tap to add/remove) - with optimistic updates
-  // Uses functional state updates to handle rapid tapping correctly
+  // Uses fast DB calls (1 call each) to avoid rate limiting when marking many cards
   const handleToggleCard = useCallback(async (card: CardWithOwnership) => {
     if (!binder) return;
 
-    // Calculate new ownership state based on current card state
     const newIsOwned = !card.isOwned;
     const cardId = card.id;
     const cardVariant = card.variant;
     const currentBinderId = binder.id;
 
     // Optimistic update using functional setState to ensure we always use latest state
-    // This prevents race conditions when tapping multiple cards quickly
     setCards((prevCards) =>
       prevCards.map((c) =>
         c.id === cardId ? { ...c, isOwned: newIsOwned } : c
       )
     );
 
-    // Update binder state optimistically using functional setState
     setBinder((prevBinder) => {
       if (!prevBinder) return prevBinder;
       const updatedCardIds = newIsOwned
@@ -971,15 +993,18 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
       };
     });
 
-    // Sync with database in the background
+    // Sync with database using fast functions (1 DB call instead of 5-7)
     try {
       if (newIsOwned) {
-        await addCardToBinder(currentBinderId, cardId, cardVariant);
+        await addCardToBinderFast(currentBinderId, cardId, cardVariant);
       } else {
-        await removeCardFromBinder(currentBinderId, cardId, cardVariant);
+        await removeCardFromBinderFast(currentBinderId, cardId, cardVariant);
       }
+      // Schedule a debounced count sync (waits for pause in toggling)
+      scheduleCountSync(currentBinderId);
     } catch (err) {
       // Revert on error using functional setState
+      console.error('[BinderDetail] Failed to save card toggle:', err);
       setCards((prevCards) =>
         prevCards.map((c) =>
           c.id === cardId ? { ...c, isOwned: !newIsOwned } : c
@@ -999,10 +1024,9 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
           ownedCards: revertedOwnedCards
         };
       });
-      setError(err instanceof Error ? err.message : 'Failed to update card');
-      console.error('Failed to update card:', err);
+      Alert.alert('Save Failed', 'Could not save card status. Please check your connection and try again.');
     }
-  }, [binder?.id]);
+  }, [binder?.id, scheduleCountSync]);
 
   // Handle adding a card from the picker (Custom mode with position)
   const handleAddCardFromPicker = useCallback(async (selectedCard: Card) => {

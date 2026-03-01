@@ -1764,6 +1764,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
   }, []);
 
   // === CUSTOM MODE: Positional grid with slots ===
+  const isCustomMode = binder?.collectionMode === 'custom';
   
   // Calculate max slots based on layout preference
   const customMaxSlots = gridColumns === 4 ? CUSTOM_MAX_SLOTS_4X3 : CUSTOM_MAX_SLOTS_3X3;
@@ -1810,16 +1811,24 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
     });
   }, [binder, customSlots, positionCards, searchQuery, ownershipFilter]);
 
-  // Custom mode cards for list/binder views: flat array of filled slots (no empty ones)
+  // Custom mode cards for list/binder views: flat array of filled slots sorted by position
   const customCardsForView = useMemo(() => {
     if (!isCustomMode) return [];
+    const query = searchQuery.toLowerCase().trim();
+    const entries = Array.from(positionCards.entries()).sort(([a], [b]) => a - b);
     const result: CardWithOwnership[] = [];
-    filteredCustomSlots.forEach((position) => {
-      const card = positionCards.get(position);
-      if (card) result.push(card);
-    });
+    for (const [, card] of entries) {
+      if (ownershipFilter === 'owned' && !card.isOwned) continue;
+      if (ownershipFilter === 'missing' && card.isOwned) continue;
+      if (query) {
+        const nameMatch = card.name.toLowerCase().includes(query);
+        const numMatch = card.number?.toLowerCase().includes(query);
+        if (!nameMatch && !numMatch) continue;
+      }
+      result.push(card);
+    }
     return result;
-  }, [isCustomMode, filteredCustomSlots, positionCards]);
+  }, [isCustomMode, positionCards, searchQuery, ownershipFilter]);
 
   // Custom mode binder view: sparse array preserving slot positions
   const customBinderViewCards = useMemo(() => {
@@ -2022,8 +2031,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
   const totalCount = isMasterSetMode ? baseTotalCount + extraCardsCount : baseTotalCount;
   const progressPercentage = totalCount > 0 ? Math.round((ownedCount / totalCount) * 100) : 0;
   
-  // Custom mode uses different progress format
-  const isCustomMode = binder.collectionMode === 'custom';
+  // Custom mode uses different progress format (isCustomMode defined earlier, near custom mode section)
 
   // Header element for FlatList (binder info, progress, search, filters)
   // IMPORTANT: This must be a JSX element (not an arrow function component)

@@ -530,7 +530,19 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
   useFocusEffect(
     useCallback(() => {
       refreshOwnershipFromDb();
-    }, [refreshOwnershipFromDb])
+
+      // When leaving this screen, flush any pending card count sync immediately
+      // so BinderList reads the correct owned_cards from the DB
+      return () => {
+        if (countSyncTimerRef.current) {
+          clearTimeout(countSyncTimerRef.current);
+          countSyncTimerRef.current = null;
+        }
+        if (binderId) {
+          syncBinderCardCount(binderId).catch(() => {});
+        }
+      };
+    }, [refreshOwnershipFromDb, binderId])
   );
 
   const variantsKey = binder?.variantsToTrack?.join(',') ?? '';
@@ -1048,6 +1060,14 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
           setExtraCards([]);
         }
         
+        // Sync binder.ownedCards with the actual card data so the progress bar
+        // doesn't briefly show stale DB values while cards are loading
+        const actualOwnedCount = cardsWithOwnership.filter(c => c.isOwned).length;
+        setBinder(prev => {
+          if (!prev || prev.ownedCards === actualOwnedCount) return prev;
+          return { ...prev, ownedCards: actualOwnedCount };
+        });
+
         // Start background prefetch for all card images
         // This continues even if the user leaves the screen
         if (cardsWithOwnership.length > 0 && binder.id) {

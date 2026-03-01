@@ -68,11 +68,30 @@ export default function BinderListScreen() {
     loadBinders();
   }, []);
 
+  // Silently re-fetch binder data without showing errors or loading states
+  const silentRefresh = useCallback(async () => {
+    try {
+      const fetchedBinders = await getBinders();
+      const bindersWithProgress = fetchedBinders.map((binder) => {
+        const progress = binder.totalCards > 0
+          ? Math.round((binder.ownedCards / binder.totalCards) * 100)
+          : 0;
+        return { ...binder, progress, totalCards: binder.totalCards };
+      });
+      setBinders(bindersWithProgress);
+    } catch {
+      // Silent — don't show alerts for background refresh
+    }
+  }, []);
+
   // Refresh binders when screen comes into focus
   useFocusEffect(
     useCallback(() => {
       loadBinders();
-    }, [])
+      // Safety-net re-fetch: catches any in-flight DB writes from BinderDetail
+      const timer = setTimeout(silentRefresh, 500);
+      return () => clearTimeout(timer);
+    }, [silentRefresh])
   );
 
   const handleRefresh = () => {

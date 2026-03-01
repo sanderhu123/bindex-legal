@@ -2086,5 +2086,30 @@ export async function searchCardsByName(
 
 // ==================== END STEP 28A ====================
 
+/**
+ * Fetch all available card rarities from the TCGDEX API.
+ * Results are cached so the API is only called once per session.
+ */
+let cachedRarities: string[] | null = null;
+
+export async function getRarities(): Promise<string[]> {
+  if (cachedRarities) {
+    return cachedRarities;
+  }
+
+  try {
+    const response = await fetch('https://api.tcgdex.net/v2/en/rarities');
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+    const rarities: string[] = await response.json();
+    cachedRarities = rarities.sort((a, b) => a.localeCompare(b));
+    return cachedRarities;
+  } catch (error) {
+    console.warn('[RARITY] Failed to fetch rarities from API:', error);
+    return [];
+  }
+}
+
 
 

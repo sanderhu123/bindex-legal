@@ -130,7 +130,10 @@ export async function getCurrentUser(): Promise<User | null> {
         id: user.id,
         email: user.email || '',
         displayName: user.user_metadata?.display_name,
-        binders: [], // Will be populated when binders are fetched
+        binders: [],
+        userTier: 'free' as const,
+        freeDeletionsUsed: 0,
+        lifetimeBindersCreated: 0,
       };
     }
 
@@ -145,6 +148,10 @@ export async function getCurrentUser(): Promise<User | null> {
       email: profile.email,
       displayName: profile.display_name || undefined,
       binders: userBinders?.map((b) => b.id) || [],
+      userTier: profile.user_tier || 'free',
+      freeDeletionsUsed: profile.free_deletions_used || 0,
+      lifetimeBindersCreated: profile.lifetime_binders_created || 0,
+      proPurchasedAt: profile.pro_purchased_at ? new Date(profile.pro_purchased_at) : undefined,
     };
   } catch (error) {
     // Catch any network errors that slip through

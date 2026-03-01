@@ -7,23 +7,23 @@ import BinderEditScreen from '../screens/BinderEdit/BinderEditScreen';
 import CardListScreen from '../screens/CardList/CardListScreen';
 import CardDetailScreen from '../screens/CardDetail/CardDetailScreen';
 import CardSearchTestScreen from '../screens/CardSearchTest/CardSearchTestScreen';
+import UpgradeScreen from '../screens/Upgrade/UpgradeScreen';
 
 export type MainStackParamList = {
   Questionnaire: undefined;
   BinderList: undefined;
   BinderDetail: { binderId: string };
-  BinderEdit: { binderId: string }; // Step 34A: Binder Edit mode
+  BinderEdit: { binderId: string };
   CardList: undefined;
   CardDetail: { 
     cardId: string; 
     binderId: string; 
-    isOwned?: boolean; // Pass current state for optimistic display
-    position?: number; // For Custom binders (slot position)
-    collectionMode?: 'master-set' | 'region' | 'custom'; // Binder type
-    isExtraCard?: boolean; // For cards added by user (not in official set)
-    cardIndex?: number; // Card's index in the sorted list (for binder position calculation)
-    cardsPerPage?: number; // Cards per binder page (9 for 3x3, 12 for 4x3)
-    // Pass full card data to skip API fetch (faster loading)
+    isOwned?: boolean;
+    position?: number;
+    collectionMode?: 'master-set' | 'region' | 'custom';
+    isExtraCard?: boolean;
+    cardIndex?: number;
+    cardsPerPage?: number;
     cardData?: {
       id: string;
       name: string;
@@ -40,7 +40,8 @@ export type MainStackParamList = {
       selectedCardId?: string;
     };
   };
-  CardSearchTest: undefined; // Temporary test screen for Step 28A
+  CardSearchTest: undefined;
+  Upgrade: undefined;
 };
 
 const Stack = createStackNavigator<MainStackParamList>();
@@ -80,6 +81,10 @@ export default function AppNavigator() {
       <Stack.Screen
         name="CardSearchTest"
         component={CardSearchTestScreen}
+      />
+      <Stack.Screen
+        name="Upgrade"
+        component={UpgradeScreen}
       />
     </Stack.Navigator>
   );

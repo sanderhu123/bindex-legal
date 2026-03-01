@@ -7,6 +7,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { CollectionMode, VariantPlacement, LayoutPreference, PokemonArtStyle } from '../../types';
 import type { Region } from '../../services/api/pokemonApi';
 import { createBinder } from '../../services/supabase/binders';
+import { recordBinderCreated } from '../../services/pro/proService';
 import { getAvailableVariantsForSet } from '../../data/cardVariants';
 import Step1CollectionMode from './Step1CollectionMode';
 import Step2MasterSet from './Step2MasterSet';
@@ -272,6 +273,13 @@ export default function OnboardingScreen() {
       console.log('[Questionnaire] Binder collectionMode:', binder.collectionMode);
       console.log('[Questionnaire] Binder variantsToTrack:', binder.variantsToTrack);
       console.log('[Questionnaire] ===========================');
+
+      // Track binder creation for Pro system limits
+      try {
+        await recordBinderCreated();
+      } catch (err) {
+        console.warn('[Questionnaire] Failed to record binder creation:', err);
+      }
 
       // Navigate to binder detail
       navigation.replace('BinderDetail', { binderId: binder.id });

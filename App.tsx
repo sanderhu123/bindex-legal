@@ -10,6 +10,7 @@ import AppNavigator from './src/navigation/AppNavigator';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { initializePersistentCache } from './src/services/api/pokemonApi';
 import { performCacheCleanup } from './src/services/cacheManager';
+import { initializeRevenueCat, identifyUser } from './src/services/pro/proService';
 
 // Create React Query client with caching configuration
 const queryClient = new QueryClient({
@@ -34,10 +35,14 @@ function AppContent() {
   const { user, loading, initialized } = useAuth();
   const [cacheInitialized, setCacheInitialized] = useState(false);
 
-  // Initialize persistent cache and perform cleanup on app startup
+  // Initialize persistent cache, RevenueCat, and perform cleanup on app startup
   useEffect(() => {
     async function initializeApp() {
       try {
+        // Initialize RevenueCat for in-app purchases
+        await initializeRevenueCat();
+        console.log('[App] RevenueCat initialized');
+
         // Initialize persistent cache
         await initializePersistentCache();
         console.log('[App] Persistent cache initialized');
@@ -52,7 +57,7 @@ function AppContent() {
 
         setCacheInitialized(true);
       } catch (error) {
-        console.warn('[App] Failed to initialize cache:', error);
+        console.warn('[App] Failed to initialize app:', error);
         setCacheInitialized(true);
       }
     }
@@ -66,6 +71,15 @@ function AppContent() {
 
     initializeApp().finally(() => clearTimeout(safetyTimeout));
   }, []);
+
+  // Identify user with RevenueCat when they log in
+  useEffect(() => {
+    if (user?.id) {
+      identifyUser(user.id).catch((err) =>
+        console.warn('[App] Failed to identify user with RevenueCat:', err)
+      );
+    }
+  }, [user?.id]);
 
   // Show loading screen while checking auth state or initializing cache
   if (!initialized || loading || !cacheInitialized) {

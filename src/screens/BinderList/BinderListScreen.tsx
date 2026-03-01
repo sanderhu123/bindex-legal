@@ -14,6 +14,7 @@ import type { MainStackParamList } from '../../navigation/AppNavigator';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { signOut } from '../../services/supabase/auth';
 import { getBinders, deleteBinder } from '../../services/supabase/binders';
+import { canCreateBinder, canDeleteBinder, recordDeletionUsed, getBinderUsage } from '../../services/pro/proService';
 import type { Binder } from '../../types';
 import BinderCard from '../../components/Binder/BinderCard';
 import LoadingScreen from '../../components/Loading/LoadingScreen';
@@ -81,8 +82,27 @@ export default function BinderListScreen() {
     navigation.navigate('BinderDetail', { binderId });
   };
 
-  const handleCreateBinder = () => {
-    navigation.navigate('Questionnaire');
+  const handleCreateBinder = async () => {
+    try {
+      const allowed = await canCreateBinder();
+      if (!allowed) {
+        Alert.alert(
+          'Upgrade to Pro',
+          'Free accounts can create 1 binder. Upgrade to Pro for unlimited binders!',
+          [
+            { text: 'Not Now', style: 'cancel' },
+            {
+              text: 'Upgrade to Pro',
+              onPress: () => navigation.navigate('Upgrade'),
+            },
+          ]
+        );
+        return;
+      }
+      navigation.navigate('Questionnaire');
+    } catch {
+      navigation.navigate('Questionnaire');
+    }
   };
 
   const handleFixBinders = async () => {
@@ -125,27 +145,93 @@ export default function BinderListScreen() {
     );
   };
 
-  const handleDeleteBinder = (binder: Binder) => {
-    Alert.alert(
-      'Delete Binder',
-      `Are you sure you want to delete "${binder.name}"? This action cannot be undone.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await deleteBinder(binder.id);
-              // Refresh binders list
-              await loadBinders();
-            } catch (error: any) {
-              Alert.alert('Error', error.message || 'Failed to delete binder. Please try again.');
-            }
+  const handleDeleteBinder = async (binder: Binder) => {
+    try {
+      const usage = await getBinderUsage();
+
+      // Pro users get normal delete confirmation
+      if (usage.tier === 'pro') {
+        Alert.alert(
+          'Delete Binder',
+          `Are you sure you want to delete "${binder.name}"? This action cannot be undone.`,
+          [
+            { text: 'Cancel', style: 'cancel' },
+            {
+              text: 'Delete',
+              style: 'destructive',
+              onPress: async () => {
+                try {
+                  await deleteBinder(binder.id);
+                  await loadBinders();
+                } catch (error: any) {
+                  Alert.alert('Error', error.message || 'Failed to delete binder. Please try again.');
+                }
+              },
+            },
+          ]
+        );
+        return;
+      }
+
+      // Free user — check if they can still delete
+      if (!usage.canDelete) {
+        Alert.alert(
+          'Upgrade to Pro',
+          "You've used your free do-over. Upgrade to Pro to manage your binders freely.",
+          [
+            { text: 'Not Now', style: 'cancel' },
+            {
+              text: 'Upgrade to Pro',
+              onPress: () => navigation.navigate('Upgrade'),
+            },
+          ]
+        );
+        return;
+      }
+
+      // Free user with do-over available — show warning
+      Alert.alert(
+        'Use Your Do-Over?',
+        `This is your only free do-over. After deleting "${binder.name}", you won't be able to delete binders again unless you upgrade to Pro.\n\nAre you sure?`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Delete (Use Do-Over)',
+            style: 'destructive',
+            onPress: async () => {
+              try {
+                await deleteBinder(binder.id);
+                await recordDeletionUsed();
+                await loadBinders();
+              } catch (error: any) {
+                Alert.alert('Error', error.message || 'Failed to delete binder. Please try again.');
+              }
+            },
           },
-        },
-      ]
-    );
+        ]
+      );
+    } catch {
+      // Fallback: allow delete with standard confirmation
+      Alert.alert(
+        'Delete Binder',
+        `Are you sure you want to delete "${binder.name}"? This action cannot be undone.`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Delete',
+            style: 'destructive',
+            onPress: async () => {
+              try {
+                await deleteBinder(binder.id);
+                await loadBinders();
+              } catch (error: any) {
+                Alert.alert('Error', error.message || 'Failed to delete binder. Please try again.');
+              }
+            },
+          },
+        ]
+      );
+    }
   };
 
   const handleLogout = async () => {

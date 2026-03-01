@@ -17,7 +17,7 @@ import { getBinderById } from '../../services/supabase/binders';
 import { getBinderCardsWithPositions } from '../../services/supabase/cards';
 import { getCardsBySet, getCardsByRegion, getCardById, type Region } from '../../services/api/pokemonApi';
 import { getAllSelectedCardsForBinder } from '../../services/supabase/regionCards';
-import { getCardPositionsForBinder, saveCardPositionsForBinder, getPlaceholderCardsForBinder, savePlaceholderCardsForBinder } from '../../services/supabase/binderPositions';
+import { getCardPositionsForBinder, saveCardPositionsForBinder, getPlaceholderCardsForBinder, savePlaceholderCardsForBinder, syncBinderCardsFromPositions } from '../../services/supabase/binderPositions';
 import { CardSlot, CardPlaceholder, SelectedCardBar, InsertButton, type PlaceholderCard } from '../../components/BinderEdit';
 import type { DragStartData } from '../../components/BinderEdit/CardSlot';
 import PageNavigator from '../../components/Binder/PageNavigator';
@@ -580,10 +580,16 @@ export default function BinderEditScreen() {
       console.log('[BinderEdit] Saving positions to database...');
       await saveCardPositionsForBinder(binderId, cardPositions);
       await savePlaceholderCardsForBinder(binderId, placeholderCards);
+
+      // Sync binder_cards table so progress bar reflects added/removed cards
+      if (binder) {
+        await syncBinderCardsFromPositions(binderId, binder.collectionMode);
+      }
+
       setOriginalPositions(cardPositions.map(p => ({ ...p })));
       setHasChanges(false);
       setUndoStack([]);
-      console.log('[BinderEdit] Positions and placeholder saved successfully');
+      console.log('[BinderEdit] Positions, placeholders, and card counts saved successfully');
       navigation.goBack();
     } catch (err) {
       console.error('[BinderEdit] Error saving positions:', err);

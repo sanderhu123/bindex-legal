@@ -839,38 +839,49 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
                 cardLookup.set(card.id, card);
               });
 
-              // Create a new array sorted by saved slot positions
-              const reordered: CardWithOwnership[] = [];
-              const sortedPositions = [...dbPositions].sort((a, b) => a.slotIndex - b.slotIndex);
+              // Find the highest slot index to determine array size
+              const maxSlot = dbPositions.reduce((max, p) => Math.max(max, p.slotIndex), 0);
+              const arraySize = Math.max(maxSlot + 1, cardsWithOwnership.length);
 
-              for (const pos of sortedPositions) {
+              // Place each card at its exact saved slot position
+              const reordered: (CardWithOwnership | null)[] = new Array(arraySize).fill(null);
+
+              for (const pos of dbPositions) {
                 if (pos.cardId) {
                   const card = cardLookup.get(pos.cardId);
                   if (card) {
-                    reordered.push(card);
-                    cardLookup.delete(pos.cardId); // Prevent duplicates
+                    reordered[pos.slotIndex] = card;
+                    cardLookup.delete(pos.cardId);
                   } else {
                     // Card not in lookup (replaced via edit mode) — fetch from API
                     try {
                       const fetchedCard = await getCardById(pos.cardId);
                       if (fetchedCard) {
-                        reordered.push({
+                        reordered[pos.slotIndex] = {
                           ...fetchedCard,
                           isOwned: binder.cardIds?.includes(fetchedCard.id) ?? false,
-                        } as CardWithOwnership);
+                        } as CardWithOwnership;
                       }
                     } catch { /* skip card */ }
                   }
                 }
               }
 
-              // Any remaining cards (not in saved positions) go at the end
-              cardLookup.forEach(card => {
-                reordered.push(card);
-              });
+              // Fill remaining empty slots with unpositioned cards (in original order)
+              const remaining = Array.from(cardLookup.values());
+              let remainingIdx = 0;
+              for (let i = 0; i < reordered.length; i++) {
+                if (reordered[i] === null && remainingIdx < remaining.length) {
+                  reordered[i] = remaining[remainingIdx++];
+                }
+              }
+              // Append any leftover cards beyond the array size
+              while (remainingIdx < remaining.length) {
+                reordered.push(remaining[remainingIdx++]);
+              }
 
-              cardsWithOwnership = reordered;
-              console.log('[BinderDetail] Applied saved card order:', reordered.length, 'cards');
+              cardsWithOwnership = reordered.filter(c => c !== null) as CardWithOwnership[];
+              console.log('[BinderDetail] Applied saved card positions:', cardsWithOwnership.length, 'cards');
             }
           } catch (dbErr) {
             console.warn('[BinderDetail] Could not load saved positions, using default order:', dbErr);

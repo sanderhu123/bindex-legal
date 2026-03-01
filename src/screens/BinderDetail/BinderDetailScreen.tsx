@@ -1221,6 +1221,16 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
     }
   }, [binder, positionCards]);
 
+  // Toggle ownership for custom mode via card object (used by list/binder views)
+  const handleCustomCardToggleByCard = useCallback((card: CardWithOwnership) => {
+    for (const [pos, c] of positionCards.entries()) {
+      if (c.id === card.id) {
+        handleToggleCustomCardOwnership(pos);
+        return;
+      }
+    }
+  }, [positionCards, handleToggleCustomCardOwnership]);
+
   // === EXTRA CARDS HANDLERS (Master Set mode) ===
   
   // Handle adding an extra card from the picker
@@ -1609,6 +1619,20 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
     [handleToggleCard, binder?.id]
   );
 
+  // Render a card for custom mode list view (toggles ownership by position)
+  const renderCustomListCard = useCallback(
+    ({ item }: { item: CardWithOwnership }) => (
+      <CardItem
+        card={item}
+        onPress={handleCustomCardToggleByCard}
+        binderId={binder?.id || ''}
+        variant="list"
+        listTapBehavior="toggle"
+      />
+    ),
+    [handleCustomCardToggleByCard, binder?.id]
+  );
+
   // === MASTER SET MODE: Combined grid with regular cards, extra cards, and empty slots ===
   
   // Filter extra cards through the same search & ownership filters as regular cards
@@ -1785,6 +1809,43 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
       return true;
     });
   }, [binder, customSlots, positionCards, searchQuery, ownershipFilter]);
+
+  // Custom mode cards for list/binder views: flat array of filled slots (no empty ones)
+  const customCardsForView = useMemo(() => {
+    if (!isCustomMode) return [];
+    const result: CardWithOwnership[] = [];
+    filteredCustomSlots.forEach((position) => {
+      const card = positionCards.get(position);
+      if (card) result.push(card);
+    });
+    return result;
+  }, [isCustomMode, filteredCustomSlots, positionCards]);
+
+  // Custom mode binder view: sparse array preserving slot positions
+  const customBinderViewCards = useMemo(() => {
+    if (!isCustomMode) return [];
+    const totalSlots = Math.max(customMaxSlots, cardsPerPage);
+    const result: (CardWithOwnership | undefined)[] = new Array(totalSlots);
+    const query = searchQuery.toLowerCase().trim();
+
+    positionCards.forEach((card, pos) => {
+      if (pos >= totalSlots) return;
+      if (ownershipFilter === 'owned' && !card.isOwned) return;
+      if (ownershipFilter === 'missing' && card.isOwned) return;
+      if (query) {
+        const nameMatch = card.name.toLowerCase().includes(query);
+        const numMatch = card.number?.toLowerCase().includes(query);
+        if (!nameMatch && !numMatch) return;
+      }
+      result[pos] = card;
+    });
+    return result as CardWithOwnership[];
+  }, [isCustomMode, positionCards, customMaxSlots, cardsPerPage, searchQuery, ownershipFilter]);
+
+  const customTotalPages = useMemo(() => {
+    if (!isCustomMode) return 1;
+    return Math.max(1, Math.ceil(customMaxSlots / cardsPerPage));
+  }, [isCustomMode, customMaxSlots, cardsPerPage]);
 
   // Only allow loading more when no filter is active (filtered mode shows all matching at once)
   const isCustomFiltering = isCustomMode && (searchQuery.trim().length > 0 || ownershipFilter !== 'all');
@@ -2036,26 +2097,20 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>{isCustomMode ? 'Card Slots:' : 'Cards:'}</Text>
           <View style={styles.sectionHeaderRight}>
-            {/* View toggle - only show for non-Custom modes */}
-            {!isCustomMode && (
-              <ViewModeToggle 
-                viewMode={viewMode} 
-                onViewModeChange={setViewMode} 
-              />
-            )}
-            {/* Display mode button - switches to clean binder view */}
-            {!isCustomMode && (
-              <TouchableOpacity
-                style={styles.displayModeToggle}
-                onPress={() => {
-                  setViewMode('binder');
-                  setDisplayMode(true);
-                }}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.displayModeToggleIcon}>👁</Text>
-              </TouchableOpacity>
-            )}
+            <ViewModeToggle 
+              viewMode={viewMode} 
+              onViewModeChange={setViewMode} 
+            />
+            <TouchableOpacity
+              style={styles.displayModeToggle}
+              onPress={() => {
+                setViewMode('binder');
+                setDisplayMode(true);
+              }}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.displayModeToggleIcon}>👁</Text>
+            </TouchableOpacity>
           </View>
         </View>
         
@@ -2173,25 +2228,22 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
   };
 
   // List view - uses FlatList for virtualization (much faster than ScrollView + map)
-  // Note: Custom mode only supports grid view (always falls through to grid)
-  // Step 34A: List view tap toggles ownership (no card details navigation)
-  if (viewMode === 'list' && !isCustomMode) {
+  if (viewMode === 'list') {
     return (
       <SafeAreaView style={styles.safeArea}>
         <FlatList
-          data={filteredCards}
-          renderItem={renderListCard}
+          data={isCustomMode ? customCardsForView : filteredCards}
+          renderItem={isCustomMode ? renderCustomListCard : renderListCard}
           keyExtractor={keyExtractor}
           contentContainerStyle={styles.flatListContainer}
           ListHeaderComponent={listHeader}
           ListFooterComponent={ListFooterComponent}
           ListEmptyComponent={ListEmptyComponent}
-          // Performance optimizations
           removeClippedSubviews={false}
           maxToRenderPerBatch={20}
           windowSize={11}
           initialNumToRender={15}
-          extraData={cards}
+          extraData={isCustomMode ? [positionCards, searchQuery, ownershipFilter] : cards}
         />
         <EnlargedCardOverlay />
       </SafeAreaView>
@@ -2199,15 +2251,17 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
   }
 
   // Binder view mode - shows cards page by page like a physical binder
-  // Note: Custom mode only supports grid view (always falls through to grid)
-  if (viewMode === 'binder' && !isCustomMode) {
+  if (viewMode === 'binder') {
+    const binderCards = isCustomMode ? customBinderViewCards : binderViewCards;
+    const binderTotalPages = isCustomMode ? customTotalPages : totalPages;
+    const binderOnCardPress = isCustomMode ? handleCustomCardToggleByCard : handleToggleCard;
+    const binderHasCards = isCustomMode ? positionCards.size > 0 : (filteredCards.length > 0 || !!savedPositionMap);
+
     return (
       <SafeAreaView style={styles.safeArea}>
         <ScrollView style={styles.container}>
-          {/* Hide header/progress/search/filters in display mode */}
           {!displayMode && listHeader}
           
-          {/* Display mode toggle bar - shown at top when in display mode */}
           {displayMode && (
             <View style={styles.displayModeBar}>
               <TouchableOpacity
@@ -2222,29 +2276,30 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
           
           {loading ? (
             <LoadingSpinner message="Loading cards..." />
-          ) : filteredCards.length === 0 && !savedPositionMap ? (
+          ) : !binderHasCards ? (
             <ListEmptyComponent />
           ) : (
             <>
               <PageNavigator
                 currentPage={currentPage}
-                totalPages={totalPages}
+                totalPages={binderTotalPages}
                 onPreviousPage={() => setCurrentPage(p => Math.max(1, p - 1))}
-                onNextPage={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                onNextPage={() => setCurrentPage(p => Math.min(binderTotalPages, p + 1))}
                 onJumpToPage={() => setShowJumpModal(true)}
               />
-              {/* Swipeable container for page navigation */}
               <View {...binderPanResponder.panHandlers}>
                 <BinderPageView
-                  cards={binderViewCards}
+                  cards={binderCards}
                   currentPage={currentPage}
-                  totalPages={totalPages}
+                  totalPages={binderTotalPages}
                   cardsPerPage={cardsPerPage}
                   columns={gridColumns}
                   cardWidth={cardWidth}
                   binderId={binder.id}
                   onPageChange={setCurrentPage}
-                  onCardPress={handleToggleCard}
+                  onCardPress={binderOnCardPress}
+                  onEmptySlotPress={isCustomMode ? handleEmptySlotPress : undefined}
+                  isCustomMode={isCustomMode}
                   onCardLongPress={handleLongPressCard}
                   onCardLongPressRelease={handleLongPressRelease}
                   collectionMode={binder.collectionMode}
@@ -2257,13 +2312,25 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
         <JumpToPageModal
           visible={showJumpModal}
           currentPage={currentPage}
-          totalPages={totalPages}
+          totalPages={binderTotalPages}
           onClose={() => setShowJumpModal(false)}
           onJump={(page) => {
             setCurrentPage(page);
             setShowJumpModal(false);
           }}
         />
+        {isCustomMode && (
+          <CardPickerModal
+            visible={showCardPicker}
+            onClose={() => {
+              setShowCardPicker(false);
+              setSelectedPosition(null);
+            }}
+            onSelectCard={handleAddCardFromPicker}
+            title={selectedPosition !== null ? `Add Card to Slot ${selectedPosition + 1}` : 'Add Card'}
+            pokemonOnly={false}
+          />
+        )}
         <EnlargedCardOverlay />
       </SafeAreaView>
     );

@@ -4,25 +4,35 @@ import { Image, ImageSource } from 'expo-image';
 
 /**
  * CardBackPlaceholder - A styled placeholder that looks like a Pokémon card back
- * Used when card images are not available from the API
+ * Used when card images are not available from the API.
+ * Shows card name and number when available so users can identify the card.
  */
-function CardBackPlaceholder({ style }: { style?: any }) {
+function CardBackPlaceholder({ style, cardName, cardNumber }: { style?: any; cardName?: string; cardNumber?: string }) {
+  const hasCardInfo = !!(cardName || cardNumber);
+
   return (
     <View style={[styles.cardBackContainer, style]}>
-      {/* Background gradient effect using layered views */}
       <View style={styles.cardBackInner}>
-        {/* Decorative border */}
         <View style={styles.cardBackBorder}>
-          {/* Center circle (Pokéball inspired) */}
-          <View style={styles.pokeballOuter}>
-            <View style={styles.pokeballDivider} />
-            <View style={styles.pokeballCenter}>
-              <View style={styles.pokeballButton} />
+          {hasCardInfo ? (
+            <View style={styles.cardInfoCenter}>
+              {cardNumber ? (
+                <Text style={styles.cardInfoNumber}>#{cardNumber}</Text>
+              ) : null}
+              {cardName ? (
+                <Text style={styles.cardInfoName} numberOfLines={3}>{cardName}</Text>
+              ) : null}
             </View>
-          </View>
+          ) : (
+            <View style={styles.pokeballOuter}>
+              <View style={styles.pokeballDivider} />
+              <View style={styles.pokeballCenter}>
+                <View style={styles.pokeballButton} />
+              </View>
+            </View>
+          )}
         </View>
       </View>
-      {/* "No Image" text at bottom */}
       <Text style={styles.cardBackText}>No Image</Text>
     </View>
   );
@@ -84,7 +94,7 @@ interface CardImageProps {
   aspectRatio?: number;
   onError?: () => void;
   priority?: 'low' | 'normal' | 'high'; // Image loading priority
-  cardInfo?: { id?: string; name?: string; set?: string }; // Optional card info for better error logging
+  cardInfo?: { id?: string; name?: string; number?: string; set?: string };
 }
 
 /**
@@ -188,7 +198,7 @@ export default function CardImage({
     
     return (
       <View style={containerStyle}>
-        <CardBackPlaceholder />
+        <CardBackPlaceholder cardName={cardInfo?.name} cardNumber={cardInfo?.number} />
       </View>
     );
   }
@@ -251,7 +261,7 @@ export default function CardImage({
           )}
         </>
       ) : (
-        <CardBackPlaceholder />
+        <CardBackPlaceholder cardName={cardInfo?.name} cardNumber={cardInfo?.number} />
       )}
     </View>
   );
@@ -359,6 +369,23 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffff',
     borderWidth: 1,
     borderColor: '#999',
+  },
+  cardInfoCenter: {
+    alignItems: 'center',
+    paddingHorizontal: 8,
+  },
+  cardInfoNumber: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#ffd700',
+    marginBottom: 4,
+  },
+  cardInfoName: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#ffffff',
+    textAlign: 'center',
+    lineHeight: 16,
   },
   cardBackText: {
     position: 'absolute',

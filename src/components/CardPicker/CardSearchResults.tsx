@@ -45,7 +45,7 @@ const CardResultItem = memo(function CardResultItem({ card, onSelect, isVisible 
           isMissing={false}
           style={styles.cardImage}
           priority="low"
-          cardInfo={{ id: card.id, name: card.name, set: card.set }}
+          cardInfo={{ id: card.id, name: card.name, number: card.number, set: card.set }}
         />
       </View>
       <View style={styles.cardInfo}>

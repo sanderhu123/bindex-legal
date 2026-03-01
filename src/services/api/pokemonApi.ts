@@ -826,7 +826,11 @@ async function transformTcgdexCardToCard(tcgdexCard: any): Promise<Card> {
   
   // If still no image, try to construct it manually from TCGDEX assets
   // Format: https://assets.tcgdex.net/{lang}/{series}/{set}/{card}/{quality}.{format}
-  if (!imageUrl && cardId) {
+  // Only try fallback if the API had an image field we couldn't parse.
+  // If the API returned no image at all, TCGDex genuinely doesn't have one —
+  // skip the fallback to avoid wasted 404 requests and retries.
+  const apiProvidedImage = tcgdexCard.image !== undefined && tcgdexCard.image !== null;
+  if (!imageUrl && cardId && apiProvidedImage) {
     const appSetId = tcgdexCard.set?.id || '';
     if (appSetId && cardNumber) {
       // Get the series slug for this set

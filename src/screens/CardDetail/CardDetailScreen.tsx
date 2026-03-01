@@ -431,7 +431,7 @@ export default function CardDetailScreen({ navigation, route }: CardDetailScreen
             aspectRatio={0.7}
             style={[styles.cardImage, { width: imageWidth }]}
             priority="high"
-            cardInfo={{ id: card.id, name: card.name, set: card.set }}
+            cardInfo={{ id: card.id, name: card.name, number: card.number, set: card.set }}
           />
         </View>
 

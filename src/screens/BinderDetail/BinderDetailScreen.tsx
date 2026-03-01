@@ -1860,6 +1860,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
               isMissing={!item.isOwned}
               aspectRatio={0.7}
               style={styles.regionCardImageWrapper}
+              cardInfo={{ id: item.id, name: item.name, number: item.number, set: item.set }}
             />
             {/* Checkbox for ownership toggle */}
             <TouchableOpacity 

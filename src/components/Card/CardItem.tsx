@@ -176,7 +176,7 @@ function CardItemComponent({
           isMissing={!card.isOwned}
           aspectRatio={0.7}
           style={styles.cardImageWrapper}
-          cardInfo={{ id: card.id, name: card.name, set: card.set }}
+          cardInfo={{ id: card.id, name: card.name, number: card.number, set: card.set }}
         />
         <TouchableOpacity 
           style={styles.checkboxOverlay}

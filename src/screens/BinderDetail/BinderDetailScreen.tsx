@@ -130,6 +130,9 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
   // Custom mode: map of position -> card data
   const [positionCards, setPositionCards] = useState<Map<number, CardWithOwnership>>(new Map());
   
+  // Saved slot positions from edit mode: maps slotIndex → card (for binder page view)
+  const [savedPositionMap, setSavedPositionMap] = useState<Map<number, CardWithOwnership> | null>(null);
+  
   // Extra cards for Master Set binders (cards not officially in the set)
   const [extraCards, setExtraCards] = useState<CardWithOwnership[]>([]);
   const [showExtraCardPicker, setShowExtraCardPicker] = useState(false);
@@ -378,6 +381,13 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
               reordered.push(remaining[remainingIdx++]);
             }
 
+            // Build position map for binder page view
+            const posMap = new Map<number, CardWithOwnership>();
+            for (let i = 0; i < reordered.length; i++) {
+              if (reordered[i] !== null) posMap.set(i, reordered[i]!);
+            }
+            setSavedPositionMap(posMap);
+
             updatedCards = reordered.filter(c => c !== null) as CardWithOwnership[];
             console.log('[BinderDetail] Applied saved positions on refresh:', dbPositions.length);
           }
@@ -442,6 +452,13 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
             while (remainingIdx < remaining.length) {
               reordered.push(remaining[remainingIdx++]);
             }
+
+            // Build position map for binder page view
+            const posMap = new Map<number, CardWithOwnership>();
+            for (let i = 0; i < reordered.length; i++) {
+              if (reordered[i] !== null) posMap.set(i, reordered[i]!);
+            }
+            setSavedPositionMap(posMap);
 
             updatedMasterCards = reordered.filter(c => c !== null) as CardWithOwnership[];
             console.log('[BinderDetail] Applied saved positions on refresh:', dbPositions.length);
@@ -906,8 +923,17 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
                 reordered.push(remaining[remainingIdx++]);
               }
 
+              // Build position map for binder page view (preserves exact slot positions)
+              const posMap = new Map<number, CardWithOwnership>();
+              for (let i = 0; i < reordered.length; i++) {
+                if (reordered[i] !== null) {
+                  posMap.set(i, reordered[i]!);
+                }
+              }
+              setSavedPositionMap(posMap);
+
               cardsWithOwnership = reordered.filter(c => c !== null) as CardWithOwnership[];
-              console.log('[BinderDetail] Applied saved card positions:', cardsWithOwnership.length, 'cards');
+              console.log('[BinderDetail] Applied saved card positions:', cardsWithOwnership.length, 'cards, positionMap:', posMap.size);
             }
           } catch (dbErr) {
             console.warn('[BinderDetail] Could not load saved positions, using default order:', dbErr);
@@ -1015,6 +1041,18 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
       )
     );
 
+    // Also update savedPositionMap so binder page view reflects ownership changes
+    setSavedPositionMap((prevMap) => {
+      if (!prevMap) return prevMap;
+      const newMap = new Map(prevMap);
+      newMap.forEach((c, slot) => {
+        if (c.id === cardId) {
+          newMap.set(slot, { ...c, isOwned: newIsOwned });
+        }
+      });
+      return newMap;
+    });
+
     setBinder((prevBinder) => {
       if (!prevBinder) return prevBinder;
       const updatedCardIds = newIsOwned
@@ -1047,6 +1085,16 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
           c.id === cardId ? { ...c, isOwned: !newIsOwned } : c
         )
       );
+      setSavedPositionMap((prevMap) => {
+        if (!prevMap) return prevMap;
+        const newMap = new Map(prevMap);
+        newMap.forEach((c, slot) => {
+          if (c.id === cardId) {
+            newMap.set(slot, { ...c, isOwned: !newIsOwned });
+          }
+        });
+        return newMap;
+      });
       setBinder((prevBinder) => {
         if (!prevBinder) return prevBinder;
         const revertedCardIds = !newIsOwned
@@ -1419,6 +1467,35 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
   // Binder view mode calculations
   const cardsPerPage = gridColumns === 4 ? 12 : 9; // 4×3 = 12, 3×3 = 9
   const totalPages = Math.max(40, Math.ceil(filteredCards.length / cardsPerPage));
+  
+  // For binder view: build a sparse array that preserves exact slot positions from edit mode.
+  // Without this, cards get packed together and lose their assigned positions.
+  const binderViewCards = useMemo(() => {
+    if (!savedPositionMap || savedPositionMap.size === 0) {
+      return filteredCards;
+    }
+    
+    const totalSlots = totalPages * cardsPerPage;
+    const result: (CardWithOwnership | undefined)[] = new Array(totalSlots);
+    const query = searchQuery.toLowerCase().trim();
+    
+    savedPositionMap.forEach((card, slotIndex) => {
+      if (slotIndex >= totalSlots) return;
+      
+      if (ownershipFilter === 'owned' && !card.isOwned) return;
+      if (ownershipFilter === 'missing' && card.isOwned) return;
+      
+      if (query) {
+        const nameMatch = card.name.toLowerCase().includes(query);
+        const numMatch = card.number?.toLowerCase().includes(query);
+        if (!nameMatch && !numMatch) return;
+      }
+      
+      result[slotIndex] = card;
+    });
+    
+    return result as CardWithOwnership[];
+  }, [savedPositionMap, filteredCards, totalPages, cardsPerPage, searchQuery, ownershipFilter]);
   
   // Get cards for current binder page
   const pageCards = useMemo(() => {
@@ -2144,7 +2221,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
           
           {loading ? (
             <LoadingSpinner message="Loading cards..." />
-          ) : filteredCards.length === 0 ? (
+          ) : filteredCards.length === 0 && !savedPositionMap ? (
             <ListEmptyComponent />
           ) : (
             <>
@@ -2158,7 +2235,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
               {/* Swipeable container for page navigation */}
               <View {...binderPanResponder.panHandlers}>
                 <BinderPageView
-                  cards={filteredCards}
+                  cards={binderViewCards}
                   currentPage={currentPage}
                   totalPages={totalPages}
                   cardsPerPage={cardsPerPage}

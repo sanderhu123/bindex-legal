@@ -255,27 +255,64 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
         };
       });
 
-      // For Custom binders: refresh positionCards with latest ownership status from database
+      // For Custom binders: reload positions from binder_card_positions (edit mode source)
+      // and merge with ownership data from binder_cards
       if (latestBinder.collectionMode === 'custom') {
-        const cardsWithPositionsMap = await getBinderCardsWithPositions(binderId);
+        const editPositions = await getCardPositionsForBinder(binderId);
+        const ownershipMap = await getBinderCardsWithPositions(binderId);
         
-        // Update positionCards with latest ownership status
-        setPositionCards((prevPositionCards) => {
-          const updatedMap = new Map(prevPositionCards);
+        const newPositionCards = new Map<number, CardWithOwnership>();
+        const usedPositions = new Set<number>();
+        
+        // Primary: rebuild from edit positions
+        if (editPositions.length > 0) {
+          const cardPromises = editPositions
+            .filter(p => p.cardId)
+            .map(async (pos) => {
+              try {
+                const card = await getCardById(pos.cardId!);
+                if (card) return { position: pos.slotIndex, card };
+                return null;
+              } catch { return null; }
+            });
           
-          // Update ownership status for each position from database
-          cardsWithPositionsMap.forEach((dbData, position) => {
-            const existingCard = prevPositionCards.get(position);
-            if (existingCard) {
-              updatedMap.set(position, {
-                ...existingCard,
-                isOwned: dbData.isOwned,
+          const results = await Promise.all(cardPromises);
+          results.forEach((result) => {
+            if (result) {
+              const ownershipData = ownershipMap.get(result.position);
+              const isOwned = ownershipData?.isOwned
+                ?? latestBinder.cardIds?.includes(result.card.id)
+                ?? false;
+              newPositionCards.set(result.position, { ...result.card, isOwned });
+              usedPositions.add(result.position);
+            }
+          });
+        }
+        
+        // Merge: add cards from binder_cards not already in edit positions
+        if (ownershipMap.size > 0) {
+          const extraPromises = Array.from(ownershipMap.entries())
+            .filter(([position]) => !usedPositions.has(position))
+            .map(async ([position, cardData]) => {
+              try {
+                const card = await getCardById(cardData.cardId);
+                if (card) return { position, card, isOwned: cardData.isOwned };
+                return null;
+              } catch { return null; }
+            });
+          
+          const extraResults = await Promise.all(extraPromises);
+          extraResults.forEach((result) => {
+            if (result) {
+              newPositionCards.set(result.position, {
+                ...result.card,
+                isOwned: result.isOwned ?? true,
               });
             }
           });
-          
-          return updatedMap;
-        });
+        }
+        
+        setPositionCards(newPositionCards);
       } else if (latestBinder.collectionMode === 'region') {
         // For Region binders: refresh both ownership AND card selections/images
         console.log('[BinderDetail] Refreshing Region binder card selections');
@@ -613,48 +650,75 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
             allCards = pokemonList;
           }
         } else if (binder.collectionMode === 'custom') {
-          // For Custom binders, load cards with their positions
+          // For Custom binders, load cards from binder_card_positions (same table
+          // the edit screen saves to). Fall back to binder_cards for ownership data.
           console.log('[BinderDetail] Custom mode - loading cards with positions');
           
           try {
-            // Get all cards with their positions from the database
-            const cardsWithPositionsMap = await getBinderCardsWithPositions(binder.id);
-            console.log('[BinderDetail] Custom mode - found', cardsWithPositionsMap.size, 'cards with positions');
+            // Primary source: edit-mode positions (binder_card_positions table)
+            const editPositions = await getCardPositionsForBinder(binder.id);
+            // Secondary source: ownership data (binder_cards table)
+            const ownershipMap = await getBinderCardsWithPositions(binder.id);
             
-            // Fetch card details for each position
+            console.log('[BinderDetail] Custom mode - edit positions:', editPositions.length, ', ownership entries:', ownershipMap.size);
+            
             const newPositionCards = new Map<number, CardWithOwnership>();
-            const cardPromises = Array.from(cardsWithPositionsMap.entries()).map(
-              async ([position, cardData]) => {
-                try {
-                  const card = await getCardById(cardData.cardId);
-                  if (card) {
-                    return { position, card };
-                  }
-                  return null;
-                } catch (err) {
-                  console.warn('[BinderDetail] Failed to load card at position', position, ':', err);
-                  return null;
-                }
-              }
-            );
+            const usedPositions = new Set<number>();
             
-            const results = await Promise.all(cardPromises);
-            
-            // Build the position map with ownership status from database
-            results.forEach((result) => {
-              if (result) {
-                const positionData = cardsWithPositionsMap.get(result.position);
-                newPositionCards.set(result.position, {
-                  ...result.card,
-                  isOwned: positionData?.isOwned ?? true, // Use stored ownership status
+            // First: load cards from binder_card_positions (edit mode is the source of truth)
+            if (editPositions.length > 0) {
+              const cardPromises = editPositions
+                .filter(p => p.cardId)
+                .map(async (pos) => {
+                  try {
+                    const card = await getCardById(pos.cardId!);
+                    if (card) return { position: pos.slotIndex, card };
+                    return null;
+                  } catch { return null; }
                 });
-              }
-            });
+              
+              const results = await Promise.all(cardPromises);
+              
+              results.forEach((result) => {
+                if (result) {
+                  const ownershipData = ownershipMap.get(result.position);
+                  const isOwned = ownershipData?.isOwned
+                    ?? binder.cardIds?.includes(result.card.id)
+                    ?? false;
+                  
+                  newPositionCards.set(result.position, { ...result.card, isOwned });
+                  usedPositions.add(result.position);
+                }
+              });
+            }
+            
+            // Second: merge any cards from binder_cards that aren't in edit positions
+            // (cards added via view screen after the last edit)
+            if (ownershipMap.size > 0) {
+              const extraPromises = Array.from(ownershipMap.entries())
+                .filter(([position]) => !usedPositions.has(position))
+                .map(async ([position, cardData]) => {
+                  try {
+                    const card = await getCardById(cardData.cardId);
+                    if (card) return { position, card, isOwned: cardData.isOwned };
+                    return null;
+                  } catch { return null; }
+                });
+              
+              const extraResults = await Promise.all(extraPromises);
+              extraResults.forEach((result) => {
+                if (result) {
+                  newPositionCards.set(result.position, {
+                    ...result.card,
+                    isOwned: result.isOwned ?? true,
+                  });
+                }
+              });
+            }
             
             setPositionCards(newPositionCards);
             console.log('[BinderDetail] Custom mode - loaded', newPositionCards.size, 'cards into grid');
             
-            // allCards stays empty for Custom mode (we use positionCards instead)
             allCards = [];
           } catch (err) {
             console.error('[BinderDetail] Error loading custom binder cards:', err);

@@ -515,7 +515,8 @@ export async function addCardAtPosition(
 
   if (posError) {
     console.error('[addCardAtPosition] Failed to write position:', posError);
-    // Non-fatal: card is still in binder_cards
+    // Still throw — both tables must stay in sync
+    throw posError;
   }
 
   await syncBinderCardCount(binderId);

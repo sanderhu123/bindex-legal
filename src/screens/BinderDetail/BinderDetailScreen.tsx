@@ -1162,43 +1162,57 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
   const handleAddCardFromPicker = useCallback(async (selectedCard: Card) => {
     if (!binder || selectedPosition === null) return;
     
-    console.log('[BinderDetail] Adding card from picker at position', selectedPosition, ':', selectedCard.id, selectedCard.name);
+    const position = selectedPosition;
+    console.log('[BinderDetail] Adding card from picker at position', position, ':', selectedCard.id, selectedCard.name);
     
-    try {
-      // Add card at the selected position
-      await addCardAtPosition(binder.id, selectedCard.id, selectedPosition, selectedCard.variant);
-      
-      // Optimistically update UI - new cards in Custom binders start as "missing" (unowned)
-      const newCard: CardWithOwnership = {
-        ...selectedCard,
-        isOwned: false, // Default to missing, user can mark as owned
+    // Optimistic UI update FIRST so the card appears instantly
+    const newCard: CardWithOwnership = {
+      ...selectedCard,
+      isOwned: false,
+    };
+    
+    setPositionCards((prev) => {
+      const updated = new Map(prev);
+      updated.set(position, newCard);
+      return updated;
+    });
+    
+    setBinder((prevBinder) => {
+      if (!prevBinder) return prevBinder;
+      return {
+        ...prevBinder,
+        cardIds: [...prevBinder.cardIds, selectedCard.id],
+        totalCards: (prevBinder.totalCards || 0) + 1,
       };
-      
+    });
+    
+    setSelectedPosition(null);
+    
+    // Persist to database in the background
+    try {
+      await addCardAtPosition(binder.id, selectedCard.id, position, selectedCard.variant);
+      console.log('[BinderDetail] Card persisted at position', position);
+    } catch (err) {
+      console.error('[BinderDetail] Failed to add card:', err);
+      // Revert the optimistic update
       setPositionCards((prev) => {
         const updated = new Map(prev);
-        updated.set(selectedPosition, newCard);
+        updated.delete(position);
         return updated;
       });
-      
       setBinder((prevBinder) => {
         if (!prevBinder) return prevBinder;
         return {
           ...prevBinder,
-          cardIds: [...prevBinder.cardIds, selectedCard.id],
-          totalCards: (prevBinder.totalCards || 0) + 1,
+          cardIds: prevBinder.cardIds.filter(id => id !== selectedCard.id),
+          totalCards: Math.max(0, (prevBinder.totalCards || 0) - 1),
         };
       });
-      
-      console.log('[BinderDetail] Card added successfully at position', selectedPosition, '(starts as missing)');
-    } catch (err) {
-      console.error('[BinderDetail] Failed to add card:', err);
       Alert.alert(
         'Error',
         'Failed to add card to binder. Please try again.',
         [{ text: 'OK' }]
       );
-    } finally {
-      setSelectedPosition(null);
     }
   }, [binder, selectedPosition]);
 
@@ -1284,26 +1298,29 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
     
     console.log('[BinderDetail] Adding extra card:', selectedCard.id, selectedCard.name);
     
+    // Optimistic UI update first
+    const newExtraCard: CardWithOwnership = {
+      ...selectedCard,
+      isOwned: false,
+    };
+    
+    setExtraCards((prev) => [...prev, newExtraCard]);
+    setBinder((prev) => {
+      if (!prev) return prev;
+      return { ...prev, totalCards: (prev.totalCards || 0) + 1 };
+    });
+    
     try {
       await addExtraCardToBinder(binder.id, selectedCard.id, selectedCard.variant);
-      
-      // Optimistically update UI - new cards start as missing (not owned yet)
-      const newExtraCard: CardWithOwnership = {
-        ...selectedCard,
-        isOwned: false,
-      };
-      
-      setExtraCards((prev) => [...prev, newExtraCard]);
-
-      // Update binder.totalCards so the progress bar reflects the new card
-      setBinder((prev) => {
-        if (!prev) return prev;
-        return { ...prev, totalCards: (prev.totalCards || 0) + 1 };
-      });
-
-      console.log('[BinderDetail] Card added successfully (starts as missing)');
+      console.log('[BinderDetail] Extra card persisted');
     } catch (err) {
       console.error('[BinderDetail] Failed to add extra card:', err);
+      // Revert optimistic update
+      setExtraCards((prev) => prev.filter(c => c.id !== selectedCard.id));
+      setBinder((prev) => {
+        if (!prev) return prev;
+        return { ...prev, totalCards: Math.max(0, (prev.totalCards || 0) - 1) };
+      });
       Alert.alert(
         'Error',
         err instanceof Error ? err.message : 'Failed to add extra card. Please try again.',

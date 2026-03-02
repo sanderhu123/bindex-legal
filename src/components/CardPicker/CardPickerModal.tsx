@@ -201,7 +201,7 @@ export function CardPickerModal({
     if (hasActiveFilters) {
       return 'No cards match the selected filters';
     }
-    return 'Enter a name or select filters to search';
+    return 'Enter a name, number, or card ID to search';
   })();
 
   return (
@@ -254,7 +254,7 @@ export function CardPickerModal({
               <TextInput
                 ref={searchInputRef}
                 style={styles.searchInput}
-                placeholder="Search by Pokémon name..."
+                placeholder="Search by name, number, or card ID..."
                 placeholderTextColor={colors.textTertiary}
                 value={query}
                 onChangeText={setQuery}

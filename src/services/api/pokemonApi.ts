@@ -1547,6 +1547,18 @@ function looksLikeCardNumber(query: string): boolean {
 }
 
 /**
+ * Check if a search query looks like a full TCGDEX card ID.
+ * Card IDs have the format "setId-localId", e.g.:
+ *   "swsh1-25", "base1-4", "sv01-001", "swsh11-TG21", "sm3.5-1"
+ *
+ * We require at least one letter, then a dash, then at least one character after the dash.
+ * This avoids matching plain numbers or names.
+ */
+function looksLikeCardId(query: string): boolean {
+  return /^[a-z0-9.]+[-][a-z0-9]+$/i.test(query);
+}
+
+/**
  * Cached map of set ID → official card count (the printed total on cards, e.g. 159).
  * Populated lazily on first number search that includes a slash (e.g. "1/159").
  */
@@ -1705,8 +1717,10 @@ export async function searchCardsByName(
       const requestStartTime = performance.now();
       console.log('[28A] Fetching ALL results for stable sorting...');
       
+      // Detect if the query looks like a full card ID (e.g., "swsh1-25", "base1-4")
+      const isCardIdSearch = sanitizedQuery ? looksLikeCardId(sanitizedQuery) : false;
       // Detect if the query looks like a card number (e.g., "007", "TG21", "001/159")
-      const isNumberSearch = sanitizedQuery ? looksLikeCardNumber(sanitizedQuery) : false;
+      const isNumberSearch = sanitizedQuery && !isCardIdSearch ? looksLikeCardNumber(sanitizedQuery) : false;
       
       // Helper to build common filter params (shared between name and number searches)
       const buildFilterParams = (): URLSearchParams => {
@@ -1726,7 +1740,41 @@ export async function searchCardsByName(
       let cardResults: any[];
       let fetchDuration = 0;
       
-      if (isNumberSearch && sanitizedQuery) {
+      if (isCardIdSearch && sanitizedQuery) {
+        // ---- CARD ID SEARCH ----
+        // User typed a full TCGDEX ID like "swsh1-25" — fetch the card directly
+        console.log('[28A] Card ID search detected:', { query: sanitizedQuery });
+        
+        try {
+          const url = `https://api.tcgdex.net/v2/en/cards/${encodeURIComponent(sanitizedQuery)}`;
+          console.log('[28A] Fetching card by ID:', url);
+          
+          const resp = await fetch(url);
+          fetchDuration = performance.now() - requestStartTime;
+          
+          if (resp.ok) {
+            const card = await resp.json();
+            cardResults = card ? [card] : [];
+            console.log('[28A] Card ID search result:', {
+              found: cardResults.length > 0,
+              cardName: card?.name,
+              fetchDuration: `${fetchDuration.toFixed(2)}ms`,
+            });
+          } else if (resp.status === 404) {
+            cardResults = [];
+            console.log('[28A] Card ID not found:', { query: sanitizedQuery });
+          } else {
+            if (resp.status === 429) {
+              handleRateLimitError({ status: 429 });
+            }
+            cardResults = [];
+            console.warn('[28A] Card ID search failed:', { status: resp.status });
+          }
+        } catch (idError) {
+          console.warn('[28A] Card ID fetch error, falling back to name search:', idError);
+          cardResults = [];
+        }
+      } else if (isNumberSearch && sanitizedQuery) {
         // ---- NUMBER SEARCH ----
         // Strip "#" prefix and extract set total from slash format
         // "001/159" → cardNumber "001", setTotal 159

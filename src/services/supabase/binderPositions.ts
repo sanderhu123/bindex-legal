@@ -212,20 +212,16 @@ export async function getPlacedCardCount(
 }
 
 /**
- * After saving positions in Edit mode, sync `binder_cards` to match.
- * This ensures the progress bar (which reads from binder_cards) reflects
- * cards that were added/removed via the Edit screen.
+ * After saving positions in Edit mode, sync `binder_cards` to match
+ * `binder_card_positions`. This keeps both tables in sync so the binder
+ * view and progress bar reflect what was changed in edit mode.
  *
- * For Custom binders: adds new binder_cards rows for newly placed cards,
- * removes rows for cards no longer in any slot.
+ * For Custom binders: adds/removes/updates binder_cards rows to match
+ * binder_card_positions exactly, preserving existing ownership status.
  *
- * For Master Set binders: only adds binder_cards rows (as extras) for cards
- * that were explicitly added during the edit session (via the card picker),
- * NOT for unowned set cards that are simply missing from binder_cards.
- *
- * @param newlyAddedCardIds - Card IDs that were added during the edit session
- *   (cards in current positions but not in original positions). Used by
- *   master-set mode to avoid re-adding unowned set cards as extras.
+ * For Master Set / Region binders: updates positions in binder_cards for
+ * cards that were rearranged, and adds newly-placed cards (from card picker)
+ * as extras.
  */
 export async function syncBinderCardsFromPositions(
   binderId: string,
@@ -236,47 +232,49 @@ export async function syncBinderCardsFromPositions(
   if (!userData.user) throw new Error('Not authenticated');
   const userId = userData.user.id;
 
-  if (collectionMode === 'custom') {
-    // 1. Get all filled positions from binder_card_positions
-    const { data: posRows, error: posError } = await supabase
-      .from('binder_card_positions')
-      .select('slot_index, card_id')
-      .eq('binder_id', binderId)
-      .eq('user_id', userId);
+  // Read the current state of binder_card_positions (just saved by edit mode)
+  const { data: posRows, error: posError } = await supabase
+    .from('binder_card_positions')
+    .select('slot_index, card_id')
+    .eq('binder_id', binderId)
+    .eq('user_id', userId);
 
-    if (posError) {
-      console.error('[EditSync] Error reading positions:', posError);
-      return;
-    }
+  if (posError) {
+    console.error('[EditSync] Error reading positions:', posError);
+    return;
+  }
 
-    const positionCardIds = new Set(
-      (posRows || []).map(r => r.card_id).filter(Boolean) as string[]
-    );
+  // Read existing binder_cards for this binder
+  const { data: existingRows, error: existError } = await supabase
+    .from('binder_cards')
+    .select('card_id, position, is_owned, is_extra')
+    .eq('binder_id', binderId)
+    .eq('user_id', userId);
 
-    // 2a. Get existing binder_cards rows (Custom: cards with positions)
-    const { data: existingRows, error: existError } = await supabase
-      .from('binder_cards')
-      .select('card_id, position, is_owned')
-      .eq('binder_id', binderId)
-      .eq('user_id', userId);
+  if (existError) {
+    console.error('[EditSync] Error reading binder_cards:', existError);
+    return;
+  }
 
-    if (existError) {
-      console.error('[EditSync] Error reading binder_cards:', existError);
-      return;
-    }
-
-    const existingCardIds = new Set(
-      (existingRows || []).map(r => r.card_id)
-    );
-
-    // Build a map of existing ownership so we can preserve is_owned
-    const ownershipMap = new Map<string, boolean>();
-    (existingRows || []).forEach(r => {
-      ownershipMap.set(r.card_id, r.is_owned ?? false);
+  // Build lookup maps
+  const positionCardIds = new Set(
+    (posRows || []).map(r => r.card_id).filter(Boolean) as string[]
+  );
+  const existingByCardId = new Map<string, { position: number | null; isOwned: boolean; isExtra: boolean }>();
+  (existingRows || []).forEach(r => {
+    existingByCardId.set(r.card_id, {
+      position: r.position,
+      isOwned: r.is_owned ?? false,
+      isExtra: r.is_extra ?? false,
     });
+  });
 
-    // 3a. Cards to add (in positions but not in binder_cards)
-    const toAdd = [...positionCardIds].filter(id => !existingCardIds.has(id));
+  if (collectionMode === 'custom') {
+    // Custom binders: binder_card_positions is the single source of truth
+    // for which cards are in the binder and where they sit.
+
+    // Cards to add to binder_cards (in positions but not in binder_cards)
+    const toAdd = [...positionCardIds].filter(id => !existingByCardId.has(id));
     if (toAdd.length > 0) {
       const addRows = toAdd.map(cardId => {
         const pos = (posRows || []).find(r => r.card_id === cardId);
@@ -289,18 +287,14 @@ export async function syncBinderCardsFromPositions(
           variant: null,
         };
       });
-
       const { error: addError } = await supabase
         .from('binder_cards')
         .upsert(addRows, { onConflict: 'binder_id,card_id,variant' });
-
-      if (addError) {
-        console.error('[EditSync] Error adding binder_cards:', addError);
-      }
+      if (addError) console.error('[EditSync] Error adding binder_cards:', addError);
     }
 
-    // 4a. Cards to remove (in binder_cards but no longer in any position)
-    const toRemove = [...existingCardIds].filter(id => !positionCardIds.has(id));
+    // Cards to remove (in binder_cards but no longer in any position)
+    const toRemove = [...existingByCardId.keys()].filter(id => !positionCardIds.has(id));
     if (toRemove.length > 0) {
       const { error: rmError } = await supabase
         .from('binder_cards')
@@ -308,17 +302,14 @@ export async function syncBinderCardsFromPositions(
         .eq('binder_id', binderId)
         .eq('user_id', userId)
         .in('card_id', toRemove);
-
-      if (rmError) {
-        console.error('[EditSync] Error removing binder_cards:', rmError);
-      }
+      if (rmError) console.error('[EditSync] Error removing binder_cards:', rmError);
     }
 
-    // 5a. Update positions for cards that moved slots
+    // Update positions for cards that moved slots
     for (const posRow of (posRows || [])) {
       if (!posRow.card_id) continue;
-      const existingRow = (existingRows || []).find(r => r.card_id === posRow.card_id);
-      if (existingRow && existingRow.position !== posRow.slot_index) {
+      const existing = existingByCardId.get(posRow.card_id);
+      if (existing && existing.position !== posRow.slot_index) {
         await supabase
           .from('binder_cards')
           .update({ position: posRow.slot_index })
@@ -327,28 +318,28 @@ export async function syncBinderCardsFromPositions(
           .eq('card_id', posRow.card_id);
       }
     }
-  } else if (collectionMode === 'master-set') {
-    // For Master Set: only add cards explicitly added during edit (via card picker).
-    // Unowned set cards should NOT be re-added as extras — they're managed by the
-    // regular toggle flow in BinderDetailScreen.
-    if (newlyAddedCardIds.length > 0) {
-      const { data: existingRows, error: existError } = await supabase
-        .from('binder_cards')
-        .select('card_id')
-        .eq('binder_id', binderId)
-        .eq('user_id', userId)
-        .in('card_id', newlyAddedCardIds);
+  } else {
+    // Master Set / Region: positions are for display order only.
+    // binder_cards manages ownership. We only need to sync positions
+    // and add cards that were explicitly added via the card picker.
 
-      if (existError) {
-        console.error('[EditSync] Error reading binder_cards:', existError);
-        return;
+    // Update binder_cards.position to match rearranged layout
+    for (const posRow of (posRows || [])) {
+      if (!posRow.card_id) continue;
+      const existing = existingByCardId.get(posRow.card_id);
+      if (existing && existing.position !== posRow.slot_index) {
+        await supabase
+          .from('binder_cards')
+          .update({ position: posRow.slot_index })
+          .eq('binder_id', binderId)
+          .eq('user_id', userId)
+          .eq('card_id', posRow.card_id);
       }
+    }
 
-      const existingCardIds = new Set(
-        (existingRows || []).map(r => r.card_id)
-      );
-
-      const toAdd = newlyAddedCardIds.filter(id => !existingCardIds.has(id));
+    // Add newly-added cards (from card picker in edit mode) as extras
+    if (newlyAddedCardIds.length > 0) {
+      const toAdd = newlyAddedCardIds.filter(id => !existingByCardId.has(id));
       if (toAdd.length > 0) {
         const addRows = toAdd.map(cardId => ({
           user_id: userId,
@@ -359,14 +350,10 @@ export async function syncBinderCardsFromPositions(
           variant: null,
           position: null,
         }));
-
         const { error: addError } = await supabase
           .from('binder_cards')
           .upsert(addRows, { onConflict: 'binder_id,card_id,variant' });
-
-        if (addError) {
-          console.error('[EditSync] Error adding extra binder_cards:', addError);
-        }
+        if (addError) console.error('[EditSync] Error adding extra binder_cards:', addError);
 
         // Increment total_cards for each new extra card
         const { data: binderData } = await supabase
@@ -385,7 +372,7 @@ export async function syncBinderCardsFromPositions(
     }
   }
 
-  // 6. Recount owned_cards / total_cards from actual data
+  // Final recount to make sure owned_cards / total_cards are correct
   await syncBinderCardCount(binderId);
   console.log('[EditSync] Synced binder_cards with positions for binder', binderId);
 }

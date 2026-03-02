@@ -376,18 +376,7 @@ export default function BinderEditScreen() {
         neededPages = Math.max(MIN_PAGES, pagesForCards);
       }
 
-      // For custom binders, peek at saved positions to determine max slot used
-      let customSavedPositions: Map<number, { cardId: string }> | null = null;
-      if (binderData.collectionMode === 'custom') {
-        customSavedPositions = await getBinderCardsWithPositions(binderData.id);
-        if (customSavedPositions.size > 0) {
-          const maxPosition = Math.max(...Array.from(customSavedPositions.keys()));
-          const pagesForCustom = Math.ceil((maxPosition + 1) / slotsPerPage);
-          neededPages = Math.max(MIN_PAGES, pagesForCustom);
-        }
-      }
-
-      // Also check database saved positions (user rearrangements) for max slot
+      // Load saved positions from binder_card_positions (single source of truth)
       let dbPositions: { slotIndex: number; cardId: string | null }[] = [];
       try {
         dbPositions = await getCardPositionsForBinder(binderData.id);
@@ -398,6 +387,17 @@ export default function BinderEditScreen() {
         }
       } catch (dbErr) {
         console.warn('[BinderEdit] Could not load saved positions, using defaults:', dbErr);
+      }
+
+      // For custom binders with no saved positions yet, fall back to binder_cards
+      let customFallbackPositions: Map<number, { cardId: string }> | null = null;
+      if (binderData.collectionMode === 'custom' && dbPositions.length === 0) {
+        customFallbackPositions = await getBinderCardsWithPositions(binderData.id);
+        if (customFallbackPositions.size > 0) {
+          const maxPosition = Math.max(...Array.from(customFallbackPositions.keys()));
+          const pagesForCustom = Math.ceil((maxPosition + 1) / slotsPerPage);
+          neededPages = Math.max(MIN_PAGES, pagesForCustom);
+        }
       }
 
       // Update the total pages state
@@ -414,31 +414,9 @@ export default function BinderEditScreen() {
       }
 
       // ── Fill positions with loaded cards ──
-      if (binderData.collectionMode === 'custom' && customSavedPositions && customSavedPositions.size > 0) {
-        const results = await Promise.all(
-          Array.from(customSavedPositions.entries()).map(async ([position, data]) => {
-            try {
-              const card = await getCardById(data.cardId);
-              return card ? { position, card } : null;
-            } catch { return null; }
-          })
-        );
-
-        results.forEach((result) => {
-          if (result && result.position < totalSlotCount) {
-            positions[result.position] = {
-              ...positions[result.position],
-              cardId: result.card.id,
-              cardName: result.card.name,
-              imageUrl: result.card.imageUrl,
-            };
-          }
-        });
-
-        console.log('[BinderEdit] Custom: placed', results.filter(Boolean).length, 'cards from saved positions');
-      }
 
       if (binderData.collectionMode !== 'custom') {
+        // Master Set / Region: place API cards in default order first
         cardsToPlace.forEach((card, index) => {
           if (index < totalSlotCount) {
             positions[index] = {
@@ -451,11 +429,11 @@ export default function BinderEditScreen() {
         });
       }
 
-      // Check for saved positions in database (user rearrangements)
+      // Apply saved positions from binder_card_positions (single source of truth)
       if (dbPositions.length > 0) {
         console.log('[BinderEdit] Found', dbPositions.length, 'saved positions in database');
 
-        // Build a lookup map from all loaded cards (API + custom)
+        // Build a lookup map from all loaded cards (API cards for master-set/region)
         const cardLookup = new Map<string, { name: string; imageUrl?: string }>();
         positions.forEach(p => {
           if (p.cardId) {
@@ -480,7 +458,6 @@ export default function BinderEditScreen() {
                 imageUrl: cardInfo.imageUrl,
               };
             } else {
-              // Card not in lookup (maybe added from picker), fetch from API
               try {
                 const card = await getCardById(saved.cardId);
                 if (card) {
@@ -495,6 +472,42 @@ export default function BinderEditScreen() {
             }
           }
         }
+
+        // For non-custom: fill remaining empty slots with cards not in saved positions
+        if (binderData.collectionMode !== 'custom') {
+          const placedCardIds = new Set(dbPositions.filter(p => p.cardId).map(p => p.cardId!));
+          const unplacedCards = cardsToPlace.filter(c => !placedCardIds.has(c.id));
+          let unplacedIdx = 0;
+          for (let i = 0; i < totalSlotCount && unplacedIdx < unplacedCards.length; i++) {
+            if (!positions[i].cardId) {
+              const card = unplacedCards[unplacedIdx++];
+              positions[i] = { slotIndex: i, cardId: card.id, cardName: card.name, imageUrl: card.imageUrl };
+            }
+          }
+        }
+      } else if (binderData.collectionMode === 'custom' && customFallbackPositions && customFallbackPositions.size > 0) {
+        // Fallback for custom binders that have no binder_card_positions yet
+        const results = await Promise.all(
+          Array.from(customFallbackPositions.entries()).map(async ([position, data]) => {
+            try {
+              const card = await getCardById(data.cardId);
+              return card ? { position, card } : null;
+            } catch { return null; }
+          })
+        );
+
+        results.forEach((result) => {
+          if (result && result.position < totalSlotCount) {
+            positions[result.position] = {
+              ...positions[result.position],
+              cardId: result.card.id,
+              cardName: result.card.name,
+              imageUrl: result.card.imageUrl,
+            };
+          }
+        });
+
+        console.log('[BinderEdit] Custom fallback: placed', results.filter(Boolean).length, 'cards from binder_cards');
       }
 
       setCardPositions(positions);

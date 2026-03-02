@@ -462,49 +462,19 @@ export async function getBinderCardsWithPositions(binderId: string): Promise<Map
 }
 
 /**
- * Remove a card from a binder by position (for Custom binders)
+ * @deprecated Use removeCardAtPosition instead (cleans up both tables)
  */
 export async function removeCardByPosition(
   binderId: string,
   position: number
 ): Promise<void> {
-  const { data: { user } } = await supabase.auth.getUser();
-  
-  if (!user) {
-    throw new Error('User not authenticated');
-  }
-
-  // Verify binder belongs to user
-  const { data: binder, error: binderError } = await supabase
-    .from('binders')
-    .select('id')
-    .eq('id', binderId)
-    .eq('user_id', user.id)
-    .single();
-
-  if (binderError || !binder) {
-    throw new Error('Binder not found or access denied');
-  }
-
-  // Delete the card at this position
-  const { error } = await supabase
-    .from('binder_cards')
-    .delete()
-    .eq('user_id', user.id)
-    .eq('binder_id', binderId)
-    .eq('position', position);
-
-  if (error) {
-    throw error;
-  }
-
-  // Sync the owned_cards count
-  await syncBinderCardCount(binderId);
+  return removeCardAtPosition(binderId, position);
 }
 
 /**
- * Add a card at a specific position in a Custom binder
- * This is a convenience wrapper that handles the position parameter
+ * Add a card at a specific position in a binder.
+ * Writes to BOTH binder_cards (ownership) AND binder_card_positions (layout)
+ * so binder view and edit mode stay in sync.
  */
 export async function addCardAtPosition(
   binderId: string,
@@ -512,7 +482,79 @@ export async function addCardAtPosition(
   position: number,
   variant?: string
 ): Promise<void> {
-  return addCardToBinder(binderId, cardId, variant, position);
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('User not authenticated');
+
+  // 1. Write to binder_cards (ownership table)
+  const { error: cardError } = await supabase
+    .from('binder_cards')
+    .upsert({
+      user_id: user.id,
+      binder_id: binderId,
+      card_id: cardId,
+      variant: variant || null,
+      position: position,
+      is_owned: false,
+    }, {
+      onConflict: 'binder_id,card_id,variant',
+    });
+
+  if (cardError) throw cardError;
+
+  // 2. Write to binder_card_positions (layout table) so edit mode sees it
+  const { error: posError } = await supabase
+    .from('binder_card_positions')
+    .upsert({
+      user_id: user.id,
+      binder_id: binderId,
+      slot_index: position,
+      card_id: cardId,
+    }, {
+      onConflict: 'binder_id,slot_index',
+    });
+
+  if (posError) {
+    console.error('[addCardAtPosition] Failed to write position:', posError);
+    // Non-fatal: card is still in binder_cards
+  }
+
+  await syncBinderCardCount(binderId);
+}
+
+/**
+ * Remove a card from a binder by position.
+ * Cleans up BOTH binder_cards AND binder_card_positions.
+ */
+export async function removeCardAtPosition(
+  binderId: string,
+  position: number
+): Promise<void> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('User not authenticated');
+
+  // 1. Remove from binder_cards
+  const { error: cardError } = await supabase
+    .from('binder_cards')
+    .delete()
+    .eq('user_id', user.id)
+    .eq('binder_id', binderId)
+    .eq('position', position);
+
+  if (cardError) throw cardError;
+
+  // 2. Remove from binder_card_positions
+  const { error: posError } = await supabase
+    .from('binder_card_positions')
+    .delete()
+    .eq('user_id', user.id)
+    .eq('binder_id', binderId)
+    .eq('slot_index', position);
+
+  if (posError) {
+    console.error('[removeCardAtPosition] Failed to remove position:', posError);
+  }
+
+  await syncBinderCardCount(binderId);
 }
 
 /**

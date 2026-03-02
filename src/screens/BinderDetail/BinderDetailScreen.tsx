@@ -1603,11 +1603,15 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
 
   // === MASTER SET MODE: Combined grid with regular cards, extra cards, and empty slots ===
   
-  // Filter extra cards through the same search & ownership filters as regular cards
+  // Filter extra cards through the same search & ownership filters as regular cards.
+  // Also excludes cards that already appear in the main grid to prevent duplicates
+  // (can happen when a card is added via edit mode and gets saved as both a
+  // positioned card and an extra).
   const filteredExtraCards = useMemo(() => {
     if (!extraCards.length) return [];
     
-    let result = extraCards;
+    const mainCardIds = new Set(cards.map(c => c.id));
+    let result = extraCards.filter(c => !mainCardIds.has(c.id));
     
     // Apply search filter (same partial-match logic as useCardSearch)
     const query = searchQuery.toLowerCase().trim();
@@ -1635,7 +1639,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
     }
     
     return result;
-  }, [extraCards, searchQuery, ownershipFilter]);
+  }, [extraCards, searchQuery, ownershipFilter, cards]);
   
   // Create combined data for Master Set mode: regular cards + extra cards
   const masterSetGridItems = useMemo((): MasterSetGridItem[] => {

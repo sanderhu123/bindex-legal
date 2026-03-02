@@ -5,17 +5,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { getBinderById } from '../../services/supabase/binders';
 import { 
-  addCardToBinder, 
-  removeCardFromBinder,
   addCardToBinderFast,
   removeCardFromBinderFast,
   syncBinderCardCount,
   getBinderCardsWithPositions, 
-  addCardAtPosition,
-  removeCardAtPosition,
   toggleCardOwnershipAtPosition,
   getExtraCardsWithVariants,
-  addExtraCardToBinder,
   toggleExtraCardOwnership,
 } from '../../services/supabase/cards';
 import { getCardsBySet, getCardsByRegion, getCardById, getPokemonImageUrl, type Region } from '../../services/api/pokemonApi';
@@ -56,9 +51,6 @@ const PAGE_SIZE = 36; // 12 rows of 3, or 9 rows of 4
 const CUSTOM_MAX_SLOTS_3X3 = 360; // 40 pages × 9 cards
 const CUSTOM_MAX_SLOTS_4X3 = 480; // 40 pages × 12 cards
 
-/** Number of empty slots to show at end of Master Set binders for adding extra cards */
-const EXTRA_CARD_SLOTS = 9; // 1 page worth (3x3)
-
 /**
  * Calculate card width based on number of columns
  * Grid has negative horizontal margin that extends it CARD_MARGIN beyond container padding
@@ -89,8 +81,7 @@ interface CardWithOwnership extends Card {
  */
 type MasterSetGridItem = 
   | { type: 'card'; card: CardWithOwnership }
-  | { type: 'extra'; card: CardWithOwnership }
-  | { type: 'empty-slot'; slotIndex: number };
+  | { type: 'extra'; card: CardWithOwnership };
 
 type ViewMode = 'grid' | 'list' | 'binder';
 
@@ -121,11 +112,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
   // Track if cards are fully loaded (for disabling pagination in non-Custom modes)
   const [cardsFullyLoaded, setCardsFullyLoaded] = useState(false);
   
-  // Card picker modal state (for Custom binders)
-  const [showCardPicker, setShowCardPicker] = useState(false);
   
-  // Custom mode: position being filled (when card picker is open)
-  const [selectedPosition, setSelectedPosition] = useState<number | null>(null);
   
   // Custom mode: map of position -> card data
   const [positionCards, setPositionCards] = useState<Map<number, CardWithOwnership>>(new Map());
@@ -135,7 +122,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
   
   // Extra cards for Master Set binders (cards not officially in the set)
   const [extraCards, setExtraCards] = useState<CardWithOwnership[]>([]);
-  const [showExtraCardPicker, setShowExtraCardPicker] = useState(false);
+  
   
   // Ref to access current cards without causing dependency issues
   const cardsRef = useRef<CardWithOwnership[]>([]);
@@ -1158,76 +1145,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
     }
   }, [binder?.id, scheduleCountSync]);
 
-  // Handle adding a card from the picker (Custom mode with position)
-  const handleAddCardFromPicker = useCallback(async (selectedCard: Card) => {
-    if (!binder || selectedPosition === null) return;
-    
-    const position = selectedPosition;
-    console.log('[BinderDetail] Adding card from picker at position', position, ':', selectedCard.id, selectedCard.name);
-    
-    // Optimistic UI update FIRST so the card appears instantly
-    const newCard: CardWithOwnership = {
-      ...selectedCard,
-      isOwned: false,
-    };
-    
-    setPositionCards((prev) => {
-      const updated = new Map(prev);
-      updated.set(position, newCard);
-      return updated;
-    });
-    
-    setBinder((prevBinder) => {
-      if (!prevBinder) return prevBinder;
-      return {
-        ...prevBinder,
-        cardIds: [...prevBinder.cardIds, selectedCard.id],
-        totalCards: (prevBinder.totalCards || 0) + 1,
-      };
-    });
-    
-    setSelectedPosition(null);
-    
-    // Persist to database in the background
-    try {
-      await addCardAtPosition(binder.id, selectedCard.id, position, selectedCard.variant);
-      console.log('[BinderDetail] Card persisted at position', position);
-    } catch (err) {
-      console.error('[BinderDetail] Failed to add card:', err);
-      // Revert the optimistic update
-      setPositionCards((prev) => {
-        const updated = new Map(prev);
-        updated.delete(position);
-        return updated;
-      });
-      setBinder((prevBinder) => {
-        if (!prevBinder) return prevBinder;
-        return {
-          ...prevBinder,
-          cardIds: prevBinder.cardIds.filter(id => id !== selectedCard.id),
-          totalCards: Math.max(0, (prevBinder.totalCards || 0) - 1),
-        };
-      });
-      Alert.alert(
-        'Error',
-        'Failed to add card to binder. Please try again.',
-        [{ text: 'OK' }]
-      );
-    }
-  }, [binder, selectedPosition]);
-
-  // Handle opening card picker for a specific slot (Custom mode)
-  const handleEmptySlotPress = useCallback((position: number) => {
-    console.log('[BinderDetail] Empty slot tapped at position:', position);
-    setSelectedPosition(position);
-    setShowCardPicker(true);
-  }, []);
-
-  // Handle opening card picker for extra card slot (Master Set mode)
-  const handleExtraSlotPress = useCallback((slotIndex: number) => {
-    console.log('[BinderDetail] Extra card slot tapped:', slotIndex);
-    setShowExtraCardPicker(true);
-  }, []);
+  
 
   // Handle toggling owned/missing status for a card at a position (Custom mode)
   const handleToggleCustomCardOwnership = useCallback(async (position: number) => {
@@ -1292,42 +1210,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
 
   // === EXTRA CARDS HANDLERS (Master Set mode) ===
   
-  // Handle adding an extra card from the picker
-  const handleAddExtraCard = useCallback(async (selectedCard: Card) => {
-    if (!binder) return;
-    
-    console.log('[BinderDetail] Adding extra card:', selectedCard.id, selectedCard.name);
-    
-    // Optimistic UI update first
-    const newExtraCard: CardWithOwnership = {
-      ...selectedCard,
-      isOwned: false,
-    };
-    
-    setExtraCards((prev) => [...prev, newExtraCard]);
-    setBinder((prev) => {
-      if (!prev) return prev;
-      return { ...prev, totalCards: (prev.totalCards || 0) + 1 };
-    });
-    
-    try {
-      await addExtraCardToBinder(binder.id, selectedCard.id, selectedCard.variant);
-      console.log('[BinderDetail] Extra card persisted');
-    } catch (err) {
-      console.error('[BinderDetail] Failed to add extra card:', err);
-      // Revert optimistic update
-      setExtraCards((prev) => prev.filter(c => c.id !== selectedCard.id));
-      setBinder((prev) => {
-        if (!prev) return prev;
-        return { ...prev, totalCards: Math.max(0, (prev.totalCards || 0) - 1) };
-      });
-      Alert.alert(
-        'Error',
-        err instanceof Error ? err.message : 'Failed to add extra card. Please try again.',
-        [{ text: 'OK' }]
-      );
-    }
-  }, [binder]);
+  
 
   // Handle toggling ownership of an extra card (card added by user, not in official set)
   // Works similar to handleToggleCard but updates extraCards state instead of cards state
@@ -1754,7 +1637,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
     return result;
   }, [extraCards, searchQuery, ownershipFilter]);
   
-  // Create combined data for Master Set mode: regular cards + extra cards + empty slots
+  // Create combined data for Master Set mode: regular cards + extra cards
   const masterSetGridItems = useMemo((): MasterSetGridItem[] => {
     if (!binder || binder.collectionMode !== 'master-set') return [];
     
@@ -1765,27 +1648,15 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
       items.push({ type: 'card', card });
     });
     
-    // Only add extra cards and empty slots when ALL regular cards have been loaded
-    // This prevents empty slots from flashing while scrolling through paginated cards
+    // Add extra cards when ALL regular cards have been loaded
     if (!hasMoreCards) {
-      // Add filtered extra cards at the end of regular cards
       filteredExtraCards.forEach((card) => {
         items.push({ type: 'extra', card });
       });
-      
-      // Only show empty slots when no search/filter is active
-      const hasActiveSearch = searchQuery.trim().length > 0;
-      const hasActiveFilter = ownershipFilter !== 'all';
-      if (!hasActiveSearch && !hasActiveFilter) {
-        // Add empty slots for adding more cards
-        for (let i = 0; i < EXTRA_CARD_SLOTS; i++) {
-          items.push({ type: 'empty-slot', slotIndex: i });
-        }
-      }
     }
     
     return items;
-  }, [binder, displayedCards, filteredExtraCards, hasMoreCards, searchQuery, ownershipFilter]);
+  }, [binder, displayedCards, filteredExtraCards, hasMoreCards]);
 
   // Render function for Master Set grid items (with long-press enlarge preview)
   const renderMasterSetGridItem = useCallback(
@@ -1827,25 +1698,15 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
         );
       }
       
-      // Empty slot for adding cards
-      return (
-        <EmptyCardSlot
-          position={item.slotIndex}
-          width={cardWidth}
-          onPress={() => handleExtraSlotPress(item.slotIndex)}
-          label="Add Card"
-          hideSlotNumber={true}
-        />
-      );
+      return null;
     },
-    [binder?.id, cardWidth, cardsPerPage, handleToggleCard, handleToggleExtraCardOwnership, handleExtraSlotPress, handleLongPressCard, handleLongPressRelease]
+    [binder?.id, cardWidth, cardsPerPage, handleToggleCard, handleToggleExtraCardOwnership, handleLongPressCard, handleLongPressRelease]
   );
 
   // Key extractor for Master Set grid items
-  const masterSetKeyExtractor = useCallback((item: MasterSetGridItem, index: number) => {
+  const masterSetKeyExtractor = useCallback((item: MasterSetGridItem) => {
     if (item.type === 'card') return `card-${item.card.id}`;
-    if (item.type === 'extra') return `extra-${item.card.id}`;
-    return `empty-slot-${item.slotIndex}`;
+    return `extra-${item.card.id}`;
   }, []);
 
   // === CUSTOM MODE: Positional grid with slots ===
@@ -1980,16 +1841,15 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
         );
       }
       
-      // Empty slot - render placeholder
+      // Empty slot - render empty placeholder (cards are added via edit mode)
       return (
         <EmptyCardSlot
           position={position}
           width={cardWidth}
-          onPress={handleEmptySlotPress}
         />
       );
     },
-    [positionCards, handleToggleCustomCardOwnership, handleEmptySlotPress, binder?.id, cardWidth, cardsPerPage]
+    [positionCards, handleToggleCustomCardOwnership, binder?.id, cardWidth, cardsPerPage]
   );
 
   // Key extractor for Custom mode slots
@@ -2201,7 +2061,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
         
         <Text style={styles.helpText}>
           {isCustomMode 
-            ? 'Tap an empty slot to add a card (starts as missing), tap checkbox to mark owned'
+            ? 'Use Edit mode to add cards, tap checkbox to mark owned'
             : binder?.collectionMode === 'region'
             ? 'Tap a Pokémon to choose a TCG card, long-press for options, checkbox to mark owned'
             : 'Tap a card to view details, tap checkbox to mark owned'
@@ -2368,7 +2228,6 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
                   binderId={binder.id}
                   onPageChange={setCurrentPage}
                   onCardPress={binderOnCardPress}
-                  onEmptySlotPress={isCustomMode ? handleEmptySlotPress : undefined}
                   isCustomMode={isCustomMode}
                   onCardLongPress={handleLongPressCard}
                   onCardLongPressRelease={handleLongPressRelease}
@@ -2389,18 +2248,6 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
             setShowJumpModal(false);
           }}
         />
-        {isCustomMode && (
-          <CardPickerModal
-            visible={showCardPicker}
-            onClose={() => {
-              setShowCardPicker(false);
-              setSelectedPosition(null);
-            }}
-            onSelectCard={handleAddCardFromPicker}
-            title={selectedPosition !== null ? `Add Card to Slot ${selectedPosition + 1}` : 'Add Card'}
-            pokemonOnly={false}
-          />
-        )}
         <EnlargedCardOverlay />
       </SafeAreaView>
     );
@@ -2438,17 +2285,6 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
           extraData={[displayCount, positionCards, searchQuery, ownershipFilter]}
         />
         
-        {/* Card Picker Modal for adding cards at a position */}
-        <CardPickerModal
-          visible={showCardPicker}
-          onClose={() => {
-            setShowCardPicker(false);
-            setSelectedPosition(null);
-          }}
-          onSelectCard={handleAddCardFromPicker}
-          title={selectedPosition !== null ? `Add Card to Slot ${selectedPosition + 1}` : 'Add Card'}
-          pokemonOnly={false}
-        />
         <EnlargedCardOverlay />
       </SafeAreaView>
     );
@@ -2536,14 +2372,6 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
           extraData={[displayCount, cards, extraCards]}
         />
         
-        {/* Card Picker Modal for adding cards */}
-        <CardPickerModal
-          visible={showExtraCardPicker}
-          onClose={() => setShowExtraCardPicker(false)}
-          onSelectCard={handleAddExtraCard}
-          title="Add Card"
-          pokemonOnly={false}
-        />
         <EnlargedCardOverlay />
       </SafeAreaView>
     );

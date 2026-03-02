@@ -7,62 +7,66 @@ interface EmptyCardSlotProps {
   position: number;
   /** Width of the card slot (should match CardItem width) */
   width?: number;
-  /** Callback when the slot is tapped */
-  onPress: (position: number) => void;
-  /** Custom label text (default: "Add Card") */
+  /** Callback when the slot is tapped (optional — no tap handler = non-interactive) */
+  onPress?: (position: number) => void;
+  /** Custom label text (default: "Add Card" if tappable, "Empty" if not) */
   label?: string;
   /** Whether to hide the slot number (default: false) */
   hideSlotNumber?: boolean;
 }
 
 /**
- * Empty card slot component for Custom binders and Master Set extra cards
- * 
- * Shows a "+" icon with "Add Card" or custom label text below.
- * Used to represent empty positions in the card grid.
- * Tapping opens the card picker to add a card at this position.
+ * Empty card slot component for binder grids.
+ * When onPress is provided, renders as a tappable slot with "+" icon.
+ * When onPress is omitted, renders as a non-interactive empty placeholder.
  */
 export default function EmptyCardSlot({ 
   position, 
   width, 
   onPress,
-  label = 'Add Card',
+  label,
   hideSlotNumber = false,
 }: EmptyCardSlotProps) {
-  const handlePress = () => {
-    onPress(position);
-  };
-
   const cardSlotStyle = width 
     ? [styles.cardSlot, { width }]
     : styles.cardSlot;
 
-  // Calculate image container height based on width and aspect ratio (0.7)
   const imageHeight = width ? width / 0.7 : undefined;
   const imageContainerStyle = imageHeight 
     ? [styles.imageContainer, { height: imageHeight }]
     : styles.imageContainer;
 
-  return (
-    <TouchableOpacity
-      style={cardSlotStyle}
-      onPress={handlePress}
-      activeOpacity={0.7}
-    >
+  const displayLabel = label ?? (onPress ? 'Add Card' : 'Empty');
+
+  const content = (
+    <>
       <View style={imageContainerStyle}>
         <View style={styles.slotContent}>
-          <Text style={styles.plusIcon}>+</Text>
-          <Text style={styles.addCardText}>{label}</Text>
+          {onPress && <Text style={styles.plusIcon}>+</Text>}
+          <Text style={styles.addCardText}>{displayLabel}</Text>
         </View>
       </View>
-      {/* Slot number display (like card number) - can be hidden for extra card slots */}
       {!hideSlotNumber && (
         <View style={styles.slotInfo}>
           <Text style={styles.slotNumber}>Slot {position + 1}</Text>
         </View>
       )}
-    </TouchableOpacity>
+    </>
   );
+
+  if (onPress) {
+    return (
+      <TouchableOpacity
+        style={cardSlotStyle}
+        onPress={() => onPress(position)}
+        activeOpacity={0.7}
+      >
+        {content}
+      </TouchableOpacity>
+    );
+  }
+
+  return <View style={cardSlotStyle}>{content}</View>;
 }
 
 const CARD_MARGIN = 2;

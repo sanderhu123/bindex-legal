@@ -473,18 +473,7 @@ export default function BinderEditScreen() {
           }
         }
 
-        // For non-custom: fill remaining empty slots with cards not in saved positions
-        if (binderData.collectionMode !== 'custom') {
-          const placedCardIds = new Set(dbPositions.filter(p => p.cardId).map(p => p.cardId!));
-          const unplacedCards = cardsToPlace.filter(c => !placedCardIds.has(c.id));
-          let unplacedIdx = 0;
-          for (let i = 0; i < totalSlotCount && unplacedIdx < unplacedCards.length; i++) {
-            if (!positions[i].cardId) {
-              const card = unplacedCards[unplacedIdx++];
-              positions[i] = { slotIndex: i, cardId: card.id, cardName: card.name, imageUrl: card.imageUrl };
-            }
-          }
-        }
+        // Cards not in any saved position were removed by the user — don't re-add them
       } else if (binderData.collectionMode === 'custom' && customFallbackPositions && customFallbackPositions.size > 0) {
         // Fallback for custom binders that have no binder_card_positions yet
         const results = await Promise.all(

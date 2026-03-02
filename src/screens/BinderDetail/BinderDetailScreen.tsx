@@ -1325,6 +1325,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
           imageUrlHiRes: pokemon.imageUrlHiRes || pokemon.imageUrl,
           pokedexNumber: pokemon.pokedexNumber,
           selectedCardId: pokemon.selectedCardId,
+          variant: pokemon.variant || 'base',
         },
       });
     }

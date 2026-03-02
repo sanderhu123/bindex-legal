@@ -219,34 +219,40 @@ export async function getPlacedCardCount(
  * For Custom binders: adds new binder_cards rows for newly placed cards,
  * removes rows for cards no longer in any slot.
  *
- * For Master Set binders: adds binder_cards rows (as extras) for any
- * positioned card that doesn't already have one.
+ * For Master Set binders: only adds binder_cards rows (as extras) for cards
+ * that were explicitly added during the edit session (via the card picker),
+ * NOT for unowned set cards that are simply missing from binder_cards.
+ *
+ * @param newlyAddedCardIds - Card IDs that were added during the edit session
+ *   (cards in current positions but not in original positions). Used by
+ *   master-set mode to avoid re-adding unowned set cards as extras.
  */
 export async function syncBinderCardsFromPositions(
   binderId: string,
-  collectionMode: string
+  collectionMode: string,
+  newlyAddedCardIds: string[] = []
 ): Promise<void> {
   const { data: userData } = await supabase.auth.getUser();
   if (!userData.user) throw new Error('Not authenticated');
   const userId = userData.user.id;
 
-  // 1. Get all filled positions from binder_card_positions
-  const { data: posRows, error: posError } = await supabase
-    .from('binder_card_positions')
-    .select('slot_index, card_id')
-    .eq('binder_id', binderId)
-    .eq('user_id', userId);
-
-  if (posError) {
-    console.error('[EditSync] Error reading positions:', posError);
-    return;
-  }
-
-  const positionCardIds = new Set(
-    (posRows || []).map(r => r.card_id).filter(Boolean) as string[]
-  );
-
   if (collectionMode === 'custom') {
+    // 1. Get all filled positions from binder_card_positions
+    const { data: posRows, error: posError } = await supabase
+      .from('binder_card_positions')
+      .select('slot_index, card_id')
+      .eq('binder_id', binderId)
+      .eq('user_id', userId);
+
+    if (posError) {
+      console.error('[EditSync] Error reading positions:', posError);
+      return;
+    }
+
+    const positionCardIds = new Set(
+      (posRows || []).map(r => r.card_id).filter(Boolean) as string[]
+    );
+
     // 2a. Get existing binder_cards rows (Custom: cards with positions)
     const { data: existingRows, error: existError } = await supabase
       .from('binder_cards')
@@ -322,55 +328,59 @@ export async function syncBinderCardsFromPositions(
       }
     }
   } else if (collectionMode === 'master-set') {
-    // 2b. For Master Set: check which positioned cards don't have binder_cards rows
-    const { data: existingRows, error: existError } = await supabase
-      .from('binder_cards')
-      .select('card_id')
-      .eq('binder_id', binderId)
-      .eq('user_id', userId);
-
-    if (existError) {
-      console.error('[EditSync] Error reading binder_cards:', existError);
-      return;
-    }
-
-    const existingCardIds = new Set(
-      (existingRows || []).map(r => r.card_id)
-    );
-
-    // Cards in positions but not in binder_cards → add as extras
-    const toAdd = [...positionCardIds].filter(id => !existingCardIds.has(id));
-    if (toAdd.length > 0) {
-      const addRows = toAdd.map(cardId => ({
-        user_id: userId,
-        binder_id: binderId,
-        card_id: cardId,
-        is_owned: false,
-        is_extra: true,
-        variant: null,
-        position: null,
-      }));
-
-      const { error: addError } = await supabase
+    // For Master Set: only add cards explicitly added during edit (via card picker).
+    // Unowned set cards should NOT be re-added as extras — they're managed by the
+    // regular toggle flow in BinderDetailScreen.
+    if (newlyAddedCardIds.length > 0) {
+      const { data: existingRows, error: existError } = await supabase
         .from('binder_cards')
-        .upsert(addRows, { onConflict: 'binder_id,card_id,variant' });
+        .select('card_id')
+        .eq('binder_id', binderId)
+        .eq('user_id', userId)
+        .in('card_id', newlyAddedCardIds);
 
-      if (addError) {
-        console.error('[EditSync] Error adding extra binder_cards:', addError);
+      if (existError) {
+        console.error('[EditSync] Error reading binder_cards:', existError);
+        return;
       }
 
-      // Increment total_cards for each new extra card
-      const { data: binderData } = await supabase
-        .from('binders')
-        .select('total_cards')
-        .eq('id', binderId)
-        .single();
+      const existingCardIds = new Set(
+        (existingRows || []).map(r => r.card_id)
+      );
 
-      if (binderData) {
-        await supabase
+      const toAdd = newlyAddedCardIds.filter(id => !existingCardIds.has(id));
+      if (toAdd.length > 0) {
+        const addRows = toAdd.map(cardId => ({
+          user_id: userId,
+          binder_id: binderId,
+          card_id: cardId,
+          is_owned: false,
+          is_extra: true,
+          variant: null,
+          position: null,
+        }));
+
+        const { error: addError } = await supabase
+          .from('binder_cards')
+          .upsert(addRows, { onConflict: 'binder_id,card_id,variant' });
+
+        if (addError) {
+          console.error('[EditSync] Error adding extra binder_cards:', addError);
+        }
+
+        // Increment total_cards for each new extra card
+        const { data: binderData } = await supabase
           .from('binders')
-          .update({ total_cards: (binderData.total_cards || 0) + toAdd.length })
-          .eq('id', binderId);
+          .select('total_cards')
+          .eq('id', binderId)
+          .single();
+
+        if (binderData) {
+          await supabase
+            .from('binders')
+            .update({ total_cards: (binderData.total_cards || 0) + toAdd.length })
+            .eq('id', binderId);
+        }
       }
     }
   }

@@ -152,22 +152,29 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
   
   // Debounced count sync: waits for a pause in toggling before syncing the owned_cards count
   const countSyncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const scheduleCountSync = useCallback((binderId: string) => {
+  const binderIdForSyncRef = useRef<string | null>(null);
+  const scheduleCountSync = useCallback((currentBinderId: string) => {
+    binderIdForSyncRef.current = currentBinderId;
     if (countSyncTimerRef.current) {
       clearTimeout(countSyncTimerRef.current);
     }
     countSyncTimerRef.current = setTimeout(() => {
-      syncBinderCardCount(binderId).catch(err => {
+      syncBinderCardCount(currentBinderId).catch(err => {
         console.error('[BinderDetail] Failed to sync card count:', err);
       });
     }, 2000);
   }, []);
 
-  // Clean up debounced count sync timer on unmount
+  // Flush the sync immediately on unmount so the binder list shows the correct count
   useEffect(() => {
     return () => {
       if (countSyncTimerRef.current) {
         clearTimeout(countSyncTimerRef.current);
+        if (binderIdForSyncRef.current) {
+          syncBinderCardCount(binderIdForSyncRef.current).catch(err => {
+            console.error('[BinderDetail] Failed to sync card count on unmount:', err);
+          });
+        }
       }
     };
   }, []);

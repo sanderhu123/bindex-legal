@@ -581,9 +581,22 @@ export default function BinderEditScreen() {
       await saveCardPositionsForBinder(binderId, cardPositions);
       await savePlaceholderCardsForBinder(binderId, placeholderCards);
 
+      // Determine which cards were added during this edit session
+      // (in current positions but not in original positions)
+      const originalCardIds = new Set(
+        originalPositions.filter(p => p.cardId).map(p => p.cardId!)
+      );
+      const newlyAddedCardIds = [
+        ...new Set(
+          cardPositions
+            .filter(p => p.cardId && !originalCardIds.has(p.cardId))
+            .map(p => p.cardId!)
+        ),
+      ];
+
       // Sync binder_cards table so progress bar reflects added/removed cards
       if (binder) {
-        await syncBinderCardsFromPositions(binderId, binder.collectionMode);
+        await syncBinderCardsFromPositions(binderId, binder.collectionMode, newlyAddedCardIds);
       }
 
       setOriginalPositions(cardPositions.map(p => ({ ...p })));

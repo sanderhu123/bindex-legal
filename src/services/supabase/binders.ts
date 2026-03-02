@@ -67,13 +67,14 @@ export async function getBinders(): Promise<Binder[]> {
     throw error;
   }
 
-  // Fetch card IDs for each binder
+  // Fetch owned card IDs for each binder
   const bindersWithCards = await Promise.all(
     (binders || []).map(async (binder) => {
       const { data: binderCards, error: cardsError } = await supabase
         .from('binder_cards')
         .select('card_id')
         .eq('binder_id', binder.id)
+        .eq('is_owned', true)
         .limit(5000);
 
       if (cardsError) {
@@ -114,11 +115,12 @@ export async function getBinderById(binderId: string): Promise<Binder | null> {
     throw error;
   }
 
-  // Fetch card IDs
+  // Fetch owned card IDs only
   const { data: binderCards, error: cardsError } = await supabase
     .from('binder_cards')
     .select('card_id')
     .eq('binder_id', binderId)
+    .eq('is_owned', true)
     .limit(5000);
 
   if (cardsError) {
@@ -305,11 +307,12 @@ export async function updateBinder(
     throw error;
   }
 
-  // Fetch card IDs
+  // Fetch owned card IDs only
   const { data: binderCards, error: cardsError } = await supabase
     .from('binder_cards')
     .select('card_id')
     .eq('binder_id', binderId)
+    .eq('is_owned', true)
     .limit(5000);
 
   if (cardsError) {

@@ -379,18 +379,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
               }
             }
 
-            const remaining = Array.from(cardLookup.values());
-            let remainingIdx = 0;
-            for (let i = 0; i < reordered.length; i++) {
-              if (reordered[i] === null && remainingIdx < remaining.length) {
-                reordered[i] = remaining[remainingIdx++];
-              }
-            }
-            while (remainingIdx < remaining.length) {
-              reordered.push(remaining[remainingIdx++]);
-            }
-
-            // Build position map for binder page view
+            // Cards not in any saved position were removed by the user — don't re-add them
             const posMap = new Map<number, CardWithOwnership>();
             for (let i = 0; i < reordered.length; i++) {
               if (reordered[i] !== null) posMap.set(i, reordered[i]!);
@@ -451,18 +440,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
               }
             }
 
-            const remaining = Array.from(cardLookup.values());
-            let remainingIdx = 0;
-            for (let i = 0; i < reordered.length; i++) {
-              if (reordered[i] === null && remainingIdx < remaining.length) {
-                reordered[i] = remaining[remainingIdx++];
-              }
-            }
-            while (remainingIdx < remaining.length) {
-              reordered.push(remaining[remainingIdx++]);
-            }
-
-            // Build position map for binder page view
+            // Cards not in any saved position were removed by the user — don't re-add them
             const posMap = new Map<number, CardWithOwnership>();
             for (let i = 0; i < reordered.length; i++) {
               if (reordered[i] !== null) posMap.set(i, reordered[i]!);
@@ -934,20 +912,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
                 }
               }
 
-              // Fill remaining empty slots with unpositioned cards (in original order)
-              const remaining = Array.from(cardLookup.values());
-              let remainingIdx = 0;
-              for (let i = 0; i < reordered.length; i++) {
-                if (reordered[i] === null && remainingIdx < remaining.length) {
-                  reordered[i] = remaining[remainingIdx++];
-                }
-              }
-              // Append any leftover cards beyond the array size
-              while (remainingIdx < remaining.length) {
-                reordered.push(remaining[remainingIdx++]);
-              }
-
-              // Build position map for binder page view (preserves exact slot positions)
+              // Cards not in any saved position were removed by the user — don't re-add them
               const posMap = new Map<number, CardWithOwnership>();
               for (let i = 0; i < reordered.length; i++) {
                 if (reordered[i] !== null) {

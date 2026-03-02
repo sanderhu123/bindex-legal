@@ -28,13 +28,20 @@ interface CardItemProps {
   onSelect: (card: Card) => void;
   /** Whether the item is currently visible on screen (for lazy loading) */
   isVisible?: boolean;
+  /** Callback when card is long-pressed (for enlarged preview) */
+  onLongPress?: (card: Card) => void;
+  /** Callback when long-press is released */
+  onLongPressRelease?: () => void;
 }
 
-const CardResultItem = memo(function CardResultItem({ card, onSelect, isVisible = true }: CardItemProps) {
+const CardResultItem = memo(function CardResultItem({ card, onSelect, isVisible = true, onLongPress, onLongPressRelease }: CardItemProps) {
   return (
     <TouchableOpacity
       style={styles.cardItem}
       onPress={() => onSelect(card)}
+      onLongPress={onLongPress ? () => onLongPress(card) : undefined}
+      onPressOut={onLongPressRelease}
+      delayLongPress={300}
       activeOpacity={0.7}
     >
       <View style={styles.cardImageContainer}>
@@ -93,6 +100,10 @@ export interface CardSearchResultsProps {
   onScrollBegin?: () => void;
   /** Callback to retry the search (shown on retryable errors) */
   onRetry?: () => void;
+  /** Callback when a card is long-pressed (for enlarged preview) */
+  onCardLongPress?: (card: Card) => void;
+  /** Callback when long-press is released */
+  onCardLongPressRelease?: () => void;
 }
 
 /**
@@ -117,6 +128,8 @@ export function CardSearchResults({
   emptyMessage = 'No cards found',
   onScrollBegin,
   onRetry,
+  onCardLongPress,
+  onCardLongPressRelease,
 }: CardSearchResultsProps) {
   
   /**
@@ -175,8 +188,10 @@ export function CardSearchResults({
       card={item} 
       onSelect={onSelectCard}
       isVisible={visibleItems.size === 0 || visibleItems.has(item.id)}
+      onLongPress={onCardLongPress}
+      onLongPressRelease={onCardLongPressRelease}
     />
-  ), [onSelectCard, visibleItems]);
+  ), [onSelectCard, visibleItems, onCardLongPress, onCardLongPressRelease]);
 
   /**
    * Render the footer (loading or load more button)

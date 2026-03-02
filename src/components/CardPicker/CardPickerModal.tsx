@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View,
   StyleSheet,
@@ -11,7 +11,9 @@ import {
   useWindowDimensions,
   TouchableWithoutFeedback,
   Keyboard,
+  Pressable,
 } from 'react-native';
+import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { Card } from '../../types';
 import { useCardPicker } from '../../hooks/useCardPicker';
@@ -113,6 +115,17 @@ export function CardPickerModal({
     pageSize: 30,
     exactMatch: useExactMatch,
   });
+
+  // Enlarged card preview state (for long-press)
+  const [enlargedCard, setEnlargedCard] = useState<Card | null>(null);
+
+  const handleCardLongPress = useCallback((card: Card) => {
+    setEnlargedCard(card);
+  }, []);
+
+  const handleCardLongPressRelease = useCallback(() => {
+    setEnlargedCard(null);
+  }, []);
 
   // Check if any filters are active (for empty state message)
   const hasActiveFilters = !!(
@@ -286,10 +299,40 @@ export function CardPickerModal({
               onScrollBegin={handleScrollBegin}
               onRetry={search}
               emptyMessage={emptyMessage}
+              onCardLongPress={handleCardLongPress}
+              onCardLongPressRelease={handleCardLongPressRelease}
             />
           </View>
         </SafeAreaView>
       </KeyboardAvoidingView>
+
+      {/* Enlarged card preview overlay (long-press) */}
+      {enlargedCard && (
+        <Modal
+          visible={!!enlargedCard}
+          transparent={true}
+          animationType="fade"
+          onRequestClose={handleCardLongPressRelease}
+        >
+          <Pressable
+            style={styles.enlargeOverlay}
+            onPress={handleCardLongPressRelease}
+          >
+            <View style={styles.enlargedCardContainer}>
+              <Image
+                source={{ uri: enlargedCard.imageUrlHiRes || enlargedCard.imageUrl }}
+                style={styles.enlargedCard}
+                contentFit="contain"
+              />
+              <Text style={styles.enlargedCardName}>{enlargedCard.name}</Text>
+              <Text style={styles.enlargedCardNumber}>
+                #{enlargedCard.number} • {enlargedCard.set || 'Unknown Set'}
+              </Text>
+              <Text style={styles.enlargedHint}>Tap anywhere to close</Text>
+            </View>
+          </Pressable>
+        </Modal>
+      )}
     </Modal>
   );
 }
@@ -390,6 +433,45 @@ const styles = StyleSheet.create({
   resultsContainer: {
     flex: 1,
     backgroundColor: colors.backgroundLight,
+  },
+  enlargeOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.85)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1000,
+  },
+  enlargedCardContainer: {
+    width: '85%',
+    maxHeight: '80%',
+    alignItems: 'center',
+  },
+  enlargedCard: {
+    width: '100%',
+    aspectRatio: 0.72,
+    borderRadius: borderRadius.lg,
+  },
+  enlargedCardName: {
+    fontSize: typography.xl,
+    fontWeight: typography.bold,
+    color: '#FFFFFF',
+    marginTop: spacing.md,
+    textAlign: 'center',
+  },
+  enlargedCardNumber: {
+    fontSize: typography.base,
+    color: 'rgba(255, 255, 255, 0.7)',
+    marginTop: spacing.xs,
+    textAlign: 'center',
+  },
+  enlargedHint: {
+    fontSize: typography.sm,
+    color: 'rgba(255, 255, 255, 0.5)',
+    marginTop: spacing.md,
   },
 });
 

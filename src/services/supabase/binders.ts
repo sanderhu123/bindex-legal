@@ -40,7 +40,7 @@ function rowToBinder(row: BinderRow, cardIds: string[]): Binder {
     pokemonArtStyle: row.pokemon_art_style || undefined,
     cardIds,
     totalCards: row.total_cards || 0,
-    ownedCards: row.owned_cards || 0,
+    ownedCards: cardIds.length,
     createdAt: new Date(row.created_at),
     updatedAt: new Date(row.updated_at),
   };

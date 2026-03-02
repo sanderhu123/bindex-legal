@@ -1007,9 +1007,11 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
         }
         
         // Sync binder.ownedCards with the actual card data (regular + extras)
-        // so the progress bar doesn't briefly show stale DB values
+        // so the progress bar doesn't briefly show stale DB values.
+        // Exclude extras already in the main grid to avoid double-counting.
         const regularOwnedCount = cardsWithOwnership.filter(c => c.isOwned).length;
-        const extraOwnedCount = loadedExtraCards.filter(c => c.isOwned).length;
+        const mainCardIds = new Set(cardsWithOwnership.map(c => c.id));
+        const extraOwnedCount = loadedExtraCards.filter(c => c.isOwned && !mainCardIds.has(c.id)).length;
         const actualOwnedCount = regularOwnedCount + extraOwnedCount;
         setBinder(prev => {
           if (!prev || prev.ownedCards === actualOwnedCount) return prev;
@@ -2011,16 +2013,6 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
         )}
       </View>
       
-      {/* Add Card button for Master Set binders */}
-      {isMasterSetMode && (
-        <TouchableOpacity
-          style={styles.addCardButton}
-          onPress={() => setShowExtraCardPicker(true)}
-        >
-          <Text style={styles.addCardButtonIcon}>➕</Text>
-          <Text style={styles.addCardButtonText}>Add Card</Text>
-        </TouchableOpacity>
-      )}
       {__DEV__ && binder && (
         <Text style={styles.debugText}>
           Debug: Binder has {binder.cardIds.length} card IDs

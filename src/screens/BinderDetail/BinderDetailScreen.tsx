@@ -531,6 +531,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
         setDisplayCount(PAGE_SIZE);
         setCardsFullyLoaded(false);
         let allCards: Card[] = [];
+        let newPositionCards = new Map<number, CardWithOwnership>();
 
         // Get all cards based on collection mode
         if (binder.collectionMode === 'master-set' && binder.set) {
@@ -646,7 +647,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
             
             console.log('[BinderDetail] Custom mode - positions:', editPositions.length, ', ownership entries:', ownershipMap.size);
             
-            const newPositionCards = new Map<number, CardWithOwnership>();
+            newPositionCards = new Map<number, CardWithOwnership>();
             
             // Use binder_card_positions as the source of truth
             const positionsToLoad = editPositions.length > 0
@@ -1006,17 +1007,28 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
           setExtraCards([]);
         }
         
-        // Sync binder.ownedCards with the actual card data (regular + extras)
+        // Sync binder.ownedCards with the actual card data
         // so the progress bar doesn't briefly show stale DB values.
-        // Exclude extras already in the main grid to avoid double-counting.
-        const regularOwnedCount = cardsWithOwnership.filter(c => c.isOwned).length;
-        const mainCardIds = new Set(cardsWithOwnership.map(c => c.id));
-        const extraOwnedCount = loadedExtraCards.filter(c => c.isOwned && !mainCardIds.has(c.id)).length;
-        const actualOwnedCount = regularOwnedCount + extraOwnedCount;
-        setBinder(prev => {
-          if (!prev || prev.ownedCards === actualOwnedCount) return prev;
-          return { ...prev, ownedCards: actualOwnedCount };
-        });
+        if (binder.collectionMode === 'custom') {
+          // Custom binders use positionCards (not cardsWithOwnership which is empty)
+          const customOwned = Array.from(newPositionCards.values()).filter(c => c.isOwned).length;
+          const customTotal = newPositionCards.size;
+          setBinder(prev => {
+            if (!prev) return prev;
+            if (prev.ownedCards === customOwned && prev.totalCards === customTotal) return prev;
+            return { ...prev, ownedCards: customOwned, totalCards: customTotal };
+          });
+        } else {
+          // Master Set / Region: count from cardsWithOwnership + extras
+          const regularOwnedCount = cardsWithOwnership.filter(c => c.isOwned).length;
+          const mainCardIds = new Set(cardsWithOwnership.map(c => c.id));
+          const extraOwnedCount = loadedExtraCards.filter(c => c.isOwned && !mainCardIds.has(c.id)).length;
+          const actualOwnedCount = regularOwnedCount + extraOwnedCount;
+          setBinder(prev => {
+            if (!prev || prev.ownedCards === actualOwnedCount) return prev;
+            return { ...prev, ownedCards: actualOwnedCount };
+          });
+        }
 
         // Start background prefetch for all card images
         // This continues even if the user leaves the screen

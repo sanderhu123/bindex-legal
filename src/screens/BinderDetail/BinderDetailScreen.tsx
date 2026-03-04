@@ -2223,6 +2223,19 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
             setShowJumpModal(false);
           }}
         />
+        {binder.collectionMode === 'region' && (
+          <CardPickerModal
+            visible={showRegionCardPicker}
+            onClose={() => {
+              setShowRegionCardPicker(false);
+              setSelectedPokemonForPicker(null);
+            }}
+            onSelectCard={handleRegionCardSelected}
+            title={selectedPokemonForPicker ? `Choose a ${selectedPokemonForPicker.name} Card` : 'Choose Card'}
+            initialQuery={selectedPokemonForPicker?.name || ''}
+            pokemonOnly={true}
+          />
+        )}
         <EnlargedCardOverlay />
       </SafeAreaView>
     );

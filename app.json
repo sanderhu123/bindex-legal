@@ -7,7 +7,6 @@
     "userInterfaceStyle": "light",
     "scheme": "trackerapp",
     "assetBundlePatterns": ["**/*"],
-    "plugins": ["react-native-purchases"],
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.trackerapp",

@@ -69,7 +69,7 @@ export default function CardDetailScreen({ navigation, route }: CardDetailScreen
     return getAvailableVariantsForCard(card.id, card.rarity, card.supertype);
   }, [card, isRegionMode]);
 
-  const showVariantSelector = availableVariants.length >= 2;
+  const showVariantSelector = availableVariants.length >= 2 && noteLoaded;
 
   // Calculate binder position (Page X, Slot Y) from card index
   const binderPosition = useMemo(() => {

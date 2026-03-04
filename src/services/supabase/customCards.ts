@@ -67,7 +67,7 @@ export async function createCustomCard(name: string, color: string): Promise<Car
   const { data: user } = await supabase.auth.getUser();
   if (!user.user) throw new Error('Not authenticated');
 
-  const id = `${CUSTOM_CARD_PREFIX}${crypto.randomUUID()}`;
+  const id = `${CUSTOM_CARD_PREFIX}${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 10)}`;
 
   const { error } = await supabase
     .from('custom_cards')

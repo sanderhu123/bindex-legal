@@ -1130,6 +1130,51 @@ export async function getCardNote(
 }
 
 /**
+ * Load the saved variant and note for a card from binder_cards.
+ * Queries without variant filter so it works even if the variant
+ * was changed since the card data was last loaded.
+ */
+export async function getBinderCardData(
+  binderId: string,
+  cardId: string,
+  expectedVariant?: string,
+  position?: number,
+  isExtra?: boolean
+): Promise<{ variant: string | null; note: string | null } | null> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('User not authenticated');
+
+  let query = supabase
+    .from('binder_cards')
+    .select('variant, note')
+    .eq('user_id', user.id)
+    .eq('binder_id', binderId)
+    .eq('card_id', cardId);
+
+  if (position !== undefined && position !== null) {
+    query = query.eq('position', position);
+  }
+
+  if (isExtra) {
+    query = query.eq('is_extra', true);
+  } else {
+    query = query.eq('is_extra', false);
+  }
+
+  const { data, error } = await query;
+
+  if (error || !data || data.length === 0) return null;
+
+  // Single row — return it directly (variant may have been updated)
+  if (data.length === 1) return data[0];
+
+  // Multiple rows (binder tracks several variants for the same card).
+  // Find the one matching the expected variant; fall back to the first row.
+  const expectedValue = (!expectedVariant || expectedVariant === 'base') ? null : expectedVariant;
+  return data.find(d => d.variant === expectedValue) || data[0];
+}
+
+/**
  * Save a note for a specific card in a binder.
  * Pass an empty string or null to remove the note.
  *

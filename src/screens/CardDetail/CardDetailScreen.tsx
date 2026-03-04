@@ -3,7 +3,7 @@ import { View, StyleSheet, Text, ScrollView, Dimensions, TouchableOpacity, Alert
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { getCardById } from '../../services/api/pokemonApi';
 import { getBinderById } from '../../services/supabase/binders';
-import { addCardToBinder, removeCardFromBinder, toggleCardOwnershipAtPosition, toggleExtraCardOwnership, getCardNote, saveCardNote, updateCardVariant } from '../../services/supabase/cards';
+import { addCardToBinder, removeCardFromBinder, toggleCardOwnershipAtPosition, toggleExtraCardOwnership, getBinderCardData, saveCardNote, updateCardVariant } from '../../services/supabase/cards';
 import { setSelectedCardForPokemon, clearSelectedCardForPokemon } from '../../services/supabase/regionCards';
 import { CardPickerModal } from '../../components/CardPicker';
 import CardImage from '../../components/Card/CardImage';
@@ -216,32 +216,42 @@ export default function CardDetailScreen({ navigation, route }: CardDetailScreen
     }
   }, [card, navigation]);
 
-  // Load existing note when card is ready
+  // Load saved variant + note from the database when card is ready
+  const initialLoadDone = useRef(false);
   useEffect(() => {
     if (!card || !binder) return;
+    if (initialLoadDone.current) return;
+    initialLoadDone.current = true;
 
-    async function loadNote() {
+    async function loadBinderData() {
       try {
         const isCustom = collectionMode === 'custom' && position !== undefined && position !== null;
-        const existingNote = await getCardNote(
+        const data = await getBinderCardData(
           binder!.id,
           card!.id,
           card!.variant,
-          isCustom ? position : undefined
+          isCustom ? position : undefined,
+          !!isExtraCard
         );
-        if (existingNote) {
-          setNote(existingNote);
-          setSavedNote(existingNote);
+        if (data) {
+          const savedVariant = data.variant || 'base';
+          if (savedVariant !== (card!.variant || 'base')) {
+            setCard(prev => prev ? { ...prev, variant: savedVariant as CardVariant } : prev);
+          }
+          if (data.note) {
+            setNote(data.note);
+            setSavedNote(data.note);
+          }
         }
       } catch (err) {
-        console.error('[CardDetail] Failed to load note:', err);
+        console.error('[CardDetail] Failed to load binder card data:', err);
       } finally {
         setNoteLoaded(true);
       }
     }
 
-    loadNote();
-  }, [card, binder, collectionMode, position]);
+    loadBinderData();
+  }, [card, binder, collectionMode, position, isExtraCard]);
 
   // Auto-save note after the user stops typing for 1 second
   const handleNoteChange = useCallback((text: string) => {

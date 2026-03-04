@@ -10,6 +10,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import RevenueCatUI from 'react-native-purchases-ui';
 import type { CustomerInfo } from 'react-native-purchases';
+import { syncProStatusToSupabase } from '../../services/pro/proService';
 import { colors, spacing, typography, screenPadding } from '../../constants/theme';
 
 export default function UpgradeScreen() {
@@ -38,11 +39,17 @@ export default function UpgradeScreen() {
       <RevenueCatUI.Paywall
         onPurchaseCompleted={({ customerInfo }: { customerInfo: CustomerInfo }) => {
           console.log('[Upgrade] Purchase completed:', customerInfo.entitlements.active);
+          syncProStatusToSupabase().catch((err) =>
+            console.warn('[Upgrade] Failed to sync pro status:', err)
+          );
           setPurchased(true);
         }}
         onRestoreCompleted={({ customerInfo }: { customerInfo: CustomerInfo }) => {
           const hasBindexPro = customerInfo.entitlements.active['Bindex Pro'] !== undefined;
           if (hasBindexPro) {
+            syncProStatusToSupabase().catch((err) =>
+              console.warn('[Upgrade] Failed to sync pro status:', err)
+            );
             setPurchased(true);
           } else {
             Alert.alert('No Purchases Found', 'We could not find a previous Bindex Pro purchase for this account.');

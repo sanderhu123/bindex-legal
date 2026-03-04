@@ -302,6 +302,13 @@ async function checkSupabaseTier(): Promise<boolean> {
   }
 }
 
+/**
+ * Public wrapper so screens (e.g. UpgradeScreen) can sync pro status to Supabase.
+ */
+export async function syncProStatusToSupabase(): Promise<void> {
+  return syncProStatus('pro');
+}
+
 async function syncProStatus(tier: UserTier): Promise<void> {
   try {
     const { data: { user } } = await supabase.auth.getUser();

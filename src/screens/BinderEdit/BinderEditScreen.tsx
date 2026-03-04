@@ -42,6 +42,32 @@ interface CardPosition {
 }
 
 /**
+ * Shift all card data one slot to the left starting from removedIndex,
+ * so there's no empty gap left behind when a card is removed.
+ */
+function shiftCardsLeft(positions: CardPosition[], removedIndex: number): CardPosition[] {
+  const newPositions = [...positions];
+  for (let i = removedIndex; i < newPositions.length - 1; i++) {
+    newPositions[i] = {
+      slotIndex: i,
+      cardId: newPositions[i + 1].cardId,
+      cardName: newPositions[i + 1].cardName,
+      imageUrl: newPositions[i + 1].imageUrl,
+      cardSet: newPositions[i + 1].cardSet,
+    };
+  }
+  const lastIdx = newPositions.length - 1;
+  newPositions[lastIdx] = {
+    slotIndex: lastIdx,
+    cardId: null,
+    cardName: undefined,
+    imageUrl: undefined,
+    cardSet: undefined,
+  };
+  return newPositions;
+}
+
+/**
  * Currently selected card info (tap-to-select mode)
  */
 interface SelectedCard {
@@ -835,7 +861,7 @@ export default function BinderEditScreen() {
 
     Alert.alert(
       'Remove Card',
-      `Remove ${selectedCard.cardName} from the binder? The slot will become empty.`,
+      `Remove ${selectedCard.cardName} from the binder?`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -846,14 +872,9 @@ export default function BinderEditScreen() {
             if (selectedCard.sourceSlot === 'placeholder') {
               setPlaceholderCards(prev => prev.filter((_, i) => i !== selectedCard.sourceIndex));
             } else {
-              setCardPositions(prev => {
-                const newPositions = [...prev];
-                newPositions[selectedCard.sourceSlot as number] = {
-                  ...newPositions[selectedCard.sourceSlot as number],
-                  cardId: null, cardName: undefined, imageUrl: undefined,
-                };
-                return newPositions;
-              });
+              setCardPositions(prev =>
+                shiftCardsLeft(prev, selectedCard.sourceSlot as number)
+              );
             }
             setHasChanges(true);
             setSelectedCard(null);
@@ -1715,7 +1736,7 @@ export default function BinderEditScreen() {
   const performDragToTrash = (dragged: DraggedCard) => {
     Alert.alert(
       'Remove Card',
-      `Remove ${dragged.cardName} from the binder? The slot will become empty.`,
+      `Remove ${dragged.cardName} from the binder?`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -1727,15 +1748,9 @@ export default function BinderEditScreen() {
             if (dragged.sourceSlot === 'placeholder') {
               setPlaceholderCards(prev => prev.filter((_, i) => i !== dragged.sourceIndex));
             } else {
-              const sourceIdx = dragged.sourceSlot as number;
-              setCardPositions(prev => {
-                const newPositions = [...prev];
-                newPositions[sourceIdx] = {
-                  ...newPositions[sourceIdx],
-                  cardId: null, cardName: undefined, imageUrl: undefined,
-                };
-                return newPositions;
-              });
+              setCardPositions(prev =>
+                shiftCardsLeft(prev, dragged.sourceSlot as number)
+              );
             }
 
             setHasChanges(true);

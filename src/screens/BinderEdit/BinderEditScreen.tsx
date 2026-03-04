@@ -9,6 +9,7 @@ import {
   ScrollView,
   Dimensions,
   Animated as RNAnimated,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -125,6 +126,7 @@ export default function BinderEditScreen() {
   // Screen state
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
   // Binder data
   const [binder, setBinder] = useState<Binder | null>(null);
@@ -611,6 +613,7 @@ export default function BinderEditScreen() {
 
   const saveAndExit = async () => {
     try {
+      setIsSaving(true);
       console.log('[BinderEdit] Saving positions to database...');
       await saveCardPositionsForBinder(binderId, cardPositions);
       await savePlaceholderCardsForBinder(binderId, placeholderCards);
@@ -639,6 +642,7 @@ export default function BinderEditScreen() {
       console.log('[BinderEdit] Positions, placeholders, and card counts saved successfully');
       navigation.goBack();
     } catch (err) {
+      setIsSaving(false);
       console.error('[BinderEdit] Error saving positions:', err);
       Alert.alert('Error', 'Failed to save changes. Please try again.');
     }
@@ -1897,13 +1901,13 @@ export default function BinderEditScreen() {
       >
         {/* Header */}
         <View style={styles.header}>
-          <TouchableOpacity style={styles.backButton} onPress={handleBack}>
-            <Text style={styles.backButtonText}>← Back</Text>
+          <TouchableOpacity style={styles.backButton} onPress={handleBack} disabled={isSaving}>
+            <Text style={[styles.backButtonText, isSaving && { opacity: 0.5 }]}>← Back</Text>
           </TouchableOpacity>
           <Text style={styles.title} numberOfLines={1}>Edit: {binder.name}</Text>
           <View style={styles.headerRight}>
             {hasChanges && (
-              <TouchableOpacity style={styles.saveButton} onPress={saveAndExit}>
+              <TouchableOpacity style={[styles.saveButton, isSaving && { opacity: 0.5 }]} onPress={saveAndExit} disabled={isSaving}>
                 <Text style={styles.saveButtonText}>Save</Text>
               </TouchableOpacity>
             )}
@@ -2010,6 +2014,16 @@ export default function BinderEditScreen() {
         title={replaceMode ? 'Replace Card' : 'Add Card'}
         pokemonOnly={false}
       />
+
+      {/* Saving Overlay */}
+      {isSaving && (
+        <View style={styles.savingOverlay}>
+          <View style={styles.savingBox}>
+            <ActivityIndicator size="large" color={colors.primary} />
+            <Text style={styles.savingText}>Saving...</Text>
+          </View>
+        </View>
+      )}
     </SafeAreaView>
   );
 }
@@ -2111,5 +2125,25 @@ const styles = StyleSheet.create({
     color: 'white',
     textAlign: 'center',
     fontWeight: '500',
+  },
+  savingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 10000,
+  },
+  savingBox: {
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.lg,
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.lg,
+    alignItems: 'center',
+  },
+  savingText: {
+    marginTop: spacing.sm,
+    fontSize: typography.md,
+    color: colors.text,
+    fontWeight: typography.medium,
   },
 });

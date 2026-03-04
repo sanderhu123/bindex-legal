@@ -100,7 +100,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
   const [cards, setCards] = useState<CardWithOwnership[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<ViewMode>('grid');
+  const [viewMode, setViewMode] = useState<ViewMode>('binder');
   const [searchQuery, setSearchQuery] = useState('');
   
   // Binder view mode state

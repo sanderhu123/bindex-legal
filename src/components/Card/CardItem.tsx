@@ -217,8 +217,11 @@ function arePropsEqual(prevProps: CardItemProps, nextProps: CardItemProps): bool
   // Re-render if image URL changes (for Region mode card selections)
   if (prevProps.card.imageUrl !== nextProps.card.imageUrl) return false;
   
-  // Re-render if variant changes
+  // Re-render if display variant (grid/list) changes
   if (prevProps.variant !== nextProps.variant) return false;
+  
+  // Re-render if card variant (reverse-holo, poke-ball, etc.) changes
+  if (prevProps.card.variant !== nextProps.card.variant) return false;
   
   // Re-render if width changes (for grid layout)
   if (prevProps.width !== nextProps.width) return false;

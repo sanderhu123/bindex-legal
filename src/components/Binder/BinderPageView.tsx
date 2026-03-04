@@ -50,6 +50,8 @@ interface BinderPageViewProps {
   onCardLongPressRelease?: () => void;
   /** Display mode: clean view with just card images (no badges, names, checkboxes) */
   displayMode?: boolean;
+  /** Optional override for the main card tap (used in region mode to open the card picker) */
+  onCardTap?: (card: CardWithOwnership, index: number) => void;
 }
 
 /**
@@ -92,6 +94,7 @@ function BinderPageViewComponent({
   onCardLongPress,
   onCardLongPressRelease,
   displayMode = false,
+  onCardTap,
 }: BinderPageViewProps) {
   const navigation = useNavigation<NavigationProp>();
   // Calculate which cards to show on the current page
@@ -148,17 +151,19 @@ function BinderPageViewComponent({
       );
     }
     
-    // Handle card tap - navigate to card detail screen
+    // Handle card tap - use custom handler if provided, otherwise navigate to card detail
     const handleCardTap = () => {
+      if (onCardTap) {
+        onCardTap(card, globalSlotIndex);
+        return;
+      }
       navigation.navigate('CardDetail', {
         cardId: card.id,
         binderId: binderId,
         isOwned: card.isOwned,
         collectionMode: collectionMode,
-        // Pass card index for binder position display
         cardIndex: globalSlotIndex,
         cardsPerPage: cardsPerPage,
-        // Pass full card data to skip API fetch (faster loading)
         cardData: {
           id: card.id,
           name: card.name,

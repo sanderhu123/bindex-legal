@@ -2207,6 +2207,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
                   onCardLongPressRelease={handleLongPressRelease}
                   collectionMode={binder.collectionMode}
                   displayMode={displayMode}
+                  onCardTap={binder.collectionMode === 'region' ? handleRegionCardTap : undefined}
                 />
               </View>
             </>

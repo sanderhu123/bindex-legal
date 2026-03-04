@@ -271,7 +271,7 @@ const styles = StyleSheet.create({
   container: {
     width: '100%',
     backgroundColor: 'transparent',
-    borderRadius: 8,
+    borderRadius: 4,
     overflow: 'hidden',
     position: 'relative',
   },

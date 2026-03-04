@@ -48,6 +48,14 @@ const CARD_MARGIN = 2; // Margin between cards (margin: 2 means 2px on all sides
 /** Number of cards to load per page (for infinite scroll) */
 const PAGE_SIZE = 36; // 12 rows of 3, or 9 rows of 4
 
+/**
+ * Binder-level cache for fully-resolved custom binder position cards.
+ * Keyed by binder ID. Avoids re-fetching from DB + API on every open.
+ * Master Set and Region modes don't need this because they use
+ * a single cached API call (getCardsBySet) or hardcoded data.
+ */
+const customBinderCache = new Map<string, Map<number, CardWithOwnership>>();
+
 /** Maximum slots for Custom binders based on layout */
 const CUSTOM_MAX_SLOTS_3X3 = 360; // 40 pages × 9 cards
 const CUSTOM_MAX_SLOTS_4X3 = 480; // 40 pages × 12 cards
@@ -120,6 +128,13 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
   
   // Saved slot positions from edit mode: maps slotIndex → card (for binder page view)
   const [savedPositionMap, setSavedPositionMap] = useState<Map<number, CardWithOwnership> | null>(null);
+
+  // Keep binder-level cache in sync whenever positionCards changes (e.g. ownership toggle)
+  useEffect(() => {
+    if (binder?.collectionMode === 'custom' && binder?.id && positionCards.size > 0) {
+      customBinderCache.set(binder.id, positionCards);
+    }
+  }, [positionCards, binder?.id, binder?.collectionMode]);
   
   // Extra cards for Master Set binders (cards not officially in the set)
   const [extraCards, setExtraCards] = useState<CardWithOwnership[]>([]);
@@ -253,8 +268,10 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
       // For Custom binders: reload from binder_card_positions (single source of truth)
       // with ownership data from binder_cards
       if (latestBinder.collectionMode === 'custom') {
-        const editPositions = await getCardPositionsForBinder(binderId);
-        const ownershipMap = await getBinderCardsWithPositions(binderId);
+        const [editPositions, ownershipMap] = await Promise.all([
+          getCardPositionsForBinder(binderId),
+          getBinderCardsWithPositions(binderId),
+        ]);
         
         const newPositionCards = new Map<number, CardWithOwnership>();
         
@@ -289,6 +306,10 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
         }
         
         setPositionCards(newPositionCards);
+        // Keep binder-level cache in sync
+        if (newPositionCards.size > 0) {
+          customBinderCache.set(binderId, newPositionCards);
+        }
       } else if (latestBinder.collectionMode === 'region') {
         // For Region binders: refresh both ownership AND card selections/images
         console.log('[BinderDetail] Refreshing Region binder card selections');
@@ -532,6 +553,18 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
     async function fetchCards() {
       if (!binder) return;
 
+      // For custom binders, check binder-level cache for instant display
+      if (binder.collectionMode === 'custom') {
+        const cached = customBinderCache.get(binder.id);
+        if (cached && cached.size > 0) {
+          console.log('[BinderDetail] Custom mode - using cached data:', cached.size, 'cards');
+          setPositionCards(cached);
+          setLoading(false);
+          setCardsFullyLoaded(true);
+          return;
+        }
+      }
+
       try {
         isFetchingCardsRef.current = true;
         setLoading(true);
@@ -689,6 +722,10 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
             }
             
             setPositionCards(newPositionCards);
+            // Store in binder-level cache for instant loading on next open
+            if (newPositionCards.size > 0) {
+              customBinderCache.set(binder.id, newPositionCards);
+            }
             console.log('[BinderDetail] Custom mode - loaded', newPositionCards.size, 'cards into grid');
             
             allCards = [];

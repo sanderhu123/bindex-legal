@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, StyleSheet, Text, TextInput, TouchableOpacity, Alert, Platform, Linking } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { signIn, signInWithGoogle, signInWithApple } from '../../services/supabase/auth';
+import { useAuth } from '../../context/AuthContext';
 import { colors, spacing, typography, borderRadius, screenPadding } from '../../constants/theme';
 
 interface LoginScreenProps {
@@ -14,6 +15,7 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
   const [stayLoggedIn, setStayLoggedIn] = useState(true);
   const [loading, setLoading] = useState(false);
   const [socialLoading, setSocialLoading] = useState<'google' | 'apple' | null>(null);
+  const { refreshUser } = useAuth();
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -24,10 +26,13 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
     setLoading(true);
     try {
       await signIn(email, password);
-      // Navigation will be handled by AuthContext
+      // onAuthStateChange should pick this up, but as a safety net
+      // we also manually refresh after a short delay
+      setTimeout(() => {
+        refreshUser();
+      }, 1500);
     } catch (error: any) {
       Alert.alert('Login Failed', error.message || 'An error occurred');
-    } finally {
       setLoading(false);
     }
   };

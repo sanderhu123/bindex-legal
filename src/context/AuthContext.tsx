@@ -7,12 +7,14 @@ interface AuthContextType {
   user: User | null;
   loading: boolean;
   initialized: boolean;
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType>({
   user: null,
   loading: true,
   initialized: false,
+  refreshUser: async () => {},
 });
 
 export function useAuth() {
@@ -128,7 +130,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, initialized }}>
+    <AuthContext.Provider value={{ user, loading, initialized, refreshUser: refreshSession }}>
       {children}
     </AuthContext.Provider>
   );

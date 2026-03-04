@@ -195,9 +195,24 @@ export async function getSession() {
  */
 export function onAuthStateChange(callback: (user: User | null) => void) {
   return supabase.auth.onAuthStateChange(async (event, session) => {
+    console.log('[Auth] onAuthStateChange event:', event);
     if (session?.user) {
-      const user = await getCurrentUser();
-      callback(user);
+      try {
+        const user = await getCurrentUser();
+        callback(user);
+      } catch (error) {
+        console.warn('[Auth] Error fetching user profile during auth state change:', error);
+        // Still sign the user in with basic info so the app doesn't get stuck
+        callback({
+          id: session.user.id,
+          email: session.user.email || '',
+          displayName: session.user.user_metadata?.display_name,
+          binders: [],
+          userTier: 'free' as const,
+          freeDeletionsUsed: 0,
+          lifetimeBindersCreated: 0,
+        });
+      }
     } else {
       callback(null);
     }

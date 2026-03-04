@@ -452,7 +452,7 @@ const styles = StyleSheet.create({
   },
   enlargedCard: {
     width: '100%',
-    aspectRatio: 0.72,
+    aspectRatio: 0.716,
     borderRadius: borderRadius.lg,
   },
   enlargedCardName: {

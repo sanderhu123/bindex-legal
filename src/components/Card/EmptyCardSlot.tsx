@@ -31,7 +31,7 @@ export default function EmptyCardSlot({
     ? [styles.cardSlot, { width }]
     : styles.cardSlot;
 
-  const imageHeight = width ? width / 0.7 : undefined;
+  const imageHeight = width ? width / 0.716 : undefined;
   const imageContainerStyle = imageHeight 
     ? [styles.imageContainer, { height: imageHeight }]
     : styles.imageContainer;
@@ -79,7 +79,7 @@ const styles = StyleSheet.create({
   },
   imageContainer: {
     width: '100%',
-    aspectRatio: 0.7, // Match Pokemon card aspect ratio
+    aspectRatio: 0.716, // Match Pokemon card aspect ratio (245×342 pixels)
     backgroundColor: colors.backgroundLight,
     borderRadius: borderRadius.md,
     borderWidth: 2,

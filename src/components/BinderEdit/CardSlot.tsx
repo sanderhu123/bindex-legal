@@ -207,7 +207,7 @@ export function CardSlot({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    aspectRatio: 0.7, // Card aspect ratio
+    aspectRatio: 0.716, // Card aspect ratio (245×342 pixels)
     margin: spacing.xs,
     borderRadius: borderRadius.md,
     overflow: 'hidden',

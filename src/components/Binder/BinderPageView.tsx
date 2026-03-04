@@ -102,7 +102,7 @@ function BinderPageViewComponent({
   const pageCards = cards.slice(startIndex, startIndex + cardsPerPage);
   
   // Calculate card height based on aspect ratio (0.7)
-  const cardHeight = cardWidth / 0.7;
+  const cardHeight = cardWidth / 0.716;
   
   // Number of rows (3 for both 3×3 and 4×3)
   const rows = 3;
@@ -219,7 +219,7 @@ function BinderPageViewComponent({
           <CardImage
             source={card.imageUrl}
             isMissing={displayMode ? false : !card.isOwned}
-            aspectRatio={0.7}
+            aspectRatio={0.716}
             style={styles.cardImage}
             cardInfo={{ id: card.id, name: card.name, number: card.number, set: card.set }}
           />

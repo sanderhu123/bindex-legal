@@ -1901,7 +1901,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
             <CardImage
               source={item.imageUrl}
               isMissing={!item.isOwned}
-              aspectRatio={0.7}
+              aspectRatio={0.716}
               style={styles.regionCardImageWrapper}
               cardInfo={{ id: item.id, name: item.name, number: item.number, set: item.set }}
             />
@@ -2683,7 +2683,7 @@ const styles = StyleSheet.create({
   },
   enlargedCard: {
     width: '100%',
-    aspectRatio: 0.72, // TCG card aspect ratio
+    aspectRatio: 0.716, // TCG card aspect ratio (245×342 pixels)
     borderRadius: borderRadius.lg,
   },
   enlargedCardName: {

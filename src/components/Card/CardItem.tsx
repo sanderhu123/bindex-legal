@@ -174,7 +174,7 @@ function CardItemComponent({
         <CardImage
           source={card.imageUrl}
           isMissing={!card.isOwned}
-          aspectRatio={0.7}
+          aspectRatio={0.716}
           style={styles.cardImageWrapper}
           cardInfo={{ id: card.id, name: card.name, number: card.number, set: card.set }}
         />

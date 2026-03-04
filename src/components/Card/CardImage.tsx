@@ -112,7 +112,7 @@ export default function CardImage({
   lowResSource,
   style,
   isMissing = false,
-  aspectRatio = 0.7, // Default card aspect ratio (height/width)
+  aspectRatio = 0.716, // TCG card aspect ratio (245×342 image pixels)
   onError,
   priority = 'normal', // Default priority
   cardInfo,

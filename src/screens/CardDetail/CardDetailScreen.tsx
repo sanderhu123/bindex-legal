@@ -518,7 +518,7 @@ export default function CardDetailScreen({ navigation, route }: CardDetailScreen
             source={card.imageUrlHiRes || card.imageUrl}
             lowResSource={card.imageUrl}
             isMissing={!isOwned}
-            aspectRatio={0.7}
+            aspectRatio={0.716}
             style={[styles.cardImage, { width: imageWidth }]}
             priority="high"
             cardInfo={{ id: card.id, name: card.name, number: card.number, set: card.set }}

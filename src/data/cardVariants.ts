@@ -172,11 +172,30 @@ export function getAvailableVariantsForSet(setId: string): ('base' | 'reverse-ho
 }
 
 /**
+ * Extract the TCGDEX set ID from a card ID.
+ * Card IDs from the API look like "sv08.5-001". When the binder tracks
+ * variants, generateVariantCards appends a suffix: "sv08.5-001-base",
+ * "sv08.5-001-poke-ball", etc. This helper strips that suffix first.
+ */
+function extractSetId(cardId: string): string {
+  let cleanId = cardId;
+  const suffixes = ['-master-ball', '-poke-ball', '-reverse-holo', '-reverse', '-holo', '-base'];
+  for (const s of suffixes) {
+    if (cleanId.endsWith(s)) {
+      cleanId = cleanId.substring(0, cleanId.length - s.length);
+      break;
+    }
+  }
+  const dash = cleanId.lastIndexOf('-');
+  return dash > 0 ? cleanId.substring(0, dash) : '';
+}
+
+/**
  * Get the variant options available for a specific card based on its
  * set, rarity, and supertype. Used by the card detail screen to show
  * a variant selector.
  * 
- * @param cardId - Full card ID (e.g. "sv08.5-001") — set ID is extracted from this
+ * @param cardId - Full card ID (e.g. "sv08.5-001" or "sv08.5-001-base")
  * @param rarity - Card rarity (Common, Uncommon, Rare, Holo Rare, etc.)
  * @param supertype - Card supertype (Pokémon, Trainer, Energy)
  * @returns Array of variant options; always starts with 'base'
@@ -186,7 +205,7 @@ export function getAvailableVariantsForCard(
   rarity: string,
   supertype: string
 ): ('base' | 'reverse-holo' | 'poke-ball' | 'master-ball')[] {
-  const setId = cardId.substring(0, cardId.lastIndexOf('-'));
+  const setId = extractSetId(cardId);
   if (!setId) return ['base'];
 
   const allowsReverseHolo = (

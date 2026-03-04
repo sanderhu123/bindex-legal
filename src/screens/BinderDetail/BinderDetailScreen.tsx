@@ -280,7 +280,10 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
               const isOwned = ownershipData?.isOwned
                 ?? latestBinder.cardIds?.includes(result.card.id)
                 ?? false;
-              newPositionCards.set(result.position, { ...result.card, isOwned });
+              const variant = ownershipData?.variant
+                ? ownershipData.variant as any
+                : result.card.variant;
+              newPositionCards.set(result.position, { ...result.card, isOwned, variant });
             }
           });
         }
@@ -676,7 +679,10 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
                   const isOwned = ownershipData?.isOwned
                     ?? binder.cardIds?.includes(result.card.id)
                     ?? false;
-                  newPositionCards.set(result.position, { ...result.card, isOwned });
+                  const variant = ownershipData?.variant
+                    ? ownershipData.variant as any
+                    : result.card.variant;
+                  newPositionCards.set(result.position, { ...result.card, isOwned, variant });
                 }
               });
             }
@@ -1920,7 +1926,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
             showSet={false}
             showRarity={false}
             showIllustrator={false}
-            showVariantBadge={false}
+            showVariantBadge={true}
           />
         </TouchableOpacity>
       );

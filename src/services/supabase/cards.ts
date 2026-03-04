@@ -1184,9 +1184,71 @@ export async function saveCardNote(
   console.log('[CardNote] Note saved successfully');
 }
 
+/**
+ * Change a card's variant in a binder (e.g. base → reverse-holo).
+ * For Custom binders the row is matched by position instead of variant.
+ */
+export async function updateCardVariant(
+  binderId: string,
+  cardId: string,
+  oldVariant: string | undefined,
+  newVariant: string,
+  position?: number
+): Promise<void> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('User not authenticated');
 
+  const isPositionBased = position !== undefined && position !== null;
 
+  // Check for an existing row with the target variant to avoid unique-constraint violations
+  if (!isPositionBased) {
+    let conflictQuery = supabase
+      .from('binder_cards')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('binder_id', binderId)
+      .eq('card_id', cardId);
 
+    if (newVariant && newVariant !== 'base') {
+      conflictQuery = conflictQuery.eq('variant', newVariant);
+    } else {
+      conflictQuery = conflictQuery.is('variant', null);
+    }
+
+    const { data: existing } = await conflictQuery.maybeSingle();
+    if (existing) {
+      throw new Error(`This card already has a ${newVariant === 'base' ? 'Standard' : newVariant} entry in the binder.`);
+    }
+  }
+
+  // Build the update — store 'base' as null to match existing convention
+  const variantValue = (newVariant && newVariant !== 'base') ? newVariant : null;
+
+  let query = supabase
+    .from('binder_cards')
+    .update({ variant: variantValue })
+    .eq('user_id', user.id)
+    .eq('binder_id', binderId)
+    .eq('card_id', cardId);
+
+  if (isPositionBased) {
+    query = query.eq('position', position);
+  } else {
+    if (oldVariant && oldVariant !== 'base') {
+      query = query.eq('variant', oldVariant);
+    } else {
+      query = query.is('variant', null);
+    }
+  }
+
+  const { error } = await query;
+  if (error) {
+    console.error('[CardVariant] Failed to update variant:', error);
+    throw error;
+  }
+
+  console.log(`[CardVariant] Updated variant from ${oldVariant || 'base'} to ${newVariant}`);
+}
 
 
 

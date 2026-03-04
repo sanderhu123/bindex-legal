@@ -3,16 +3,24 @@ import { View, StyleSheet, Text, ScrollView, Dimensions, TouchableOpacity, Alert
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { getCardById } from '../../services/api/pokemonApi';
 import { getBinderById } from '../../services/supabase/binders';
-import { addCardToBinder, removeCardFromBinder, toggleCardOwnershipAtPosition, toggleExtraCardOwnership, getCardNote, saveCardNote } from '../../services/supabase/cards';
+import { addCardToBinder, removeCardFromBinder, toggleCardOwnershipAtPosition, toggleExtraCardOwnership, getCardNote, saveCardNote, updateCardVariant } from '../../services/supabase/cards';
 import { setSelectedCardForPokemon, clearSelectedCardForPokemon } from '../../services/supabase/regionCards';
 import { CardPickerModal } from '../../components/CardPicker';
 import CardImage from '../../components/Card/CardImage';
 import CardDetails from '../../components/Card/CardDetails';
 import LoadingScreen from '../../components/Loading/LoadingScreen';
 import ErrorScreen from '../../components/Error/ErrorScreen';
+import { getAvailableVariantsForCard } from '../../data/cardVariants';
 import { colors, spacing, typography, borderRadius, screenPadding, shadows } from '../../constants/theme';
 import { getUserFriendlyErrorMessage, isNotFoundError } from '../../utils/errorUtils';
-import type { Card, Binder } from '../../types';
+import type { Card, Binder, CardVariant } from '../../types';
+
+const VARIANT_LABELS: Record<string, string> = {
+  'base': 'Standard',
+  'reverse-holo': 'Reverse Holo',
+  'poke-ball': 'Poke Ball',
+  'master-ball': 'Master Ball',
+};
 
 interface CardDetailScreenProps {
   navigation: any;
@@ -31,6 +39,7 @@ export default function CardDetailScreen({ navigation, route }: CardDetailScreen
   const [error, setError] = useState<string | null>(null);
   const [isOwned, setIsOwned] = useState<boolean>(!!initialOwnedParam);
   const [isUpdating, setIsUpdating] = useState(false);
+  const [isUpdatingVariant, setIsUpdatingVariant] = useState(false);
   
   // Note state
   const [note, setNote] = useState('');
@@ -42,6 +51,17 @@ export default function CardDetailScreen({ navigation, route }: CardDetailScreen
   // Region mode: card picker state
   const [showCardPicker, setShowCardPicker] = useState(false);
   const isRegionMode = collectionMode === 'region';
+
+  // Determine which variant options to show for this card
+  const availableVariants = useMemo(() => {
+    if (!card) return [];
+    // Region mode without a real TCG card selected — no variants
+    if (isRegionMode && !card.selectedCardId) return [];
+    if (!card.rarity || !card.supertype) return [];
+    return getAvailableVariantsForCard(card.id, card.rarity, card.supertype);
+  }, [card, isRegionMode]);
+
+  const showVariantSelector = availableVariants.length >= 2;
 
   // Calculate binder position (Page X, Slot Y) from card index
   const binderPosition = useMemo(() => {
@@ -323,6 +343,34 @@ export default function CardDetailScreen({ navigation, route }: CardDetailScreen
     );
   }, [binder, pokedexNumber, pokemonName, navigation]);
 
+  // Handle variant change
+  const handleVariantChange = useCallback(async (newVariant: CardVariant) => {
+    if (!card || !binder || isUpdatingVariant) return;
+    const currentVariant = card.variant || 'base';
+    if (newVariant === currentVariant) return;
+
+    const previousCard = { ...card };
+    setCard({ ...card, variant: newVariant });
+    setIsUpdatingVariant(true);
+
+    try {
+      const isCustom = collectionMode === 'custom' && position !== undefined && position !== null;
+      await updateCardVariant(
+        binder.id,
+        card.id,
+        currentVariant,
+        newVariant,
+        isCustom ? position : undefined
+      );
+    } catch (err) {
+      setCard(previousCard);
+      const message = err instanceof Error ? err.message : 'Failed to update variant.';
+      Alert.alert('Could not change variant', message);
+    } finally {
+      setIsUpdatingVariant(false);
+    }
+  }, [card, binder, isUpdatingVariant, collectionMode, position]);
+
   // Loading state - AFTER all hooks are defined
   if (loading) {
     return <LoadingScreen message="Loading card..." />;
@@ -472,6 +520,39 @@ export default function CardDetailScreen({ navigation, route }: CardDetailScreen
           />
         </View>
 
+        {/* Variant Selector */}
+        {showVariantSelector && (
+          <View style={styles.variantContainer}>
+            <Text style={styles.variantLabel}>Variant</Text>
+            <View style={styles.variantChips}>
+              {availableVariants.map((v) => {
+                const isSelected = (card.variant || 'base') === v;
+                return (
+                  <TouchableOpacity
+                    key={v}
+                    style={[
+                      styles.variantChip,
+                      isSelected ? styles.variantChipSelected : styles.variantChipUnselected,
+                    ]}
+                    onPress={() => handleVariantChange(v as CardVariant)}
+                    disabled={isUpdatingVariant || isSelected}
+                    activeOpacity={0.7}
+                  >
+                    <Text
+                      style={[
+                        styles.variantChipText,
+                        isSelected ? styles.variantChipTextSelected : styles.variantChipTextUnselected,
+                      ]}
+                    >
+                      {VARIANT_LABELS[v] || v}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </View>
+        )}
+
         {/* Binder Position (Page X, Slot Y) */}
         {binderPosition && (
           <View style={styles.positionContainer}>
@@ -597,6 +678,46 @@ const styles = StyleSheet.create({
     width: '100%',
     paddingHorizontal: spacing.xs,
     marginBottom: spacing.sm,
+  },
+  // Variant selector
+  variantContainer: {
+    width: '100%',
+    marginBottom: spacing.md,
+  },
+  variantLabel: {
+    fontSize: typography.sm,
+    fontWeight: typography.semibold as any,
+    color: colors.textSecondary,
+    marginBottom: spacing.xs,
+  },
+  variantChips: {
+    flexDirection: 'row' as const,
+    flexWrap: 'wrap' as const,
+    gap: spacing.xs,
+  },
+  variantChip: {
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.sm + 2,
+    borderRadius: borderRadius.full || 999,
+    borderWidth: 1,
+  },
+  variantChipSelected: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  variantChipUnselected: {
+    backgroundColor: 'transparent',
+    borderColor: colors.border,
+  },
+  variantChipText: {
+    fontSize: typography.sm,
+    fontWeight: typography.medium as any,
+  },
+  variantChipTextSelected: {
+    color: colors.background,
+  },
+  variantChipTextUnselected: {
+    color: colors.textSecondary,
   },
   // Binder position display
   positionContainer: {

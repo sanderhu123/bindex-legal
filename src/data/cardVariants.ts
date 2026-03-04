@@ -171,3 +171,41 @@ export function getAvailableVariantsForSet(setId: string): ('base' | 'reverse-ho
   return variants;
 }
 
+/**
+ * Get the variant options available for a specific card based on its
+ * set, rarity, and supertype. Used by the card detail screen to show
+ * a variant selector.
+ * 
+ * @param cardId - Full card ID (e.g. "sv08.5-001") — set ID is extracted from this
+ * @param rarity - Card rarity (Common, Uncommon, Rare, Holo Rare, etc.)
+ * @param supertype - Card supertype (Pokémon, Trainer, Energy)
+ * @returns Array of variant options; always starts with 'base'
+ */
+export function getAvailableVariantsForCard(
+  cardId: string,
+  rarity: string,
+  supertype: string
+): ('base' | 'reverse-holo' | 'poke-ball' | 'master-ball')[] {
+  const setId = cardId.substring(0, cardId.lastIndexOf('-'));
+  if (!setId) return ['base'];
+
+  const allowsReverseHolo = (
+    rarity === 'Common' ||
+    rarity === 'Uncommon' ||
+    rarity === 'Rare' ||
+    rarity === 'Holo Rare' ||
+    rarity === 'Rare Holo'
+  );
+
+  const variants: ('base' | 'reverse-holo' | 'poke-ball' | 'master-ball')[] = ['base'];
+
+  if (allowsReverseHolo && setHasReverseHolos(setId)) {
+    variants.push('reverse-holo');
+
+    const specialVariants = getSpecialVariantsForCard(setId, true, supertype, rarity);
+    variants.push(...specialVariants);
+  }
+
+  return variants;
+}
+

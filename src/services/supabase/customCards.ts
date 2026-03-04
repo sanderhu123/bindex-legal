@@ -19,7 +19,6 @@ export const CUSTOM_CARD_COLORS: { name: string; hex: string; textColor: string 
   { name: 'Orange', hex: '#EA580C', textColor: '#FFFFFF' },
   { name: 'Pink',   hex: '#EC4899', textColor: '#FFFFFF' },
   { name: 'Gold',   hex: '#D4A017', textColor: '#000000' },
-  { name: 'Silver', hex: '#C0C0C0', textColor: '#000000' },
   { name: 'Purple', hex: '#7C3AED', textColor: '#FFFFFF' },
   { name: 'Brown',  hex: '#78350F', textColor: '#FFFFFF' },
 ];

@@ -230,7 +230,7 @@ export default function CardImage({
             <Image
               source={{ uri: lowResSource }}
               style={styles.image}
-              contentFit="contain"
+              contentFit="cover"
               cachePolicy="memory-disk"
               priority="high"
             />
@@ -239,7 +239,7 @@ export default function CardImage({
             key={retryKey} // Force remount when retrying to trigger new fetch
             source={imageSource}
             style={hasLowRes ? styles.imageOverlay : styles.image}
-            contentFit="contain"
+            contentFit="cover"
             transition={hasLowRes ? 300 : 200} // Slightly longer transition for hi-res swap
             cachePolicy="memory-disk" // Cache in memory and disk for offline access
             priority={priority} // Load priority (high for detail view, normal for grid)

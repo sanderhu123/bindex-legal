@@ -1297,7 +1297,25 @@ export async function updateCardVariant(
   }
 
   if (!data || data.length === 0) {
-    throw new Error('Card must be marked as owned before you can change its variant.');
+    // No existing row (card not yet owned). Create a placeholder row so the
+    // variant selection is persisted. Ownership stays false.
+    const { error: insertError } = await supabase
+      .from('binder_cards')
+      .insert({
+        user_id: user.id,
+        binder_id: binderId,
+        card_id: cardId,
+        variant: variantValue,
+        is_owned: false,
+        is_extra: false,
+      });
+
+    if (insertError) {
+      console.error('[CardVariant] Failed to create variant row:', insertError);
+      throw insertError;
+    }
+    console.log(`[CardVariant] Created new row with variant ${newVariant} (not owned)`);
+    return;
   }
 
   console.log(`[CardVariant] Updated variant from ${oldVariant || 'base'} to ${newVariant}`);

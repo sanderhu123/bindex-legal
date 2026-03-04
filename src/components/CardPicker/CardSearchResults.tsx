@@ -45,15 +45,19 @@ const CardResultItem = memo(function CardResultItem({ card, onSelect, isVisible 
       activeOpacity={0.7}
     >
       <View style={styles.cardImageContainer}>
-        {/* Use lazy loading - only load images for visible items */}
-        {/* Priority: 'low' for list items to prioritize visible content */}
-        <CardImage
-          source={isVisible ? card.imageUrl : undefined}
-          isMissing={false}
-          style={styles.cardImage}
-          priority="low"
-          cardInfo={{ id: card.id, name: card.name, number: card.number, set: card.set }}
-        />
+        {isVisible ? (
+          <CardImage
+            source={card.imageUrl}
+            isMissing={false}
+            style={styles.cardImage}
+            priority="low"
+            cardInfo={{ id: card.id, name: card.name, number: card.number, set: card.set }}
+          />
+        ) : (
+          <View style={styles.cardImagePlaceholder}>
+            <ActivityIndicator size="small" color="#999" />
+          </View>
+        )}
       </View>
       <View style={styles.cardInfo}>
         <Text style={styles.cardName} numberOfLines={1}>
@@ -353,6 +357,14 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.sm,
     overflow: 'hidden',
     backgroundColor: colors.backgroundLight,
+  },
+  cardImagePlaceholder: {
+    width: 50,
+    height: 70,
+    borderRadius: borderRadius.sm,
+    backgroundColor: colors.backgroundDark,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   cardImage: {
     width: 50,

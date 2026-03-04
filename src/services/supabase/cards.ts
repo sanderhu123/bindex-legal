@@ -1158,12 +1158,16 @@ export async function getBinderCardData(
   if (isExtra) {
     query = query.eq('is_extra', true);
   } else {
-    query = query.eq('is_extra', false);
+    query = query.or('is_extra.is.null,is_extra.eq.false');
   }
 
   const { data, error } = await query;
 
-  if (error || !data || data.length === 0) return null;
+  if (error) {
+    console.error('[getBinderCardData] Query error:', error);
+    return null;
+  }
+  if (!data || data.length === 0) return null;
 
   // Single row — return it directly (variant may have been updated)
   if (data.length === 1) return data[0];
@@ -1286,10 +1290,14 @@ export async function updateCardVariant(
     }
   }
 
-  const { error } = await query;
+  const { data, error } = await query.select('id');
   if (error) {
     console.error('[CardVariant] Failed to update variant:', error);
     throw error;
+  }
+
+  if (!data || data.length === 0) {
+    throw new Error('Card must be marked as owned before you can change its variant.');
   }
 
   console.log(`[CardVariant] Updated variant from ${oldVariant || 'base'} to ${newVariant}`);

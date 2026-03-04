@@ -55,8 +55,16 @@ export default function CardDetailScreen({ navigation, route }: CardDetailScreen
   // Determine which variant options to show for this card
   const availableVariants = useMemo(() => {
     if (!card) return [];
-    // Region mode without a real TCG card selected — no variants
-    if (isRegionMode && !card.selectedCardId) return [];
+
+    if (isRegionMode) {
+      // Region mode: need a real TCG card selected
+      if (!card.selectedCardId) return [];
+      const rarity = card.rarity || '';
+      if (!rarity) return [];
+      // Region cards are always Pokémon; use selectedCardId for set extraction
+      return getAvailableVariantsForCard(card.selectedCardId, rarity, 'Pokémon');
+    }
+
     if (!card.rarity || !card.supertype) return [];
     return getAvailableVariantsForCard(card.id, card.rarity, card.supertype);
   }, [card, isRegionMode]);

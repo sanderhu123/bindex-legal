@@ -12,6 +12,7 @@ import {
   toggleCardOwnershipAtPosition,
   getExtraCardsWithVariants,
   toggleExtraCardOwnership,
+  getCardVariantsForBinder,
 } from '../../services/supabase/cards';
 import { getCardsBySet, getCardsByRegion, getCardById, getPokemonImageUrl, type Region } from '../../services/api/pokemonApi';
 import { getAllSelectedCardsForBinder, setSelectedCardForPokemon } from '../../services/supabase/regionCards';
@@ -393,21 +394,47 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
           console.warn('[BinderDetail] Could not load saved positions on refresh:', dbErr);
         }
         
+        // Apply variant changes from DB for region cards
+        const regionVariantMap = await getCardVariantsForBinder(binderId);
+        updatedCards = updatedCards.map((card) => {
+          const dbVariants = regionVariantMap.get(card.id);
+          if (dbVariants && dbVariants.length === 1) {
+            return { ...card, variant: (dbVariants[0] || 'base') as any };
+          }
+          return card;
+        });
+
         setCards(updatedCards);
         console.log('[BinderDetail] Region cards refreshed with latest selections');
       } else {
-        // For Master Set binders: update based on cardIds
-        // Guard: skip if cards haven't been loaded yet (prevents race condition
-        // where this refresh overwrites the card list with an empty array
-        // before fetchCards() has finished loading from the API)
+        // For Master Set binders: update ownership + variants from DB
         if (cardsRef.current.length === 0) {
           console.log('[BinderDetail] No cards loaded yet, skipping Master Set refresh');
           return;
         }
-        let updatedMasterCards = cardsRef.current.map((card) => ({
-          ...card,
-          isOwned: latestBinder.cardIds.includes(card.id),
-        }));
+
+        // Fetch current variants from binder_cards in one query
+        const variantMap = await getCardVariantsForBinder(binderId);
+
+        let updatedMasterCards = cardsRef.current.map((card) => {
+          const dbVariants = variantMap.get(card.id);
+          let updatedVariant = card.variant;
+          if (dbVariants && dbVariants.length === 1) {
+            // Single DB row for this card — use its variant
+            updatedVariant = (dbVariants[0] || 'base') as any;
+          } else if (dbVariants && dbVariants.length > 1) {
+            // Multiple rows — match by current variant, fallback to first
+            const currentDbVal = (!card.variant || card.variant === 'base') ? null : card.variant;
+            if (!dbVariants.includes(currentDbVal)) {
+              updatedVariant = (dbVariants[0] || 'base') as any;
+            }
+          }
+          return {
+            ...card,
+            variant: updatedVariant,
+            isOwned: latestBinder.cardIds.includes(card.id),
+          };
+        });
         
         // Apply saved positions from edit view
         try {

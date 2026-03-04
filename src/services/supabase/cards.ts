@@ -1130,6 +1130,34 @@ export async function getCardNote(
 }
 
 /**
+ * Fetch the current variant for every card in a binder (single query).
+ * Returns a Map keyed by card_id. When multiple rows exist for the same
+ * card_id (multi-variant tracking), all variants are collected.
+ */
+export async function getCardVariantsForBinder(
+  binderId: string
+): Promise<Map<string, (string | null)[]>> {
+  const userId = await getCachedUserId();
+
+  const { data } = await supabase
+    .from('binder_cards')
+    .select('card_id, variant')
+    .eq('user_id', userId)
+    .eq('binder_id', binderId)
+    .or('is_extra.is.null,is_extra.eq.false');
+
+  const map = new Map<string, (string | null)[]>();
+  if (!data) return map;
+
+  for (const row of data) {
+    const arr = map.get(row.card_id) || [];
+    arr.push(row.variant);
+    map.set(row.card_id, arr);
+  }
+  return map;
+}
+
+/**
  * Load the saved variant and note for a card from binder_cards.
  * Queries without variant filter so it works even if the variant
  * was changed since the card data was last loaded.

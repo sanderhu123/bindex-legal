@@ -12,6 +12,8 @@ import {
   TouchableWithoutFeedback,
   Keyboard,
   Pressable,
+  ScrollView,
+  Alert,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -20,6 +22,7 @@ import { useCardPicker } from '../../hooks/useCardPicker';
 import { CardSearchResults } from './CardSearchResults';
 import { CardPickerFilters } from './CardPickerFilters';
 import { colors, spacing, typography, borderRadius, shadows } from '../../constants/theme';
+import { createCustomCard, CUSTOM_CARD_COLORS } from '../../services/supabase/customCards';
 
 /** Modal height as percentage of screen (85%) */
 const MODAL_HEIGHT_RATIO = 0.85;
@@ -116,6 +119,12 @@ export function CardPickerModal({
     exactMatch: useExactMatch,
   });
 
+  // Custom card creation state
+  const [customCardName, setCustomCardName] = useState('');
+  const [customCardColor, setCustomCardColor] = useState(CUSTOM_CARD_COLORS[0].hex);
+  const [creatingCustomCard, setCreatingCustomCard] = useState(false);
+  const isCustomMode = query.trim().toLowerCase() === 'custom';
+
   // Enlarged card preview state (for long-press)
   const [enlargedCard, setEnlargedCard] = useState<Card | null>(null);
 
@@ -169,6 +178,29 @@ export function CardPickerModal({
     handleClose();
   }, [handleClose]);
 
+  /**
+   * Handle creating a custom placeholder card
+   */
+  const handleCreateCustomCard = useCallback(async () => {
+    const trimmedName = customCardName.trim();
+    if (!trimmedName || creatingCustomCard) return;
+
+    setCreatingCustomCard(true);
+    try {
+      const card = await createCustomCard(trimmedName, customCardColor);
+      console.log('[CardPickerModal] Custom card created:', { id: card.id, name: card.name });
+      Keyboard.dismiss();
+      onSelectCard(card);
+      onClose();
+    } catch (err) {
+      console.error('[CardPickerModal] Failed to create custom card:', err);
+      Alert.alert('Error', 'Failed to create custom card. Please try again.');
+    } finally {
+      setCreatingCustomCard(false);
+    }
+  }, [customCardName, customCardColor, creatingCustomCard, onSelectCard, onClose]);
+
+  // Reset custom card state when modal closes
   // Reset when modal opens with initialQuery
   useEffect(() => {
     if (visible && initialQuery) {
@@ -182,6 +214,8 @@ export function CardPickerModal({
       // Small delay to allow close animation
       const timer = setTimeout(() => {
         clear();
+        setCustomCardName('');
+        setCustomCardColor(CUSTOM_CARD_COLORS[0].hex);
       }, ANIMATION_DURATION);
       return () => clearTimeout(timer);
     }
@@ -280,29 +314,118 @@ export function CardPickerModal({
             </View>
           </View>
 
-          {/* Filter Chips */}
-          <CardPickerFilters
-            filters={filters}
-            onFiltersChange={setFilters}
-          />
-
-          {/* Results */}
-          <View style={styles.resultsContainer}>
-            <CardSearchResults
-              results={results}
-              onSelectCard={handleSelectCard}
-              loading={loading}
-              error={error}
-              originalError={originalError}
-              hasMore={hasMore}
-              onLoadMore={loadMore}
-              onScrollBegin={handleScrollBegin}
-              onRetry={search}
-              emptyMessage={emptyMessage}
-              onCardLongPress={handleCardLongPress}
-              onCardLongPressRelease={handleCardLongPressRelease}
+          {/* Filter Chips (hidden in custom card mode) */}
+          {!isCustomMode && (
+            <CardPickerFilters
+              filters={filters}
+              onFiltersChange={setFilters}
             />
-          </View>
+          )}
+
+          {/* Custom Card Creation UI */}
+          {isCustomMode ? (
+            <ScrollView
+              style={styles.resultsContainer}
+              contentContainerStyle={styles.customCardContainer}
+              keyboardShouldPersistTaps="handled"
+            >
+              <Text style={styles.customCardTitle}>Create Custom Card</Text>
+
+              {/* Card name input */}
+              <Text style={styles.customCardLabel}>Card Name</Text>
+              <TextInput
+                style={styles.customCardNameInput}
+                placeholder="Enter card name..."
+                placeholderTextColor={colors.textTertiary}
+                value={customCardName}
+                onChangeText={setCustomCardName}
+                maxLength={40}
+                returnKeyType="done"
+                onSubmitEditing={() => Keyboard.dismiss()}
+              />
+
+              {/* Color picker */}
+              <Text style={styles.customCardLabel}>Card Color</Text>
+              <View style={styles.colorPickerRow}>
+                {CUSTOM_CARD_COLORS.map((colorOption) => {
+                  const isSelected = customCardColor === colorOption.hex;
+                  return (
+                    <TouchableOpacity
+                      key={colorOption.hex}
+                      style={[
+                        styles.colorCircle,
+                        { backgroundColor: colorOption.hex },
+                        colorOption.hex === '#FFFFFF' && styles.colorCircleWhiteBorder,
+                        isSelected && styles.colorCircleSelected,
+                      ]}
+                      onPress={() => setCustomCardColor(colorOption.hex)}
+                      activeOpacity={0.7}
+                    >
+                      {isSelected && (
+                        <Text style={[
+                          styles.colorCheckmark,
+                          { color: colorOption.textColor },
+                        ]}>✓</Text>
+                      )}
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+
+              {/* Live preview */}
+              <Text style={styles.customCardLabel}>Preview</Text>
+              <View style={styles.customCardPreviewWrapper}>
+                <View style={[
+                  styles.customCardPreview,
+                  { backgroundColor: customCardColor },
+                  customCardColor === '#FFFFFF' && { borderWidth: 1, borderColor: '#ddd' },
+                ]}>
+                  <Text
+                    style={[
+                      styles.customCardPreviewName,
+                      { color: CUSTOM_CARD_COLORS.find(c => c.hex === customCardColor)?.textColor || '#FFFFFF' },
+                    ]}
+                    numberOfLines={2}
+                  >
+                    {customCardName.trim() || 'Card Name'}
+                  </Text>
+                </View>
+              </View>
+
+              {/* Create button */}
+              <TouchableOpacity
+                style={[
+                  styles.createCardButton,
+                  (!customCardName.trim() || creatingCustomCard) && styles.createCardButtonDisabled,
+                ]}
+                onPress={handleCreateCustomCard}
+                disabled={!customCardName.trim() || creatingCustomCard}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.createCardButtonText}>
+                  {creatingCustomCard ? 'Creating...' : 'Create Card'}
+                </Text>
+              </TouchableOpacity>
+            </ScrollView>
+          ) : (
+            /* Normal search results */
+            <View style={styles.resultsContainer}>
+              <CardSearchResults
+                results={results}
+                onSelectCard={handleSelectCard}
+                loading={loading}
+                error={error}
+                originalError={originalError}
+                hasMore={hasMore}
+                onLoadMore={loadMore}
+                onScrollBegin={handleScrollBegin}
+                onRetry={search}
+                emptyMessage={emptyMessage}
+                onCardLongPress={handleCardLongPress}
+                onCardLongPressRelease={handleCardLongPressRelease}
+              />
+            </View>
+          )}
         </SafeAreaView>
       </KeyboardAvoidingView>
 
@@ -433,6 +556,92 @@ const styles = StyleSheet.create({
   resultsContainer: {
     flex: 1,
     backgroundColor: colors.backgroundLight,
+  },
+  // Custom card creation styles
+  customCardContainer: {
+    padding: spacing.lg,
+    paddingBottom: 40,
+  },
+  customCardTitle: {
+    fontSize: typography.xl,
+    fontWeight: typography.bold,
+    color: colors.text,
+    textAlign: 'center',
+    marginBottom: spacing.lg,
+  },
+  customCardLabel: {
+    fontSize: typography.base,
+    fontWeight: typography.semibold,
+    color: colors.text,
+    marginBottom: spacing.sm,
+    marginTop: spacing.md,
+  },
+  customCardNameInput: {
+    backgroundColor: colors.backgroundLight,
+    borderRadius: borderRadius.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    fontSize: typography.base,
+    color: colors.text,
+    borderWidth: 1,
+    borderColor: colors.border,
+    height: 44,
+  },
+  colorPickerRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  colorCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  colorCircleWhiteBorder: {
+    borderWidth: 1,
+    borderColor: '#ccc',
+  },
+  colorCircleSelected: {
+    borderWidth: 3,
+    borderColor: colors.primary,
+  },
+  colorCheckmark: {
+    fontSize: 18,
+    fontWeight: 'bold' as const,
+  },
+  customCardPreviewWrapper: {
+    alignItems: 'center',
+    marginTop: spacing.sm,
+  },
+  customCardPreview: {
+    width: 140,
+    height: 196,
+    borderRadius: borderRadius.md,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: spacing.md,
+  },
+  customCardPreviewName: {
+    fontSize: typography.lg,
+    fontWeight: typography.bold,
+    textAlign: 'center',
+  },
+  createCardButton: {
+    backgroundColor: colors.primary,
+    borderRadius: borderRadius.md,
+    paddingVertical: spacing.md,
+    alignItems: 'center',
+    marginTop: spacing.xl,
+  },
+  createCardButtonDisabled: {
+    opacity: 0.5,
+  },
+  createCardButtonText: {
+    fontSize: typography.base,
+    fontWeight: typography.bold,
+    color: '#FFFFFF',
   },
   enlargeOverlay: {
     position: 'absolute',

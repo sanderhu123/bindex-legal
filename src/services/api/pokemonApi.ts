@@ -1334,6 +1334,13 @@ export async function getCardsByRegion(region: Region, pokemonArtStyle?: Pokemon
  */
 export async function getCardById(id: string): Promise<Card | null> {
   console.log('[24D] getCardById() called:', { cardId: id });
+
+  // Custom placeholder cards are stored in Supabase, not the TCGDEX API
+  if (id.startsWith('custom-')) {
+    const { getCustomCard } = require('../supabase/customCards');
+    return getCustomCard(id);
+  }
+
   const overallStartTime = performance.now();
   
   const cacheKey = `card-${id}`;

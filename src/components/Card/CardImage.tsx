@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, StyleSheet, ActivityIndicator, Text } from 'react-native';
 import { Image, ImageSource } from 'expo-image';
+import { isCustomCard, getCustomCardColor, getCustomCardTextColor } from '../../services/supabase/customCards';
 
 /**
  * CardBackPlaceholder - A styled placeholder that looks like a Pokémon card back
@@ -34,6 +35,28 @@ function CardBackPlaceholder({ style, cardName, cardNumber }: { style?: any; car
         </View>
       </View>
       <Text style={styles.cardBackText}>No Image</Text>
+    </View>
+  );
+}
+
+/**
+ * CustomCardPlaceholder - Solid colored card with the user's name centered.
+ * Used for user-created custom placeholder cards.
+ */
+function CustomCardPlaceholder({ style, cardName, backgroundColor, textColor }: {
+  style?: any;
+  cardName?: string;
+  backgroundColor: string;
+  textColor: string;
+}) {
+  return (
+    <View style={[styles.customCardContainer, { backgroundColor }, style]}>
+      <Text
+        style={[styles.customCardName, { color: textColor }]}
+        numberOfLines={3}
+      >
+        {cardName || 'Custom Card'}
+      </Text>
     </View>
   );
 }
@@ -177,6 +200,34 @@ export default function CardImage({
       onError?.();
     }
   };
+
+  // Custom placeholder cards render as a solid colored rectangle
+  const isCustom = cardInfo?.id ? isCustomCard(cardInfo.id) : false;
+  if (isCustom && cardInfo) {
+    const bgColor = getCustomCardColor({ id: cardInfo.id!, name: cardInfo.name || '', number: '', set: cardInfo.set || '', rarity: '', illustrator: '' });
+    const txtColor = getCustomCardTextColor({ id: cardInfo.id!, name: cardInfo.name || '', number: '', set: cardInfo.set || '', rarity: '', illustrator: '' });
+    const containerStyle: any[] = [styles.container];
+    const hasFixedDimensions = style && typeof style === 'object' &&
+      (typeof (style as any).width === 'number' || typeof (style as any).height === 'number');
+    if (!hasFixedDimensions) {
+      containerStyle.push({ aspectRatio });
+    }
+    if (isMissing) {
+      containerStyle.push(styles.missing);
+    }
+    if (style) {
+      containerStyle.push(style);
+    }
+    return (
+      <View style={containerStyle}>
+        <CustomCardPlaceholder
+          cardName={cardInfo.name}
+          backgroundColor={bgColor}
+          textColor={txtColor}
+        />
+      </View>
+    );
+  }
 
   // Handle empty/missing imageUrl (for Region mode)
   const hasImage = source && (typeof source === 'string' ? source.trim() !== '' : true);
@@ -391,6 +442,21 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: 'rgba(255, 255, 255, 0.7)',
     fontWeight: '600',
+  },
+  // Custom placeholder card styles
+  customCardContainer: {
+    width: '100%',
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    borderRadius: 4,
+  },
+  customCardName: {
+    fontSize: 14,
+    fontWeight: '700',
+    textAlign: 'center',
+    lineHeight: 18,
   },
 });
 

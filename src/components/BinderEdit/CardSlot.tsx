@@ -3,6 +3,7 @@ import { View, StyleSheet, Text } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { Image } from 'expo-image';
 import { colors, spacing, borderRadius, shadows } from '../../constants/theme';
+import { isCustomCard, CUSTOM_CARD_COLORS } from '../../services/supabase/customCards';
 
 /**
  * Data sent when a drag starts from this slot
@@ -24,6 +25,8 @@ export interface CardSlotProps {
   imageUrl?: string;
   /** Card name for display/accessibility */
   cardName?: string;
+  /** Set field (carries custom card color info as "Custom|#hex") */
+  cardSet?: string;
   /** Global slot index (0-based) */
   slotIndex: number;
   /** Whether this slot is currently selected (tap-selected) */
@@ -58,6 +61,7 @@ export function CardSlot({
   cardId,
   imageUrl,
   cardName,
+  cardSet,
   slotIndex,
   isSelected,
   onPress,
@@ -71,6 +75,16 @@ export function CardSlot({
 }: CardSlotProps) {
   const isEmpty = !cardId;
   const hasImage = imageUrl && imageUrl.trim() !== '';
+  const isCustom = cardId ? isCustomCard(cardId) : false;
+
+  // Extract custom card color from the set field
+  let customBgColor = '#000000';
+  let customTextColor = '#FFFFFF';
+  if (isCustom && cardSet?.startsWith('Custom|')) {
+    customBgColor = cardSet.split('|')[1] || '#000000';
+    const preset = CUSTOM_CARD_COLORS.find(c => c.hex === customBgColor);
+    customTextColor = preset?.textColor || '#FFFFFF';
+  }
 
   // Use refs for callbacks so gestures don't need to be recreated on every render
   const onPressRef = useRef(onPress);
@@ -177,6 +191,20 @@ export function CardSlot({
               transition={0}
               cachePolicy="memory-disk"
             />
+          </View>
+        ) : isCustom ? (
+          // Custom placeholder card: solid color background with name
+          <View style={[
+            styles.customCardContent,
+            { backgroundColor: customBgColor },
+            isDragSource && { opacity: 0.3 },
+          ]}>
+            <Text
+              style={[styles.customCardText, { color: customTextColor }]}
+              numberOfLines={3}
+            >
+              {cardName || 'Custom Card'}
+            </Text>
           </View>
         ) : (
           // Fallback placeholder when no image URL
@@ -322,6 +350,19 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     backgroundColor: 'rgba(76, 175, 80, 0.2)',
+  },
+  // Custom placeholder card styles
+  customCardContent: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: spacing.xs,
+  },
+  customCardText: {
+    fontSize: 11,
+    fontWeight: '700',
+    textAlign: 'center',
+    lineHeight: 14,
   },
 });
 

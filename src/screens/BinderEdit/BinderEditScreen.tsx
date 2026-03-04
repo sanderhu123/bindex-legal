@@ -37,6 +37,7 @@ interface CardPosition {
   cardId: string | null;
   cardName?: string;
   imageUrl?: string;
+  cardSet?: string; // Set name (used to carry custom card color info)
   slotIndex: number; // Global index across all pages (0-based)
 }
 
@@ -47,6 +48,7 @@ interface SelectedCard {
   cardId: string;
   cardName: string;
   imageUrl?: string;
+  cardSet?: string;
   sourceSlot: number | 'placeholder';
   sourceIndex: number; // Index within source (slot index or placeholder index)
   sourcePage?: number; // Page number (1-based) for cross-page reference
@@ -59,6 +61,7 @@ interface DraggedCard {
   cardId: string;
   cardName: string;
   imageUrl?: string;
+  cardSet?: string;
   sourceSlot: number | 'placeholder';
   sourceIndex: number;
 }
@@ -456,6 +459,7 @@ export default function BinderEditScreen() {
                 cardId: saved.cardId,
                 cardName: cardInfo.name,
                 imageUrl: cardInfo.imageUrl,
+                cardSet: cardInfo.set,
               };
             } else {
               try {
@@ -466,6 +470,7 @@ export default function BinderEditScreen() {
                     cardId: card.id,
                     cardName: card.name,
                     imageUrl: card.imageUrl,
+                    cardSet: card.set,
                   };
                 }
               } catch { /* skip this card */ }
@@ -492,6 +497,7 @@ export default function BinderEditScreen() {
               cardId: result.card.id,
               cardName: result.card.name,
               imageUrl: result.card.imageUrl,
+              cardSet: result.card.set,
             };
           }
         });
@@ -640,10 +646,12 @@ export default function BinderEditScreen() {
       }
     } else if (cardId) {
       const pageNumber = Math.floor(slotIndex / cardsPerPage) + 1;
+      const slotPos = cardPositions[slotIndex];
       setSelectedCard({
         cardId,
         cardName: cardName || 'Unknown Card',
         imageUrl,
+        cardSet: slotPos?.cardSet,
         sourceSlot: slotIndex,
         sourceIndex: slotIndex,
         sourcePage: pageNumber,
@@ -682,6 +690,7 @@ export default function BinderEditScreen() {
           cardId: selectedCard.cardId,
           cardName: selectedCard.cardName,
           imageUrl: selectedCard.imageUrl,
+          cardSet: selectedCard.cardSet,
         };
         return newPositions;
       });
@@ -695,18 +704,21 @@ export default function BinderEditScreen() {
           cardId: targetSlot.cardId,
           cardName: targetSlot.cardName,
           imageUrl: targetSlot.imageUrl,
+          cardSet: targetSlot.cardSet,
         };
         newPositions[sourceSlotIndex] = {
           ...newPositions[sourceSlotIndex],
           cardId: targetData.cardId,
           cardName: targetData.cardName,
           imageUrl: targetData.imageUrl,
+          cardSet: targetData.cardSet,
         };
         newPositions[targetSlot.slotIndex] = {
           ...newPositions[targetSlot.slotIndex],
           cardId: selectedCard.cardId,
           cardName: selectedCard.cardName,
           imageUrl: selectedCard.imageUrl,
+          cardSet: selectedCard.cardSet,
         };
         return newPositions;
       });
@@ -730,7 +742,7 @@ export default function BinderEditScreen() {
       if (selectedCard.sourceSlot !== 'placeholder') {
         newPositions[selectedCard.sourceSlot] = {
           ...newPositions[selectedCard.sourceSlot],
-          cardId: null, cardName: undefined, imageUrl: undefined,
+          cardId: null, cardName: undefined, imageUrl: undefined, cardSet: undefined,
         };
       }
       newPositions[targetSlotIndex] = {
@@ -738,6 +750,7 @@ export default function BinderEditScreen() {
         cardId: selectedCard.cardId,
         cardName: selectedCard.cardName,
         imageUrl: selectedCard.imageUrl,
+        cardSet: selectedCard.cardSet,
       };
       return newPositions;
     });
@@ -997,7 +1010,7 @@ export default function BinderEditScreen() {
       const newPositions = [...prev];
       newPositions[targetSlotIndex] = {
         ...newPositions[targetSlotIndex],
-        cardId: card.id, cardName: card.name, imageUrl: card.imageUrl,
+        cardId: card.id, cardName: card.name, imageUrl: card.imageUrl, cardSet: card.set,
       };
       return newPositions;
     });
@@ -1041,7 +1054,7 @@ export default function BinderEditScreen() {
       const newPositions = [...prev];
       newPositions[targetSlotIndex] = {
         ...newPositions[targetSlotIndex],
-        cardId: card.id, cardName: card.name, imageUrl: card.imageUrl,
+        cardId: card.id, cardName: card.name, imageUrl: card.imageUrl, cardSet: card.set,
       };
       return newPositions;
     });
@@ -1075,12 +1088,13 @@ export default function BinderEditScreen() {
         cardId: newPositions[i - 1].cardId,
         cardName: newPositions[i - 1].cardName,
         imageUrl: newPositions[i - 1].imageUrl,
+        cardSet: newPositions[i - 1].cardSet,
       };
     }
 
     newPositions[insertAtIndex] = {
       ...newPositions[insertAtIndex],
-      cardId: card.id, cardName: card.name, imageUrl: card.imageUrl,
+      cardId: card.id, cardName: card.name, imageUrl: card.imageUrl, cardSet: card.set,
     };
 
     setCardPositions(newPositions);
@@ -1116,11 +1130,12 @@ export default function BinderEditScreen() {
           cardId: newPositions[i + 1].cardId,
           cardName: newPositions[i + 1].cardName,
           imageUrl: newPositions[i + 1].imageUrl,
+          cardSet: newPositions[i + 1].cardSet,
         };
       }
       newPositions[newPositions.length - 1] = {
         ...newPositions[newPositions.length - 1],
-        cardId: null, cardName: undefined, imageUrl: undefined,
+        cardId: null, cardName: undefined, imageUrl: undefined, cardSet: undefined,
       };
       if (insertAtIndex > sourceIdx) insertAtIndex--;
     }
@@ -1149,6 +1164,7 @@ export default function BinderEditScreen() {
         cardId: newPositions[i - 1].cardId,
         cardName: newPositions[i - 1].cardName,
         imageUrl: newPositions[i - 1].imageUrl,
+        cardSet: newPositions[i - 1].cardSet,
       };
     }
 
@@ -1319,11 +1335,13 @@ export default function BinderEditScreen() {
     // Clear any tap-selected card
     setSelectedCard(null);
 
-    // Set dragged card state
+    // Set dragged card state (look up cardSet from positions)
+    const slotData = cardPositionsRef.current[data.slotIndex];
     const dragged: DraggedCard = {
       cardId: data.cardId,
       cardName: data.cardName || 'Unknown Card',
       imageUrl: data.imageUrl,
+      cardSet: slotData?.cardSet,
       sourceSlot: data.slotIndex,
       sourceIndex: data.slotIndex,
     };
@@ -1512,6 +1530,7 @@ export default function BinderEditScreen() {
           cardId: dragged.cardId,
           cardName: dragged.cardName,
           imageUrl: dragged.imageUrl,
+          cardSet: dragged.cardSet,
         };
         return newPositions;
       });
@@ -1528,6 +1547,7 @@ export default function BinderEditScreen() {
           cardId: targetSlot.cardId,
           cardName: targetSlot.cardName,
           imageUrl: targetSlot.imageUrl,
+          cardSet: targetSlot.cardSet,
         };
 
         // Put dragged card in target slot
@@ -1536,6 +1556,7 @@ export default function BinderEditScreen() {
           cardId: dragged.cardId,
           cardName: dragged.cardName,
           imageUrl: dragged.imageUrl,
+          cardSet: dragged.cardSet,
         };
 
         return newPositions;
@@ -1562,7 +1583,7 @@ export default function BinderEditScreen() {
         const sourceIdx = dragged.sourceSlot as number;
         newPositions[sourceIdx] = {
           ...newPositions[sourceIdx],
-          cardId: null, cardName: undefined, imageUrl: undefined,
+          cardId: null, cardName: undefined, imageUrl: undefined, cardSet: undefined,
         };
         // Place in target slot
         newPositions[targetSlotIndex] = {
@@ -1570,6 +1591,7 @@ export default function BinderEditScreen() {
           cardId: dragged.cardId,
           cardName: dragged.cardName,
           imageUrl: dragged.imageUrl,
+          cardSet: dragged.cardSet,
         };
         return newPositions;
       });
@@ -1586,6 +1608,7 @@ export default function BinderEditScreen() {
         cardId: dragged.cardId,
         cardName: dragged.cardName,
         imageUrl: dragged.imageUrl,
+        cardSet: dragged.cardSet,
       };
       return newPositions;
     });
@@ -1790,6 +1813,7 @@ export default function BinderEditScreen() {
                         cardId={slot.cardId}
                         imageUrl={slot.imageUrl}
                         cardName={slot.cardName}
+                        cardSet={slot.cardSet}
                         slotIndex={slot.slotIndex}
                         isSelected={
                           selectedCard !== null &&

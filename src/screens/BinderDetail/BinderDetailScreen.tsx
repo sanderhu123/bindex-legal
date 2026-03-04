@@ -1551,32 +1551,76 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
   }, [filteredCards, currentPage, cardsPerPage]);
 
   // Group cards by page for page breaks view (grid mode with headers)
-  // Each section contains rows of cards (for grid layout in SectionList)
+  // Each section contains rows of cards/slots (for grid layout in SectionList)
   const cardSections = useMemo(() => {
     if (!showPageBreaks) return null;
     
-    const sections: { title: string; pageNumber: number; data: CardWithOwnership[][] }[] = [];
-    let currentPageNum = 1;
-    
-    for (let i = 0; i < filteredCards.length; i += cardsPerPage) {
-      const pageData = filteredCards.slice(i, i + cardsPerPage);
-      
-      // Group cards into rows for grid layout
-      const rows: CardWithOwnership[][] = [];
-      for (let j = 0; j < pageData.length; j += gridColumns) {
-        rows.push(pageData.slice(j, j + gridColumns));
+    type SlotEntry = CardWithOwnership | undefined;
+    const sections: { title: string; pageNumber: number; data: SlotEntry[][] }[] = [];
+
+    if (savedPositionMap && savedPositionMap.size > 0) {
+      const query = searchQuery.toLowerCase().trim();
+      const hasSearch = query.length > 0;
+      const hasOwnershipFilter = ownershipFilter !== 'all';
+      const isFiltering = hasSearch || hasOwnershipFilter;
+
+      for (let page = 0; page < totalPages; page++) {
+        const rows: SlotEntry[][] = [];
+        let pageHasContent = false;
+
+        for (let row = 0; row < 3; row++) {
+          const rowSlots: SlotEntry[] = [];
+          for (let col = 0; col < gridColumns; col++) {
+            const slotIndex = page * cardsPerPage + row * gridColumns + col;
+            const card = savedPositionMap.get(slotIndex);
+
+            if (card) {
+              if (hasSearch) {
+                const nameMatch = card.name.toLowerCase().includes(query);
+                const numMatch = card.number?.toLowerCase().includes(query);
+                if (!nameMatch && !numMatch) { rowSlots.push(undefined); continue; }
+              }
+              if (ownershipFilter === 'owned' && !card.isOwned) { rowSlots.push(undefined); continue; }
+              if (ownershipFilter === 'missing' && card.isOwned) { rowSlots.push(undefined); continue; }
+              rowSlots.push(card);
+              pageHasContent = true;
+            } else {
+              rowSlots.push(undefined);
+              if (!isFiltering) pageHasContent = true;
+            }
+          }
+          rows.push(rowSlots);
+        }
+
+        if (pageHasContent) {
+          sections.push({
+            title: `Page ${page + 1}`,
+            pageNumber: page + 1,
+            data: rows,
+          });
+        }
       }
-      
-      sections.push({
-        title: `Page ${currentPageNum}`,
-        pageNumber: currentPageNum,
-        data: rows,
-      });
-      currentPageNum++;
+    } else {
+      let currentPageNum = 1;
+      for (let i = 0; i < filteredCards.length; i += cardsPerPage) {
+        const pageData = filteredCards.slice(i, i + cardsPerPage);
+
+        const rows: SlotEntry[][] = [];
+        for (let j = 0; j < pageData.length; j += gridColumns) {
+          rows.push(pageData.slice(j, j + gridColumns));
+        }
+
+        sections.push({
+          title: `Page ${currentPageNum}`,
+          pageNumber: currentPageNum,
+          data: rows,
+        });
+        currentPageNum++;
+      }
     }
     
     return sections;
-  }, [filteredCards, showPageBreaks, cardsPerPage, gridColumns]);
+  }, [filteredCards, showPageBreaks, cardsPerPage, gridColumns, savedPositionMap, totalPages, searchQuery, ownershipFilter]);
   
   // Reset to page 1 when filtered cards change (e.g., search or filter applied)
   useEffect(() => {
@@ -1926,6 +1970,126 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
 
   // Key extractor for Custom mode slots
   const customSlotKeyExtractor = useCallback((position: number) => `slot-${position}`, []);
+
+  // === POSITION-BASED SLOTS for Master Set / Region (when savedPositionMap exists) ===
+  const hasSavedPositions = !isCustomMode && !!savedPositionMap && savedPositionMap.size > 0;
+  const savedTotalSlots = totalPages * cardsPerPage;
+
+  const savedPositionSlots = useMemo(() => {
+    if (!hasSavedPositions) return [];
+    return Array.from({ length: savedTotalSlots }, (_, i) => i);
+  }, [hasSavedPositions, savedTotalSlots]);
+
+  const filteredSavedSlots = useMemo(() => {
+    if (!hasSavedPositions || !savedPositionMap) return [];
+
+    const hasSearch = searchQuery.trim().length > 0;
+    const hasOwnershipFilter = ownershipFilter !== 'all';
+
+    if (!hasSearch && !hasOwnershipFilter) return savedPositionSlots;
+
+    const query = searchQuery.toLowerCase().trim();
+
+    return savedPositionSlots.filter((position) => {
+      const card = savedPositionMap.get(position);
+      if (!card) return false;
+
+      if (hasSearch) {
+        const nameMatch = card.name.toLowerCase().includes(query);
+        const numberMatch = card.number.toLowerCase().includes(query);
+        if (!nameMatch && !numberMatch) return false;
+      }
+
+      if (ownershipFilter === 'owned' && !card.isOwned) return false;
+      if (ownershipFilter === 'missing' && card.isOwned) return false;
+
+      return true;
+    });
+  }, [hasSavedPositions, savedPositionMap, savedPositionSlots, searchQuery, ownershipFilter]);
+
+  const isSavedFiltering = hasSavedPositions && (searchQuery.trim().length > 0 || ownershipFilter !== 'all');
+
+  const savedSlotKeyExtractor = useCallback((position: number) => `saved-slot-${position}`, []);
+
+  // Render a position-based slot for Master Set / Region when savedPositionMap exists
+  const renderSavedPositionSlot = useCallback(
+    ({ item: position }: { item: number }) => {
+      if (!savedPositionMap) return null;
+      const card = savedPositionMap.get(position);
+
+      if (!card) {
+        return (
+          <EmptyCardSlot
+            position={position}
+            width={cardWidth}
+          />
+        );
+      }
+
+      if (binder?.collectionMode === 'region') {
+        const variantBadge = card.variant && card.variant !== 'base'
+          ? { 'reverse-holo': { label: 'RH', color: '#FFD700' }, 'poke-ball': { label: 'PB', color: '#FF6B6B' }, 'master-ball': { label: 'MB', color: '#4ECDC4' } }[card.variant] || null
+          : null;
+
+        return (
+          <TouchableOpacity
+            style={[styles.regionCardItem, { width: cardWidth }]}
+            onPress={() => handleRegionCardTap(card, position)}
+            onLongPress={() => handleLongPressCard(card)}
+            onPressOut={handleLongPressRelease}
+            delayLongPress={300}
+            activeOpacity={0.7}
+          >
+            <View style={styles.regionCardImageContainer}>
+              <CardImage
+                source={card.imageUrl}
+                isMissing={!card.isOwned}
+                aspectRatio={0.716}
+                style={styles.regionCardImageWrapper}
+                cardInfo={{ id: card.id, name: card.name, number: card.number, set: card.set }}
+              />
+              <TouchableOpacity
+                style={styles.checkboxOverlay}
+                onPress={() => handleToggleCard(card)}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.checkbox}>{card.isOwned ? '☑' : '☐'}</Text>
+              </TouchableOpacity>
+              {variantBadge && (
+                <View style={[styles.regionVariantBadge, { backgroundColor: variantBadge.color }]}>
+                  <Text style={styles.regionVariantBadgeText}>{variantBadge.label}</Text>
+                </View>
+              )}
+            </View>
+            <CardDetails
+              card={card}
+              variant="compact"
+              showSet={false}
+              showRarity={false}
+              showIllustrator={false}
+              showVariantBadge={false}
+            />
+          </TouchableOpacity>
+        );
+      }
+
+      // Master Set (and fallback)
+      return (
+        <CardItem
+          card={card}
+          onPress={handleToggleCard}
+          onLongPress={handleLongPressCard}
+          onLongPressRelease={handleLongPressRelease}
+          binderId={binder?.id || ''}
+          width={cardWidth}
+          variant="grid"
+          cardIndex={position}
+          cardsPerPage={cardsPerPage}
+        />
+      );
+    },
+    [savedPositionMap, binder?.id, binder?.collectionMode, cardWidth, cardsPerPage, handleToggleCard, handleRegionCardTap, handleLongPressCard, handleLongPressRelease]
+  );
 
   // === REGION MODE: Custom render function for Pokemon cards ===
   
@@ -2378,9 +2542,9 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
   // Grid view with page breaks enabled - uses SectionList with rows for grid layout
   // This applies to Master Set and Region modes when page breaks toggle is ON
   if (viewMode === 'grid' && showPageBreaks && cardSections && !isCustomMode) {
-    // Render a row of cards for the sectioned grid (with long-press enlarge preview)
-    const renderSectionRow = ({ item: row, index: rowIndex, section }: { item: CardWithOwnership[]; index: number; section: { pageNumber: number } }) => {
-      // Calculate the starting index for this row (for card position tracking)
+    type SlotEntry = CardWithOwnership | undefined;
+
+    const renderSectionRow = ({ item: row, index: rowIndex, section }: { item: SlotEntry[]; index: number; section: { pageNumber: number } }) => {
       const pageStartIndex = (section.pageNumber - 1) * cardsPerPage;
       const rowStartIndex = pageStartIndex + (rowIndex * gridColumns);
       
@@ -2388,6 +2552,15 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
         <View style={styles.sectionRow}>
           {row.map((card, colIndex) => {
             const cardIndex = rowStartIndex + colIndex;
+            if (!card) {
+              return (
+                <EmptyCardSlot
+                  key={`empty-${cardIndex}`}
+                  position={cardIndex}
+                  width={cardWidth}
+                />
+              );
+            }
             return (
               <CardItem
                 key={card.id}
@@ -2403,10 +2576,9 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
               />
             );
           })}
-          {/* Fill empty cells in last row if needed */}
           {row.length < gridColumns && 
             Array.from({ length: gridColumns - row.length }).map((_, i) => (
-              <View key={`empty-${i}`} style={{ width: cardWidth, margin: 2 }} />
+              <View key={`pad-${i}`} style={{ width: cardWidth, margin: 2 }} />
             ))
           }
         </View>
@@ -2421,7 +2593,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
             <PageHeader pageNumber={section.pageNumber} />
           )}
           renderItem={renderSectionRow}
-          keyExtractor={(row, index) => `row-${index}-${row.map(c => c.id).join('-')}`}
+          keyExtractor={(row, index) => `row-${index}-${row.map((c, i) => c?.id ?? `empty-${i}`).join('-')}`}
           stickySectionHeadersEnabled={false}
           contentContainerStyle={styles.flatListContainer}
           ListHeaderComponent={listHeader}
@@ -2435,6 +2607,38 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
 
   // Master Set mode: combined grid with regular cards, extra cards, and empty slots
   if (isMasterSetMode) {
+    if (hasSavedPositions) {
+      return (
+        <SafeAreaView style={styles.safeArea}>
+          <FlatList
+            data={filteredSavedSlots}
+            renderItem={renderSavedPositionSlot}
+            keyExtractor={savedSlotKeyExtractor}
+            numColumns={gridColumns}
+            key={`master-set-slots-${gridColumns}`}
+            columnWrapperStyle={styles.row}
+            contentContainerStyle={styles.flatListContainer}
+            ListHeaderComponent={listHeader}
+            ListFooterComponent={ListFooterComponent}
+            ListEmptyComponent={
+              isSavedFiltering ? (
+                <EmptyState
+                  title="No cards match your search"
+                  message="Try adjusting your search or filters"
+                />
+              ) : ListEmptyComponent
+            }
+            removeClippedSubviews={false}
+            maxToRenderPerBatch={PAGE_SIZE}
+            windowSize={11}
+            initialNumToRender={PAGE_SIZE}
+            extraData={[savedPositionMap, searchQuery, ownershipFilter]}
+          />
+          <EnlargedCardOverlay />
+        </SafeAreaView>
+      );
+    }
+
     return (
       <SafeAreaView style={styles.safeArea}>
         <FlatList
@@ -2467,6 +2671,49 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
   const isRegionMode = binder.collectionMode === 'region';
   
   if (isRegionMode) {
+    if (hasSavedPositions) {
+      return (
+        <SafeAreaView style={styles.safeArea}>
+          <FlatList
+            data={filteredSavedSlots}
+            renderItem={renderSavedPositionSlot}
+            keyExtractor={savedSlotKeyExtractor}
+            numColumns={gridColumns}
+            key={`region-slots-${gridColumns}`}
+            columnWrapperStyle={styles.row}
+            contentContainerStyle={styles.flatListContainer}
+            ListHeaderComponent={listHeader}
+            ListFooterComponent={ListFooterComponent}
+            ListEmptyComponent={
+              isSavedFiltering ? (
+                <EmptyState
+                  title="No cards match your search"
+                  message="Try adjusting your search or filters"
+                />
+              ) : ListEmptyComponent
+            }
+            removeClippedSubviews={false}
+            maxToRenderPerBatch={PAGE_SIZE}
+            windowSize={11}
+            initialNumToRender={PAGE_SIZE}
+            extraData={[savedPositionMap, searchQuery, ownershipFilter]}
+          />
+          <CardPickerModal
+            visible={showRegionCardPicker}
+            onClose={() => {
+              setShowRegionCardPicker(false);
+              setSelectedPokemonForPicker(null);
+            }}
+            onSelectCard={handleRegionCardSelected}
+            title={selectedPokemonForPicker ? `Choose a ${selectedPokemonForPicker.name} Card` : 'Choose Card'}
+            initialQuery={selectedPokemonForPicker?.name || ''}
+            pokemonOnly={true}
+          />
+          <EnlargedCardOverlay />
+        </SafeAreaView>
+      );
+    }
+
     return (
       <SafeAreaView style={styles.safeArea}>
         <FlatList

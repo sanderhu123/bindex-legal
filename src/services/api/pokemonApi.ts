@@ -202,8 +202,9 @@ function setCachedData(cacheKey: string, data: any): void {
   console.log('[CACHE] Stored in memory:', { cacheKey, cacheSize: apiCache.size });
   
   // Store in persistent storage (async, non-blocking)
-  // Only persist card data (not minimal sets which change more often)
-  if (cacheKey.startsWith('cards-')) {
+  // Persist set card lists (cards-...) and individual card lookups (card-...)
+  // but not minimal sets which change more often
+  if (cacheKey.startsWith('cards-') || cacheKey.startsWith('card-')) {
     AsyncStorage.setItem(CACHE_PREFIX + cacheKey, JSON.stringify(cacheEntry))
       .then(() => {
         console.log('[CACHE] Stored in persistent storage:', { cacheKey });

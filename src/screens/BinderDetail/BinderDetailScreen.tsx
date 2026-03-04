@@ -648,10 +648,11 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
           console.log('[BinderDetail] Custom mode - loading cards with positions');
           
           try {
-            // Primary: positions from binder_card_positions
-            const editPositions = await getCardPositionsForBinder(binder.id);
-            // Ownership data from binder_cards
-            const ownershipMap = await getBinderCardsWithPositions(binder.id);
+            // Load positions and ownership data in parallel (faster than sequential)
+            const [editPositions, ownershipMap] = await Promise.all([
+              getCardPositionsForBinder(binder.id),
+              getBinderCardsWithPositions(binder.id),
+            ]);
             
             console.log('[BinderDetail] Custom mode - positions:', editPositions.length, ', ownership entries:', ownershipMap.size);
             
@@ -1894,6 +1895,10 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
   // Render a Region Pokemon card - tap navigates to card detail, long-press enlarges
   const renderRegionCard = useCallback(
     ({ item, index }: { item: CardWithOwnership; index: number }) => {
+      const variantBadge = item.variant && item.variant !== 'base'
+        ? { 'reverse-holo': { label: 'RH', color: '#FFD700' }, 'poke-ball': { label: 'PB', color: '#FF6B6B' }, 'master-ball': { label: 'MB', color: '#4ECDC4' } }[item.variant] || null
+        : null;
+
       return (
         <TouchableOpacity
           style={[styles.regionCardItem, { width: cardWidth }]}
@@ -1919,6 +1924,11 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
             >
               <Text style={styles.checkbox}>{item.isOwned ? '☑' : '☐'}</Text>
             </TouchableOpacity>
+            {variantBadge && (
+              <View style={[styles.regionVariantBadge, { backgroundColor: variantBadge.color }]}>
+                <Text style={styles.regionVariantBadgeText}>{variantBadge.label}</Text>
+              </View>
+            )}
           </View>
           <CardDetails
             card={item}
@@ -1926,7 +1936,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
             showSet={false}
             showRarity={false}
             showIllustrator={false}
-            showVariantBadge={true}
+            showVariantBadge={false}
           />
         </TouchableOpacity>
       );
@@ -2621,6 +2631,25 @@ const styles = StyleSheet.create({
   },
   regionCardImageWrapper: {
     width: '100%',
+  },
+  regionVariantBadge: {
+    position: 'absolute',
+    bottom: 4,
+    left: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    minWidth: 24,
+    alignItems: 'center',
+  },
+  regionVariantBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#fff',
+    textShadowColor: 'rgba(0, 0, 0, 0.3)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
+    includeFontPadding: false,
   },
   checkboxOverlay: {
     position: 'absolute',

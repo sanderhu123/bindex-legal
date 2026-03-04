@@ -1236,6 +1236,10 @@ export async function saveCardNote(
 /**
  * Change a card's variant in a binder (e.g. base → reverse-holo).
  * For Custom binders the row is matched by position instead of variant.
+ *
+ * If another row with the target variant already exists (binder tracks
+ * multiple variants), the old-variant row is removed since the target
+ * variant entry already covers what the user wants.
  */
 export async function updateCardVariant(
   binderId: string,
@@ -1248,27 +1252,6 @@ export async function updateCardVariant(
   if (!user) throw new Error('User not authenticated');
 
   const isPositionBased = position !== undefined && position !== null;
-
-  // Check for an existing row with the target variant to avoid unique-constraint violations
-  if (!isPositionBased) {
-    let conflictQuery = supabase
-      .from('binder_cards')
-      .select('id')
-      .eq('user_id', user.id)
-      .eq('binder_id', binderId)
-      .eq('card_id', cardId);
-
-    if (newVariant && newVariant !== 'base') {
-      conflictQuery = conflictQuery.eq('variant', newVariant);
-    } else {
-      conflictQuery = conflictQuery.is('variant', null);
-    }
-
-    const { data: existing } = await conflictQuery.maybeSingle();
-    if (existing) {
-      throw new Error(`This card already has a ${newVariant === 'base' ? 'Standard' : newVariant} entry in the binder.`);
-    }
-  }
 
   // Build the update — store 'base' as null to match existing convention
   const variantValue = (newVariant && newVariant !== 'base') ? newVariant : null;
@@ -1291,7 +1274,32 @@ export async function updateCardVariant(
   }
 
   const { data, error } = await query.select('id');
+
   if (error) {
+    // Unique-constraint violation: another row with the target variant
+    // already exists. Remove the old-variant row instead.
+    if (error.code === '23505') {
+      const oldValue = (!oldVariant || oldVariant === 'base') ? null : oldVariant;
+      let delQuery = supabase
+        .from('binder_cards')
+        .delete()
+        .eq('user_id', user.id)
+        .eq('binder_id', binderId)
+        .eq('card_id', cardId);
+
+      if (isPositionBased) {
+        delQuery = delQuery.eq('position', position);
+      } else if (oldValue) {
+        delQuery = delQuery.eq('variant', oldValue);
+      } else {
+        delQuery = delQuery.is('variant', null);
+      }
+
+      await delQuery;
+      console.log(`[CardVariant] Removed old ${oldVariant || 'base'} row; target ${newVariant} row already exists`);
+      return;
+    }
+
     console.error('[CardVariant] Failed to update variant:', error);
     throw error;
   }
@@ -1311,6 +1319,11 @@ export async function updateCardVariant(
       });
 
     if (insertError) {
+      // Same constraint edge-case: target row was created concurrently
+      if (insertError.code === '23505') {
+        console.log(`[CardVariant] Target variant ${newVariant} row already exists, nothing to do`);
+        return;
+      }
       console.error('[CardVariant] Failed to create variant row:', insertError);
       throw insertError;
     }

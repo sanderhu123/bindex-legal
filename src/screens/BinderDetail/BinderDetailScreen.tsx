@@ -956,6 +956,23 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
           }
         }
 
+        // Apply any manually-changed variants from the database so the grid
+        // shows the correct badge even on a fresh load (not just on refresh).
+        try {
+          const savedVariants = await getCardVariantsForBinder(binder.id);
+          if (savedVariants.size > 0) {
+            cardsWithOwnership = cardsWithOwnership.map((card) => {
+              const dbVariants = savedVariants.get(card.id);
+              if (dbVariants && dbVariants.length === 1) {
+                return { ...card, variant: (dbVariants[0] || 'base') as any };
+              }
+              return card;
+            });
+          }
+        } catch (variantErr) {
+          console.warn('[BinderDetail] Could not load saved variants:', variantErr);
+        }
+
         setCards(cardsWithOwnership);
         
         // Load extra cards for Master Set binders

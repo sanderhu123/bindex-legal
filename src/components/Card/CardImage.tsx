@@ -270,12 +270,10 @@ export default function CardImage({
 const styles = StyleSheet.create({
   container: {
     width: '100%',
-    backgroundColor: '#f5f5f5',
+    backgroundColor: 'transparent',
     borderRadius: 8,
     overflow: 'hidden',
     position: 'relative',
-    borderWidth: 1,
-    borderColor: '#ddd',
   },
   image: {
     width: '100%',

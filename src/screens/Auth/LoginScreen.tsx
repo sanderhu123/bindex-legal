@@ -26,13 +26,11 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
     setLoading(true);
     try {
       await signIn(email, password);
-      // onAuthStateChange should pick this up, but as a safety net
-      // we also manually refresh after a short delay
-      setTimeout(() => {
-        refreshUser();
-      }, 1500);
+      // Directly refresh user state so the app navigates immediately
+      await refreshUser();
     } catch (error: any) {
       Alert.alert('Login Failed', error.message || 'An error occurred');
+    } finally {
       setLoading(false);
     }
   };

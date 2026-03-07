@@ -198,11 +198,29 @@ export function onAuthStateChange(callback: (user: User | null) => void) {
     console.log('[Auth] onAuthStateChange event:', event);
     if (session?.user) {
       try {
-        const user = await getCurrentUser();
-        callback(user);
+        // Timeout after 6 seconds so the app never gets stuck waiting
+        const timeout = new Promise<null>((resolve) =>
+          setTimeout(() => resolve(null), 6000)
+        );
+        const user = await Promise.race([getCurrentUser(), timeout]);
+
+        if (user) {
+          callback(user);
+        } else {
+          // Timed out or getCurrentUser returned null — use basic session info
+          console.warn('[Auth] getCurrentUser timed out or returned null, using basic info');
+          callback({
+            id: session.user.id,
+            email: session.user.email || '',
+            displayName: session.user.user_metadata?.display_name,
+            binders: [],
+            userTier: 'free' as const,
+            freeDeletionsUsed: 0,
+            lifetimeBindersCreated: 0,
+          });
+        }
       } catch (error) {
         console.warn('[Auth] Error fetching user profile during auth state change:', error);
-        // Still sign the user in with basic info so the app doesn't get stuck
         callback({
           id: session.user.id,
           email: session.user.email || '',

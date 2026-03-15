@@ -29,6 +29,7 @@ import ErrorScreen from '../../components/Error/ErrorScreen';
 import RegionBinderEditView from './RegionBinderEditView';
 import type { Binder, Card } from '../../types';
 import { colors, spacing, typography, borderRadius } from '../../constants/theme';
+import { lightTap } from '../../utils/haptics';
 
 /**
  * Position of a card in the binder grid
@@ -1506,6 +1507,7 @@ export default function BinderEditScreen() {
    * Execute the appropriate action when a card is dropped on a target.
    */
   const performDragAction = (dragged: DraggedCard, target: DropTarget) => {
+    lightTap();
     switch (target.type) {
       case 'card':
         if (target.slotIndex !== undefined) {

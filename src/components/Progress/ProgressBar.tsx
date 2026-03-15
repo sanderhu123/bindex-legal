@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, StyleSheet, Text } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { View, StyleSheet, Text, Animated } from 'react-native';
 
 interface ProgressBarProps {
   /** Current value (e.g., owned cards) */
@@ -18,7 +18,8 @@ interface ProgressBarProps {
 
 /**
  * Reusable progress bar component
- * Displays a visual progress bar with percentage and card count
+ * Displays a visual progress bar with percentage and card count.
+ * The fill animates smoothly when the percentage changes.
  */
 export default function ProgressBar({
   current,
@@ -28,12 +29,20 @@ export default function ProgressBar({
   customText,
   textSize = 'small',
 }: ProgressBarProps) {
-  // Calculate percentage if not provided, always round to whole number
   const progressPercentage = percentage ?? (total > 0 ? Math.round((current / total) * 100) : 0);
   const clampedPercentage = Math.min(100, Math.max(0, Math.round(progressPercentage)));
-  const displayPercentage = Math.round(clampedPercentage); // Ensure whole number for display
+  const displayPercentage = Math.round(clampedPercentage);
 
-  // Format text based on format prop
+  const animatedWidth = useRef(new Animated.Value(clampedPercentage)).current;
+
+  useEffect(() => {
+    Animated.timing(animatedWidth, {
+      toValue: clampedPercentage,
+      duration: 400,
+      useNativeDriver: false,
+    }).start();
+  }, [clampedPercentage]);
+
   const getProgressText = (): string => {
     if (customText) {
       return customText;
@@ -42,12 +51,9 @@ export default function ProgressBar({
     if (format === 'compact') {
       return `${current} cards • ${displayPercentage}%`;
     } else if (format === 'ratio') {
-      // format === 'ratio' - shows just "X / Y cards" without percentage
       const displayTotal = total > 0 ? total : (displayPercentage > 0 ? Math.round((current / displayPercentage) * 100) : 0);
       return `${current} / ${displayTotal} cards`;
     } else {
-      // format === 'full'
-      // If total is 0 but we have percentage, estimate total from current and percentage
       const displayTotal = total > 0 ? total : (displayPercentage > 0 ? Math.round((current / displayPercentage) * 100) : 0);
       return `${current} / ${displayTotal} cards (${displayPercentage}%)`;
     }
@@ -55,11 +61,17 @@ export default function ProgressBar({
 
   const textStyle = textSize === 'large' ? styles.textLarge : styles.text;
 
+  const widthInterpolation = animatedWidth.interpolate({
+    inputRange: [0, 100],
+    outputRange: ['0%', '100%'],
+    extrapolate: 'clamp',
+  });
+
   return (
     <View style={styles.container}>
       <Text style={textStyle}>{getProgressText()}</Text>
       <View style={styles.barContainer}>
-        <View style={[styles.barFill, { width: `${clampedPercentage}%` }]} />
+        <Animated.View style={[styles.barFill, { width: widthInterpolation }]} />
       </View>
     </View>
   );
@@ -92,4 +104,3 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
 });
-

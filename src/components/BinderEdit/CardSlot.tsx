@@ -4,6 +4,7 @@ import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { Image } from 'expo-image';
 import { colors, spacing, borderRadius, shadows } from '../../constants/theme';
 import { isCustomCard, CUSTOM_CARD_COLORS } from '../../services/supabase/customCards';
+import { mediumTap } from '../../utils/haptics';
 
 /**
  * Data sent when a drag starts from this slot
@@ -123,6 +124,7 @@ export function CardSlot({
       .onStart((e) => {
         const data = cardDataRef.current;
         if (data.cardId) {
+          mediumTap();
           onDragStartRef.current?.(
             {
               cardId: data.cardId,

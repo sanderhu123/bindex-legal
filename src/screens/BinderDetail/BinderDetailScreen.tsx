@@ -48,6 +48,8 @@ import EmptyState from '../../components/EmptyState/EmptyState';
 import ErrorScreen from '../../components/Error/ErrorScreen';
 import ViewModeToggle from '../../components/ViewModeToggle';
 import { colors, spacing, typography, borderRadius, screenPadding } from '../../constants/theme';
+import { showSuccess, showError } from '../../utils/toast';
+import { lightTap } from '../../utils/haptics';
 
 const CONTAINER_PADDING = screenPadding; // Padding from container style (24px)
 const CARD_MARGIN = 2; // Margin between cards (margin: 2 means 2px on all sides, 4px gap between cards)
@@ -1248,7 +1250,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
           ownedCards: revertedOwnedCards
         };
       });
-      Alert.alert('Save Failed', 'Could not save right now. Will retry when connection is restored.');
+      showError('Save failed', 'Will retry when connection is restored');
     } finally {
       togglingCardsRef.current.delete(lockKey);
     }
@@ -1315,7 +1317,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
             : Math.max(0, (prevBinder.ownedCards || 0) - 1),
         };
       });
-      Alert.alert('Error', 'Failed to update card. Will retry when connection is restored.');
+      showError('Save failed', 'Will retry when connection is restored');
     } finally {
       togglingCardsRef.current.delete(lockKey);
     }
@@ -1386,7 +1388,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
             : Math.max(0, (prev.ownedCards || 0) - 1),
         };
       });
-      Alert.alert('Error', 'Failed to update card. Will retry when connection is restored.');
+      showError('Save failed', 'Will retry when connection is restored');
     } finally {
       togglingCardsRef.current.delete(lockKey);
     }

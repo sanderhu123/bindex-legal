@@ -8,6 +8,8 @@ import type { CollectionMode, VariantPlacement, LayoutPreference, PokemonArtStyl
 import type { Region } from '../../services/api/pokemonApi';
 import { createBinder } from '../../services/supabase/binders';
 import { recordBinderCreated } from '../../services/pro/proService';
+import { showSuccess, showError } from '../../utils/toast';
+import { successVibration } from '../../utils/haptics';
 import { getAvailableVariantsForSet } from '../../data/cardVariants';
 import Step1CollectionMode from './Step1CollectionMode';
 import Step2MasterSet from './Step2MasterSet';
@@ -282,10 +284,12 @@ export default function OnboardingScreen() {
       }
 
       // Navigate to binder detail
+      successVibration();
+      showSuccess('Binder created!');
       navigation.replace('BinderDetail', { binderId: binder.id });
     } catch (error: any) {
       console.error('Error creating binder:', error);
-      Alert.alert('Error', error.message || 'Failed to create binder. Please try again.');
+      showError('Failed to create binder', error.message || 'Please try again.');
       setSaving(false);
     }
   };

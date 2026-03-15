@@ -21,6 +21,8 @@ import BinderCard from '../../components/Binder/BinderCard';
 import LoadingScreen from '../../components/Loading/LoadingScreen';
 import EmptyState from '../../components/EmptyState/EmptyState';
 import { colors, spacing, typography, borderRadius, screenPadding } from '../../constants/theme';
+import { showSuccess, showError } from '../../utils/toast';
+import { warningVibration } from '../../utils/haptics';
 
 type NavigationProp = NativeStackNavigationProp<MainStackParamList, 'BinderList'>;
 
@@ -191,10 +193,12 @@ export default function BinderListScreen() {
               style: 'destructive',
               onPress: async () => {
                 try {
+                  warningVibration();
                   await deleteBinder(binder.id);
+                  showSuccess('Binder deleted');
                   await loadBinders();
                 } catch (error: any) {
-                  Alert.alert('Error', error.message || 'Failed to delete binder. Please try again.');
+                  showError('Failed to delete binder', error.message);
                 }
               },
             },
@@ -230,11 +234,13 @@ export default function BinderListScreen() {
             style: 'destructive',
             onPress: async () => {
               try {
+                warningVibration();
                 await deleteBinder(binder.id);
                 await recordDeletionUsed();
+                showSuccess('Binder deleted');
                 await loadBinders();
               } catch (error: any) {
-                Alert.alert('Error', error.message || 'Failed to delete binder. Please try again.');
+                showError('Failed to delete binder', error.message);
               }
             },
           },
@@ -252,10 +258,12 @@ export default function BinderListScreen() {
             style: 'destructive',
             onPress: async () => {
               try {
+                warningVibration();
                 await deleteBinder(binder.id);
+                showSuccess('Binder deleted');
                 await loadBinders();
               } catch (error: any) {
-                Alert.alert('Error', error.message || 'Failed to delete binder. Please try again.');
+                showError('Failed to delete binder', error.message);
               }
             },
           },

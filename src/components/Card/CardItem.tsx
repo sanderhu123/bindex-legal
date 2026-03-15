@@ -4,6 +4,7 @@ import { useNavigation } from '@react-navigation/native';
 import type { StackNavigationProp } from '@react-navigation/stack';
 import CardImage from './CardImage';
 import CardDetails from './CardDetails';
+import { lightTap } from '../../utils/haptics';
 import type { Card } from '../../types';
 import type { MainStackParamList } from '../../navigation/AppNavigator';
 
@@ -98,9 +99,8 @@ function CardItemComponent({
   };
 
   const handleCheckboxPress = () => {
-    // Toggle ownership if onPress handler is provided
-    // In React Native, nested TouchableOpacity prevents parent from firing
     if (onPress) {
+      lightTap();
       onPress(card);
     }
   };

@@ -8,6 +8,7 @@ import { AuthProvider, useAuth } from './src/context/AuthContext';
 import AuthNavigator from './src/navigation/AuthNavigator';
 import AppNavigator from './src/navigation/AppNavigator';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
+import Toast from 'react-native-toast-message';
 import { initializePersistentCache } from './src/services/api/pokemonApi';
 import { performCacheCleanup } from './src/services/cacheManager';
 import { initializeRevenueCat, identifyUser } from './src/services/pro/proService';
@@ -111,6 +112,7 @@ export default function App() {
             </AuthProvider>
           </NavigationContainer>
         </QueryClientProvider>
+        <Toast />
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

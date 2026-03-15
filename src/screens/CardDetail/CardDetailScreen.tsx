@@ -13,6 +13,8 @@ import ErrorScreen from '../../components/Error/ErrorScreen';
 import { getAvailableVariantsForCard } from '../../data/cardVariants';
 import { colors, spacing, typography, borderRadius, screenPadding, shadows } from '../../constants/theme';
 import { getUserFriendlyErrorMessage, isNotFoundError } from '../../utils/errorUtils';
+import { showSuccess, showError } from '../../utils/toast';
+import { lightTap } from '../../utils/haptics';
 import type { Card, Binder, CardVariant } from '../../types';
 
 const VARIANT_LABELS: Record<string, string> = {
@@ -292,7 +294,9 @@ export default function CardDetailScreen({ navigation, route }: CardDetailScreen
         );
         setSavedNote(text.trim());
         savedNoteRef.current = text.trim();
+        showSuccess('Note saved');
       } catch (err) {
+        showError('Failed to save note');
         console.error('[CardDetail] Failed to save note:', err);
       } finally {
         setIsSavingNote(false);
@@ -349,10 +353,10 @@ export default function CardDetailScreen({ navigation, route }: CardDetailScreen
         selectedCardId: selectedCard.id,
       });
       
-      Alert.alert('Success', `Now showing ${selectedCard.name} for ${pokemonName || 'this Pokémon'}`);
+      showSuccess('Card updated', `Now showing ${selectedCard.name}`);
     } catch (err) {
       console.error('[CardDetail] Failed to save card selection:', err);
-      Alert.alert('Error', 'Failed to save card selection. Please try again.');
+      showError('Failed to save selection', 'Please try again');
     }
   }, [binder, pokedexNumber, pokemonName]);
 
@@ -439,6 +443,7 @@ export default function CardDetailScreen({ navigation, route }: CardDetailScreen
     const newIsOwned = !isOwned;
     setIsOwned(newIsOwned);
     setIsUpdating(true);
+    lightTap();
 
     // Determine binder type
     const isCustomBinder = collectionMode === 'custom' && position !== undefined && position !== null;
@@ -494,11 +499,13 @@ export default function CardDetailScreen({ navigation, route }: CardDetailScreen
           await removeCardFromBinder(binder.id, card.id, card.variant);
         }
       }
+      showSuccess(newIsOwned ? 'Card added to collection!' : 'Card removed from collection');
     } catch (err) {
       // Rollback on error
       setIsOwned(previousIsOwned);
       setBinder(previousBinder);
       setError(err instanceof Error ? err.message : 'Failed to update card ownership');
+      showError('Failed to update', 'Please try again');
       console.error('Failed to update card ownership:', err);
     } finally {
       setIsUpdating(false);

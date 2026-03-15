@@ -55,7 +55,6 @@ export default function BinderCard({ binder, completionPercentage, totalCards, o
       activeOpacity={0.7}
       delayLongPress={600}
     >
-      <View style={styles.accentBar} />
       <View style={styles.content}>
         {showSetSymbol && (
           <Image
@@ -88,16 +87,11 @@ export default function BinderCard({ binder, completionPercentage, totalCards, o
 
 const styles = StyleSheet.create({
   card: {
-    flexDirection: 'row',
     backgroundColor: colors.surface,
     borderRadius: borderRadius.lg,
     marginBottom: spacing.md,
     overflow: 'hidden',
     ...shadows.md,
-  },
-  accentBar: {
-    width: 4,
-    backgroundColor: colors.primary,
   },
   content: {
     flex: 1,

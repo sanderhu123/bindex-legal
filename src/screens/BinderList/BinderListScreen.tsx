@@ -9,8 +9,7 @@ import {
   Alert,
   RefreshControl,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import type { MainStackParamList } from '../../navigation/AppNavigator';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -46,7 +45,6 @@ export default function BinderListScreen() {
   const navigation = useNavigation<NavigationProp>();
   const { colors, isDark } = useTheme();
   const { user } = useAuth();
-  const insets = useSafeAreaInsets();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const [binders, setBinders] = useState<BinderWithProgress[]>([]);
   const [loading, setLoading] = useState(true);
@@ -55,10 +53,6 @@ export default function BinderListScreen() {
 
   const greeting = getGreeting();
   const displayName = user?.displayName || user?.email?.split('@')[0];
-
-  const totalOwned = useMemo(() => binders.reduce((sum, b) => sum + b.ownedCards, 0), [binders]);
-  const totalCards = useMemo(() => binders.reduce((sum, b) => sum + b.totalCards, 0), [binders]);
-  const overallPercent = totalCards > 0 ? Math.round((totalOwned / totalCards) * 100) : 0;
 
   const loadBinders = async () => {
     try {
@@ -273,37 +267,27 @@ export default function BinderListScreen() {
 
   if (loading) {
     return (
-      <View style={styles.container}>
-        <LinearGradient
-          colors={isDark ? ['#0A3D34', '#0E5A4E', '#126D5F'] : ['#0E5A4E', '#126D5F', '#1A8F7D']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={[styles.header, { paddingTop: insets.top + spacing.md }]}
-        >
+      <SafeAreaView style={styles.container}>
+        <View style={styles.header}>
           <View style={styles.headerTopRow}>
             <Image
-              source={require('../../../assets/logo-wordmark-white.png')}
+              source={isDark ? require('../../../assets/logo-wordmark-white.png') : require('../../../assets/logo-wordmark.png')}
               style={styles.headerLogo}
               resizeMode="contain"
             />
           </View>
-        </LinearGradient>
+        </View>
         <LoadingScreen message="Loading binders..." fullScreen={false} />
-      </View>
+      </SafeAreaView>
     );
   }
 
   return (
-    <View style={styles.container}>
-      <LinearGradient
-        colors={isDark ? ['#0A3D34', '#0E5A4E', '#126D5F'] : ['#0E5A4E', '#126D5F', '#1A8F7D']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={[styles.header, { paddingTop: insets.top + spacing.md }]}
-      >
+    <SafeAreaView style={styles.container}>
+      <View style={styles.header}>
         <View style={styles.headerTopRow}>
           <Image
-            source={require('../../../assets/logo-wordmark-white.png')}
+            source={isDark ? require('../../../assets/logo-wordmark-white.png') : require('../../../assets/logo-wordmark.png')}
             style={styles.headerLogo}
             resizeMode="contain"
           />
@@ -321,7 +305,7 @@ export default function BinderListScreen() {
               <Ionicons
                 name={isPro ? 'star' : 'star-outline'}
                 size={12}
-                color={isPro ? '#FFFFFF' : '#FFD700'}
+                color={isPro ? '#FFFFFF' : '#DAA520'}
                 style={{ marginRight: 4 }}
               />
               <Text style={[styles.proBadgeText, isPro && styles.proBadgeTextActive]}>
@@ -329,7 +313,7 @@ export default function BinderListScreen() {
               </Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.settingsButton} onPress={() => navigation.navigate('Settings')}>
-              <Ionicons name="settings-outline" size={22} color="rgba(255,255,255,0.7)" />
+              <Ionicons name="settings-outline" size={22} color={colors.textTertiary} />
             </TouchableOpacity>
           </View>
         </View>
@@ -337,26 +321,7 @@ export default function BinderListScreen() {
         <Text style={styles.greeting}>
           {greeting}{displayName ? `, ${displayName}` : ''}!
         </Text>
-
-        {binders.length > 0 && (
-          <View style={styles.statsRow}>
-            <View style={styles.statItem}>
-              <Text style={styles.statValue}>{totalOwned}</Text>
-              <Text style={styles.statLabel}>cards</Text>
-            </View>
-            <View style={styles.statDivider} />
-            <View style={styles.statItem}>
-              <Text style={styles.statValue}>{binders.length}</Text>
-              <Text style={styles.statLabel}>{binders.length === 1 ? 'binder' : 'binders'}</Text>
-            </View>
-            <View style={styles.statDivider} />
-            <View style={styles.statItem}>
-              <Text style={styles.statValue}>{overallPercent}%</Text>
-              <Text style={styles.statLabel}>complete</Text>
-            </View>
-          </View>
-        )}
-      </LinearGradient>
+      </View>
 
       <FlatList
         data={binders}
@@ -378,7 +343,7 @@ export default function BinderListScreen() {
       <TouchableOpacity style={styles.fab} onPress={handleCreateBinder} activeOpacity={0.85}>
         <Ionicons name="add" size={28} color={colors.onPrimary} />
       </TouchableOpacity>
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -389,13 +354,15 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   header: {
     paddingHorizontal: screenPadding,
-    paddingBottom: spacing.lg,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.md,
+    backgroundColor: colors.background,
   },
   headerTopRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: spacing.md,
+    marginBottom: spacing.sm,
   },
   headerLogo: {
     height: 36,
@@ -414,8 +381,8 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     paddingVertical: spacing.xs + 2,
     borderRadius: borderRadius.full,
     borderWidth: 1.5,
-    borderColor: '#FFD700',
-    backgroundColor: 'rgba(255, 215, 0, 0.1)',
+    borderColor: '#DAA520',
+    backgroundColor: 'rgba(218, 165, 32, 0.08)',
   },
   proBadgeActive: {
     backgroundColor: '#DAA520',
@@ -424,7 +391,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   proBadgeText: {
     fontSize: typography.xs,
     fontFamily: fonts.semibold,
-    color: '#FFD700',
+    color: '#DAA520',
   },
   proBadgeTextActive: {
     color: '#FFFFFF',
@@ -433,39 +400,9 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     padding: spacing.xs + 2,
   },
   greeting: {
-    fontSize: typography.xl,
-    fontFamily: fonts.semibold,
-    color: '#FFFFFF',
-    marginBottom: spacing.xs,
-  },
-  statsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.12)',
-    borderRadius: borderRadius.lg,
-    paddingVertical: spacing.sm + 2,
-    paddingHorizontal: spacing.md,
-    marginTop: spacing.sm,
-  },
-  statItem: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  statValue: {
     fontSize: typography.lg,
-    fontFamily: fonts.bold,
-    color: '#FFFFFF',
-  },
-  statLabel: {
-    fontSize: typography.xs,
-    fontFamily: fonts.regular,
-    color: 'rgba(255, 255, 255, 0.65)',
-    marginTop: 1,
-  },
-  statDivider: {
-    width: 1,
-    height: 28,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    fontFamily: fonts.medium,
+    color: colors.textSecondary,
   },
   listContainer: {
     padding: screenPadding,

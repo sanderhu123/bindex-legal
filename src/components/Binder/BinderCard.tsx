@@ -81,7 +81,7 @@ export default function BinderCard({ binder, completionPercentage, totalCards, o
           current={binder.ownedCards}
           total={totalCards}
           percentage={completionPercentage}
-          format="ratio"
+          format="full"
         />
       </View>
     </TouchableOpacity>
@@ -108,7 +108,7 @@ const styles = StyleSheet.create({
   topRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     marginBottom: spacing.sm,
   },
   titleArea: {

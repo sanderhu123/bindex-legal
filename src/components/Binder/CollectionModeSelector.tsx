@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, fonts, spacing, typography, borderRadius, shadows } from '../../constants/theme';
+import { fonts, spacing, typography, borderRadius, shadows, type ThemeColors } from '../../constants/theme';
+import { useTheme } from '../../context/ThemeContext';
 import type { CollectionMode } from '../../types';
 
 interface CollectionModeSelectorProps {
@@ -31,6 +32,9 @@ const MODE_OPTIONS: { key: CollectionMode; label: string; description: string; i
 ];
 
 export default function CollectionModeSelector({ value, onChange }: CollectionModeSelectorProps) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   return (
     <View>
       {MODE_OPTIONS.map((mode) => {
@@ -65,11 +69,11 @@ export default function CollectionModeSelector({ value, onChange }: CollectionMo
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   option: {
     padding: spacing.md,
     borderRadius: borderRadius.lg,
-    borderWidth: 1.5,
+    borderWidth: 1,
     borderColor: colors.border,
     marginBottom: spacing.md,
     backgroundColor: colors.surface,
@@ -88,13 +92,13 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: borderRadius.md,
-    backgroundColor: colors.backgroundLight,
+    backgroundColor: 'transparent',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: spacing.md,
   },
   iconContainerSelected: {
-    backgroundColor: colors.primaryTint,
+    backgroundColor: 'transparent',
   },
   textContainer: {
     flex: 1,
@@ -115,3 +119,4 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
 });
+

@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Image, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, fonts, spacing, typography, borderRadius } from '../../constants/theme';
+import { fonts, spacing, typography, borderRadius, type ThemeColors } from '../../constants/theme';
+import { useTheme } from '../../context/ThemeContext';
 import type { PokemonSet } from '../../services/api/pokemonApi';
 
 interface SetSelectorProps {
@@ -12,6 +13,8 @@ interface SetSelectorProps {
 
 // Individual set item component with loading state
 function SetItem({ item, isSelected, onSelect }: { item: PokemonSet; isSelected: boolean; onSelect: (id: string, name: string) => void }) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [imageLoading, setImageLoading] = useState(true);
   const [imageError, setImageError] = useState(false);
   
@@ -71,6 +74,9 @@ function SetItem({ item, isSelected, onSelect }: { item: PokemonSet; isSelected:
 }
 
 export default function SetSelector({ sets, selectedSetId, onSelect }: SetSelectorProps) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   // Sort newest → oldest by releaseDate
   const sortedSets = [...sets].sort(
     (a, b) => new Date(b.releaseDate).getTime() - new Date(a.releaseDate).getTime()
@@ -101,11 +107,11 @@ export default function SetSelector({ sets, selectedSetId, onSelect }: SetSelect
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   item: {
     padding: spacing.md,
     borderRadius: borderRadius.lg,
-    borderWidth: 1.5,
+    borderWidth: 1,
     borderColor: colors.border,
     marginBottom: spacing.sm,
     backgroundColor: colors.surface,
@@ -134,7 +140,7 @@ const styles = StyleSheet.create({
   logoPlaceholder: {
     width: 60,
     height: 40,
-    backgroundColor: colors.backgroundLight,
+    backgroundColor: 'transparent',
     borderRadius: borderRadius.sm,
     justifyContent: 'center',
     alignItems: 'center',
@@ -167,6 +173,3 @@ const styles = StyleSheet.create({
     color: colors.textTertiary,
   },
 });
-
-
-

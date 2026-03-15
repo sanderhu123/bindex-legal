@@ -1,23 +1,26 @@
-import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, Text, TextInput, TouchableOpacity } from 'react-native';
-import { colors, fonts, spacing, typography, borderRadius, screenPadding } from '../../constants/theme';
+import React, { useState, useEffect, useMemo } from 'react';
+import { View, StyleSheet, Text, TextInput } from 'react-native';
+import { fonts, spacing, typography, borderRadius, screenPadding, type ThemeColors } from '../../constants/theme';
+import { useTheme } from '../../context/ThemeContext';
 
 interface Step5BinderNameProps {
   value: string | null;
   onChange: (name: string) => void;
-  defaultName: string; // Suggested default name based on collection mode
+  defaultName: string;
 }
 
 export default function Step5BinderName({ value, onChange, defaultName }: Step5BinderNameProps) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   const [name, setName] = useState(value || defaultName);
   const [focused, setFocused] = useState(false);
 
-  // Initialize parent state once on mount with default name if value is null
   useEffect(() => {
     if (value === null) {
       onChange(defaultName);
     }
-  }, []); // Empty deps - only run once on mount
+  }, []);
 
   return (
     <View style={styles.container}>
@@ -46,23 +49,11 @@ export default function Step5BinderName({ value, onChange, defaultName }: Step5B
         )}
       </View>
 
-      <View style={styles.suggestionContainer}>
-        <Text style={styles.suggestionLabel}>Suggested name:</Text>
-        <TouchableOpacity
-          style={styles.suggestionButton}
-          onPress={() => {
-            setName(defaultName);
-            onChange(defaultName);
-          }}
-        >
-          <Text style={styles.suggestionText}>{defaultName}</Text>
-        </TouchableOpacity>
-      </View>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
     padding: screenPadding,
@@ -103,26 +94,4 @@ const styles = StyleSheet.create({
     color: colors.error,
     marginTop: spacing.sm,
   },
-  suggestionContainer: {
-    marginTop: spacing.sm,
-  },
-  suggestionLabel: {
-    fontSize: typography.sm,
-    fontFamily: fonts.regular,
-    color: colors.textTertiary,
-    marginBottom: spacing.sm,
-  },
-  suggestionButton: {
-    backgroundColor: colors.backgroundLight,
-    borderRadius: borderRadius.lg,
-    padding: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.primary,
-  },
-  suggestionText: {
-    fontSize: typography.base,
-    fontFamily: fonts.regular,
-    color: colors.primary,
-  },
 });
-

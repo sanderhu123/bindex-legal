@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, ActivityIndicator, TouchableOpacity, Image } from 'react-native';
-import { colors, fonts, spacing, typography, borderRadius, shadows, screenPadding } from '../../constants/theme';
+import { fonts, spacing, typography, borderRadius, shadows, screenPadding, type ThemeColors } from '../../constants/theme';
+import { useTheme } from '../../context/ThemeContext';
 import SetSelector from '../../components/Binder/SetSelector';
 import { getSetsBySerie, getErasList } from '../../services/api/pokemonApi';
 import type { PokemonSet } from '../../services/api/pokemonApi';
@@ -17,30 +18,14 @@ interface EraItem {
   logo?: string;
 }
 
-// Individual era item component (simple text-only version, no logos)
-function EraItemComponent({ 
-  item, 
-  onSelect 
-}: { 
-  item: EraItem; 
-  onSelect: (name: string) => void;
-}) {
-  return (
-    <TouchableOpacity
-      style={styles.eraOption}
-      onPress={() => onSelect(item.name)}
-    >
-      <Text style={styles.eraLabel}>{item.name}</Text>
-      <Text style={styles.eraSubtext}>Tap to view sets</Text>
-    </TouchableOpacity>
-  );
-}
-
 export default function Step2MasterSet({
   selectedSetId,
   selectedSetName,
   onSetChange,
 }: Step2MasterSetProps) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   const [setsInEra, setSetsInEra] = useState<PokemonSet[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingEraSets, setLoadingEraSets] = useState(false);
@@ -51,12 +36,10 @@ export default function Step2MasterSet({
     loadInitialData();
   }, []);
 
-  // Load eras from hard-coded data (already ordered newest first)
   const loadInitialData = async () => {
     try {
       setLoading(true);
       
-      // Get eras from hard-coded data (newest first)
       const fetchedSeries = getErasList();
       setSeries(fetchedSeries);
       
@@ -71,7 +54,6 @@ export default function Step2MasterSet({
     }
   };
 
-  // When user selects an era, fetch full details for sets in that era
   useEffect(() => {
     if (selectedEra) {
       loadSetsForEra(selectedEra);
@@ -85,7 +67,6 @@ export default function Step2MasterSet({
       setLoadingEraSets(true);
       console.log('[Step2MasterSet] Loading sets for era:', serieName);
       
-      // Fetch full details for sets in this serie
       const fetchedSets = await getSetsBySerie(serieName);
       setSetsInEra(fetchedSets);
       
@@ -94,7 +75,6 @@ export default function Step2MasterSet({
         setCount: fetchedSets.length,
       });
       
-      // Preload all logos for this era in the background
       preloadSetLogos(fetchedSets);
     } catch (error) {
       console.error('Error loading sets for era:', error);
@@ -104,11 +84,9 @@ export default function Step2MasterSet({
     }
   };
 
-  // Preload set logo images to cache them
   const preloadSetLogos = (sets: PokemonSet[]) => {
     sets.forEach((set) => {
       if (set.logo) {
-        // Start loading the image in the background
         Image.prefetch(set.logo).catch((error) => {
           console.warn(`Failed to preload logo for ${set.name}:`, error);
         });
@@ -117,10 +95,6 @@ export default function Step2MasterSet({
     console.log('[Step2MasterSet] Preloading', sets.length, 'set logos...');
   };
 
-  // Get set count for each era (we don't know this from minimal data, so we'll show "?" or fetch on demand)
-  // For now, we'll just show the series names without counts
-
-  // Reset set selection when era changes
   useEffect(() => {
     if (selectedEra && selectedSetId) {
       const setExistsInEra = setsInEra.some((s) => s.id === selectedSetId);
@@ -147,19 +121,20 @@ export default function Step2MasterSet({
       </Text>
 
       {!selectedEra ? (
-        // Show eras first (from series list)
         <View>
           <Text style={styles.sectionTitle}>Select Era</Text>
           {series.map((serie) => (
-            <EraItemComponent
+            <TouchableOpacity
               key={serie.id}
-              item={serie}
-              onSelect={setSelectedEra}
-            />
+              style={styles.eraOption}
+              onPress={() => setSelectedEra(serie.name)}
+            >
+              <Text style={styles.eraLabel}>{serie.name}</Text>
+              <Text style={styles.eraSubtext}>Tap to view sets</Text>
+            </TouchableOpacity>
           ))}
         </View>
       ) : (
-        // Show sets within selected era (loading or loaded)
         <View>
           <TouchableOpacity
             style={styles.backToEras}
@@ -194,7 +169,7 @@ export default function Step2MasterSet({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
   },
@@ -228,7 +203,7 @@ const styles = StyleSheet.create({
   eraOption: {
     padding: spacing.md,
     borderRadius: borderRadius.lg,
-    borderWidth: 1.5,
+    borderWidth: 1,
     borderColor: colors.border,
     marginBottom: spacing.md,
     backgroundColor: colors.surface,

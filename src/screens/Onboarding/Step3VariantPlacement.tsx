@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, fonts, spacing, typography, borderRadius, shadows, screenPadding } from '../../constants/theme';
+import { fonts, spacing, typography, borderRadius, shadows, screenPadding, type ThemeColors } from '../../constants/theme';
+import { useTheme } from '../../context/ThemeContext';
 import type { VariantPlacement } from '../../types';
 
 interface Step3VariantPlacementProps {
@@ -10,6 +11,9 @@ interface Step3VariantPlacementProps {
 }
 
 export default function Step3VariantPlacement({ value, onChange }: Step3VariantPlacementProps) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   const options: { key: VariantPlacement; label: string; description: string }[] = [
     {
       key: 'grouped',
@@ -54,7 +58,7 @@ export default function Step3VariantPlacement({ value, onChange }: Step3VariantP
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
   },
@@ -75,7 +79,7 @@ const styles = StyleSheet.create({
   option: {
     padding: spacing.md,
     borderRadius: borderRadius.lg,
-    borderWidth: 1.5,
+    borderWidth: 1,
     borderColor: colors.border,
     marginBottom: spacing.md,
     backgroundColor: colors.surface,

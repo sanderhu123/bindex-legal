@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, fonts, spacing, typography, borderRadius, shadows, screenPadding } from '../../constants/theme';
+import { fonts, spacing, typography, borderRadius, shadows, screenPadding, type ThemeColors } from '../../constants/theme';
+import { useTheme } from '../../context/ThemeContext';
 import type { LayoutPreference } from '../../types';
 
 interface Step4LayoutProps {
@@ -10,6 +11,9 @@ interface Step4LayoutProps {
 }
 
 export default function Step4Layout({ value, onChange }: Step4LayoutProps) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   const options: { key: LayoutPreference; label: string; description: string }[] = [
     {
       key: '3x3',
@@ -54,7 +58,7 @@ export default function Step4Layout({ value, onChange }: Step4LayoutProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
   },
@@ -75,7 +79,7 @@ const styles = StyleSheet.create({
   option: {
     padding: spacing.md,
     borderRadius: borderRadius.lg,
-    borderWidth: 1.5,
+    borderWidth: 1,
     borderColor: colors.border,
     marginBottom: spacing.md,
     backgroundColor: colors.surface,

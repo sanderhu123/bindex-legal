@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, fonts, spacing, typography, borderRadius, shadows, screenPadding } from '../../constants/theme';
+import { fonts, spacing, typography, borderRadius, shadows, screenPadding, type ThemeColors } from '../../constants/theme';
+import { useTheme } from '../../context/ThemeContext';
 import type { PokemonArtStyle } from '../../types';
 
 interface Step3PokemonArtStyleProps {
@@ -10,10 +11,8 @@ interface Step3PokemonArtStyleProps {
   onChange: (style: PokemonArtStyle) => void;
 }
 
-// Pikachu's Pokemon ID is 25
 const PIKACHU_ID = 25;
 
-// PokeAPI image URLs for Pikachu in different art styles
 const PIKACHU_IMAGES = {
   sprite: `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${PIKACHU_ID}.png`,
   home: `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/home/${PIKACHU_ID}.png`,
@@ -39,6 +38,9 @@ const ART_STYLE_OPTIONS: { key: PokemonArtStyle; label: string; description: str
 ];
 
 export default function Step3PokemonArtStyle({ value, onChange }: Step3PokemonArtStyleProps) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   const [optionImageLoadStates, setOptionImageLoadStates] = useState<Record<PokemonArtStyle, boolean>>({
     sprite: false,
     home: false,
@@ -51,7 +53,6 @@ export default function Step3PokemonArtStyle({ value, onChange }: Step3PokemonAr
   });
 
   React.useEffect(() => {
-    // Log image URLs for debugging
     console.log('Pikachu image URLs:', PIKACHU_IMAGES);
   }, []);
 
@@ -63,7 +64,7 @@ export default function Step3PokemonArtStyle({ value, onChange }: Step3PokemonAr
   const handleImageError = (error: any, style: PokemonArtStyle) => {
     console.error(`Failed to load image for ${style}:`, PIKACHU_IMAGES[style], error);
     setImageErrors((prev) => ({ ...prev, [style]: true }));
-    setOptionImageLoadStates((prev) => ({ ...prev, [style]: true })); // Stop loading indicator
+    setOptionImageLoadStates((prev) => ({ ...prev, [style]: true }));
   };
 
   return (
@@ -125,7 +126,7 @@ export default function Step3PokemonArtStyle({ value, onChange }: Step3PokemonAr
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
   },
@@ -149,7 +150,7 @@ const styles = StyleSheet.create({
   option: {
     padding: spacing.md,
     borderRadius: borderRadius.lg,
-    borderWidth: 1.5,
+    borderWidth: 1,
     borderColor: colors.border,
     marginBottom: spacing.md,
     backgroundColor: colors.surface,
@@ -170,7 +171,7 @@ const styles = StyleSheet.create({
     marginRight: spacing.md,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: colors.backgroundLight,
+    backgroundColor: 'transparent',
     borderRadius: borderRadius.lg,
     overflow: 'hidden',
   },
@@ -212,4 +213,3 @@ const styles = StyleSheet.create({
     color: colors.textLight,
   },
 });
-

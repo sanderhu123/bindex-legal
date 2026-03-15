@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, fonts, spacing, typography, borderRadius, shadows } from '../../constants/theme';
+import { fonts, spacing, typography, borderRadius, shadows, type ThemeColors } from '../../constants/theme';
+import { useTheme } from '../../context/ThemeContext';
 
 interface VariantSelectorProps {
   selected: string[];
@@ -21,6 +22,9 @@ export default function VariantSelector({
   onChange,
   availableKeys,
 }: VariantSelectorProps) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   const toggleVariant = (key: string) => {
     let newSelected: string[];
     if (selected.includes(key)) {
@@ -66,11 +70,11 @@ export default function VariantSelector({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   option: {
     padding: spacing.md,
     borderRadius: borderRadius.lg,
-    borderWidth: 1.5,
+    borderWidth: 1,
     borderColor: colors.border,
     marginBottom: spacing.sm,
     backgroundColor: colors.surface,
@@ -94,7 +98,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: spacing.md,
-    backgroundColor: colors.background,
+    backgroundColor: 'transparent',
   },
   checkboxSelected: {
     backgroundColor: colors.primary,
@@ -118,3 +122,4 @@ const styles = StyleSheet.create({
     color: colors.textTertiary,
   },
 });
+

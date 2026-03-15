@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, fonts, spacing, typography, borderRadius } from '../../constants/theme';
+import { fonts, spacing, typography, borderRadius, type ThemeColors } from '../../constants/theme';
+import { useTheme } from '../../context/ThemeContext';
 import type { Region } from '../../services/api/pokemonApi';
 
 interface RegionSelectorProps {
@@ -22,6 +23,9 @@ const REGION_DATA: { name: Region; gen: string; count: number }[] = [
 ];
 
 export default function RegionSelector({ value, onChange }: RegionSelectorProps) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   return (
     <View>
       {REGION_DATA.map((region) => {
@@ -53,11 +57,11 @@ export default function RegionSelector({ value, onChange }: RegionSelectorProps)
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   option: {
     padding: spacing.md,
     borderRadius: borderRadius.lg,
-    borderWidth: 1.5,
+    borderWidth: 1,
     borderColor: colors.border,
     marginBottom: spacing.sm,
     backgroundColor: colors.surface,
@@ -88,3 +92,4 @@ const styles = StyleSheet.create({
     color: colors.textTertiary,
   },
 });
+

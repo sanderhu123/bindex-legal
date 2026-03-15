@@ -1238,6 +1238,7 @@ export async function saveCardNote(
   // 'base' variant is stored as null in the database
   const dbVariant = (!variant || variant === 'base') ? null : variant;
 
+  // Build the filter used for both update and (potential) insert
   let query = supabase
     .from('binder_cards')
     .update({ note: noteValue })
@@ -1245,11 +1246,9 @@ export async function saveCardNote(
     .eq('binder_id', binderId)
     .eq('card_id', cardId);
 
-  // If a position is provided (Custom binder), match by position
   if (position !== undefined && position !== null) {
     query = query.eq('position', position);
   } else {
-    // Match by variant for non-Custom binders
     if (dbVariant) {
       query = query.eq('variant', dbVariant);
     } else {
@@ -1257,14 +1256,51 @@ export async function saveCardNote(
     }
   }
 
-  const { error } = await query;
+  // .select() so we can check whether any row was actually updated
+  const { data, error } = await query.select('id');
 
   if (error) {
     console.error('[CardNote] Failed to save note:', error);
     throw error;
   }
 
-  console.log('[CardNote] Note saved successfully');
+  if (data && data.length > 0) {
+    console.log('[CardNote] Note saved (updated existing row)');
+    return;
+  }
+
+  // No row matched — the card doesn't have a binder_cards entry yet
+  // (e.g. unowned card in a Master Set binder). Create one to store the note.
+  console.log('[CardNote] No binder_cards row found, inserting one for note');
+  const { error: insertError } = await supabase
+    .from('binder_cards')
+    .insert({
+      user_id: user.id,
+      binder_id: binderId,
+      card_id: cardId,
+      variant: dbVariant,
+      position: position ?? null,
+      is_owned: false,
+      note: noteValue,
+    });
+
+  if (insertError) {
+    // Row was created between our update and insert (race condition) — retry update
+    if (insertError.code === '23505') {
+      await supabase
+        .from('binder_cards')
+        .update({ note: noteValue })
+        .eq('user_id', user.id)
+        .eq('binder_id', binderId)
+        .eq('card_id', cardId);
+      console.log('[CardNote] Note saved (retry after conflict)');
+      return;
+    }
+    console.error('[CardNote] Failed to insert note row:', insertError);
+    throw insertError;
+  }
+
+  console.log('[CardNote] Note saved (new row created)');
 }
 
 /**

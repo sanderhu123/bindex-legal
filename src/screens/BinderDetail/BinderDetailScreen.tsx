@@ -3084,15 +3084,14 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     marginLeft: 40,
   },
   subtitleSetIcon: {
-    width: 18,
-    height: 18,
-    marginLeft: spacing.xs,
+    width: 16,
+    height: 16,
+    marginLeft: 3,
   },
   subtitle: {
     fontSize: typography.sm,
     color: colors.textTertiary,
     fontFamily: fonts.regular,
-    flex: 1,
   },
   toolbar: {
     flexDirection: 'row',

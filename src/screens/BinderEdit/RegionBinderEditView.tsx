@@ -147,11 +147,13 @@ export default function RegionBinderEditView({ binder }: RegionBinderEditViewPro
           if (selectedCardId) {
             try {
               const tcgCard = await getCardById(selectedCardId);
-              if (tcgCard?.imageUrl) {
-                imageUrl = tcgCard.imageUrl;
+              if (tcgCard) {
+                imageUrl = tcgCard.imageUrl || undefined;
               }
             } catch {
-              // Fall back to default sprite
+              // API couldn't find the card — show slot without image
+              // but keep the selection (selectedTcgCardId is set below)
+              imageUrl = undefined;
             }
           }
 

@@ -357,14 +357,13 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
             }
             
             if (selectedCardId) {
-              // Has a custom card selection - load the TCG card image
               try {
                 const tcgCard = await getCardById(selectedCardId);
-                if (tcgCard?.imageUrl) {
+                if (tcgCard) {
                   return {
                     ...card,
-                    imageUrl: tcgCard.imageUrl,
-                    imageUrlHiRes: tcgCard.imageUrlHiRes,
+                    imageUrl: tcgCard.imageUrl || undefined,
+                    imageUrlHiRes: tcgCard.imageUrlHiRes || undefined,
                     selectedCardId: selectedCardId,
                     isOwned: latestBinder.cardIds.includes(card.id),
                   };
@@ -372,9 +371,17 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
               } catch (err) {
                 console.warn('[BinderDetail] Failed to load selected card on refresh:', err);
               }
+              // API failed or card not found — still preserve the selection
+              return {
+                ...card,
+                imageUrl: undefined,
+                imageUrlHiRes: undefined,
+                selectedCardId: selectedCardId,
+                isOwned: latestBinder.cardIds.includes(card.id),
+              };
             }
             
-            // No selection (or loading failed) - use default sprite
+            // No selection - use default sprite
             const defaultImageUrl = latestBinder.pokemonArtStyle 
               ? getPokemonImageUrl(pokedexNumber, latestBinder.pokemonArtStyle)
               : undefined;
@@ -664,18 +671,15 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
                 
                 if (selectedCardId) {
                   try {
-                    // Load the selected TCG card
                     const tcgCard = await getCardById(selectedCardId);
                     
-                    if (tcgCard?.imageUrl) {
+                    if (tcgCard) {
                       console.log('[BinderDetail] Using custom card for', pokemon.name, ':', selectedCardId);
                       return {
                         ...pokemon,
-                        imageUrl: tcgCard.imageUrl,
-                        imageUrlHiRes: tcgCard.imageUrlHiRes,
-                        // Store the selected card ID so we know this has a custom selection
+                        imageUrl: tcgCard.imageUrl || undefined,
+                        imageUrlHiRes: tcgCard.imageUrlHiRes || undefined,
                         selectedCardId: selectedCardId,
-                        // Store TCG card details for the detail view
                         selectedCardRarity: tcgCard.rarity,
                         selectedCardIllustrator: tcgCard.illustrator,
                         selectedCardSet: tcgCard.set,
@@ -683,8 +687,14 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
                     }
                   } catch (err) {
                     console.warn('[BinderDetail] Failed to load selected card for', pokemon.name, ':', err);
-                    // Fall back to default sprite
                   }
+                  // API failed or card not found — still mark the selection
+                  return {
+                    ...pokemon,
+                    imageUrl: undefined,
+                    imageUrlHiRes: undefined,
+                    selectedCardId: selectedCardId,
+                  };
                 }
                 
                 return pokemon;

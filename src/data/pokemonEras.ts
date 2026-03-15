@@ -63,31 +63,10 @@ function getSetSymbolUrl(setId: string): string {
 /**
  * Convert app set ID to TCGDEX set ID.
  * 
- * Some sets in the app use different IDs than TCGDEX uses.
- * This function maps app set IDs to the correct TCGDEX set IDs.
- * 
- * @param appSetId - The set ID used in the app (e.g., '2021swsh')
- * @returns The TCGDEX set ID (e.g., 'mcd21')
+ * @param appSetId - The set ID used in the app
+ * @returns The TCGDEX set ID
  */
 export function getTcgdexSetId(appSetId: string): string {
-  // McDonald's collections - app uses year+era format, TCGDEX uses mcdYY format
-  const mcdonaldsMapping: Record<string, string> = {
-    '2021swsh': 'mcd21',
-    '2019sm': 'mcd19',
-    '2018sm': 'mcd18',
-    '2017sm': 'mcd17',
-    '2016xy': 'mcd16',
-    '2015xy': 'mcd15',
-    '2014xy': 'mcd14',
-    '2012bw': 'mcd12',
-    '2011bw': 'mcd11',
-  };
-  
-  if (appSetId in mcdonaldsMapping) {
-    return mcdonaldsMapping[appSetId];
-  }
-  
-  // All other sets use the same ID in app and TCGDEX
   return appSetId;
 }
 
@@ -150,17 +129,6 @@ export function getSeriesSlugFromId(setId: string): string {
     'mep',          // MEP Black Star Promos
     // Sets with symbol but no card images
     'bog',          // Best of Game (has symbol, no card images)
-    '2021swsh',     // McDonald's 2021 (has logo, no card images)
-    
-    // All McDonald's sets (verified: no card images on TCGDEX)
-    '2014xy',       // McDonald's 2014
-    '2015xy',       // McDonald's 2015
-    '2016xy',       // McDonald's 2016
-    '2017sm',       // McDonald's 2017
-    '2018sm',       // McDonald's 2018
-    '2019sm',       // McDonald's 2019
-    '2011bw',       // McDonald's 2011
-    '2012bw',       // McDonald's 2012
     
     // Trainer Kits (tk-*)
     'tk-ex-latio', 'tk-ex-latia', 'tk-ex-p', 'tk-ex-m',
@@ -222,8 +190,6 @@ export function getSeriesSlugFromId(setId: string): string {
   // Legendary Collection has its own series
   if (setId === 'lc') return 'lc';          // Legendary Collection → lc series
   
-  // Note: McDonald's sets are in noImageSets - no card images available
-  
   // === PROMO SETS WITH IMAGES ===
   // Based on TCGDEX API logo/symbol URLs showing series path
   if (setId === 'swshp') return 'swsh';     // SWSH Black Star Promos → swsh series
@@ -264,7 +230,7 @@ export function getSeriesSlugFromId(setId: string): string {
  * - Removes dots from mini-set IDs (sm3.5 → sm35)
  * - Maps app set IDs to TCGDEX set IDs where different
  * 
- * @param setId - The set ID (e.g., 'sm3.5', '2021swsh')
+ * @param setId - The set ID (e.g., 'sm3.5', 'swsh1')
  * @returns The set ID formatted for TCGDEX URLs
  */
 export function convertSetIdForUrl(setId: string): string {
@@ -583,21 +549,12 @@ export const POKEMON_ERAS: EraDefinition[] = [
     sets: [
       { id: 'mep', name: 'MEP Black Star Promos', releaseDate: '2025-09-26' },
       { id: 'svp', name: 'SVP Black Star Promos', releaseDate: '2023-03-31' },
-      { id: '2021swsh', name: "Macdonald's Collection 2021", releaseDate: '2021-01-01' },
       { id: 'fut2020', name: 'Pokémon Futsal 2020', releaseDate: '2020-01-01' },
       { id: 'swshp', name: 'SWSH Black Star Promos', releaseDate: '2020-02-07' },
-      { id: '2019sm', name: "Macdonald's Collection 2019", releaseDate: '2019-01-01' },
       { id: 'sma', name: 'Yellow A Alternate', releaseDate: '2018-01-01' },
-      { id: '2018sm', name: "Macdonald's Collection 2018", releaseDate: '2018-01-01' },
-      { id: '2017sm', name: "Macdonald's Collection 2017", releaseDate: '2017-01-01' },
       { id: 'smp', name: 'SM Black Star Promos', releaseDate: '2017-02-03' },
-      { id: '2016xy', name: "Macdonald's Collection 2016", releaseDate: '2016-01-01' },
-      { id: '2015xy', name: "Macdonald's Collection 2015", releaseDate: '2015-01-01' },
-      { id: '2014xy', name: "Macdonald's Collection 2014", releaseDate: '2014-01-01' },
       { id: 'xyp', name: 'XY Black Star Promos', releaseDate: '2014-02-05' },
       { id: 'xya', name: 'Yello A Alternate', releaseDate: '2014-01-01' },
-      { id: '2012bw', name: "Macdonald's Collection 2012", releaseDate: '2012-01-01' },
-      { id: '2011bw', name: "Macdonald's Collection 2011", releaseDate: '2011-01-01' },
       { id: 'ru1', name: 'Pokémon Rumble', releaseDate: '2009-12-16' },
       { id: 'bwp', name: 'BW Black Star Promos', releaseDate: '2011-04-25' },
       { id: 'hgssp', name: 'HGSS Black Star Promos', releaseDate: '2010-02-10' },

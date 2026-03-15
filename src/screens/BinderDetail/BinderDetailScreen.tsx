@@ -3072,7 +3072,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     justifyContent: 'center',
   },
   title: {
-    fontSize: typography.lg,
+    fontSize: typography.xl,
     fontFamily: fonts.semibold,
     color: colors.text,
     flex: 1,

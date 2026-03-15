@@ -110,14 +110,31 @@ function AppContent() {
 }
 
 export default function App() {
-  const [fontsLoaded] = useFonts({
+  const [fontsLoaded, fontError] = useFonts({
     Poppins_400Regular,
     Poppins_500Medium,
     Poppins_600SemiBold,
     Poppins_700Bold,
   });
+  const [fontTimeout, setFontTimeout] = useState(false);
 
-  if (!fontsLoaded) {
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (!fontsLoaded) {
+        console.warn('[App] Font loading timed out after 5s — proceeding with system fonts');
+        setFontTimeout(true);
+      }
+    }, 5000);
+    return () => clearTimeout(timer);
+  }, [fontsLoaded]);
+
+  useEffect(() => {
+    if (fontError) {
+      console.warn('[App] Font loading error:', fontError);
+    }
+  }, [fontError]);
+
+  if (!fontsLoaded && !fontTimeout && !fontError) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={colors.primary} />

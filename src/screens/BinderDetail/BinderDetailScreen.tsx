@@ -3,6 +3,7 @@ import { View, StyleSheet, Text, ScrollView, TouchableOpacity, Dimensions, FlatL
 import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getBinderById } from '../../services/supabase/binders';
 import { 
   addCardToBinderFast,
@@ -40,8 +41,6 @@ import PageHeader from '../../components/Binder/PageHeader';
 import { useCardSearch } from '../../hooks/useCardSearch';
 import { useCardFilter, type OwnershipFilter } from '../../hooks/useCardFilter';
 import SearchBar from '../../components/Search/SearchBar';
-import FilterPanel from '../../components/Filter/FilterPanel';
-import ProgressBar from '../../components/Progress/ProgressBar';
 import LoadingScreen from '../../components/Loading/LoadingScreen';
 import LoadingSpinner from '../../components/Loading/LoadingSpinner';
 import EmptyState from '../../components/EmptyState/EmptyState';
@@ -125,9 +124,11 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
   // Display mode: clean binder view with just card images (no badges, names, checkboxes)
   const [displayMode, setDisplayMode] = useState(false);
   
-  // Collapsible toolbar panels
-  const [showSearch, setShowSearch] = useState(false);
-  const [showFilters, setShowFilters] = useState(false);
+  // Dropdown options panel
+  const [showOptions, setShowOptions] = useState(false);
+  
+  // Track whether per-binder preferences have been loaded
+  const prefsLoadedRef = useRef(false);
   
   // Pagination state for infinite scroll (only used for Custom mode)
   // For Master Set and Region modes, we show all cards once loaded
@@ -152,9 +153,33 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
     }
   }, [positionCards, binder?.id, binder?.collectionMode]);
   
+  // Load per-binder preferences (view mode, ownership filter, page breaks)
+  useEffect(() => {
+    if (!binderId) return;
+    const loadPrefs = async () => {
+      try {
+        const raw = await AsyncStorage.getItem(`binder_prefs_${binderId}`);
+        if (raw) {
+          const prefs = JSON.parse(raw);
+          if (prefs.viewMode) setViewMode(prefs.viewMode);
+          if (prefs.ownershipFilter) setOwnershipFilter(prefs.ownershipFilter);
+          if (prefs.showPageBreaks !== undefined) setShowPageBreaks(prefs.showPageBreaks);
+        }
+      } catch {}
+      prefsLoadedRef.current = true;
+    };
+    loadPrefs();
+  }, [binderId]);
+
+  // Save per-binder preferences whenever they change
+  useEffect(() => {
+    if (!binderId || !prefsLoadedRef.current) return;
+    const prefs = { viewMode, ownershipFilter, showPageBreaks };
+    AsyncStorage.setItem(`binder_prefs_${binderId}`, JSON.stringify(prefs)).catch(() => {});
+  }, [binderId, viewMode, ownershipFilter, showPageBreaks]);
+
   // Extra cards for Master Set binders (cards not officially in the set)
   const [extraCards, setExtraCards] = useState<CardWithOwnership[]>([]);
-  
   
   // Ref to access current cards without causing dependency issues
   const cardsRef = useRef<CardWithOwnership[]>([]);
@@ -2313,103 +2338,121 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
   const totalCount = binder.totalCards ?? cards.length;
   const progressPercentage = totalCount > 0 ? Math.round((ownedCount / totalCount) * 100) : 0;
 
-  // Header element for FlatList (binder info, progress, search, filters)
-  // IMPORTANT: This must be a JSX element (not an arrow function component)
+  // IMPORTANT: listHeader must be a JSX element (not an arrow function component)
   // so that FlatList updates it in place instead of unmounting/remounting,
   // which would cause the SearchBar's TextInput to lose focus and dismiss the keyboard.
   const subtitleParts = [collectionModeText];
   if (binder.set) subtitleParts.push(binder.set);
   if (binder.region) subtitleParts.push(binder.region);
 
-  const hasActiveSearch = searchQuery.length > 0;
-  const hasActiveFilter = ownershipFilter !== 'all';
-
   const listHeader = (
     <View style={styles.headerContainer}>
-      {/* Row 1: Title + Edit icon */}
-      <View style={styles.titleRow}>
-        <Text style={styles.title} numberOfLines={1}>{binder.name}</Text>
-        <TouchableOpacity
-          style={styles.editIconButton}
-          onPress={() => navigation.navigate('BinderEdit', { binderId: binder.id })}
-        >
-          <Text style={styles.editIconText}>✏️</Text>
-        </TouchableOpacity>
-      </View>
+      {/* Row 1: Binder name */}
+      <Text style={styles.title} numberOfLines={1}>{binder.name}</Text>
 
-      {/* Row 2: Compact subtitle — "Master Set · Prismatic Evolutions" */}
+      {/* Row 2: Subtitle — "Master Set · Prismatic Evolutions" */}
       <Text style={styles.subtitle} numberOfLines={1}>
         {subtitleParts.join(' · ')}
       </Text>
 
-      {/* Row 3: Compact progress */}
-      <View style={styles.progressContainer}>
-        <ProgressBar
-          current={ownedCount}
-          total={totalCount}
-          percentage={progressPercentage}
-          format="full"
-          textSize="small"
-        />
-        {isCustomMode && (
-          <Text style={styles.customSlotInfo}>
-            {positionCards.size} / {customMaxSlots} slots filled
+      {/* Row 3: Search bar (always visible) */}
+      <SearchBar
+        value={searchQuery}
+        onChangeText={setSearchQuery}
+        placeholder="Search by name or number..."
+      />
+
+      {/* Row 4: Toolbar — Edit | Display Mode | ▼ dropdown */}
+      <View style={styles.toolbar}>
+        <TouchableOpacity
+          style={styles.toolbarTextButton}
+          onPress={() => navigation.navigate('BinderEdit', { binderId: binder.id })}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.toolbarTextButtonLabel}>Edit</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.toolbarTextButton}
+          onPress={() => {
+            setViewMode('binder');
+            setDisplayMode(true);
+          }}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.toolbarTextButtonLabel}>Display Mode</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.dropdownToggle, showOptions && styles.dropdownToggleActive]}
+          onPress={() => setShowOptions(prev => !prev)}
+          activeOpacity={0.7}
+        >
+          <Text style={[styles.dropdownArrow, showOptions && styles.dropdownArrowActive]}>
+            {showOptions ? '▲' : '▼'}
           </Text>
-        )}
+        </TouchableOpacity>
       </View>
 
-      {/* Row 4: Toolbar — view toggle + action icons */}
-      <View style={styles.toolbar}>
-        <ViewModeToggle 
-          viewMode={viewMode} 
-          onViewModeChange={setViewMode} 
-        />
-        <View style={styles.toolbarActions}>
-          <TouchableOpacity
-            style={[styles.toolbarButton, (showSearch || hasActiveSearch) && styles.toolbarButtonActive]}
-            onPress={() => setShowSearch(prev => !prev)}
-            activeOpacity={0.7}
-          >
-            <Text style={[styles.toolbarButtonIcon, (showSearch || hasActiveSearch) && styles.toolbarButtonIconActive]}>🔍</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.toolbarButton, (showFilters || hasActiveFilter) && styles.toolbarButtonActive]}
-            onPress={() => setShowFilters(prev => !prev)}
-            activeOpacity={0.7}
-          >
-            <Text style={[styles.toolbarButtonIcon, (showFilters || hasActiveFilter) && styles.toolbarButtonIconActive]}>⚙️</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.toolbarButton}
-            onPress={() => {
-              setViewMode('binder');
-              setDisplayMode(true);
-            }}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.toolbarButtonIcon}>👁</Text>
-          </TouchableOpacity>
+      {/* Expandable options panel */}
+      {showOptions && (
+        <View style={styles.optionsPanel}>
+          <View style={styles.optionRow}>
+            <Text style={styles.optionLabel}>View</Text>
+            <ViewModeToggle 
+              viewMode={viewMode} 
+              onViewModeChange={setViewMode} 
+            />
+          </View>
+
+          <View style={styles.optionRow}>
+            <Text style={styles.optionLabel}>Show</Text>
+            <View style={styles.filterButtons}>
+              {(['all', 'owned', 'missing'] as const).map((filter) => (
+                <TouchableOpacity
+                  key={filter}
+                  style={[styles.filterChip, ownershipFilter === filter && styles.filterChipActive]}
+                  onPress={() => setOwnershipFilter(filter)}
+                >
+                  <Text style={[styles.filterChipText, ownershipFilter === filter && styles.filterChipTextActive]}>
+                    {filter.charAt(0).toUpperCase() + filter.slice(1)}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+
+          {!isCustomMode && (
+            <TouchableOpacity
+              style={styles.optionRow}
+              onPress={() => setShowPageBreaks(!showPageBreaks)}
+            >
+              <Text style={styles.optionLabel}>
+                Page breaks{' '}
+                <Text style={styles.optionHint}>(grid view only)</Text>
+              </Text>
+              <Text style={styles.checkboxIcon}>
+                {showPageBreaks ? '☑' : '☐'}
+              </Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
+    </View>
+  );
+
+  // Sticky progress footer (rendered outside scrollable content)
+  const stickyProgressFooter = (
+    <View style={styles.stickyFooter}>
+      <View style={styles.stickyFooterContent}>
+        <Text style={styles.stickyFooterText}>
+          {ownedCount} / {totalCount} · {progressPercentage}%
+          {isCustomMode ? `  ·  ${positionCards.size}/${customMaxSlots} slots` : ''}
+        </Text>
+        <View style={styles.stickyFooterBar}>
+          <View style={[styles.stickyFooterBarFill, { width: `${progressPercentage}%`, backgroundColor: colors.primary }]} />
         </View>
       </View>
-
-      {/* Collapsible search */}
-      {showSearch && (
-        <SearchBar
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-          placeholder="Search by name or number..."
-        />
-      )}
-
-      {/* Collapsible filters */}
-      {showFilters && (
-        <FilterPanel
-          ownershipFilter={ownershipFilter}
-          onOwnershipFilterChange={setOwnershipFilter}
-          showPageBreaks={isCustomMode ? undefined : showPageBreaks}
-          onShowPageBreaksChange={isCustomMode ? undefined : setShowPageBreaks}
-        />
-      )}
     </View>
   );
 
@@ -2517,6 +2560,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
           initialNumToRender={15}
           extraData={isCustomMode ? [positionCards, searchQuery, ownershipFilter] : cards}
         />
+        {!displayMode && stickyProgressFooter}
         <EnlargedCardOverlay />
       </SafeAreaView>
     );
@@ -2604,6 +2648,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
             pokemonOnly={true}
           />
         )}
+        {!displayMode && stickyProgressFooter}
         <EnlargedCardOverlay />
       </SafeAreaView>
     );
@@ -2641,6 +2686,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
           extraData={[displayCount, positionCards, searchQuery, ownershipFilter]}
         />
         
+        {stickyProgressFooter}
         <EnlargedCardOverlay />
       </SafeAreaView>
     );
@@ -2707,6 +2753,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
           ListFooterComponent={ListFooterComponent}
           ListEmptyComponent={ListEmptyComponent}
         />
+        {stickyProgressFooter}
         <EnlargedCardOverlay />
       </SafeAreaView>
     );
@@ -2741,6 +2788,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
             initialNumToRender={PAGE_SIZE}
             extraData={[savedPositionMap, searchQuery, ownershipFilter]}
           />
+          {stickyProgressFooter}
           <EnlargedCardOverlay />
         </SafeAreaView>
       );
@@ -2768,6 +2816,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
           extraData={[displayCount, cards, extraCards]}
         />
         
+        {stickyProgressFooter}
         <EnlargedCardOverlay />
       </SafeAreaView>
     );
@@ -2816,6 +2865,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
             initialQuery={selectedPokemonForPicker?.name || ''}
             pokemonOnly={true}
           />
+          {stickyProgressFooter}
           <EnlargedCardOverlay />
         </SafeAreaView>
       );
@@ -2855,6 +2905,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
           initialQuery={selectedPokemonForPicker?.name || ''}
           pokemonOnly={true}
         />
+        {stickyProgressFooter}
         <EnlargedCardOverlay />
       </SafeAreaView>
     );
@@ -2885,6 +2936,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
         // Extra data to trigger re-render when cards ownership changes
         extraData={[displayCount, cards]}
       />
+      {stickyProgressFooter}
       <EnlargedCardOverlay />
     </SafeAreaView>
   );
@@ -2906,53 +2958,131 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     paddingBottom: 80,
   },
   headerContainer: {
-    marginBottom: spacing.sm,
+    marginBottom: spacing.xs,
   },
   title: {
     fontSize: typography['2xl'],
     fontFamily: fonts.bold,
     color: colors.text,
-    flex: 1,
-    marginRight: spacing.sm,
+    marginTop: spacing.md,
+    marginBottom: spacing.xs,
   },
   subtitle: {
     fontSize: typography.sm,
     color: colors.textTertiary,
     fontFamily: fonts.medium,
-    marginBottom: spacing.sm,
-  },
-  progressContainer: {
     marginBottom: spacing.md,
   },
   toolbar: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: spacing.md,
+    gap: spacing.sm,
+    marginBottom: spacing.sm,
   },
-  toolbarActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
+  toolbarTextButton: {
+    paddingVertical: spacing.xs + 2,
+    paddingHorizontal: spacing.md,
+    borderRadius: borderRadius.md,
+    backgroundColor: colors.backgroundDark,
   },
-  toolbarButton: {
+  toolbarTextButtonLabel: {
+    fontSize: typography.sm,
+    fontFamily: fonts.semibold,
+    color: colors.primary,
+  },
+  dropdownToggle: {
     width: 36,
     height: 36,
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: borderRadius.full,
     backgroundColor: colors.backgroundDark,
+    marginLeft: 'auto',
   },
-  toolbarButtonActive: {
-    backgroundColor: colors.primary + '25',
+  dropdownToggleActive: {
+    backgroundColor: colors.primary + '20',
+  },
+  dropdownArrow: {
+    fontSize: typography.sm,
+    color: colors.textSecondary,
+  },
+  dropdownArrowActive: {
+    color: colors.primary,
+  },
+  optionsPanel: {
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.md,
     borderWidth: 1,
-    borderColor: colors.primary,
+    borderColor: colors.border,
+    padding: spacing.md,
+    marginBottom: spacing.sm,
+    gap: spacing.md,
   },
-  toolbarButtonIcon: {
-    fontSize: 16,
+  optionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
-  toolbarButtonIconActive: {
-    fontSize: 16,
+  optionLabel: {
+    fontSize: typography.sm,
+    fontFamily: fonts.semibold,
+    color: colors.text,
+  },
+  optionHint: {
+    fontSize: typography.xs,
+    fontFamily: fonts.regular,
+    color: colors.textTertiary,
+  },
+  filterButtons: {
+    flexDirection: 'row',
+    gap: spacing.xs,
+  },
+  filterChip: {
+    paddingHorizontal: spacing.sm + 2,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.sm,
+    backgroundColor: colors.backgroundDark,
+  },
+  filterChipActive: {
+    backgroundColor: colors.primary,
+  },
+  filterChipText: {
+    fontSize: typography.sm,
+    fontFamily: fonts.medium,
+    color: colors.textSecondary,
+  },
+  filterChipTextActive: {
+    color: colors.onPrimary,
+  },
+  checkboxIcon: {
+    fontSize: 22,
+    color: colors.primary,
+  },
+  stickyFooter: {
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    backgroundColor: colors.background,
+    paddingHorizontal: screenPadding,
+    paddingVertical: spacing.sm,
+  },
+  stickyFooterContent: {
+    gap: spacing.xs,
+  },
+  stickyFooterText: {
+    fontSize: typography.xs,
+    fontFamily: fonts.medium,
+    color: colors.textSecondary,
+    textAlign: 'center',
+  },
+  stickyFooterBar: {
+    height: 4,
+    backgroundColor: colors.backgroundDark,
+    borderRadius: borderRadius.full,
+    overflow: 'hidden',
+  },
+  stickyFooterBarFill: {
+    height: '100%',
+    borderRadius: borderRadius.full,
   },
   row: {
     marginHorizontal: -CARD_MARGIN,
@@ -2977,13 +3107,6 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     fontSize: typography.sm,
     color: colors.textTertiary,
     fontStyle: 'italic',
-  },
-  // Custom mode slot info text (below progress bar)
-  customSlotInfo: {
-    fontSize: typography.sm,
-    color: colors.textTertiary,
-    textAlign: 'center',
-    marginTop: spacing.xs,
   },
   // Add Card button for Master Set binders
   addCardButton: {
@@ -3059,24 +3182,6 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   sectionRow: {
     flexDirection: 'row',
     marginHorizontal: -2, // Match the CARD_MARGIN negative margin
-  },
-  titleRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: spacing.md,
-    marginBottom: spacing.xs,
-  },
-  editIconButton: {
-    width: 36,
-    height: 36,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: borderRadius.full,
-    backgroundColor: colors.primary + '15',
-  },
-  editIconText: {
-    fontSize: 16,
   },
   // Step 34A: Enlarged card overlay
   enlargeOverlay: {

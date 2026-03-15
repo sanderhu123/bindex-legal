@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -12,10 +12,13 @@ import { useNavigation } from '@react-navigation/native';
 import RevenueCatUI from 'react-native-purchases-ui';
 import type { CustomerInfo } from 'react-native-purchases';
 import { syncProStatusToSupabase } from '../../services/pro/proService';
-import { colors, fonts, spacing, typography, borderRadius, screenPadding } from '../../constants/theme';
+import { useTheme } from '../../context/ThemeContext';
+import { fonts, spacing, typography, borderRadius, screenPadding, type ThemeColors } from '../../constants/theme';
 
 export default function UpgradeScreen() {
   const navigation = useNavigation();
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [purchased, setPurchased] = useState(false);
 
   if (purchased) {
@@ -68,7 +71,7 @@ export default function UpgradeScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
@@ -108,7 +111,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.xxl,
   },
   doneButtonText: {
-    color: colors.background,
+    color: colors.onPrimary,
     fontSize: typography.base,
     fontFamily: fonts.semibold,
   },

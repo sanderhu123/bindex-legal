@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { colors, spacing, typography, fonts, borderRadius, shadows } from '../../constants/theme';
+import { useTheme } from '../../context/ThemeContext';
+import { spacing, typography, fonts, borderRadius, shadows, type ThemeColors } from '../../constants/theme';
 
 /**
  * Props for the PageNavigator component
@@ -32,6 +33,8 @@ export default function PageNavigator({
   onNextPage,
   onJumpToPage,
 }: PageNavigatorProps) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   // Determine if arrows should be disabled
   const isPreviousDisabled = currentPage <= 1;
   const isNextDisabled = currentPage >= totalPages;
@@ -100,7 +103,7 @@ export default function PageNavigator({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -126,7 +129,7 @@ const styles = StyleSheet.create({
   },
   arrowText: {
     fontSize: typography.lg,
-    color: colors.background,
+    color: colors.onPrimary,
     fontFamily: fonts.bold,
   },
   arrowTextDisabled: {

@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
+import { ThemeProvider, useTheme } from './src/context/ThemeContext';
 import AuthNavigator from './src/navigation/AuthNavigator';
 import AppNavigator from './src/navigation/AppNavigator';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
@@ -19,7 +20,7 @@ import {
   Poppins_600SemiBold,
   Poppins_700Bold,
 } from '@expo-google-fonts/poppins';
-import { colors } from './src/constants/theme';
+import { lightColors } from './src/constants/theme';
 
 // Create React Query client with caching configuration
 const queryClient = new QueryClient({
@@ -42,21 +43,18 @@ const queryClient = new QueryClient({
 
 function AppContent() {
   const { user, loading, initialized } = useAuth();
+  const { colors, isDark } = useTheme();
   const [cacheInitialized, setCacheInitialized] = useState(false);
 
-  // Initialize persistent cache, RevenueCat, and perform cleanup on app startup
   useEffect(() => {
     async function initializeApp() {
       try {
-        // Initialize RevenueCat for in-app purchases
         await initializeRevenueCat();
         console.log('[App] RevenueCat initialized');
 
-        // Initialize persistent cache
         await initializePersistentCache();
         console.log('[App] Persistent cache initialized');
 
-        // Perform smart cache cleanup (removes cache for binders not opened in 30+ days)
         const cleanupResult = await performCacheCleanup();
         if (!cleanupResult.skipped) {
           console.log('[App] Cache cleanup result:', {
@@ -71,8 +69,6 @@ function AppContent() {
       }
     }
 
-    // Safety timeout: if initialization takes more than 10 seconds, skip it and open the app anyway.
-    // This prevents the app from being stuck on the loading screen forever.
     const safetyTimeout = setTimeout(() => {
       console.warn('[App] Initialization timed out after 10s - opening app anyway');
       setCacheInitialized(true);
@@ -81,7 +77,6 @@ function AppContent() {
     initializeApp().finally(() => clearTimeout(safetyTimeout));
   }, []);
 
-  // Identify user with RevenueCat when they log in
   useEffect(() => {
     if (user?.id) {
       identifyUser(user.id).catch((err) =>
@@ -90,21 +85,19 @@ function AppContent() {
     }
   }, [user?.id]);
 
-  // Show loading screen while checking auth state or initializing cache
   if (!initialized || loading || !cacheInitialized) {
     return (
-      <View style={styles.loadingContainer}>
+      <View style={[styles.loadingContainer, { backgroundColor: colors.background }]}>
         <ActivityIndicator size="large" color={colors.primary} />
-        <StatusBar style="auto" />
+        <StatusBar style={isDark ? 'light' : 'dark'} />
       </View>
     );
   }
 
-  // Show auth screens if not logged in, main app if logged in
   return (
     <>
       {user ? <AppNavigator /> : <AuthNavigator />}
-      <StatusBar style="auto" />
+      <StatusBar style={isDark ? 'light' : 'dark'} />
     </>
   );
 }
@@ -137,7 +130,7 @@ export default function App() {
   if (!fontsLoaded && !fontTimeout && !fontError) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={colors.primary} />
+        <ActivityIndicator size="large" color={lightColors.primary} />
         <StatusBar style="auto" />
       </View>
     );
@@ -146,14 +139,16 @@ export default function App() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
-        <QueryClientProvider client={queryClient}>
-          <NavigationContainer>
-            <AuthProvider>
-              <AppContent />
-            </AuthProvider>
-          </NavigationContainer>
-        </QueryClientProvider>
-        <Toast />
+        <ThemeProvider>
+          <QueryClientProvider client={queryClient}>
+            <NavigationContainer>
+              <AuthProvider>
+                <AppContent />
+              </AuthProvider>
+            </NavigationContainer>
+          </QueryClientProvider>
+          <Toast />
+        </ThemeProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

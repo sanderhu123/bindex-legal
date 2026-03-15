@@ -1,15 +1,18 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { View, StyleSheet, Text, TextInput, TouchableOpacity, Alert, Platform, Linking, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { signIn, signInWithGoogle, signInWithApple } from '../../services/supabase/auth';
 import { useAuth } from '../../context/AuthContext';
-import { colors, fonts, spacing, typography, borderRadius, screenPadding } from '../../constants/theme';
+import { useTheme } from '../../context/ThemeContext';
+import { fonts, spacing, typography, borderRadius, screenPadding, type ThemeColors } from '../../constants/theme';
 
 interface LoginScreenProps {
   navigation: any;
 }
 
 export default function LoginScreen({ navigation }: LoginScreenProps) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [stayLoggedIn, setStayLoggedIn] = useState(true);
@@ -154,7 +157,8 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
   container: {
     flex: 1,
     justifyContent: 'center',
@@ -198,7 +202,7 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   buttonText: {
-    color: colors.background,
+    color: colors.onPrimary,
     fontSize: typography.base,
     fontFamily: fonts.semibold,
   },
@@ -261,7 +265,7 @@ const styles = StyleSheet.create({
     borderColor: colors.primary,
   },
   checkmark: {
-    color: colors.background,
+    color: colors.onPrimary,
     fontSize: typography.sm,
     fontFamily: fonts.bold,
   },
@@ -270,4 +274,4 @@ const styles = StyleSheet.create({
     fontFamily: fonts.regular,
     color: colors.textSecondary,
   },
-});
+  });

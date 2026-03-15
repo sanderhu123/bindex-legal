@@ -1,6 +1,7 @@
-import React, { memo } from 'react';
+import React, { memo, useMemo } from 'react';
 import { View, TouchableOpacity, Text, StyleSheet } from 'react-native';
-import { colors, spacing, typography, fonts, borderRadius } from '../constants/theme';
+import { useTheme } from '../context/ThemeContext';
+import { spacing, typography, fonts, borderRadius, type ThemeColors } from '../constants/theme';
 
 type ViewMode = 'grid' | 'list' | 'binder';
 
@@ -14,6 +15,8 @@ interface ViewModeToggleProps {
  * Memoized to prevent unnecessary re-renders that cause touch issues
  */
 function ViewModeToggle({ viewMode, onViewModeChange }: ViewModeToggleProps) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   return (
     <View style={styles.viewToggle}>
       <TouchableOpacity
@@ -46,7 +49,7 @@ function ViewModeToggle({ viewMode, onViewModeChange }: ViewModeToggleProps) {
 
 export default memo(ViewModeToggle);
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   viewToggle: {
     flexDirection: 'row',
     backgroundColor: colors.backgroundDark,
@@ -67,6 +70,6 @@ const styles = StyleSheet.create({
     color: colors.textTertiary,
   },
   toggleButtonTextActive: {
-    color: colors.background,
+    color: colors.onPrimary,
   },
 });

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { View, StyleSheet, TouchableOpacity, Text, Alert, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -12,7 +12,8 @@ import { showSuccess, showError } from '../../utils/toast';
 import { successVibration } from '../../utils/haptics';
 import { getAvailableVariantsForSet } from '../../data/cardVariants';
 import LoadingScreen from '../../components/Loading/LoadingScreen';
-import { colors, fonts, spacing, typography, borderRadius, screenPadding } from '../../constants/theme';
+import { useTheme } from '../../context/ThemeContext';
+import { fonts, spacing, typography, borderRadius, screenPadding, type ThemeColors } from '../../constants/theme';
 import Step1CollectionMode from './Step1CollectionMode';
 import Step2MasterSet from './Step2MasterSet';
 import Step2Region from './Step2Region';
@@ -44,6 +45,8 @@ interface OnboardingState {
 }
 
 export default function OnboardingScreen() {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const navigation = useNavigation<NavigationProp>();
   const route = useRoute();
 
@@ -464,7 +467,8 @@ export default function OnboardingScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
@@ -525,8 +529,8 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   nextButtonText: {
-    color: colors.background,
+    color: colors.onPrimary,
     fontSize: typography.base,
     fontFamily: fonts.semibold,
   },
-});
+  });

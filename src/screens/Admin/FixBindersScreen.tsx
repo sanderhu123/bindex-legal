@@ -1,13 +1,16 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert } from 'react-native';
 import { fixExistingBinders } from '../../utils/fixExistingBinders';
-import { colors, spacing, typography, fonts, borderRadius, screenPadding } from '../../constants/theme';
+import { useTheme } from '../../context/ThemeContext';
+import { spacing, typography, fonts, borderRadius, screenPadding, type ThemeColors } from '../../constants/theme';
 
 /**
  * Admin screen to fix existing binders after progress caching migration
  * This is a one-time utility screen
  */
 export default function FixBindersScreen() {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [fixing, setFixing] = useState(false);
   const [results, setResults] = useState<{
     fixed: number;
@@ -119,7 +122,7 @@ export default function FixBindersScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.backgroundLight,
@@ -163,7 +166,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.textLight,
   },
   buttonText: {
-    color: colors.background,
+    color: colors.onPrimary,
     fontSize: typography.base,
     fontFamily: fonts.semibold,
   },

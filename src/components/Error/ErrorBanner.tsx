@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { colors, spacing, typography, fonts, borderRadius } from '../../constants/theme';
+import { useTheme } from '../../context/ThemeContext';
+import { spacing, typography, fonts, borderRadius, type ThemeColors } from '../../constants/theme';
 
 interface ErrorBannerProps {
   message: string;
@@ -19,6 +20,8 @@ export default function ErrorBanner({
   onRetry,
   retryLabel = 'Retry',
 }: ErrorBannerProps) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   return (
     <View style={styles.container}>
       <Text style={styles.message}>{message}</Text>
@@ -38,7 +41,7 @@ export default function ErrorBanner({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     backgroundColor: colors.error + '15', // 15 = ~8% opacity
     borderLeftWidth: 3,

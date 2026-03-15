@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   StyleSheet,
@@ -7,11 +7,13 @@ import {
   ScrollView,
   Alert,
   ActivityIndicator,
+  Switch,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../context/AuthContext';
+import { useTheme } from '../../context/ThemeContext';
 import { signOut } from '../../services/supabase/auth';
 import {
   isUserPro,
@@ -19,15 +21,16 @@ import {
   restorePurchases,
   getProPrice,
 } from '../../services/pro/proService';
-import { clearAllCache, getCacheStatistics } from '../../services/cacheManager';
+import { clearAllCache } from '../../services/cacheManager';
 import { fixExistingBinders } from '../../utils/fixExistingBinders';
-import { colors, fonts, spacing, typography, borderRadius, screenPadding, shadows } from '../../constants/theme';
+import { fonts, spacing, typography, borderRadius, screenPadding, shadows, type ThemeColors } from '../../constants/theme';
 import { showSuccess, showError } from '../../utils/toast';
 import Constants from 'expo-constants';
 
 export default function SettingsScreen() {
   const navigation = useNavigation();
   const { user } = useAuth();
+  const { colors, isDark, toggleTheme } = useTheme();
   const [isPro, setIsPro] = useState(false);
   const [proPrice, setProPrice] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -35,6 +38,7 @@ export default function SettingsScreen() {
   const [clearingCache, setClearingCache] = useState(false);
   const [restoringPurchases, setRestoringPurchases] = useState(false);
 
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const appVersion = Constants.expoConfig?.version || '1.0.0';
 
   useEffect(() => {
@@ -201,6 +205,28 @@ export default function SettingsScreen() {
       </View>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+        {/* Appearance Section */}
+        <Text style={styles.sectionTitle}>Appearance</Text>
+        <View style={styles.section}>
+          <View style={styles.row}>
+            <View style={styles.rowLeft}>
+              <Ionicons
+                name={isDark ? 'moon' : 'moon-outline'}
+                size={20}
+                color={colors.textSecondary}
+                style={styles.rowIcon}
+              />
+              <Text style={styles.rowLabel}>Dark Mode</Text>
+            </View>
+            <Switch
+              value={isDark}
+              onValueChange={toggleTheme}
+              trackColor={{ false: colors.border, true: colors.primary }}
+              thumbColor="#FFFFFF"
+            />
+          </View>
+        </View>
+
         {/* Account Section */}
         <Text style={styles.sectionTitle}>Account</Text>
         <View style={styles.section}>
@@ -260,96 +286,97 @@ export default function SettingsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.backgroundLight,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: screenPadding,
-    paddingTop: spacing.lg,
-    paddingBottom: spacing.md,
-    backgroundColor: colors.background,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.borderLight,
-  },
-  backButton: {
-    padding: spacing.xs,
-    marginLeft: -spacing.xs,
-  },
-  headerTitle: {
-    fontSize: typography.xl,
-    fontFamily: fonts.semibold,
-    color: colors.text,
-  },
-  headerSpacer: {
-    width: 32,
-  },
-  content: {
-    flex: 1,
-  },
-  sectionTitle: {
-    fontSize: typography.xs,
-    fontFamily: fonts.semibold,
-    color: colors.textTertiary,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginTop: spacing.lg,
-    marginBottom: spacing.sm,
-    marginHorizontal: screenPadding,
-  },
-  section: {
-    backgroundColor: colors.surface,
-    borderRadius: borderRadius.lg,
-    marginHorizontal: screenPadding,
-    overflow: 'hidden',
-    ...shadows.sm,
-  },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 14,
-    paddingHorizontal: spacing.md,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.borderLight,
-  },
-  rowDisabled: {
-    opacity: 0.5,
-  },
-  rowLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  rowIcon: {
-    marginRight: spacing.md,
-  },
-  rowLabel: {
-    fontSize: typography.base,
-    fontFamily: fonts.regular,
-    color: colors.text,
-  },
-  rowLabelDestructive: {
-    color: colors.error,
-  },
-  rowRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  rowValue: {
-    fontSize: typography.sm,
-    fontFamily: fonts.regular,
-    color: colors.textTertiary,
-  },
-  loadingRow: {
-    paddingVertical: spacing.lg,
-    alignItems: 'center',
-  },
-  footer: {
-    height: spacing.xxl,
-  },
-});
+const createStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.backgroundLight,
+    },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: screenPadding,
+      paddingTop: spacing.lg,
+      paddingBottom: spacing.md,
+      backgroundColor: colors.background,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.borderLight,
+    },
+    backButton: {
+      padding: spacing.xs,
+      marginLeft: -spacing.xs,
+    },
+    headerTitle: {
+      fontSize: typography.xl,
+      fontFamily: fonts.semibold,
+      color: colors.text,
+    },
+    headerSpacer: {
+      width: 32,
+    },
+    content: {
+      flex: 1,
+    },
+    sectionTitle: {
+      fontSize: typography.xs,
+      fontFamily: fonts.semibold,
+      color: colors.textTertiary,
+      textTransform: 'uppercase',
+      letterSpacing: 0.5,
+      marginTop: spacing.lg,
+      marginBottom: spacing.sm,
+      marginHorizontal: screenPadding,
+    },
+    section: {
+      backgroundColor: colors.surface,
+      borderRadius: borderRadius.lg,
+      marginHorizontal: screenPadding,
+      overflow: 'hidden',
+      ...shadows.sm,
+    },
+    row: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingVertical: 14,
+      paddingHorizontal: spacing.md,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: colors.borderLight,
+    },
+    rowDisabled: {
+      opacity: 0.5,
+    },
+    rowLeft: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      flex: 1,
+    },
+    rowIcon: {
+      marginRight: spacing.md,
+    },
+    rowLabel: {
+      fontSize: typography.base,
+      fontFamily: fonts.regular,
+      color: colors.text,
+    },
+    rowLabelDestructive: {
+      color: colors.error,
+    },
+    rowRight: {
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    rowValue: {
+      fontSize: typography.sm,
+      fontFamily: fonts.regular,
+      color: colors.textTertiary,
+    },
+    loadingRow: {
+      paddingVertical: spacing.lg,
+      alignItems: 'center',
+    },
+    footer: {
+      height: spacing.xxl,
+    },
+  });

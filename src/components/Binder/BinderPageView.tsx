@@ -1,9 +1,10 @@
-import React, { memo, useCallback } from 'react';
+import React, { memo, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Dimensions } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { StackNavigationProp } from '@react-navigation/stack';
 import CardImage from '../Card/CardImage';
-import { colors, spacing, typography, fonts, borderRadius } from '../../constants/theme';
+import { useTheme } from '../../context/ThemeContext';
+import { spacing, typography, fonts, borderRadius, type ThemeColors } from '../../constants/theme';
 import type { Card } from '../../types';
 import type { MainStackParamList } from '../../navigation/AppNavigator';
 
@@ -96,6 +97,8 @@ function BinderPageViewComponent({
   displayMode = false,
   onCardTap,
 }: BinderPageViewProps) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const navigation = useNavigation<NavigationProp>();
   // Calculate which cards to show on the current page
   const startIndex = (currentPage - 1) * cardsPerPage;
@@ -302,7 +305,7 @@ function BinderPageViewComponent({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
   },
@@ -344,7 +347,7 @@ const styles = StyleSheet.create({
   slotBadgeOnCard: {
     fontSize: 14,
     fontFamily: fonts.bold,
-    color: colors.background,
+    color: colors.onPrimary,
   },
   slotBadge: {
     fontSize: typography.xl,
@@ -382,7 +385,7 @@ const styles = StyleSheet.create({
   variantBadgeText: {
     fontSize: 10,
     fontFamily: fonts.bold,
-    color: colors.background,
+    color: colors.onPrimary,
     textShadowColor: 'rgba(0, 0, 0, 0.3)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 2,

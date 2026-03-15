@@ -28,7 +28,8 @@ import LoadingScreen from '../../components/Loading/LoadingScreen';
 import ErrorScreen from '../../components/Error/ErrorScreen';
 import RegionBinderEditView from './RegionBinderEditView';
 import type { Binder, Card } from '../../types';
-import { colors, spacing, typography, fonts, borderRadius } from '../../constants/theme';
+import { useTheme } from '../../context/ThemeContext';
+import { spacing, typography, fonts, borderRadius, type ThemeColors } from '../../constants/theme';
 import { lightTap } from '../../utils/haptics';
 
 /**
@@ -122,6 +123,8 @@ const FLOATING_CARD_HEIGHT = 100; // Height of the floating drag card
 export default function BinderEditScreen() {
   const navigation = useNavigation();
   const route = useRoute();
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const { binderId } = route.params as { binderId: string };
 
   // Screen state
@@ -2030,7 +2033,7 @@ export default function BinderEditScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
@@ -2074,7 +2077,7 @@ const styles = StyleSheet.create({
   saveButtonText: {
     fontSize: typography.sm,
     fontFamily: fonts.semibold,
-    color: colors.background,
+    color: colors.onPrimary,
   },
   scrollView: {
     flex: 1,

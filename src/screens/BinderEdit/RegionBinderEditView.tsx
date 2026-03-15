@@ -24,7 +24,8 @@ import { CardPickerModal } from '../../components/CardPicker';
 import LoadingScreen from '../../components/Loading/LoadingScreen';
 import ErrorScreen from '../../components/Error/ErrorScreen';
 import type { Binder, Card } from '../../types';
-import { colors, spacing, typography, fonts, borderRadius, shadows } from '../../constants/theme';
+import { useTheme } from '../../context/ThemeContext';
+import { spacing, typography, fonts, borderRadius, shadows, type ThemeColors } from '../../constants/theme';
 
 /**
  * A single Pokémon slot in the region binder grid.
@@ -62,6 +63,8 @@ interface RegionBinderEditViewProps {
  */
 export default function RegionBinderEditView({ binder }: RegionBinderEditViewProps) {
   const navigation = useNavigation();
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
 
   // Screen state
   const [loading, setLoading] = useState(true);
@@ -480,7 +483,7 @@ export default function RegionBinderEditView({ binder }: RegionBinderEditViewPro
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,

@@ -1,6 +1,7 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import { View, Text, Image, Animated, StyleSheet } from 'react-native';
-import { colors, fonts, spacing, typography } from '../../constants/theme';
+import { useTheme } from '../../context/ThemeContext';
+import { fonts, spacing, typography, type ThemeColors } from '../../constants/theme';
 
 interface LoadingScreenProps {
   message?: string;
@@ -11,6 +12,8 @@ export default function LoadingScreen({
   message = 'Loading...',
   fullScreen = true,
 }: LoadingScreenProps) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
@@ -48,7 +51,7 @@ export default function LoadingScreen({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   fullScreen: {
     flex: 1,
     justifyContent: 'center',

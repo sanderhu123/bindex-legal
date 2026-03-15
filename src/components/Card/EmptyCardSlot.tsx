@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { colors, spacing, typography, borderRadius, fonts } from '../../constants/theme';
+import { useTheme } from '../../context/ThemeContext';
+import { spacing, typography, borderRadius, fonts, type ThemeColors } from '../../constants/theme';
 
 interface EmptyCardSlotProps {
   /** Position/slot number in the grid (0-based) */
@@ -27,6 +28,8 @@ export default function EmptyCardSlot({
   label,
   hideSlotNumber = false,
 }: EmptyCardSlotProps) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const cardSlotStyle = width 
     ? [styles.cardSlot, { width }]
     : styles.cardSlot;
@@ -71,7 +74,7 @@ export default function EmptyCardSlot({
 
 const CARD_MARGIN = 2;
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   cardSlot: {
     margin: CARD_MARGIN,
     marginBottom: 8,

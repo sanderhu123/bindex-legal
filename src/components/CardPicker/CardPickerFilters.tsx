@@ -11,7 +11,8 @@ import {
 import type { CardSearchFilters } from '../../types';
 import { POKEMON_ERAS } from '../../data/pokemonEras';
 import { SearchableListPicker, type ListPickerItem } from './SearchableListPicker';
-import { colors, spacing, typography, borderRadius, fonts } from '../../constants/theme';
+import { useTheme } from '../../context/ThemeContext';
+import { spacing, typography, borderRadius, fonts, type ThemeColors } from '../../constants/theme';
 import { getRarities, getRaritiesForSets } from '../../services/api/pokemonApi';
 
 /**
@@ -35,6 +36,8 @@ export interface CardPickerFiltersProps {
  * - Era and Set are linked: selecting eras narrows the set list
  */
 export function CardPickerFilters({ filters, onFiltersChange }: CardPickerFiltersProps) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   // Which picker is currently open
   const [activePicker, setActivePicker] = useState<'era' | 'set' | 'rarity' | null>(null);
   // Whether the illustrator inline input is shown
@@ -391,6 +394,8 @@ interface FilterChipProps {
  * Shows the selected value (or count) and an X button to clear.
  */
 function FilterChip({ label, value, onPress, onClear }: FilterChipProps) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const isActive = !!value;
 
   if (isActive) {
@@ -428,7 +433,7 @@ function FilterChip({ label, value, onPress, onClear }: FilterChipProps) {
 
 // ==================== Styles ====================
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
@@ -577,7 +582,7 @@ const styles = StyleSheet.create({
   },
   illustratorApplyText: {
     fontSize: typography.sm,
-    color: colors.background,
+    color: colors.onPrimary,
     fontFamily: fonts.semibold,
   },
   illustratorCancelButton: {

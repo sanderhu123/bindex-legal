@@ -12,7 +12,8 @@ import {
   Keyboard,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { colors, spacing, typography, borderRadius, shadows, fonts } from '../../constants/theme';
+import { useTheme } from '../../context/ThemeContext';
+import { spacing, typography, borderRadius, shadows, fonts, type ThemeColors } from '../../constants/theme';
 
 /**
  * A single item in the searchable list
@@ -69,6 +70,8 @@ export function SearchableListPicker({
   onClose,
   searchPlaceholder = 'Search...',
 }: SearchableListPickerProps) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [searchText, setSearchText] = useState('');
   // Local selection state so changes aren't applied until "Done"
   const [localSelected, setLocalSelected] = useState<Set<string>>(new Set(selectedIds));
@@ -266,7 +269,7 @@ export function SearchableListPicker({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   backdrop: {
     position: 'absolute',
     top: 0,

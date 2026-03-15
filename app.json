@@ -4,7 +4,7 @@
     "slug": "bindex",
     "version": "1.0.0",
     "orientation": "portrait",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "automatic",
     "scheme": "bindex",
     "icon": "./assets/app-icon.png",
     "splash": {

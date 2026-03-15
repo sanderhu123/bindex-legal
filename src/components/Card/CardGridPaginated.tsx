@@ -1,8 +1,9 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { View, FlatList, StyleSheet, Text, ActivityIndicator } from 'react-native';
 import CardItem from './CardItem';
 import type { Card } from '../../types';
-import { colors, spacing, typography } from '../../constants/theme';
+import { useTheme } from '../../context/ThemeContext';
+import { spacing, typography, type ThemeColors } from '../../constants/theme';
 
 interface CardWithOwnership extends Card {
   isOwned: boolean;
@@ -38,6 +39,8 @@ export default function CardGridPaginated({
   showProgress = true,
   totalCards,
 }: CardGridPaginatedProps) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   // Track how many cards to display
   const [displayCount, setDisplayCount] = useState(pageSize);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
@@ -145,7 +148,7 @@ export default function CardGridPaginated({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     paddingBottom: spacing.xl,
   },

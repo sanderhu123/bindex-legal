@@ -1,14 +1,17 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { View, StyleSheet, Text, TextInput, TouchableOpacity, Alert, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { signUp } from '../../services/supabase/auth';
-import { colors, fonts, spacing, typography, borderRadius, screenPadding } from '../../constants/theme';
+import { useTheme } from '../../context/ThemeContext';
+import { fonts, spacing, typography, borderRadius, screenPadding, type ThemeColors } from '../../constants/theme';
 
 interface SignupScreenProps {
   navigation: any;
 }
 
 export default function SignupScreen({ navigation }: SignupScreenProps) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
@@ -120,7 +123,8 @@ export default function SignupScreen({ navigation }: SignupScreenProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
   container: {
     flex: 1,
     justifyContent: 'center',
@@ -172,7 +176,7 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   buttonText: {
-    color: colors.background,
+    color: colors.onPrimary,
     fontSize: typography.base,
     fontFamily: fonts.semibold,
   },
@@ -183,5 +187,5 @@ const styles = StyleSheet.create({
     fontSize: typography.sm,
     fontFamily: fonts.regular,
   },
-});
+  });
 

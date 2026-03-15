@@ -2,7 +2,8 @@ import React, { useMemo, useRef } from 'react';
 import { View, StyleSheet, Text } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { Image } from 'expo-image';
-import { colors, spacing, borderRadius, shadows, fonts } from '../../constants/theme';
+import { useTheme } from '../../context/ThemeContext';
+import { spacing, borderRadius, shadows, fonts, type ThemeColors } from '../../constants/theme';
 import { isCustomCard, CUSTOM_CARD_COLORS } from '../../services/supabase/customCards';
 import { mediumTap } from '../../utils/haptics';
 
@@ -74,6 +75,8 @@ export function CardSlot({
   onDragEnd,
   onDragFinalize,
 }: CardSlotProps) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const isEmpty = !cardId;
   const hasImage = imageUrl && imageUrl.trim() !== '';
   const isCustom = cardId ? isCustomCard(cardId) : false;
@@ -234,7 +237,7 @@ export function CardSlot({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
     aspectRatio: 0.716, // Card aspect ratio (245Ãƒâ€”342 pixels)
@@ -340,7 +343,7 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   checkmarkText: {
-    color: colors.background,
+    color: colors.onPrimary,
     fontSize: 14,
     fontFamily: fonts.bold,
   },

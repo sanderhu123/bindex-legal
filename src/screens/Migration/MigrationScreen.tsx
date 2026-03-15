@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -9,7 +9,8 @@ import {
   isProgressCacheMigrationCompleted, 
   markProgressCacheMigrationCompleted 
 } from '../../utils/migrationCheck';
-import { colors, spacing, typography, fonts, screenPadding } from '../../constants/theme';
+import { useTheme } from '../../context/ThemeContext';
+import { spacing, typography, fonts, screenPadding, type ThemeColors } from '../../constants/theme';
 
 type NavigationProp = NativeStackNavigationProp<MainStackParamList>;
 
@@ -22,6 +23,8 @@ interface MigrationScreenProps {
  * This automatically fixes existing binders after the progress caching update
  */
 export default function MigrationScreen({ onComplete }: MigrationScreenProps) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [status, setStatus] = useState<string>('Checking for updates...');
   const [details, setDetails] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
@@ -110,7 +113,7 @@ export default function MigrationScreen({ onComplete }: MigrationScreenProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,

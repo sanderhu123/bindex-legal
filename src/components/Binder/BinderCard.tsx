@@ -1,10 +1,11 @@
-import React, { useRef, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { View, StyleSheet, Text, TouchableOpacity, Image, Animated } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { Binder } from '../../types';
 import ProgressBar from '../Progress/ProgressBar';
 import { getSetSymbolByName } from '../../data/pokemonEras';
-import { colors, fonts, typography, spacing, borderRadius, shadows } from '../../constants/theme';
+import { useTheme } from '../../context/ThemeContext';
+import { fonts, typography, spacing, borderRadius, shadows, type ThemeColors } from '../../constants/theme';
 
 interface BinderCardProps {
   binder: Binder;
@@ -21,6 +22,8 @@ const MODE_ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
 };
 
 export default function BinderCard({ binder, completionPercentage, totalCards, onPress, onDelete }: BinderCardProps) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [symbolError, setSymbolError] = useState(false);
   const scaleAnim = useRef(new Animated.Value(1)).current;
 
@@ -119,7 +122,7 @@ export default function BinderCard({ binder, completionPercentage, totalCards, o
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   card: {
     backgroundColor: colors.surface,
     borderRadius: borderRadius.lg,

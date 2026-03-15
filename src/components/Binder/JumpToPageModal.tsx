@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   View,
   StyleSheet,
@@ -11,7 +11,8 @@ import {
   TouchableWithoutFeedback,
   Keyboard,
 } from 'react-native';
-import { colors, spacing, typography, fonts, borderRadius, shadows } from '../../constants/theme';
+import { useTheme } from '../../context/ThemeContext';
+import { spacing, typography, fonts, borderRadius, shadows, type ThemeColors } from '../../constants/theme';
 
 /**
  * Props for JumpToPageModal component
@@ -55,6 +56,8 @@ export function JumpToPageModal({
   onClose,
   onJump,
 }: JumpToPageModalProps) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   // State for input value and error message
   const [inputValue, setInputValue] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -217,7 +220,7 @@ export function JumpToPageModal({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   backdrop: {
     position: 'absolute',
     top: 0,
@@ -304,7 +307,7 @@ const styles = StyleSheet.create({
   goButtonText: {
     fontSize: typography.base,
     fontFamily: fonts.semibold,
-    color: colors.background,
+    color: colors.onPrimary,
   },
 });
 

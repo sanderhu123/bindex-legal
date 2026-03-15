@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, StyleSheet, Text, TouchableOpacity } from 'react-native';
-import { colors, spacing, typography, borderRadius, shadows, fonts } from '../../constants/theme';
+import { useTheme } from '../../context/ThemeContext';
+import { spacing, typography, borderRadius, shadows, fonts, type ThemeColors } from '../../constants/theme';
 
 /**
  * Props for SelectedCardBar component
@@ -39,6 +40,8 @@ export function SelectedCardBar({
   onReplace,
   onRemove,
 }: SelectedCardBarProps) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   return (
     <View style={styles.container}>
       {/* Card info */}
@@ -87,7 +90,7 @@ export function SelectedCardBar({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -115,7 +118,7 @@ const styles = StyleSheet.create({
   cardName: {
     fontSize: typography.base,
     fontFamily: fonts.semibold,
-    color: colors.background,
+    color: colors.onPrimary,
   },
   sourcePage: {
     fontSize: typography.xs,
@@ -138,7 +141,7 @@ const styles = StyleSheet.create({
   replaceButtonText: {
     fontSize: typography.sm,
     fontFamily: fonts.medium,
-    color: colors.background,
+    color: colors.onPrimary,
   },
   removeButton: {
     backgroundColor: colors.error,
@@ -146,7 +149,7 @@ const styles = StyleSheet.create({
   removeButtonText: {
     fontSize: typography.sm,
     fontFamily: fonts.medium,
-    color: colors.background,
+    color: colors.onPrimary,
   },
   cancelButton: {
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
@@ -154,7 +157,7 @@ const styles = StyleSheet.create({
   cancelButtonText: {
     fontSize: typography.sm,
     fontFamily: fonts.medium,
-    color: colors.background,
+    color: colors.onPrimary,
   },
 });
 

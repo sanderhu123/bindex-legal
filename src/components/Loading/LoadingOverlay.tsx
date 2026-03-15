@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
-import { colors } from '../../constants/theme';
+import { useTheme } from '../../context/ThemeContext';
+import { type ThemeColors } from '../../constants/theme';
 
 interface LoadingOverlayProps {
   visible: boolean;
@@ -13,8 +14,11 @@ interface LoadingOverlayProps {
  */
 export default function LoadingOverlay({
   visible,
-  color = colors.textTertiary,
+  color: colorProp,
 }: LoadingOverlayProps) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+  const color = colorProp ?? colors.textTertiary;
   if (!visible) return null;
 
   return (
@@ -24,7 +28,7 @@ export default function LoadingOverlay({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   overlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: colors.overlayLight,

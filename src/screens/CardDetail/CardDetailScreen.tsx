@@ -11,7 +11,8 @@ import CardDetails from '../../components/Card/CardDetails';
 import LoadingScreen from '../../components/Loading/LoadingScreen';
 import ErrorScreen from '../../components/Error/ErrorScreen';
 import { getAvailableVariantsForCard } from '../../data/cardVariants';
-import { colors, spacing, typography, fonts, borderRadius, screenPadding, shadows } from '../../constants/theme';
+import { useTheme } from '../../context/ThemeContext';
+import { spacing, typography, fonts, borderRadius, screenPadding, shadows, type ThemeColors } from '../../constants/theme';
 import { getUserFriendlyErrorMessage, isNotFoundError } from '../../utils/errorUtils';
 import { showSuccess, showError } from '../../utils/toast';
 import { lightTap } from '../../utils/haptics';
@@ -34,6 +35,8 @@ interface CardDetailScreenProps {
  * Displays full details of a single card
  */
 export default function CardDetailScreen({ navigation, route }: CardDetailScreenProps) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const { cardId, binderId, isOwned: initialOwnedParam, position, collectionMode, isExtraCard, pokedexNumber, pokemonName, regionCardData, cardIndex, cardsPerPage, cardData } = route.params || {};
   const [card, setCard] = useState<Card | null>(null);
   const [binder, setBinder] = useState<Binder | null>(null);
@@ -748,7 +751,7 @@ export default function CardDetailScreen({ navigation, route }: CardDetailScreen
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: colors.background,
@@ -811,7 +814,7 @@ const styles = StyleSheet.create({
     fontFamily: fonts.medium,
   },
   variantChipTextSelected: {
-    color: colors.background,
+    color: colors.onPrimary,
   },
   variantChipTextUnselected: {
     color: colors.textSecondary,
@@ -896,7 +899,7 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   toggleButtonText: {
-    color: colors.background,
+    color: colors.onPrimary,
     fontSize: typography.base,
     fontFamily: fonts.semibold,
   },
@@ -916,7 +919,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.secondary || '#6366f1',
   },
   chooseCardButtonText: {
-    color: colors.background,
+    color: colors.onPrimary,
     fontSize: typography.base,
     fontFamily: fonts.semibold,
   },

@@ -11,7 +11,8 @@ import {
 } from 'react-native';
 import type { Card } from '../../types';
 import CardImage from '../Card/CardImage';
-import { colors, spacing, typography, borderRadius, fonts } from '../../constants/theme';
+import { useTheme } from '../../context/ThemeContext';
+import { spacing, typography, borderRadius, fonts, type ThemeColors } from '../../constants/theme';
 import { canRetryError, classifyError, type AppErrorType } from '../../utils/errorUtils';
 
 /**
@@ -35,6 +36,8 @@ interface CardItemProps {
 }
 
 const CardResultItem = memo(function CardResultItem({ card, onSelect, isVisible = true, onLongPress, onLongPressRelease }: CardItemProps) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   return (
     <TouchableOpacity
       style={styles.cardItem}
@@ -135,6 +138,8 @@ export function CardSearchResults({
   onCardLongPress,
   onCardLongPressRelease,
 }: CardSearchResultsProps) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   
   /**
    * Track which items are currently visible for lazy loading
@@ -330,7 +335,7 @@ export function CardSearchResults({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   listContent: {
     paddingBottom: spacing.md,
   },
@@ -488,7 +493,7 @@ const styles = StyleSheet.create({
   retryButtonText: {
     fontSize: typography.base,
     fontFamily: fonts.semibold,
-    color: colors.background,
+    color: colors.onPrimary,
   },
 });
 

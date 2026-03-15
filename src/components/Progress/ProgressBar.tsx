@@ -1,6 +1,7 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import { View, StyleSheet, Text, Animated } from 'react-native';
-import { colors, fonts, typography, borderRadius } from '../../constants/theme';
+import { useTheme } from '../../context/ThemeContext';
+import { fonts, typography, borderRadius, type ThemeColors } from '../../constants/theme';
 
 interface ProgressBarProps {
   /** Current value (e.g., owned cards) */
@@ -25,6 +26,8 @@ export default function ProgressBar({
   customText,
   textSize = 'small',
 }: ProgressBarProps) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const progressPercentage = percentage ?? (total > 0 ? Math.round((current / total) * 100) : 0);
   const clampedPercentage = Math.min(100, Math.max(0, Math.round(progressPercentage)));
   const displayPercentage = Math.round(clampedPercentage);
@@ -73,7 +76,7 @@ export default function ProgressBar({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     marginTop: 4,
   },

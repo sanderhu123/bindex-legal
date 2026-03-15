@@ -47,7 +47,8 @@ import LoadingSpinner from '../../components/Loading/LoadingSpinner';
 import EmptyState from '../../components/EmptyState/EmptyState';
 import ErrorScreen from '../../components/Error/ErrorScreen';
 import ViewModeToggle from '../../components/ViewModeToggle';
-import { colors, spacing, typography, fonts, borderRadius, screenPadding } from '../../constants/theme';
+import { useTheme } from '../../context/ThemeContext';
+import { spacing, typography, fonts, borderRadius, screenPadding, type ThemeColors } from '../../constants/theme';
 import { showSuccess, showError } from '../../utils/toast';
 import { lightTap } from '../../utils/haptics';
 
@@ -104,6 +105,8 @@ type MasterSetGridItem =
 type ViewMode = 'grid' | 'list' | 'binder';
 
 export default function BinderDetailScreen({ navigation, route }: BinderDetailScreenProps) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const binderId = route.params?.binderId;
   const [binder, setBinder] = useState<Binder | null>(null);
   const [cards, setCards] = useState<CardWithOwnership[]>([]);
@@ -2874,7 +2877,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: colors.background,
@@ -3099,13 +3102,13 @@ const styles = StyleSheet.create({
   enlargedCardName: {
     fontSize: typography.xl,
     fontFamily: fonts.bold,
-    color: colors.background,
+    color: colors.onPrimary,
     marginTop: spacing.md,
     textAlign: 'center',
   },
   enlargedCardNumber: {
     fontSize: typography.base,
-    color: colors.backgroundLight,
+    color: colors.onPrimary,
     marginTop: spacing.xs,
     textAlign: 'center',
   },

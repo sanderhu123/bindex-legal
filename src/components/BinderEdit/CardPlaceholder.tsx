@@ -2,7 +2,8 @@ import React, { useMemo, useRef } from 'react';
 import { View, StyleSheet, Text, ScrollView, TouchableOpacity } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import CardImage from '../Card/CardImage';
-import { colors, spacing, typography, borderRadius, shadows, fonts } from '../../constants/theme';
+import { useTheme } from '../../context/ThemeContext';
+import { spacing, typography, borderRadius, shadows, fonts, type ThemeColors } from '../../constants/theme';
 
 /**
  * Card info for placeholder tray
@@ -86,6 +87,8 @@ function PlaceholderCardItem({
   onDragFinalize?: () => void;
   registerRef?: (index: number, ref: View | null) => void;
 }) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   // Refs for stable gesture callbacks
   const onPressRef = useRef(onPress);
   onPressRef.current = onPress;
@@ -201,6 +204,8 @@ export function CardPlaceholder({
   onCardDragFinalize,
   registerCardRef,
 }: CardPlaceholderProps) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const cardCount = cards.length;
 
   // Show trash zone when a card is selected OR when a drag is in progress
@@ -296,7 +301,7 @@ export function CardPlaceholder({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     backgroundColor: colors.backgroundDark,
     borderTopWidth: 2,
@@ -395,7 +400,7 @@ const styles = StyleSheet.create({
   },
   selectedCheck: {
     fontSize: 20,
-    color: colors.background,
+    color: colors.onPrimary,
     fontFamily: fonts.bold,
   },
   trashZone: {

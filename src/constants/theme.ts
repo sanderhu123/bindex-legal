@@ -4,53 +4,88 @@
  * Font: Poppins
  */
 
-export const colors = {
-  // Primary — used sparingly for key actions and accents
+export const lightColors = {
   primary: '#126D5F',
   primaryDark: '#0E5A4E',
   primaryLight: '#1A8F7D',
+  onPrimary: '#FFFFFF',
 
-  // Secondary
   secondary: '#2D2D2D',
 
-  // Backgrounds
   background: '#FFFFFF',
   backgroundLight: '#F7F7F7',
   backgroundDark: '#EEEEEE',
 
-  // Surface (cards, modals)
   surface: '#FFFFFF',
   surfaceElevated: '#FFFFFF',
 
-  // Text
   text: '#1A1A1A',
   textSecondary: '#4A4A4A',
   textTertiary: '#8A8A8A',
   textLight: '#B0B0B0',
 
-  // Borders
   border: '#E8E8E8',
   borderLight: '#F2F2F2',
 
-  // Status colors
   success: '#34C759',
   error: '#FF3B30',
   warning: '#FF9500',
   info: '#126D5F',
 
-  // Card variant colors
   variantReverseHolo: '#FFD700',
   variantPokeBall: '#FF6B6B',
   variantMasterBall: '#4ECDC4',
 
-  // Overlay
   overlay: 'rgba(0, 0, 0, 0.4)',
   overlayLight: 'rgba(255, 255, 255, 0.9)',
 
-  // Disabled
   disabled: '#D4D4D4',
   disabledText: '#B0B0B0',
 } as const;
+
+export const darkColors: ThemeColors = {
+  primary: '#126D5F',
+  primaryDark: '#0E5A4E',
+  primaryLight: '#1A8F7D',
+  onPrimary: '#FFFFFF',
+
+  secondary: '#D0D0D0',
+
+  background: '#121212',
+  backgroundLight: '#1A1A1A',
+  backgroundDark: '#0D0D0D',
+
+  surface: '#1E1E1E',
+  surfaceElevated: '#252525',
+
+  text: '#E8E8E8',
+  textSecondary: '#B0B0B0',
+  textTertiary: '#787878',
+  textLight: '#5A5A5A',
+
+  border: '#2E2E2E',
+  borderLight: '#252525',
+
+  success: '#34C759',
+  error: '#FF453A',
+  warning: '#FF9F0A',
+  info: '#126D5F',
+
+  variantReverseHolo: '#FFD700',
+  variantPokeBall: '#FF6B6B',
+  variantMasterBall: '#4ECDC4',
+
+  overlay: 'rgba(0, 0, 0, 0.6)',
+  overlayLight: 'rgba(30, 30, 30, 0.9)',
+
+  disabled: '#3A3A3A',
+  disabledText: '#5A5A5A',
+};
+
+export type ThemeColors = { [K in keyof typeof lightColors]: string };
+
+/** @deprecated Use useTheme().colors instead for dark mode support */
+export const colors = lightColors;
 
 export const fonts = {
   regular: 'Poppins_400Regular',

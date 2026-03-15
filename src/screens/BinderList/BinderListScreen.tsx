@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   StyleSheet,
@@ -20,7 +20,8 @@ import type { Binder } from '../../types';
 import BinderCard from '../../components/Binder/BinderCard';
 import LoadingScreen from '../../components/Loading/LoadingScreen';
 import EmptyState from '../../components/EmptyState/EmptyState';
-import { colors, fonts, spacing, typography, borderRadius, screenPadding, shadows } from '../../constants/theme';
+import { useTheme } from '../../context/ThemeContext';
+import { fonts, spacing, typography, borderRadius, screenPadding, shadows, type ThemeColors } from '../../constants/theme';
 import { showSuccess, showError } from '../../utils/toast';
 import { warningVibration } from '../../utils/haptics';
 import { Ionicons } from '@expo/vector-icons';
@@ -34,6 +35,8 @@ interface BinderWithProgress extends Binder {
 
 export default function BinderListScreen() {
   const navigation = useNavigation<NavigationProp>();
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [binders, setBinders] = useState<BinderWithProgress[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -317,13 +320,13 @@ export default function BinderListScreen() {
 
       {/* Floating Action Button */}
       <TouchableOpacity style={styles.fab} onPress={handleCreateBinder} activeOpacity={0.85}>
-        <Ionicons name="add" size={28} color={colors.background} />
+        <Ionicons name="add" size={28} color={colors.onPrimary} />
       </TouchableOpacity>
     </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.backgroundLight,
@@ -363,7 +366,7 @@ const styles = StyleSheet.create({
     color: colors.primary,
   },
   proBadgeTextActive: {
-    color: colors.background,
+    color: colors.onPrimary,
   },
   settingsButton: {
     padding: spacing.xs + 2,

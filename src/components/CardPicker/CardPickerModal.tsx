@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   StyleSheet,
@@ -21,7 +21,8 @@ import type { Card } from '../../types';
 import { useCardPicker } from '../../hooks/useCardPicker';
 import { CardSearchResults } from './CardSearchResults';
 import { CardPickerFilters } from './CardPickerFilters';
-import { colors, spacing, typography, borderRadius, shadows, fonts } from '../../constants/theme';
+import { useTheme } from '../../context/ThemeContext';
+import { spacing, typography, borderRadius, shadows, fonts, type ThemeColors } from '../../constants/theme';
 import { createCustomCard, CUSTOM_CARD_COLORS } from '../../services/supabase/customCards';
 
 /** Modal height as percentage of screen (85%) */
@@ -87,6 +88,8 @@ export function CardPickerModal({
   pokemonOnly = false,
   exactMatch,
 }: CardPickerModalProps) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   // Get dynamic screen dimensions for responsive layout
   const { height: screenHeight } = useWindowDimensions();
   
@@ -460,7 +463,7 @@ export function CardPickerModal({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   backdrop: {
     position: 'absolute',
     top: 0,

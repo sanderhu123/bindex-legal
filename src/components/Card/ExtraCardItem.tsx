@@ -1,7 +1,8 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { View, StyleSheet, Text, TouchableOpacity, Alert, Image } from 'react-native';
 import type { Card } from '../../types';
-import { colors, spacing, typography, borderRadius, shadows, fonts } from '../../constants/theme';
+import { useTheme } from '../../context/ThemeContext';
+import { spacing, typography, borderRadius, shadows, fonts, type ThemeColors } from '../../constants/theme';
 
 /**
  * Card with ownership status for extra cards
@@ -54,6 +55,8 @@ export default function ExtraCardItem({
   onRemove,
   onPress,
 }: ExtraCardItemProps) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   // Calculate image height to maintain card aspect ratio (cards are ~1.4:1)
   const imageHeight = width * 1.4;
 
@@ -148,7 +151,7 @@ export default function ExtraCardItem({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     margin: 2,
   },
@@ -205,7 +208,7 @@ const styles = StyleSheet.create({
     borderColor: colors.success,
   },
   checkmark: {
-    color: colors.background,
+    color: colors.onPrimary,
     fontSize: typography.sm,
     fontFamily: fonts.bold,
   },

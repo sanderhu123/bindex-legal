@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import {
   View,
   StyleSheet,
@@ -16,7 +16,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { searchCardsByName, type CardSearchOptions } from '../../services/api/pokemonApi';
 import type { Card } from '../../types';
-import { colors, spacing, typography, fonts, borderRadius, screenPadding } from '../../constants/theme';
+import { useTheme } from '../../context/ThemeContext';
+import { spacing, typography, fonts, borderRadius, screenPadding, type ThemeColors } from '../../constants/theme';
 import { CardPickerModal } from '../../components/CardPicker';
 
 /**
@@ -28,6 +29,8 @@ import { CardPickerModal } from '../../components/CardPicker';
  */
 export default function CardSearchTestScreen() {
   const navigation = useNavigation();
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<Card[]>([]);
   const [loading, setLoading] = useState(false);
@@ -224,7 +227,7 @@ export default function CardSearchTestScreen() {
             disabled={loading}
           >
             {loading ? (
-              <ActivityIndicator color={colors.background} size="small" />
+              <ActivityIndicator color={colors.onPrimary} size="small" />
             ) : (
               <Text style={styles.searchButtonText}>Search</Text>
             )}
@@ -282,7 +285,7 @@ export default function CardSearchTestScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.backgroundLight,
@@ -343,7 +346,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   modalTestButtonText: {
-    color: colors.background,
+    color: colors.onPrimary,
     fontSize: typography.base,
     fontFamily: fonts.semibold,
   },
@@ -432,7 +435,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   searchButtonText: {
-    color: colors.background,
+    color: colors.onPrimary,
     fontSize: typography.base,
     fontFamily: fonts.semibold,
   },

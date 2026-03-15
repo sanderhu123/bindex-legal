@@ -270,7 +270,7 @@ export default function BinderListScreen() {
       <SafeAreaView style={styles.container}>
         <View style={styles.header}>
           <Image
-            source={require('../../../assets/logo-wordmark-white.png')}
+            source={require('../../../assets/logo-wordmark.png')}
             style={styles.headerLogo}
             resizeMode="contain"
           />
@@ -284,7 +284,7 @@ export default function BinderListScreen() {
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <Image
-          source={require('../../../assets/logo-wordmark-white.png')}
+          source={require('../../../assets/logo-wordmark.png')}
           style={styles.headerLogo}
           resizeMode="contain"
         />
@@ -345,7 +345,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: screenPadding,
     paddingTop: spacing.lg,
     paddingBottom: spacing.md,
-    backgroundColor: colors.primary,
+    backgroundColor: colors.background,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.borderLight,
   },
   headerLogo: {
     height: 28,
@@ -361,16 +363,15 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xs + 2,
     borderRadius: borderRadius.full,
     borderWidth: 1.5,
-    borderColor: 'rgba(255, 255, 255, 0.6)',
+    borderColor: colors.primary,
   },
   proBadgeActive: {
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    borderColor: colors.background,
+    backgroundColor: colors.primary,
   },
   proBadgeText: {
     fontSize: typography.xs,
     fontFamily: fonts.semibold,
-    color: 'rgba(255, 255, 255, 0.8)',
+    color: colors.primary,
   },
   proBadgeTextActive: {
     color: colors.background,
@@ -380,7 +381,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xs + 2,
   },
   logoutText: {
-    color: 'rgba(255, 255, 255, 0.7)',
+    color: colors.textTertiary,
     fontSize: typography.sm,
     fontFamily: fonts.medium,
   },
@@ -404,9 +405,10 @@ const styles = StyleSheet.create({
     ...shadows.lg,
   },
   fabIcon: {
-    fontSize: 28,
+    fontSize: 30,
+    lineHeight: 32,
     color: colors.background,
-    fontFamily: fonts.regular,
-    marginTop: -1,
+    textAlign: 'center',
+    includeFontPadding: false,
   },
 });

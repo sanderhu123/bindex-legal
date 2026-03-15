@@ -2491,6 +2491,8 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
     <View style={styles.stickyFooter}>
       <View style={styles.stickyFooterContent}>
         <View style={styles.stickyFooterStats}>
+          <Text style={styles.stickyFooterTotal}>{totalCount} total</Text>
+          <Text style={styles.stickyFooterDot}>·</Text>
           <Text style={styles.stickyFooterOwned}>{ownedCount} owned</Text>
           <Text style={styles.stickyFooterDot}>·</Text>
           <Text style={styles.stickyFooterMissing}>{missingCount} missing</Text>
@@ -2682,6 +2684,13 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
                 onNextPage={() => setCurrentPage(p => Math.min(binderTotalPages, p + 1))}
                 onJumpToPage={() => setShowJumpModal(true)}
               />
+              {!displayMode && (
+                <View style={styles.binderPageInfo}>
+                  <Text style={styles.binderPageInfoText}>
+                    Cards {((currentPage - 1) * cardsPerPage) + 1} - {Math.min(currentPage * cardsPerPage, binderCards.length)} of {binderCards.length}
+                  </Text>
+                </View>
+              )}
             </>
           )}
         </ScrollView>
@@ -3142,6 +3151,15 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     fontSize: 22,
     color: colors.primary,
   },
+  binderPageInfo: {
+    alignItems: 'center',
+    paddingVertical: spacing.xs,
+  },
+  binderPageInfoText: {
+    fontSize: typography.sm,
+    color: colors.textTertiary,
+    fontFamily: fonts.regular,
+  },
   stickyFooter: {
     borderTopWidth: 1,
     borderTopColor: colors.border,
@@ -3157,6 +3175,11 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: spacing.xs,
+  },
+  stickyFooterTotal: {
+    fontSize: typography.xs,
+    fontFamily: fonts.semibold,
+    color: colors.text,
   },
   stickyFooterOwned: {
     fontSize: typography.xs,

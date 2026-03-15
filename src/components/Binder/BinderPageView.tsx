@@ -291,15 +291,6 @@ function BinderPageViewComponent({
       <View style={styles.grid}>
         {renderGrid()}
       </View>
-      
-      {/* Page info footer - hidden in display mode */}
-      {!displayMode && (
-        <View style={styles.pageInfo}>
-          <Text style={styles.pageInfoText}>
-            Cards {startIndex + 1} - {Math.min(startIndex + cardsPerPage, cards.length)} of {cards.length}
-          </Text>
-        </View>
-      )}
     </View>
   );
 }

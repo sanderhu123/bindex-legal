@@ -1,6 +1,7 @@
-import React, { memo, useCallback } from 'react';
+import React, { memo, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { fonts } from '../../constants/theme';
+import { fonts, type ThemeColors } from '../../constants/theme';
+import { useTheme } from '../../context/ThemeContext';
 import { useNavigation } from '@react-navigation/native';
 import type { StackNavigationProp } from '@react-navigation/stack';
 import CardImage from './CardImage';
@@ -65,6 +66,8 @@ function CardItemComponent({
 }: CardItemProps) {
   const navigation = useNavigation<NavigationProp>();
   const badge = getVariantBadge(card.variant);
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
 
   const handleCardPress = () => {
     // Navigate to CardDetail screen when card is tapped
@@ -237,7 +240,7 @@ export default CardItem;
 
 const CARD_MARGIN = 2;
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   // Grid view styles
   cardItem: {
     margin: CARD_MARGIN,
@@ -255,7 +258,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 4,
     right: 4,
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    backgroundColor: colors.overlayLight,
     borderRadius: 4,
     padding: 4,
     minWidth: 28,
@@ -290,13 +293,13 @@ const styles = StyleSheet.create({
   listItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: colors.surface,
     borderRadius: 8,
     paddingVertical: 10,
     paddingHorizontal: 12,
     marginBottom: 6,
     borderWidth: 1,
-    borderColor: '#e0e0e0',
+    borderColor: colors.border,
   },
   missingListItem: {
     opacity: 0.6,
@@ -312,17 +315,17 @@ const styles = StyleSheet.create({
   listCardName: {
     fontSize: 16,
     fontFamily: fonts.semibold,
-    color: '#333',
+    color: colors.text,
     flex: 1,
   },
   listCardNumber: {
     fontSize: 14,
-    color: '#666',
+    color: colors.textSecondary,
     marginBottom: 1,
   },
   listCardRarity: {
     fontSize: 12,
-    color: '#999',
+    color: colors.textTertiary,
   },
   listVariantBadgeInline: {
     marginLeft: 8,

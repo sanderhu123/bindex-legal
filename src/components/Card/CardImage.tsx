@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { View, StyleSheet, ActivityIndicator, Text } from 'react-native';
-import { fonts } from '../../constants/theme';
+import { fonts, type ThemeColors } from '../../constants/theme';
+import { useTheme } from '../../context/ThemeContext';
 import { Image, ImageSource } from 'expo-image';
 import { isCustomCard, getCustomCardColor, getCustomCardTextColor } from '../../services/supabase/customCards';
 
@@ -10,6 +11,8 @@ import { isCustomCard, getCustomCardColor, getCustomCardTextColor } from '../../
  * Shows card name and number when available so users can identify the card.
  */
 function CardBackPlaceholder({ style, cardName, cardNumber }: { style?: any; cardName?: string; cardNumber?: string }) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const hasCardInfo = !!(cardName || cardNumber);
 
   return (
@@ -147,6 +150,8 @@ export default function CardImage({
   const [retryKey, setRetryKey] = useState(0); // Key to force image remount on retry
   const [hiResLoaded, setHiResLoaded] = useState(false); // Tracks if high-res image has loaded
   const MAX_RETRIES = 2;
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
 
   // Check if we're doing progressive loading (low-res → high-res)
   const hasLowRes = !!lowResSource && typeof source === 'string' && lowResSource !== source;
@@ -319,7 +324,7 @@ export default function CardImage({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     width: '100%',
     backgroundColor: 'transparent',
@@ -332,7 +337,6 @@ const styles = StyleSheet.create({
     height: '100%',
   },
   imageOverlay: {
-    // Positioned on top of the low-res image so the high-res replaces it smoothly
     position: 'absolute',
     top: 0,
     left: 0,
@@ -350,12 +354,12 @@ const styles = StyleSheet.create({
     bottom: 0,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(245, 245, 245, 0.9)',
+    backgroundColor: colors.overlayLight,
   },
   retryText: {
     marginTop: 4,
     fontSize: 10,
-    color: '#999',
+    color: colors.textTertiary,
   },
   // Card back placeholder styles (Pokéball design)
   cardBackContainer: {
@@ -386,18 +390,18 @@ const styles = StyleSheet.create({
     width: 60,
     height: 60,
     borderRadius: 30,
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.surface,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 3,
-    borderColor: '#333',
+    borderColor: colors.border,
     overflow: 'hidden',
   },
   pokeballDivider: {
     position: 'absolute',
     width: '100%',
     height: 4,
-    backgroundColor: '#333',
+    backgroundColor: colors.surfaceElevated,
     top: '50%',
     marginTop: -2,
   },
@@ -405,9 +409,9 @@ const styles = StyleSheet.create({
     width: 20,
     height: 20,
     borderRadius: 10,
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.surface,
     borderWidth: 3,
-    borderColor: '#333',
+    borderColor: colors.border,
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 1,
@@ -416,9 +420,9 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: '#999',
+    borderColor: colors.border,
   },
   cardInfoCenter: {
     alignItems: 'center',

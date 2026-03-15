@@ -57,16 +57,16 @@ export const darkColors: ThemeColors = {
   backgroundLight: '#1A1A1A',
   backgroundDark: '#0D0D0D',
 
-  surface: '#1E1E1E',
-  surfaceElevated: '#252525',
+  surface: '#2A2A2A',
+  surfaceElevated: '#333333',
 
-  text: '#E8E8E8',
-  textSecondary: '#B0B0B0',
-  textTertiary: '#787878',
-  textLight: '#5A5A5A',
+  text: '#F0F0F0',
+  textSecondary: '#D0D0D0',
+  textTertiary: '#9A9A9A',
+  textLight: '#707070',
 
-  border: '#2E2E2E',
-  borderLight: '#252525',
+  border: '#3A3A3A',
+  borderLight: '#303030',
 
   success: '#34C759',
   error: '#FF453A',
@@ -81,7 +81,7 @@ export const darkColors: ThemeColors = {
   overlayLight: 'rgba(30, 30, 30, 0.9)',
 
   disabled: '#3A3A3A',
-  disabledText: '#5A5A5A',
+  disabledText: '#606060',
 };
 
 export type ThemeColors = { [K in keyof typeof lightColors]: string };

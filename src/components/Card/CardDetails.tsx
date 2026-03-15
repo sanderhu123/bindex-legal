@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, StyleSheet, Text } from 'react-native';
-import { fonts } from '../../constants/theme';
+import { fonts, type ThemeColors } from '../../constants/theme';
+import { useTheme } from '../../context/ThemeContext';
 import type { Card } from '../../types';
 
 interface CardDetailsProps {
@@ -42,6 +43,8 @@ export default function CardDetails({
   showVariantBadge = true,
   showPokedex = true,
 }: CardDetailsProps) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const badge = showVariantBadge ? getVariantBadge(card.variant) : null;
 
   if (variant === 'compact') {
@@ -111,7 +114,7 @@ export default function CardDetails({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   // Compact variant styles (for grid/list items)
   compactContainer: {
     alignItems: 'center',
@@ -126,7 +129,7 @@ const styles = StyleSheet.create({
   },
   compactName: {
     fontSize: 12,
-    color: '#333',
+    color: colors.text,
     fontFamily: fonts.medium,
     textAlign: 'center',
     flex: 1,
@@ -151,13 +154,13 @@ const styles = StyleSheet.create({
   },
   compactNumber: {
     fontSize: 10,
-    color: '#666',
+    color: colors.textSecondary,
     textAlign: 'center',
     marginTop: 2,
   },
   compactSet: {
     fontSize: 9,
-    color: '#999',
+    color: colors.textTertiary,
     textAlign: 'center',
     marginTop: 1,
   },
@@ -173,7 +176,7 @@ const styles = StyleSheet.create({
   fullName: {
     fontSize: 24,
     fontFamily: fonts.semibold,
-    color: '#333',
+    color: colors.text,
     flex: 1,
   },
   fullBadge: {
@@ -196,7 +199,7 @@ const styles = StyleSheet.create({
   },
   fullNumber: {
     fontSize: 16,
-    color: '#666',
+    color: colors.textSecondary,
     marginBottom: 8,
   },
   fullRow: {
@@ -205,13 +208,13 @@ const styles = StyleSheet.create({
   },
   fullLabel: {
     fontSize: 14,
-    color: '#999',
+    color: colors.textTertiary,
     fontFamily: fonts.medium,
     width: 70,
   },
   fullValue: {
     fontSize: 14,
-    color: '#333',
+    color: colors.text,
     flex: 1,
   },
 });

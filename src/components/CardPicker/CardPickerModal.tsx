@@ -381,7 +381,7 @@ export function CardPickerModal({
                 <View style={[
                   styles.customCardPreview,
                   { backgroundColor: customCardColor },
-                  customCardColor === '#FFFFFF' && { borderWidth: 1, borderColor: '#ddd' },
+                  customCardColor === '#FFFFFF' && { borderWidth: 1, borderColor: colors.border },
                 ]}>
                   <Text
                     style={[
@@ -604,7 +604,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   colorCircleWhiteBorder: {
     borderWidth: 1,
-    borderColor: '#ccc',
+    borderColor: colors.border,
   },
   colorCircleSelected: {
     borderWidth: 3,
@@ -644,7 +644,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   createCardButtonText: {
     fontSize: typography.base,
     fontFamily: fonts.bold,
-    color: '#FFFFFF',
+    color: colors.onPrimary,
   },
   enlargeOverlay: {
     position: 'absolute',
@@ -670,7 +670,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   enlargedCardName: {
     fontSize: typography.xl,
     fontFamily: fonts.bold,
-    color: '#FFFFFF',
+    color: colors.onPrimary,
     marginTop: spacing.md,
     textAlign: 'center',
   },

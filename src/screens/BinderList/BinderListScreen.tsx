@@ -35,7 +35,7 @@ interface BinderWithProgress extends Binder {
 
 export default function BinderListScreen() {
   const navigation = useNavigation<NavigationProp>();
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const [binders, setBinders] = useState<BinderWithProgress[]>([]);
   const [loading, setLoading] = useState(true);
@@ -258,7 +258,7 @@ export default function BinderListScreen() {
       <SafeAreaView style={styles.container}>
         <View style={styles.header}>
           <Image
-            source={require('../../../assets/logo-wordmark.png')}
+            source={isDark ? require('../../../assets/logo-wordmark-white.png') : require('../../../assets/logo-wordmark.png')}
             style={styles.headerLogo}
             resizeMode="contain"
           />
@@ -272,7 +272,7 @@ export default function BinderListScreen() {
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <Image
-          source={require('../../../assets/logo-wordmark.png')}
+          source={isDark ? require('../../../assets/logo-wordmark-white.png') : require('../../../assets/logo-wordmark.png')}
           style={styles.headerLogo}
           resizeMode="contain"
         />

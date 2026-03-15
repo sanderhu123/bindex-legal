@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
-import { colors, fonts, spacing, typography, screenPadding } from '../../constants/theme';
+import { fonts, spacing, typography, screenPadding, type ThemeColors } from '../../constants/theme';
+import { useTheme } from '../../context/ThemeContext';
 import RegionSelector from '../../components/Binder/RegionSelector';
 import type { Region } from '../../services/api/pokemonApi';
 
@@ -10,6 +11,9 @@ interface Step2RegionProps {
 }
 
 export default function Step2Region({ selectedRegion, onChange }: Step2RegionProps) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <Text style={styles.title}>Select Region</Text>
@@ -21,7 +25,7 @@ export default function Step2Region({ selectedRegion, onChange }: Step2RegionPro
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
   },

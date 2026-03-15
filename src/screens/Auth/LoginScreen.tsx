@@ -11,7 +11,7 @@ interface LoginScreenProps {
 }
 
 export default function LoginScreen({ navigation }: LoginScreenProps) {
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -78,7 +78,7 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
     <SafeAreaView style={styles.container}>
       <View style={styles.logoContainer}>
         <Image
-          source={require('../../../assets/logo-wordmark.png')}
+          source={isDark ? require('../../../assets/logo-wordmark-white.png') : require('../../../assets/logo-wordmark.png')}
           style={styles.logo}
           resizeMode="contain"
         />

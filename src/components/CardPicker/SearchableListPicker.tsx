@@ -398,7 +398,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     borderBottomColor: colors.borderLight,
   },
   listItemSelected: {
-    backgroundColor: '#EBF5FF',
+    backgroundColor: colors.primaryTint,
   },
   checkbox: {
     width: 22,
@@ -416,7 +416,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   checkboxIcon: {
     fontSize: 14,
-    color: '#fff',
+    color: colors.onPrimary,
     fontFamily: fonts.bold,
   },
   listItemContent: {

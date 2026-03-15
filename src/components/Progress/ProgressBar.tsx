@@ -26,7 +26,7 @@ export default function ProgressBar({
   customText,
   textSize = 'small',
 }: ProgressBarProps) {
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const progressPercentage = percentage ?? (total > 0 ? Math.round((current / total) * 100) : 0);
   const clampedPercentage = Math.min(100, Math.max(0, Math.round(progressPercentage)));
@@ -70,7 +70,7 @@ export default function ProgressBar({
     <View style={styles.container}>
       <Text style={textStyle}>{getProgressText()}</Text>
       <View style={styles.barContainer}>
-        <Animated.View style={[styles.barFill, { width: widthInterpolation }]} />
+        <Animated.View style={[styles.barFill, { width: widthInterpolation, backgroundColor: isDark ? '#FFFFFF' : colors.primary }]} />
       </View>
     </View>
   );
@@ -100,7 +100,6 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   barFill: {
     height: '100%',
-    backgroundColor: colors.primary,
     borderRadius: borderRadius.full,
   },
 });

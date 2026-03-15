@@ -460,7 +460,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     maxWidth: 180,
   },
   chipActive: {
-    backgroundColor: '#EBF5FF',
+    backgroundColor: colors.primaryTint,
     borderColor: colors.primary,
   },
   chipLabelTouch: {
@@ -515,7 +515,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   tag: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#EBF5FF',
+    backgroundColor: colors.primaryTint,
     borderRadius: borderRadius.full,
     borderWidth: 1,
     borderColor: colors.primary,

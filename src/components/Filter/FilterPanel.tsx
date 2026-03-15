@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { fonts } from '../../constants/theme';
+import { useTheme } from '../../context/ThemeContext';
+import { fonts, type ThemeColors } from '../../constants/theme';
 import type { OwnershipFilter } from '../../hooks/useCardFilter';
 
 interface FilterPanelProps {
@@ -10,18 +11,16 @@ interface FilterPanelProps {
   onShowPageBreaksChange?: (show: boolean) => void;
 }
 
-/**
- * Filter panel component with ownership filter
- */
 export default function FilterPanel({
   ownershipFilter,
   onOwnershipFilterChange,
   showPageBreaks,
   onShowPageBreaksChange,
 }: FilterPanelProps) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   return (
     <View style={styles.container}>
-      {/* Ownership Filter */}
       <View style={styles.filterSection}>
         <Text style={styles.filterLabel}>Show:</Text>
         <View style={styles.filterButtons}>
@@ -76,7 +75,6 @@ export default function FilterPanel({
         </View>
       </View>
 
-      {/* Page Breaks Toggle - only shown when handler is provided */}
       {onShowPageBreaksChange && (
         <TouchableOpacity
           style={styles.toggleRow}
@@ -92,60 +90,61 @@ export default function FilterPanel({
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    marginBottom: 12,
-  },
-  filterSection: {
-    marginBottom: 12,
-  },
-  filterLabel: {
-    fontSize: 14,
-    fontFamily: fonts.semibold,
-    color: '#333',
-    marginBottom: 8,
-  },
-  filterButtons: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-  },
-  filterButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 6,
-    backgroundColor: '#f0f0f0',
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
-    marginRight: 8,
-    marginBottom: 8,
-  },
-  filterButtonActive: {
-    backgroundColor: '#007AFF',
-    borderColor: '#007AFF',
-  },
-  filterButtonText: {
-    fontSize: 14,
-    color: '#666',
-    fontFamily: fonts.medium,
-  },
-  filterButtonTextActive: {
-    color: '#fff',
-  },
-  toggleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 10,
-    paddingHorizontal: 4,
-    marginTop: 4,
-  },
-  toggleLabel: {
-    fontSize: 14,
-    fontFamily: fonts.medium,
-    color: '#333',
-  },
-  toggleIcon: {
-    fontSize: 20,
-    color: '#007AFF',
-  },
-});
+const createStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    container: {
+      marginBottom: 12,
+    },
+    filterSection: {
+      marginBottom: 12,
+    },
+    filterLabel: {
+      fontSize: 14,
+      fontFamily: fonts.semibold,
+      color: colors.text,
+      marginBottom: 8,
+    },
+    filterButtons: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+    },
+    filterButton: {
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      borderRadius: 6,
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.border,
+      marginRight: 8,
+      marginBottom: 8,
+    },
+    filterButtonActive: {
+      backgroundColor: colors.primary,
+      borderColor: colors.primary,
+    },
+    filterButtonText: {
+      fontSize: 14,
+      color: colors.textSecondary,
+      fontFamily: fonts.medium,
+    },
+    filterButtonTextActive: {
+      color: colors.onPrimary,
+    },
+    toggleRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingVertical: 10,
+      paddingHorizontal: 4,
+      marginTop: 4,
+    },
+    toggleLabel: {
+      fontSize: 14,
+      fontFamily: fonts.medium,
+      color: colors.text,
+    },
+    toggleIcon: {
+      fontSize: 20,
+      color: colors.primary,
+    },
+  });

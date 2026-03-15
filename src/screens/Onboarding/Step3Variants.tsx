@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
-import { colors, fonts, spacing, typography, screenPadding } from '../../constants/theme';
+import { fonts, spacing, typography, screenPadding, type ThemeColors } from '../../constants/theme';
+import { useTheme } from '../../context/ThemeContext';
 import VariantSelector from '../../components/Binder/VariantSelector';
 import { getAvailableVariantsForSet } from '../../data/cardVariants';
 
@@ -15,10 +16,12 @@ export default function Step3Variants({
   selectedVariants,
   onChange,
 }: Step3VariantsProps) {
-  // Get available variants for the selected set
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   const availableVariants = selectedSetId 
     ? getAvailableVariantsForSet(selectedSetId)
-    : ['base', 'reverse-holo']; // Fallback if no set selected
+    : ['base', 'reverse-holo'];
 
   console.log('[Step3Variants] ===== VARIANT SELECTION =====');
   console.log('[Step3Variants] Selected Set ID:', selectedSetId);
@@ -41,7 +44,7 @@ export default function Step3Variants({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
   },
@@ -60,5 +63,3 @@ const styles = StyleSheet.create({
     marginBottom: spacing.lg,
   },
 });
-
-

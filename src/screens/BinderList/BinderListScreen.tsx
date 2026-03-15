@@ -3,6 +3,7 @@ import {
   View,
   StyleSheet,
   Text,
+  Image,
   TouchableOpacity,
   FlatList,
   Alert,
@@ -268,7 +269,11 @@ export default function BinderListScreen() {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.header}>
-          <Text style={styles.title}>My Binders</Text>
+          <Image
+            source={require('../../../assets/logo-wordmark-white.png')}
+            style={styles.headerLogo}
+            resizeMode="contain"
+          />
         </View>
         <LoadingScreen message="Loading binders..." fullScreen={false} />
       </SafeAreaView>
@@ -278,7 +283,11 @@ export default function BinderListScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>My Binders</Text>
+        <Image
+          source={require('../../../assets/logo-wordmark-white.png')}
+          style={styles.headerLogo}
+          resizeMode="contain"
+        />
         <View style={styles.headerActions}>
           <TouchableOpacity
             style={[styles.proBadge, isPro && styles.proBadgeActive]}
@@ -336,14 +345,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: screenPadding,
     paddingTop: spacing.lg,
     paddingBottom: spacing.md,
-    backgroundColor: colors.background,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.borderLight,
+    backgroundColor: colors.primary,
   },
-  title: {
-    fontSize: typography['3xl'],
-    fontFamily: fonts.bold,
-    color: colors.text,
+  headerLogo: {
+    height: 28,
+    width: 120,
   },
   headerActions: {
     flexDirection: 'row',
@@ -355,15 +361,16 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xs + 2,
     borderRadius: borderRadius.full,
     borderWidth: 1.5,
-    borderColor: colors.primary,
+    borderColor: 'rgba(255, 255, 255, 0.6)',
   },
   proBadgeActive: {
-    backgroundColor: colors.primary,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    borderColor: colors.background,
   },
   proBadgeText: {
     fontSize: typography.xs,
     fontFamily: fonts.semibold,
-    color: colors.primary,
+    color: 'rgba(255, 255, 255, 0.8)',
   },
   proBadgeTextActive: {
     color: colors.background,
@@ -373,7 +380,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xs + 2,
   },
   logoutText: {
-    color: colors.textTertiary,
+    color: 'rgba(255, 255, 255, 0.7)',
     fontSize: typography.sm,
     fontFamily: fonts.medium,
   },

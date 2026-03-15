@@ -345,7 +345,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     top: 4,
     right: 4,
     backgroundColor: 'rgba(255, 255, 255, 0.85)',
-    borderRadius: 14,
+    borderRadius: 4,
     padding: 4,
     width: 28,
     height: 28,

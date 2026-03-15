@@ -38,7 +38,7 @@ function isPocketSet(setId: string): boolean {
  * McDonald's promo set IDs from TCGDEX — temporarily excluded.
  */
 const MCDONALDS_SET_IDS = new Set([
-  'mcd21', 'mcd19', 'mcd18', 'mcd17', 'mcd16', 'mcd15', 'mcd14', 'mcd12', 'mcd11',
+  '2021swsh', '2019sm', '2018sm', '2017sm', '2016xy', '2015xy', '2014xy', '2012bw', '2011bw',
 ]);
 
 function isMcDonaldsSet(setId: string): boolean {

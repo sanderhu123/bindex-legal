@@ -2596,13 +2596,6 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
             <ListEmptyComponent />
           ) : (
             <>
-              <PageNavigator
-                currentPage={currentPage}
-                totalPages={binderTotalPages}
-                onPreviousPage={() => setCurrentPage(p => Math.max(1, p - 1))}
-                onNextPage={() => setCurrentPage(p => Math.min(binderTotalPages, p + 1))}
-                onJumpToPage={() => setShowJumpModal(true)}
-              />
               <View {...binderPanResponder.panHandlers}>
                 <BinderPageView
                   cards={binderCards}
@@ -2622,6 +2615,13 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
                   onCardTap={binder.collectionMode === 'region' ? handleRegionCardTap : undefined}
                 />
               </View>
+              <PageNavigator
+                currentPage={currentPage}
+                totalPages={binderTotalPages}
+                onPreviousPage={() => setCurrentPage(p => Math.max(1, p - 1))}
+                onNextPage={() => setCurrentPage(p => Math.min(binderTotalPages, p + 1))}
+                onJumpToPage={() => setShowJumpModal(true)}
+              />
             </>
           )}
         </ScrollView>

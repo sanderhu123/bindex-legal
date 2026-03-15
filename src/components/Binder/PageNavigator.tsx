@@ -121,19 +121,17 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     height: 44,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.primary,
-    borderRadius: borderRadius.full,
   },
   arrowButtonDisabled: {
-    backgroundColor: colors.disabled,
+    opacity: 0.3,
   },
   arrowText: {
-    fontSize: typography.lg,
-    color: colors.onPrimary,
+    fontSize: typography.xl,
+    color: colors.primary,
     fontFamily: fonts.bold,
   },
   arrowTextDisabled: {
-    color: colors.disabledText,
+    color: colors.textTertiary,
   },
   pageInfoButton: {
     flex: 1,

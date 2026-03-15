@@ -2395,6 +2395,9 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
       {/* Row 2: Subtitle with set icon — collapses on scroll */}
       <Animated.View style={{ opacity: headerOpacity, height: headerHeight, overflow: 'hidden' }}>
         <View style={styles.subtitleRow}>
+          <Text style={styles.subtitle} numberOfLines={1}>
+            {subtitleParts.join(' · ')}
+          </Text>
           {setSymbolUrl && (
             <Image
               source={{ uri: setSymbolUrl }}
@@ -2402,9 +2405,6 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
               contentFit="contain"
             />
           )}
-          <Text style={styles.subtitle} numberOfLines={1}>
-            {subtitleParts.join(' · ')}
-          </Text>
         </View>
       </Animated.View>
 
@@ -3086,7 +3086,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   subtitleSetIcon: {
     width: 18,
     height: 18,
-    marginRight: spacing.xs,
+    marginLeft: spacing.xs,
   },
   subtitle: {
     fontSize: typography.sm,

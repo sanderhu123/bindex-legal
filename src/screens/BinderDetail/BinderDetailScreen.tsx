@@ -3066,7 +3066,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     flex: 1,
   },
   subtitle: {
-    fontSize: typography.xs,
+    fontSize: typography.sm,
     color: colors.textTertiary,
     fontFamily: fonts.regular,
     marginBottom: spacing.sm,

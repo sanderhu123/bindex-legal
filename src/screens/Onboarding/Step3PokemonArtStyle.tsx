@@ -154,12 +154,10 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     borderColor: colors.border,
     marginBottom: spacing.md,
     backgroundColor: colors.surface,
-    ...shadows.sm,
   },
   optionSelected: {
     borderColor: colors.primary,
     backgroundColor: colors.primaryTint,
-    ...shadows.md,
   },
   optionContent: {
     flexDirection: 'row',

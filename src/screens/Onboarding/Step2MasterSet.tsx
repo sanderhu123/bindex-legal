@@ -207,7 +207,6 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     borderColor: colors.border,
     marginBottom: spacing.md,
     backgroundColor: colors.surface,
-    ...shadows.sm,
   },
   eraLabel: {
     fontSize: typography.base,

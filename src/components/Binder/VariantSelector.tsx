@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { fonts, spacing, typography, borderRadius, shadows, type ThemeColors } from '../../constants/theme';
+import { fonts, spacing, typography, borderRadius, type ThemeColors } from '../../constants/theme';
 import { useTheme } from '../../context/ThemeContext';
 
 interface VariantSelectorProps {
@@ -78,12 +78,10 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     borderColor: colors.border,
     marginBottom: spacing.sm,
     backgroundColor: colors.surface,
-    ...shadows.sm,
   },
   optionSelected: {
     borderColor: colors.primary,
     backgroundColor: colors.primaryTint,
-    ...shadows.md,
   },
   optionContent: {
     flexDirection: 'row',

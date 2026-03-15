@@ -108,7 +108,7 @@ const styles = StyleSheet.create({
   topRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     marginBottom: spacing.sm,
   },
   titleArea: {
@@ -127,8 +127,8 @@ const styles = StyleSheet.create({
     color: colors.textTertiary,
   },
   setSymbol: {
-    width: 30,
-    height: 30,
-    opacity: 0.7,
+    width: 20,
+    height: 20,
+    opacity: 0.6,
   },
 });

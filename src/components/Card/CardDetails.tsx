@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { View, StyleSheet, Text } from 'react-native';
-import { fonts, type ThemeColors } from '../../constants/theme';
+import { Ionicons } from '@expo/vector-icons';
+import { fonts, spacing, typography, borderRadius, type ThemeColors } from '../../constants/theme';
 import { useTheme } from '../../context/ThemeContext';
 import type { Card } from '../../types';
 
@@ -66,7 +67,14 @@ export default function CardDetails({
     );
   }
 
-  // Full variant
+  // Full variant - build info rows dynamically
+  const infoRows: { icon: string; label: string; value: string }[] = [];
+  if (card.supertype) infoRows.push({ icon: 'albums-outline', label: 'Type', value: card.supertype });
+  if (showSet && card.set) infoRows.push({ icon: 'layers-outline', label: 'Set', value: card.set });
+  if (showRarity && card.rarity) infoRows.push({ icon: 'diamond-outline', label: 'Rarity', value: card.rarity });
+  if (showIllustrator && card.illustrator) infoRows.push({ icon: 'brush-outline', label: 'Illustrator', value: card.illustrator });
+  if (showPokedex && card.pokedexNumber) infoRows.push({ icon: 'list-outline', label: 'Pokédex', value: `#${card.pokedexNumber}` });
+
   return (
     <View style={styles.fullContainer}>
       <View style={styles.fullHeader}>
@@ -77,39 +85,21 @@ export default function CardDetails({
           </View>
         )}
       </View>
-      <Text style={styles.fullNumber}>
-        {card.setTotal ? `${card.number}/${card.setTotal}` : card.number}
-      </Text>
-      {card.supertype && (
-        <View style={styles.fullRow}>
-          <Text style={styles.fullLabel}>Type:</Text>
-          <Text style={styles.fullValue}>{card.supertype}</Text>
-        </View>
-      )}
-      {showSet && (
-        <View style={styles.fullRow}>
-          <Text style={styles.fullLabel}>Set:</Text>
-          <Text style={styles.fullValue}>{card.set}</Text>
-        </View>
-      )}
-      {showRarity && (
-        <View style={styles.fullRow}>
-          <Text style={styles.fullLabel}>Rarity:</Text>
-          <Text style={styles.fullValue}>{card.rarity}</Text>
-        </View>
-      )}
-      {showIllustrator && (
-        <View style={styles.fullRow}>
-          <Text style={styles.fullLabel}>Illustrator:</Text>
-          <Text style={styles.fullValue}>{card.illustrator}</Text>
-        </View>
-      )}
-      {showPokedex && card.pokedexNumber && (
-        <View style={styles.fullRow}>
-          <Text style={styles.fullLabel}>Pokédex:</Text>
-          <Text style={styles.fullValue}>#{card.pokedexNumber}</Text>
-        </View>
-      )}
+      <View style={styles.fullNumberPill}>
+        <Text style={styles.fullNumber}>
+          {card.setTotal ? `${card.number}/${card.setTotal}` : card.number}
+        </Text>
+      </View>
+      {infoRows.map((row, index) => (
+        <React.Fragment key={row.label}>
+          {index > 0 && <View style={styles.fullDivider} />}
+          <View style={styles.fullRow}>
+            <Ionicons name={row.icon as any} size={16} color={colors.textTertiary} style={styles.fullRowIcon} />
+            <Text style={styles.fullLabel}>{row.label}</Text>
+            <Text style={styles.fullValue} numberOfLines={1}>{row.value}</Text>
+          </View>
+        </React.Fragment>
+      ))}
     </View>
   );
 }
@@ -166,24 +156,26 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   // Full variant styles (for detail screens)
   fullContainer: {
-    padding: 12,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.xs,
   },
   fullHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: spacing.xs,
   },
   fullName: {
-    fontSize: 24,
+    fontSize: typography['2xl'],
     fontFamily: fonts.semibold,
     color: colors.text,
     flex: 1,
+    letterSpacing: -0.3,
   },
   fullBadge: {
-    marginLeft: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 4,
+    marginLeft: spacing.sm,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.sm,
     minWidth: 32,
     alignItems: 'center',
     justifyContent: 'center',
@@ -197,24 +189,42 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     textShadowRadius: 2,
     includeFontPadding: false,
   },
+  fullNumberPill: {
+    alignSelf: 'flex-start',
+    backgroundColor: colors.backgroundDark,
+    paddingHorizontal: spacing.sm + 2,
+    paddingVertical: 2,
+    borderRadius: borderRadius.full,
+    marginBottom: spacing.sm,
+  },
   fullNumber: {
-    fontSize: 16,
+    fontSize: typography.sm,
     color: colors.textSecondary,
-    marginBottom: 8,
+    fontFamily: fonts.medium,
+  },
+  fullDivider: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: colors.borderLight,
   },
   fullRow: {
     flexDirection: 'row',
-    marginBottom: 6,
+    alignItems: 'center',
+    paddingVertical: spacing.xs + 2,
+  },
+  fullRowIcon: {
+    marginRight: spacing.sm,
+    width: 20,
   },
   fullLabel: {
-    fontSize: 14,
+    fontSize: typography.sm,
     color: colors.textTertiary,
     fontFamily: fonts.medium,
-    width: 70,
+    width: 85,
   },
   fullValue: {
-    fontSize: 14,
+    fontSize: typography.sm,
     color: colors.text,
+    fontFamily: fonts.regular,
     flex: 1,
   },
 });

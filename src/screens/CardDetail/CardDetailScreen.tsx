@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { View, StyleSheet, Text, ScrollView, Dimensions, TouchableOpacity, Alert, TextInput, Keyboard } from 'react-native';
+import { View, StyleSheet, Text, ScrollView, Dimensions, TouchableOpacity, Alert, TextInput, Keyboard, Animated } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { getCardById } from '../../services/api/pokemonApi';
 import { getBinderById } from '../../services/supabase/binders';
 import { addCardToBinder, removeCardFromBinder, toggleCardOwnershipAtPosition, toggleExtraCardOwnership, getBinderCardData, saveCardNote, updateCardVariant } from '../../services/supabase/cards';
@@ -58,6 +59,9 @@ export default function CardDetailScreen({ navigation, route }: CardDetailScreen
   // Region mode: card picker state
   const [showCardPicker, setShowCardPicker] = useState(false);
   const isRegionMode = collectionMode === 'region';
+
+  // Button press animation
+  const scaleAnim = useRef(new Animated.Value(1)).current;
 
   // Determine which variant options to show for this card
   const availableVariants = useMemo(() => {
@@ -590,25 +594,45 @@ export default function CardDetailScreen({ navigation, route }: CardDetailScreen
     250 // Absolute max (reduced to ensure fit)
   );
 
+  // Button press animation handlers
+  const handleBtnPressIn = () => {
+    Animated.spring(scaleAnim, { toValue: 0.96, useNativeDriver: true, speed: 50, bounciness: 4 }).start();
+  };
+  const handleBtnPressOut = () => {
+    Animated.spring(scaleAnim, { toValue: 1, useNativeDriver: true, speed: 50, bounciness: 4 }).start();
+  };
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
-        {/* Card Image - Smaller size with high priority loading */}
-        {/* Shows the low-res image instantly (already cached from grid), then swaps to high-res */}
+        {/* Card Image with ownership badge overlay */}
         <View style={styles.imageContainer}>
-          <CardImage
-            source={card.imageUrlHiRes || card.imageUrl}
-            lowResSource={card.imageUrl}
-            isMissing={!isOwned}
-            aspectRatio={0.716}
-            style={[styles.cardImage, { width: imageWidth }]}
-            priority="high"
-            cardInfo={{ id: card.id, name: card.name, number: card.number, set: card.set }}
-          />
+          <View style={{ position: 'relative' }}>
+            <CardImage
+              source={card.imageUrlHiRes || card.imageUrl}
+              lowResSource={card.imageUrl}
+              isMissing={!isOwned}
+              aspectRatio={0.716}
+              style={[styles.cardImage, { width: imageWidth }]}
+              priority="high"
+              cardInfo={{ id: card.id, name: card.name, number: card.number, set: card.set }}
+            />
+            <View style={[styles.ownershipBadge, isOwned ? styles.ownershipBadgeOwned : styles.ownershipBadgeMissing]}>
+              <Ionicons
+                name={isOwned ? 'checkmark-circle' : 'close-circle'}
+                size={14}
+                color="#FFFFFF"
+                style={{ marginRight: 4 }}
+              />
+              <Text style={styles.ownershipBadgeText}>
+                {isOwned ? 'Owned' : 'Missing'}
+              </Text>
+            </View>
+          </View>
         </View>
 
-        {/* Card Information */}
-        <View style={styles.detailsContainer}>
+        {/* Surface Card: Card Info + Variant Selector */}
+        <View style={styles.infoCard}>
           <CardDetails
             card={card}
             variant="full"
@@ -618,122 +642,139 @@ export default function CardDetailScreen({ navigation, route }: CardDetailScreen
             showVariantBadge={true}
             showPokedex={false}
           />
-        </View>
-
-        {/* Variant Selector */}
-        {showVariantSelector && (
-          <View style={styles.variantContainer}>
-            <Text style={styles.variantLabel}>Variant</Text>
-            <View style={styles.variantChips}>
-              {availableVariants.map((v) => {
-                const isSelected = (card.variant || 'base') === v;
-                return (
-                  <TouchableOpacity
-                    key={v}
-                    style={[
-                      styles.variantChip,
-                      isSelected ? styles.variantChipSelected : styles.variantChipUnselected,
-                    ]}
-                    onPress={() => handleVariantChange(v as CardVariant)}
-                    disabled={isUpdatingVariant || isSelected}
-                    activeOpacity={0.7}
-                  >
-                    <Text
+          {showVariantSelector && (
+            <View style={styles.variantSection}>
+              <View style={styles.sectionDivider} />
+              <Text style={styles.variantLabel}>Variant</Text>
+              <View style={styles.variantChips}>
+                {availableVariants.map((v) => {
+                  const isSelected = (card.variant || 'base') === v;
+                  return (
+                    <TouchableOpacity
+                      key={v}
                       style={[
-                        styles.variantChipText,
-                        isSelected ? styles.variantChipTextSelected : styles.variantChipTextUnselected,
+                        styles.variantChip,
+                        isSelected ? styles.variantChipSelected : styles.variantChipUnselected,
                       ]}
+                      onPress={() => handleVariantChange(v as CardVariant)}
+                      disabled={isUpdatingVariant || isSelected}
+                      activeOpacity={0.7}
                     >
-                      {VARIANT_LABELS[v] || v}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
+                      <Text
+                        style={[
+                          styles.variantChipText,
+                          isSelected ? styles.variantChipTextSelected : styles.variantChipTextUnselected,
+                        ]}
+                      >
+                        {VARIANT_LABELS[v] || v}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
             </View>
-          </View>
-        )}
-
-        {/* Binder Position (Page X, Slot Y) */}
-        {binderPosition && (
-          <View style={styles.positionContainer}>
-            <Text style={styles.positionIcon}>📍</Text>
-            <Text style={styles.positionText}>
-              Page {binderPosition.page}, Slot {binderPosition.slot}
-            </Text>
-          </View>
-        )}
-
-        {/* Personal Note */}
-        <View style={styles.noteContainer}>
-          <View style={styles.noteHeader}>
-            <Text style={styles.noteLabel}>My Note</Text>
-            {isSavingNote && (
-              <Text style={styles.noteSaving}>Saving...</Text>
-            )}
-            {!isSavingNote && noteLoaded && note.trim().length > 0 && note.trim() === savedNote && (
-              <Text style={styles.noteSaved}>Saved</Text>
-            )}
-          </View>
-          <TextInput
-            style={styles.noteInput}
-            value={note}
-            onChangeText={handleNoteChange}
-            placeholder="Add a note about this card..."
-            placeholderTextColor={colors.textLight}
-            multiline
-            maxLength={500}
-            textAlignVertical="top"
-            returnKeyType="done"
-            blurOnSubmit={true}
-            onSubmitEditing={() => Keyboard.dismiss()}
-          />
+          )}
         </View>
 
-        {/* Ownership Toggle Button */}
-        <View style={styles.buttonContainer}>
-          <TouchableOpacity
-            style={[
-              styles.toggleButton,
-              isOwned ? styles.toggleButtonOwned : styles.toggleButtonMissing,
-              isUpdating && styles.toggleButtonDisabled,
-            ]}
-            onPress={handleToggleOwnership}
-            disabled={isUpdating}
-            activeOpacity={0.7}
-          >
-            {isUpdating ? (
-              <Text style={styles.toggleButtonText}>Updating...</Text>
-            ) : (
-              <Text style={styles.toggleButtonText}>
-                {isOwned ? 'Mark as Missing' : 'Mark as Owned'}
-              </Text>
-            )}
-          </TouchableOpacity>
+        {/* Surface Card: Binder Position + Note */}
+        <View style={styles.detailsCard}>
+          {binderPosition && (
+            <>
+              <View style={styles.positionRow}>
+                <Ionicons name="location-outline" size={16} color={colors.textTertiary} style={{ marginRight: spacing.sm }} />
+                <Text style={styles.positionText}>
+                  Page {binderPosition.page}, Slot {binderPosition.slot}
+                </Text>
+              </View>
+              <View style={styles.sectionDivider} />
+            </>
+          )}
+          <View style={styles.noteSection}>
+            <View style={styles.noteHeader}>
+              <View style={styles.noteLabelRow}>
+                <Ionicons name="create-outline" size={16} color={colors.textSecondary} style={{ marginRight: spacing.xs }} />
+                <Text style={styles.noteLabel}>My Note</Text>
+              </View>
+              {isSavingNote && (
+                <Text style={styles.noteSaving}>Saving...</Text>
+              )}
+              {!isSavingNote && noteLoaded && note.trim().length > 0 && note.trim() === savedNote && (
+                <View style={styles.noteSavedChip}>
+                  <Ionicons name="checkmark" size={10} color={colors.success} style={{ marginRight: 2 }} />
+                  <Text style={styles.noteSavedText}>Saved</Text>
+                </View>
+              )}
+            </View>
+            <TextInput
+              style={styles.noteInput}
+              value={note}
+              onChangeText={handleNoteChange}
+              placeholder="Add a note about this card..."
+              placeholderTextColor={colors.textLight}
+              multiline
+              maxLength={500}
+              textAlignVertical="top"
+              returnKeyType="done"
+              blurOnSubmit={true}
+              onSubmitEditing={() => Keyboard.dismiss()}
+            />
+          </View>
         </View>
 
-        {/* Region Mode: Choose Card Button */}
-        {isRegionMode && pokedexNumber && (
-          <View style={styles.regionButtonContainer}>
+        {/* Action Button Row */}
+        <View style={styles.actionRow}>
+          <Animated.View style={[styles.actionBtnWrapper, { transform: [{ scale: scaleAnim }] }]}>
             <TouchableOpacity
-              style={styles.chooseCardButton}
+              style={[
+                styles.actionBtn,
+                isOwned ? styles.actionBtnOwned : styles.actionBtnMissing,
+                isUpdating && styles.actionBtnDisabled,
+              ]}
+              onPress={handleToggleOwnership}
+              onPressIn={handleBtnPressIn}
+              onPressOut={handleBtnPressOut}
+              disabled={isUpdating}
+              activeOpacity={1}
+            >
+              {isUpdating ? (
+                <Text style={styles.actionBtnText}>Updating...</Text>
+              ) : (
+                <>
+                  <Ionicons
+                    name={isOwned ? 'close-circle-outline' : 'checkmark-circle'}
+                    size={18}
+                    color="#FFFFFF"
+                    style={{ marginRight: 6 }}
+                  />
+                  <Text style={styles.actionBtnText}>
+                    {isOwned ? 'Mark as Missing' : 'Mark as Owned'}
+                  </Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </Animated.View>
+
+          {isRegionMode && pokedexNumber && (
+            <TouchableOpacity
+              style={[styles.actionBtn, styles.actionBtnChange]}
               onPress={() => setShowCardPicker(true)}
               activeOpacity={0.7}
             >
-              <Text style={styles.chooseCardButtonText}>Choose Different Card</Text>
+              <Ionicons name="swap-horizontal-outline" size={18} color="#FFFFFF" style={{ marginRight: 6 }} />
+              <Text style={styles.actionBtnText}>Change</Text>
             </TouchableOpacity>
-            
-            {/* Only show Clear if there's a custom selection (card has selectedCardId) */}
-            {card?.selectedCardId && (
-              <TouchableOpacity
-                style={styles.clearSelectionButton}
-                onPress={handleClearSelection}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.clearSelectionButtonText}>Clear Selection</Text>
-              </TouchableOpacity>
-            )}
-          </View>
-        )}
+          )}
+
+          {isRegionMode && pokedexNumber && card?.selectedCardId && (
+            <TouchableOpacity
+              style={[styles.actionBtn, styles.actionBtnClear]}
+              onPress={handleClearSelection}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="trash-outline" size={18} color={colors.error} />
+            </TouchableOpacity>
+          )}
+        </View>
       </ScrollView>
 
       {/* Region Mode: Card Picker Modal */}
@@ -754,17 +795,16 @@ export default function CardDetailScreen({ navigation, route }: CardDetailScreen
 const createStyles = (colors: ThemeColors) => StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: colors.backgroundLight,
   },
   container: {
     flex: 1,
-    backgroundColor: colors.background,
   },
   contentContainer: {
     padding: spacing.md,
     alignItems: 'center',
-    flexGrow: 1,
   },
+  // Card image
   imageContainer: {
     width: '100%',
     alignItems: 'center',
@@ -774,43 +814,79 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     borderRadius: borderRadius.lg,
     ...shadows.lg,
   },
-  detailsContainer: {
-    width: '100%',
-    paddingHorizontal: spacing.xs,
-    marginBottom: spacing.sm,
+  // Ownership badge overlay on image
+  ownershipBadge: {
+    position: 'absolute',
+    top: spacing.sm,
+    right: spacing.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.full,
   },
-  // Variant selector
-  variantContainer: {
+  ownershipBadgeOwned: {
+    backgroundColor: colors.success,
+  },
+  ownershipBadgeMissing: {
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  ownershipBadgeText: {
+    fontSize: typography.xs,
+    fontFamily: fonts.semibold,
+    color: '#FFFFFF',
+  },
+  // Surface cards
+  infoCard: {
     width: '100%',
-    marginBottom: spacing.md,
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.lg,
+    padding: spacing.md,
+    marginBottom: spacing.sm,
+    ...shadows.sm,
+  },
+  detailsCard: {
+    width: '100%',
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.lg,
+    padding: spacing.md,
+    marginBottom: spacing.sm,
+    ...shadows.sm,
+  },
+  sectionDivider: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: colors.borderLight,
+    marginVertical: spacing.sm,
+  },
+  // Variant selector (inside infoCard)
+  variantSection: {
+    marginTop: spacing.xs,
   },
   variantLabel: {
-    fontSize: typography.sm,
+    fontSize: typography.xs,
     fontFamily: fonts.semibold,
-    color: colors.textSecondary,
+    color: colors.textTertiary,
     marginBottom: spacing.xs,
+    marginTop: spacing.sm,
   },
   variantChips: {
-    flexDirection: 'row' as const,
-    flexWrap: 'wrap' as const,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: spacing.xs,
   },
   variantChip: {
     paddingVertical: spacing.xs,
     paddingHorizontal: spacing.sm + 2,
-    borderRadius: borderRadius.full || 999,
-    borderWidth: 1,
+    borderRadius: borderRadius.sm,
   },
   variantChipSelected: {
     backgroundColor: colors.primary,
-    borderColor: colors.primary,
   },
   variantChipUnselected: {
-    backgroundColor: 'transparent',
-    borderColor: colors.border,
+    backgroundColor: colors.backgroundDark,
   },
   variantChipText: {
-    fontSize: typography.sm,
+    fontSize: typography.xs,
     fontFamily: fonts.medium,
   },
   variantChipTextSelected: {
@@ -819,37 +895,27 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   variantChipTextUnselected: {
     color: colors.textSecondary,
   },
-  // Binder position display
-  positionContainer: {
+  // Binder position row
+  positionRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    backgroundColor: colors.backgroundLight || '#f5f5f5',
-    borderRadius: borderRadius.md,
-    marginBottom: spacing.md,
-    width: '100%',
-  },
-  positionIcon: {
-    fontSize: typography.lg,
-    marginRight: spacing.xs,
   },
   positionText: {
-    fontSize: typography.base,
+    fontSize: typography.sm,
     color: colors.textSecondary,
     fontFamily: fonts.medium,
   },
-  // Personal note
-  noteContainer: {
-    width: '100%',
-    marginBottom: spacing.md,
-  },
+  // Note section (inside detailsCard)
+  noteSection: {},
   noteHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: spacing.xs,
+  },
+  noteLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   noteLabel: {
     fontSize: typography.sm,
@@ -858,85 +924,74 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   noteSaving: {
     fontSize: typography.xs,
+    fontFamily: fonts.regular,
     color: colors.textLight,
     fontStyle: 'italic',
   },
-  noteSaved: {
+  noteSavedChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.success + '15',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    borderRadius: borderRadius.full,
+  },
+  noteSavedText: {
     fontSize: typography.xs,
+    fontFamily: fonts.medium,
     color: colors.success,
   },
   noteInput: {
-    backgroundColor: colors.backgroundLight || '#f5f5f5',
+    backgroundColor: colors.backgroundLight,
     borderRadius: borderRadius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
     paddingHorizontal: spacing.sm + 2,
     paddingVertical: spacing.sm,
     fontSize: typography.sm,
+    fontFamily: fonts.regular,
     color: colors.text,
     minHeight: 60,
     maxHeight: 120,
   },
-  buttonContainer: {
+  // Action button row
+  actionRow: {
+    flexDirection: 'row',
     width: '100%',
-    marginTop: 0,
-  },
-  toggleButton: {
-    paddingVertical: spacing.md - 2,
-    paddingHorizontal: spacing.lg,
-    borderRadius: borderRadius.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 48,
-  },
-  toggleButtonOwned: {
-    backgroundColor: colors.success,
-  },
-  toggleButtonMissing: {
-    backgroundColor: colors.primary,
-  },
-  toggleButtonDisabled: {
-    opacity: 0.6,
-  },
-  toggleButtonText: {
-    color: colors.onPrimary,
-    fontSize: typography.base,
-    fontFamily: fonts.semibold,
-  },
-  // Region mode buttons
-  regionButtonContainer: {
-    width: '100%',
-    marginTop: spacing.md,
     gap: spacing.sm,
   },
-  chooseCardButton: {
-    paddingVertical: spacing.md - 2,
-    paddingHorizontal: spacing.lg,
-    borderRadius: borderRadius.md,
+  actionBtnWrapper: {
+    flex: 1,
+  },
+  actionBtn: {
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    paddingVertical: spacing.sm + 2,
+    paddingHorizontal: spacing.sm,
+    borderRadius: borderRadius.lg,
     minHeight: 48,
-    backgroundColor: colors.secondary || '#6366f1',
   },
-  chooseCardButtonText: {
-    color: colors.onPrimary,
-    fontSize: typography.base,
-    fontFamily: fonts.semibold,
+  actionBtnOwned: {
+    backgroundColor: colors.success,
   },
-  clearSelectionButton: {
-    paddingVertical: spacing.md - 2,
-    paddingHorizontal: spacing.lg,
-    borderRadius: borderRadius.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 48,
+  actionBtnMissing: {
+    backgroundColor: colors.primary,
+  },
+  actionBtnChange: {
+    flex: 1,
+    backgroundColor: colors.secondary,
+  },
+  actionBtnClear: {
     backgroundColor: 'transparent',
     borderWidth: 1,
-    borderColor: colors.error || '#ef4444',
+    borderColor: colors.error,
+    paddingHorizontal: spacing.sm + 2,
   },
-  clearSelectionButtonText: {
-    color: colors.error || '#ef4444',
-    fontSize: typography.base,
+  actionBtnDisabled: {
+    opacity: 0.6,
+  },
+  actionBtnText: {
+    color: '#FFFFFF',
+    fontSize: typography.sm,
     fontFamily: fonts.semibold,
   },
 });

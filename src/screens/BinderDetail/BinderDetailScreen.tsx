@@ -17,6 +17,7 @@ import {
   getCardVariantsForBinder,
 } from '../../services/supabase/cards';
 import { getCardsBySet, getCardsByRegion, getCardById, getPokemonImageUrl, type Region } from '../../services/api/pokemonApi';
+import { getSetSymbolByName } from '../../data/pokemonEras';
 import { getAllSelectedCardsForBinder, setSelectedCardForPokemon } from '../../services/supabase/regionCards';
 import { getCardPositionsForBinder } from '../../services/supabase/binderPositions';
 import { startBackgroundPrefetch } from '../../services/imagePrefetch';
@@ -2374,6 +2375,8 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
   if (binder.set) subtitleParts.push(binder.set);
   if (binder.region) subtitleParts.push(binder.region);
 
+  const setSymbolUrl = binder.set ? getSetSymbolByName(binder.set) : null;
+
   const listHeader = (
     <View style={styles.headerContainer}>
       {/* Row 1: Back arrow + binder name */}
@@ -2389,11 +2392,20 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
         <Text style={styles.title} numberOfLines={1}>{binder.name}</Text>
       </View>
 
-      {/* Row 2: Subtitle — collapses on scroll */}
+      {/* Row 2: Subtitle with set icon — collapses on scroll */}
       <Animated.View style={{ opacity: headerOpacity, height: headerHeight, overflow: 'hidden' }}>
-        <Text style={styles.subtitle} numberOfLines={1}>
-          {subtitleParts.join(' · ')}
-        </Text>
+        <View style={styles.subtitleRow}>
+          {setSymbolUrl && (
+            <Image
+              source={{ uri: setSymbolUrl }}
+              style={styles.subtitleSetIcon}
+              contentFit="contain"
+            />
+          )}
+          <Text style={styles.subtitle} numberOfLines={1}>
+            {subtitleParts.join(' · ')}
+          </Text>
+        </View>
       </Animated.View>
 
       {/* Row 3: Toolbar — Search | Edit | Display Mode | ▼ dropdown */}
@@ -3065,12 +3077,22 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     color: colors.text,
     flex: 1,
   },
+  subtitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.sm,
+    marginLeft: 40,
+  },
+  subtitleSetIcon: {
+    width: 18,
+    height: 18,
+    marginRight: spacing.xs,
+  },
   subtitle: {
     fontSize: typography.sm,
     color: colors.textTertiary,
     fontFamily: fonts.regular,
-    marginBottom: spacing.sm,
-    marginLeft: 40,
+    flex: 1,
   },
   toolbar: {
     flexDirection: 'row',

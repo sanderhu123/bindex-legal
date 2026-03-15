@@ -1100,6 +1100,9 @@ export async function getCardNote(
     throw new Error('User not authenticated');
   }
 
+  // 'base' variant is stored as null in the database
+  const dbVariant = (!variant || variant === 'base') ? null : variant;
+
   let query = supabase
     .from('binder_cards')
     .select('note')
@@ -1112,8 +1115,8 @@ export async function getCardNote(
     query = query.eq('position', position);
   } else {
     // Match by variant for non-Custom binders
-    if (variant) {
-      query = query.eq('variant', variant);
+    if (dbVariant) {
+      query = query.eq('variant', dbVariant);
     } else {
       query = query.is('variant', null);
     }
@@ -1232,6 +1235,9 @@ export async function saveCardNote(
   // Normalise: treat empty string as null (removes the note)
   const noteValue = note && note.trim().length > 0 ? note.trim() : null;
 
+  // 'base' variant is stored as null in the database
+  const dbVariant = (!variant || variant === 'base') ? null : variant;
+
   let query = supabase
     .from('binder_cards')
     .update({ note: noteValue })
@@ -1244,8 +1250,8 @@ export async function saveCardNote(
     query = query.eq('position', position);
   } else {
     // Match by variant for non-Custom binders
-    if (variant) {
-      query = query.eq('variant', variant);
+    if (dbVariant) {
+      query = query.eq('variant', dbVariant);
     } else {
       query = query.is('variant', null);
     }

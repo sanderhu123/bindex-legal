@@ -47,6 +47,8 @@ export default function CardDetailScreen({ navigation, route }: CardDetailScreen
   const [isSavingNote, setIsSavingNote] = useState(false);
   const [noteLoaded, setNoteLoaded] = useState(false);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const noteRef = useRef('');
+  const savedNoteRef = useRef('');
   
   // Region mode: card picker state
   const [showCardPicker, setShowCardPicker] = useState(false);
@@ -249,6 +251,8 @@ export default function CardDetailScreen({ navigation, route }: CardDetailScreen
           if (data.note) {
             setNote(data.note);
             setSavedNote(data.note);
+            noteRef.current = data.note;
+            savedNoteRef.current = data.note;
           }
         }
       } catch (err) {
@@ -264,6 +268,7 @@ export default function CardDetailScreen({ navigation, route }: CardDetailScreen
   // Auto-save note after the user stops typing for 1 second
   const handleNoteChange = useCallback((text: string) => {
     setNote(text);
+    noteRef.current = text;
 
     // Clear any pending save
     if (saveTimerRef.current) {
@@ -286,6 +291,7 @@ export default function CardDetailScreen({ navigation, route }: CardDetailScreen
           isCustom ? position : undefined
         );
         setSavedNote(text.trim());
+        savedNoteRef.current = text.trim();
       } catch (err) {
         console.error('[CardDetail] Failed to save note:', err);
       } finally {
@@ -294,14 +300,31 @@ export default function CardDetailScreen({ navigation, route }: CardDetailScreen
     }, 1000);
   }, [card, binder, savedNote, collectionMode, position]);
 
-  // Clean up timer on unmount and do a final save if needed
+  // Clean up timer on unmount — fire a final save if there are unsaved changes
+  const cardRef = useRef(card);
+  const binderRef = useRef(binder);
+  cardRef.current = card;
+  binderRef.current = binder;
+
   useEffect(() => {
     return () => {
       if (saveTimerRef.current) {
         clearTimeout(saveTimerRef.current);
       }
+      const unsavedNote = noteRef.current;
+      const lastSaved = savedNoteRef.current;
+      if (unsavedNote.trim() !== lastSaved && cardRef.current && binderRef.current) {
+        const isCustom = collectionMode === 'custom' && position !== undefined && position !== null;
+        saveCardNote(
+          binderRef.current.id,
+          cardRef.current.id,
+          unsavedNote,
+          cardRef.current.variant,
+          isCustom ? position : undefined
+        ).catch(err => console.error('[CardDetail] Final note save failed:', err));
+      }
     };
-  }, []);
+  }, [collectionMode, position]);
 
   // Handle selecting a new card for Region mode
   // NOTE: All hooks must be defined before any early returns!

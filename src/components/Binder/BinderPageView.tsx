@@ -1,6 +1,5 @@
 import React, { memo, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Dimensions, Image as RNImage } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import type { StackNavigationProp } from '@react-navigation/stack';
 import CardImage from '../Card/CardImage';
@@ -229,11 +228,7 @@ function BinderPageViewComponent({
               onPress={handleCheckboxTap}
               activeOpacity={0.7}
             >
-              {card.isOwned ? (
-                <RNImage source={LOGO_ICON} style={styles.checkboxLogo} resizeMode="contain" />
-              ) : (
-                <Ionicons name="square-outline" size={20} color={colors.textTertiary} />
-              )}
+              <RNImage source={LOGO_ICON} style={[styles.checkboxLogo, !card.isOwned && { opacity: 0.2 }]} resizeMode="contain" />
             </TouchableOpacity>
           )}
           
@@ -349,7 +344,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     position: 'absolute',
     top: 4,
     right: 4,
-    backgroundColor: colors.overlayLight,
+    backgroundColor: 'transparent',
     borderRadius: borderRadius.sm,
     padding: 4,
     minWidth: 28,
@@ -360,6 +355,10 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   checkboxLogo: {
     width: 22,
     height: 22,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.5,
+    shadowRadius: 3,
   },
   // Variant badge
   variantBadge: {

@@ -2198,11 +2198,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
                 onPress={() => handleToggleCard(card)}
                 activeOpacity={0.7}
               >
-                {card.isOwned ? (
-                  <RNImage source={LOGO_ICON} style={styles.checkboxLogo} resizeMode="contain" />
-                ) : (
-                  <Ionicons name="square-outline" size={20} color={colors.textTertiary} />
-                )}
+                <RNImage source={LOGO_ICON} style={[styles.checkboxLogo, !card.isOwned && { opacity: 0.2 }]} resizeMode="contain" />
               </TouchableOpacity>
               {variantBadge && (
                 <View style={[styles.regionVariantBadge, { backgroundColor: variantBadge.color }]}>
@@ -2272,11 +2268,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
               onPress={() => handleToggleCard(item)}
               activeOpacity={0.7}
             >
-              {item.isOwned ? (
-                <RNImage source={LOGO_ICON} style={styles.checkboxLogo} resizeMode="contain" />
-              ) : (
-                <Ionicons name="square-outline" size={20} color={colors.textTertiary} />
-              )}
+              <RNImage source={LOGO_ICON} style={[styles.checkboxLogo, !item.isOwned && { opacity: 0.2 }]} resizeMode="contain" />
             </TouchableOpacity>
             {variantBadge && (
               <View style={[styles.regionVariantBadge, { backgroundColor: variantBadge.color }]}>
@@ -3323,7 +3315,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     position: 'absolute',
     top: 4,
     right: 4,
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    backgroundColor: 'transparent',
     borderRadius: 4,
     padding: 4,
     minWidth: 28,
@@ -3334,6 +3326,10 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   checkboxLogo: {
     width: 22,
     height: 22,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.5,
+    shadowRadius: 3,
   },
   // Section row for page breaks grid view
   sectionRow: {

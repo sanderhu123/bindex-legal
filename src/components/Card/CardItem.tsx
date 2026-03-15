@@ -1,6 +1,5 @@
 import React, { memo, useCallback, useMemo, useRef, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Animated, Image as RNImage } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 import { fonts, type ThemeColors } from '../../constants/theme';
 import { useTheme } from '../../context/ThemeContext';
 import { useNavigation } from '@react-navigation/native';
@@ -170,11 +169,7 @@ function CardItemComponent({
           activeOpacity={0.7}
         >
           <Animated.View style={{ transform: [{ scale: checkScale }] }}>
-            {card.isOwned ? (
-              <RNImage source={LOGO_ICON} style={styles.checkboxLogo} resizeMode="contain" />
-            ) : (
-              <Ionicons name="square-outline" size={22} color={colors.textTertiary} />
-            )}
+              <RNImage source={LOGO_ICON} style={[styles.checkboxLogo, !card.isOwned && { opacity: 0.2 }]} resizeMode="contain" />
           </Animated.View>
         </TouchableOpacity>
       </TouchableOpacity>
@@ -209,11 +204,7 @@ function CardItemComponent({
           activeOpacity={0.7}
         >
           <Animated.View style={{ transform: [{ scale: checkScale }] }}>
-            {card.isOwned ? (
-              <RNImage source={LOGO_ICON} style={styles.checkboxLogo} resizeMode="contain" />
-            ) : (
-              <Ionicons name="square-outline" size={20} color={colors.textTertiary} />
-            )}
+              <RNImage source={LOGO_ICON} style={[styles.checkboxLogo, !card.isOwned && { opacity: 0.2 }]} resizeMode="contain" />
           </Animated.View>
         </TouchableOpacity>
         {badge && (
@@ -285,7 +276,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     position: 'absolute',
     top: 4,
     right: 4,
-    backgroundColor: colors.overlayLight,
+    backgroundColor: 'transparent',
     borderRadius: 4,
     padding: 4,
     minWidth: 28,
@@ -296,6 +287,10 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   checkboxLogo: {
     width: 22,
     height: 22,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.5,
+    shadowRadius: 3,
   },
   variantBadge: {
     position: 'absolute',

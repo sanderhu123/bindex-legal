@@ -2634,7 +2634,8 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
     return (
       <SafeAreaView style={styles.safeArea}>
         <ScrollView
-          style={styles.container}
+          style={styles.scrollViewStyle}
+          contentContainerStyle={styles.container}
           onScroll={onScrollEvent}
           scrollEventThrottle={16}
         >
@@ -3030,11 +3031,13 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
-  container: {
+  scrollViewStyle: {
     flex: 1,
-    padding: screenPadding,
-    paddingBottom: 120,
     backgroundColor: colors.background,
+  },
+  container: {
+    padding: screenPadding,
+    paddingBottom: 60,
   },
   flatListContainer: {
     padding: screenPadding,

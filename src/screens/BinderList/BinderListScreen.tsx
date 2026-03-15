@@ -13,7 +13,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import type { MainStackParamList } from '../../navigation/AppNavigator';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { signOut } from '../../services/supabase/auth';
 import { getBinders, deleteBinder } from '../../services/supabase/binders';
 import { processToggleQueue, processPendingCountSyncs } from '../../services/offlineQueue';
 import { canCreateBinder, canDeleteBinder, recordDeletionUsed, getBinderUsage, presentProPaywall, isUserPro } from '../../services/pro/proService';
@@ -225,28 +224,6 @@ export default function BinderListScreen() {
     }
   };
 
-  const handleLogout = async () => {
-    Alert.alert(
-      'Logout',
-      'Are you sure you want to logout?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Logout',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await signOut();
-            } catch (error) {
-              console.error('Error signing out:', error);
-              Alert.alert('Error', 'Failed to logout. Please try again.');
-            }
-          },
-        },
-      ]
-    );
-  };
-
   const renderBinderCard = ({ item }: { item: BinderWithProgress }) => (
     <BinderCard
       binder={item}
@@ -311,7 +288,7 @@ export default function BinderListScreen() {
               {isPro ? 'Pro' : 'Pro'}
             </Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.settingsButton} onPress={handleLogout}>
+          <TouchableOpacity style={styles.settingsButton} onPress={() => navigation.navigate('Settings')}>
             <Ionicons name="settings-outline" size={22} color={colors.textTertiary} />
           </TouchableOpacity>
         </View>

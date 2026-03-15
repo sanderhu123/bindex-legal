@@ -8,6 +8,7 @@ import CardListScreen from '../screens/CardList/CardListScreen';
 import CardDetailScreen from '../screens/CardDetail/CardDetailScreen';
 import CardSearchTestScreen from '../screens/CardSearchTest/CardSearchTestScreen';
 import UpgradeScreen from '../screens/Upgrade/UpgradeScreen';
+import SettingsScreen from '../screens/Settings/SettingsScreen';
 
 export type MainStackParamList = {
   Questionnaire: undefined;
@@ -42,6 +43,7 @@ export type MainStackParamList = {
   };
   CardSearchTest: undefined;
   Upgrade: undefined;
+  Settings: undefined;
 };
 
 const Stack = createStackNavigator<MainStackParamList>();
@@ -85,6 +87,10 @@ export default function AppNavigator() {
       <Stack.Screen
         name="Upgrade"
         component={UpgradeScreen}
+      />
+      <Stack.Screen
+        name="Settings"
+        component={SettingsScreen}
       />
     </Stack.Navigator>
   );

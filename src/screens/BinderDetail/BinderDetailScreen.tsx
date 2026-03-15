@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { View, StyleSheet, Text, ScrollView, TouchableOpacity, Dimensions, FlatList, SectionList, ActivityIndicator, Alert, PanResponder, Modal, Pressable } from 'react-native';
+import { View, StyleSheet, Text, ScrollView, TouchableOpacity, Dimensions, FlatList, SectionList, ActivityIndicator, Alert, PanResponder, Modal, Pressable, Animated, Image as RNImage } from 'react-native';
 import { Image } from 'expo-image';
+import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -43,6 +44,7 @@ import { useCardFilter, type OwnershipFilter } from '../../hooks/useCardFilter';
 import SearchBar from '../../components/Search/SearchBar';
 import LoadingScreen from '../../components/Loading/LoadingScreen';
 import LoadingSpinner from '../../components/Loading/LoadingSpinner';
+import SkeletonCardGrid from '../../components/Loading/SkeletonCardGrid';
 import EmptyState from '../../components/EmptyState/EmptyState';
 import ErrorScreen from '../../components/Error/ErrorScreen';
 import ViewModeToggle from '../../components/ViewModeToggle';
@@ -50,6 +52,8 @@ import { useTheme } from '../../context/ThemeContext';
 import { spacing, typography, fonts, borderRadius, screenPadding, type ThemeColors } from '../../constants/theme';
 import { showSuccess, showError } from '../../utils/toast';
 import { lightTap } from '../../utils/haptics';
+
+const LOGO_ICON = require('../../../assets/logo-icon-teal.png');
 
 const CONTAINER_PADDING = screenPadding; // Padding from container style (24px)
 const CARD_MARGIN = 2; // Margin between cards (margin: 2 means 2px on all sides, 4px gap between cards)
@@ -126,6 +130,23 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
   
   // Dropdown options panel
   const [showOptions, setShowOptions] = useState(false);
+  
+  // Scroll-based header animation
+  const scrollY = useRef(new Animated.Value(0)).current;
+  const headerOpacity = scrollY.interpolate({
+    inputRange: [0, 60],
+    outputRange: [1, 0],
+    extrapolate: 'clamp',
+  });
+  const headerHeight = scrollY.interpolate({
+    inputRange: [0, 60],
+    outputRange: [52, 0],
+    extrapolate: 'clamp',
+  });
+  const onScrollEvent = Animated.event(
+    [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+    { useNativeDriver: false }
+  );
   
   // Track whether per-binder preferences have been loaded
   const prefsLoadedRef = useRef(false);
@@ -2176,7 +2197,11 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
                 onPress={() => handleToggleCard(card)}
                 activeOpacity={0.7}
               >
-                <Text style={styles.checkbox}>{card.isOwned ? '☑' : '☐'}</Text>
+                {card.isOwned ? (
+                  <RNImage source={LOGO_ICON} style={styles.checkboxLogo} resizeMode="contain" />
+                ) : (
+                  <Ionicons name="square-outline" size={20} color={colors.textTertiary} />
+                )}
               </TouchableOpacity>
               {variantBadge && (
                 <View style={[styles.regionVariantBadge, { backgroundColor: variantBadge.color }]}>
@@ -2246,7 +2271,11 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
               onPress={() => handleToggleCard(item)}
               activeOpacity={0.7}
             >
-              <Text style={styles.checkbox}>{item.isOwned ? '☑' : '☐'}</Text>
+              {item.isOwned ? (
+                <RNImage source={LOGO_ICON} style={styles.checkboxLogo} resizeMode="contain" />
+              ) : (
+                <Ionicons name="square-outline" size={20} color={colors.textTertiary} />
+              )}
             </TouchableOpacity>
             {variantBadge && (
               <View style={[styles.regionVariantBadge, { backgroundColor: variantBadge.color }]}>
@@ -2265,7 +2294,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
         </TouchableOpacity>
       );
     },
-    [cardWidth, handleRegionCardTap, handleToggleCard, handleLongPressCard, handleLongPressRelease]
+    [cardWidth, colors, handleRegionCardTap, handleToggleCard, handleLongPressCard, handleLongPressRelease]
   );
 
   // Step 34A: Enlarged card overlay component (for long-press preview)
@@ -2347,40 +2376,52 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
 
   const listHeader = (
     <View style={styles.headerContainer}>
-      {/* Row 1: Binder name */}
-      <Text style={styles.title} numberOfLines={1}>{binder.name}</Text>
-
-      {/* Row 2: Subtitle — "Master Set · Prismatic Evolutions" */}
-      <Text style={styles.subtitle} numberOfLines={1}>
-        {subtitleParts.join(' · ')}
-      </Text>
-
-      {/* Row 3: Search bar (always visible) */}
-      <SearchBar
-        value={searchQuery}
-        onChangeText={setSearchQuery}
-        placeholder="Search by name or number..."
-      />
-
-      {/* Row 4: Toolbar — Edit | Display Mode | ▼ dropdown */}
-      <View style={styles.toolbar}>
+      {/* Row 1: Back arrow + binder name */}
+      <View style={styles.titleRow}>
         <TouchableOpacity
-          style={styles.toolbarTextButton}
+          style={styles.backButton}
+          onPress={() => navigation.goBack()}
+          activeOpacity={0.7}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
+          <Ionicons name="chevron-back" size={24} color={colors.text} />
+        </TouchableOpacity>
+        <Text style={styles.title} numberOfLines={1}>{binder.name}</Text>
+      </View>
+
+      {/* Row 2: Subtitle — collapses on scroll */}
+      <Animated.View style={{ opacity: headerOpacity, height: headerHeight, overflow: 'hidden' }}>
+        <Text style={styles.subtitle} numberOfLines={1}>
+          {subtitleParts.join(' · ')}
+        </Text>
+      </Animated.View>
+
+      {/* Row 3: Toolbar — Search | Edit | Display Mode | ▼ dropdown */}
+      <View style={styles.toolbar}>
+        <SearchBar
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          placeholder="Search..."
+          compact
+        />
+
+        <TouchableOpacity
+          style={styles.toolbarIconButton}
           onPress={() => navigation.navigate('BinderEdit', { binderId: binder.id })}
           activeOpacity={0.7}
         >
-          <Text style={styles.toolbarTextButtonLabel}>Edit</Text>
+          <Ionicons name="pencil" size={18} color={colors.primary} />
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={styles.toolbarTextButton}
+          style={styles.toolbarIconButton}
           onPress={() => {
             setViewMode('binder');
             setDisplayMode(true);
           }}
           activeOpacity={0.7}
         >
-          <Text style={styles.toolbarTextButtonLabel}>Display Mode</Text>
+          <Ionicons name="eye-outline" size={20} color={colors.primary} />
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -2388,9 +2429,11 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
           onPress={() => setShowOptions(prev => !prev)}
           activeOpacity={0.7}
         >
-          <Text style={[styles.dropdownArrow, showOptions && styles.dropdownArrowActive]}>
-            {showOptions ? '▲' : '▼'}
-          </Text>
+          <Ionicons
+            name={showOptions ? 'chevron-up' : 'chevron-down'}
+            size={18}
+            color={showOptions ? colors.primary : colors.textSecondary}
+          />
         </TouchableOpacity>
       </View>
 
@@ -2441,16 +2484,27 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
     </View>
   );
 
+  const missingCount = totalCount - ownedCount;
+
   // Sticky progress footer (rendered outside scrollable content)
   const stickyProgressFooter = (
     <View style={styles.stickyFooter}>
       <View style={styles.stickyFooterContent}>
-        <Text style={styles.stickyFooterText}>
-          {ownedCount} / {totalCount} · {progressPercentage}%
-          {isCustomMode ? `  ·  ${positionCards.size}/${customMaxSlots} slots` : ''}
-        </Text>
+        <View style={styles.stickyFooterStats}>
+          <Text style={styles.stickyFooterOwned}>{ownedCount} owned</Text>
+          <Text style={styles.stickyFooterDot}>·</Text>
+          <Text style={styles.stickyFooterMissing}>{missingCount} missing</Text>
+          <Text style={styles.stickyFooterDot}>·</Text>
+          <Text style={styles.stickyFooterPercent}>{progressPercentage}%</Text>
+          {isCustomMode && (
+            <>
+              <Text style={styles.stickyFooterDot}>·</Text>
+              <Text style={styles.stickyFooterSlots}>{positionCards.size}/{customMaxSlots} slots</Text>
+            </>
+          )}
+        </View>
         <View style={styles.stickyFooterBar}>
-          <View style={[styles.stickyFooterBarFill, { width: `${progressPercentage}%`, backgroundColor: colors.primary }]} />
+          <View style={[styles.stickyFooterBarFill, { width: `${progressPercentage}%`, backgroundColor: progressPercentage === 100 ? colors.success : colors.primary }]} />
         </View>
       </View>
     </View>
@@ -2459,7 +2513,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
   // Footer component (loading indicator for pagination)
   const ListFooterComponent = () => {
     if (loading) {
-      return <LoadingSpinner message="Loading cards..." />;
+      return <SkeletonCardGrid columns={gridColumns} rows={4} />;
     }
 
     // Custom mode footer
@@ -2559,6 +2613,8 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
           windowSize={11}
           initialNumToRender={15}
           extraData={isCustomMode ? [positionCards, searchQuery, ownershipFilter] : cards}
+          onScroll={onScrollEvent}
+          scrollEventThrottle={16}
         />
         {!displayMode && stickyProgressFooter}
         <EnlargedCardOverlay />
@@ -2575,7 +2631,11 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
 
     return (
       <SafeAreaView style={styles.safeArea}>
-        <ScrollView style={styles.container}>
+        <ScrollView
+          style={styles.container}
+          onScroll={onScrollEvent}
+          scrollEventThrottle={16}
+        >
           {!displayMode && listHeader}
           
           {displayMode && (
@@ -2591,7 +2651,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
           )}
           
           {loading ? (
-            <LoadingSpinner message="Loading cards..." />
+            <SkeletonCardGrid columns={gridColumns} rows={3} />
           ) : !binderHasCards ? (
             <ListEmptyComponent />
           ) : (
@@ -2684,6 +2744,8 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
           windowSize={11}
           initialNumToRender={PAGE_SIZE}
           extraData={[displayCount, positionCards, searchQuery, ownershipFilter]}
+          onScroll={onScrollEvent}
+          scrollEventThrottle={16}
         />
         
         {stickyProgressFooter}
@@ -2752,6 +2814,8 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
           ListHeaderComponent={listHeader}
           ListFooterComponent={ListFooterComponent}
           ListEmptyComponent={ListEmptyComponent}
+          onScroll={onScrollEvent}
+          scrollEventThrottle={16}
         />
         {stickyProgressFooter}
         <EnlargedCardOverlay />
@@ -2787,6 +2851,8 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
             windowSize={11}
             initialNumToRender={PAGE_SIZE}
             extraData={[savedPositionMap, searchQuery, ownershipFilter]}
+            onScroll={onScrollEvent}
+            scrollEventThrottle={16}
           />
           {stickyProgressFooter}
           <EnlargedCardOverlay />
@@ -2814,6 +2880,8 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
           windowSize={11}
           initialNumToRender={PAGE_SIZE}
           extraData={[displayCount, cards, extraCards]}
+          onScroll={onScrollEvent}
+          scrollEventThrottle={16}
         />
         
         {stickyProgressFooter}
@@ -2853,6 +2921,8 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
             windowSize={11}
             initialNumToRender={PAGE_SIZE}
             extraData={[savedPositionMap, searchQuery, ownershipFilter]}
+            onScroll={onScrollEvent}
+            scrollEventThrottle={16}
           />
           <CardPickerModal
             visible={showRegionCardPicker}
@@ -2891,6 +2961,8 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
           windowSize={11}
           initialNumToRender={PAGE_SIZE}
           extraData={[displayCount, cards]}
+          onScroll={onScrollEvent}
+          scrollEventThrottle={16}
         />
         
         {/* Card Picker Modal for selecting TCG card for Pokemon without custom selection */}
@@ -2935,6 +3007,8 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
         initialNumToRender={PAGE_SIZE}
         // Extra data to trigger re-render when cards ownership changes
         extraData={[displayCount, cards]}
+        onScroll={onScrollEvent}
+        scrollEventThrottle={16}
       />
       {stickyProgressFooter}
       <EnlargedCardOverlay />
@@ -2960,18 +3034,31 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   headerContainer: {
     marginBottom: spacing.xs,
   },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: spacing.sm,
+    marginBottom: spacing.xs,
+  },
+  backButton: {
+    marginRight: spacing.sm,
+    width: 32,
+    height: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   title: {
     fontSize: typography['2xl'],
     fontFamily: fonts.bold,
     color: colors.text,
-    marginTop: spacing.md,
-    marginBottom: spacing.xs,
+    flex: 1,
   },
   subtitle: {
     fontSize: typography.sm,
     color: colors.textTertiary,
     fontFamily: fonts.medium,
     marginBottom: spacing.md,
+    marginLeft: 40,
   },
   toolbar: {
     flexDirection: 'row',
@@ -2979,16 +3066,13 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     gap: spacing.sm,
     marginBottom: spacing.sm,
   },
-  toolbarTextButton: {
-    paddingVertical: spacing.xs + 2,
-    paddingHorizontal: spacing.md,
+  toolbarIconButton: {
+    width: 36,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
     borderRadius: borderRadius.md,
     backgroundColor: colors.backgroundDark,
-  },
-  toolbarTextButtonLabel: {
-    fontSize: typography.sm,
-    fontFamily: fonts.semibold,
-    color: colors.primary,
   },
   dropdownToggle: {
     width: 36,
@@ -3068,14 +3152,38 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   stickyFooterContent: {
     gap: spacing.xs,
   },
-  stickyFooterText: {
+  stickyFooterStats: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+  },
+  stickyFooterOwned: {
+    fontSize: typography.xs,
+    fontFamily: fonts.semibold,
+    color: colors.primary,
+  },
+  stickyFooterMissing: {
+    fontSize: typography.xs,
+    fontFamily: fonts.semibold,
+    color: colors.textTertiary,
+  },
+  stickyFooterPercent: {
+    fontSize: typography.xs,
+    fontFamily: fonts.bold,
+    color: colors.text,
+  },
+  stickyFooterDot: {
+    fontSize: typography.xs,
+    color: colors.textLight,
+  },
+  stickyFooterSlots: {
     fontSize: typography.xs,
     fontFamily: fonts.medium,
     color: colors.textSecondary,
-    textAlign: 'center',
   },
   stickyFooterBar: {
-    height: 4,
+    height: 8,
     backgroundColor: colors.backgroundDark,
     borderRadius: borderRadius.full,
     overflow: 'hidden',
@@ -3175,8 +3283,9 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  checkbox: {
-    fontSize: 20,
+  checkboxLogo: {
+    width: 22,
+    height: 22,
   },
   // Section row for page breaks grid view
   sectionRow: {

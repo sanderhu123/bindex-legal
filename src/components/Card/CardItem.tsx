@@ -1,5 +1,6 @@
-import React, { memo, useCallback, useMemo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import React, { memo, useCallback, useMemo, useRef, useEffect } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Animated, Image as RNImage } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { fonts, type ThemeColors } from '../../constants/theme';
 import { useTheme } from '../../context/ThemeContext';
 import { useNavigation } from '@react-navigation/native';
@@ -9,6 +10,8 @@ import CardDetails from './CardDetails';
 import { lightTap } from '../../utils/haptics';
 import type { Card } from '../../types';
 import type { MainStackParamList } from '../../navigation/AppNavigator';
+
+const LOGO_ICON = require('../../../assets/logo-icon-teal.png');
 
 interface CardWithOwnership extends Card {
   isOwned: boolean;
@@ -68,6 +71,8 @@ function CardItemComponent({
   const badge = getVariantBadge(card.variant);
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const checkScale = useRef(new Animated.Value(1)).current;
+  const prevOwnedRef = useRef(card.isOwned);
 
   const handleCardPress = () => {
     // Navigate to CardDetail screen when card is tapped
@@ -101,6 +106,16 @@ function CardItemComponent({
       },
     });
   };
+
+  useEffect(() => {
+    if (prevOwnedRef.current !== card.isOwned) {
+      prevOwnedRef.current = card.isOwned;
+      Animated.sequence([
+        Animated.timing(checkScale, { toValue: 1.4, duration: 120, useNativeDriver: true }),
+        Animated.timing(checkScale, { toValue: 1, duration: 120, useNativeDriver: true }),
+      ]).start();
+    }
+  }, [card.isOwned]);
 
   const handleCheckboxPress = () => {
     if (onPress) {
@@ -154,7 +169,13 @@ function CardItemComponent({
           onPress={handleCheckboxPress}
           activeOpacity={0.7}
         >
-          <Text style={styles.checkbox}>{card.isOwned ? '☑' : '☐'}</Text>
+          <Animated.View style={{ transform: [{ scale: checkScale }] }}>
+            {card.isOwned ? (
+              <RNImage source={LOGO_ICON} style={styles.checkboxLogo} resizeMode="contain" />
+            ) : (
+              <Ionicons name="square-outline" size={22} color={colors.textTertiary} />
+            )}
+          </Animated.View>
         </TouchableOpacity>
       </TouchableOpacity>
     );
@@ -187,7 +208,13 @@ function CardItemComponent({
           onPress={handleCheckboxPress}
           activeOpacity={0.7}
         >
-          <Text style={styles.checkbox}>{card.isOwned ? '☑' : '☐'}</Text>
+          <Animated.View style={{ transform: [{ scale: checkScale }] }}>
+            {card.isOwned ? (
+              <RNImage source={LOGO_ICON} style={styles.checkboxLogo} resizeMode="contain" />
+            ) : (
+              <Ionicons name="square-outline" size={20} color={colors.textTertiary} />
+            )}
+          </Animated.View>
         </TouchableOpacity>
         {badge && (
           <View style={[styles.variantBadge, { backgroundColor: badge.color }]}>
@@ -266,8 +293,9 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  checkbox: {
-    fontSize: 20,
+  checkboxLogo: {
+    width: 22,
+    height: 22,
   },
   variantBadge: {
     position: 'absolute',

@@ -1,5 +1,6 @@
 import React, { memo, useCallback, useMemo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Dimensions, Image as RNImage } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import type { StackNavigationProp } from '@react-navigation/stack';
 import CardImage from '../Card/CardImage';
@@ -7,6 +8,8 @@ import { useTheme } from '../../context/ThemeContext';
 import { spacing, typography, fonts, borderRadius, type ThemeColors } from '../../constants/theme';
 import type { Card } from '../../types';
 import type { MainStackParamList } from '../../navigation/AppNavigator';
+
+const LOGO_ICON = require('../../../assets/logo-icon-teal.png');
 
 /**
  * Card with ownership status
@@ -145,7 +148,6 @@ function BinderPageViewComponent({
           disabled={!isCustomMode}
         >
           <View style={[styles.emptySlotInner, { height: cardHeight }]}>
-            <Text style={styles.slotBadge}>{slotBadge}</Text>
             {isCustomMode && (
               <Text style={styles.emptySlotText}>Add Card</Text>
             )}
@@ -211,13 +213,6 @@ function BinderPageViewComponent({
         activeOpacity={0.7}
       >
         <View style={[styles.cardContainer, { width: cardWidth }]}>
-          {/* Slot number badge - hidden in display mode */}
-          {!displayMode && (
-            <View style={styles.slotBadgeContainer}>
-              <Text style={styles.slotBadgeOnCard}>{slotBadge}</Text>
-            </View>
-          )}
-          
           {/* Card image - always full opacity in display mode */}
           <CardImage
             source={card.imageUrl}
@@ -234,7 +229,11 @@ function BinderPageViewComponent({
               onPress={handleCheckboxTap}
               activeOpacity={0.7}
             >
-              <Text style={styles.checkbox}>{card.isOwned ? '☑' : '☐'}</Text>
+              {card.isOwned ? (
+                <RNImage source={LOGO_ICON} style={styles.checkboxLogo} resizeMode="contain" />
+              ) : (
+                <Ionicons name="square-outline" size={20} color={colors.textTertiary} />
+              )}
             </TouchableOpacity>
           )}
           
@@ -367,8 +366,9 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  checkbox: {
-    fontSize: 20,
+  checkboxLogo: {
+    width: 22,
+    height: 22,
   },
   // Variant badge
   variantBadge: {

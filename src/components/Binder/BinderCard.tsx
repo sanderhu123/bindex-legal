@@ -57,24 +57,22 @@ export default function BinderCard({ binder, completionPercentage, totalCards, o
     >
       <View style={styles.accentBar} />
       <View style={styles.content}>
-        <View style={styles.topRow}>
-          <View style={styles.titleArea}>
-            <Text style={styles.title} numberOfLines={1}>
-              {binder.name}
-            </Text>
-            <Text style={styles.subtitle} numberOfLines={1}>
-              {getCollectionModeLabel(binder.collectionMode)}
-              {subtitle && ` · ${subtitle}`}
-            </Text>
-          </View>
-          {showSetSymbol && (
-            <Image
-              source={{ uri: setSymbolUrl }}
-              style={styles.setSymbol}
-              resizeMode="contain"
-              onError={() => setSymbolError(true)}
-            />
-          )}
+        {showSetSymbol && (
+          <Image
+            source={{ uri: setSymbolUrl }}
+            style={styles.setSymbol}
+            resizeMode="contain"
+            onError={() => setSymbolError(true)}
+          />
+        )}
+        <View style={styles.titleArea}>
+          <Text style={styles.title} numberOfLines={1}>
+            {binder.name}
+          </Text>
+          <Text style={styles.subtitle} numberOfLines={1}>
+            {getCollectionModeLabel(binder.collectionMode)}
+            {subtitle && ` · ${subtitle}`}
+          </Text>
         </View>
 
         <ProgressBar
@@ -105,15 +103,9 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: spacing.md,
   },
-  topRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: spacing.sm,
-  },
   titleArea: {
-    flex: 1,
-    marginRight: spacing.md,
+    marginBottom: spacing.sm,
+    paddingRight: 28,
   },
   title: {
     fontSize: typography.lg,
@@ -127,6 +119,9 @@ const styles = StyleSheet.create({
     color: colors.textTertiary,
   },
   setSymbol: {
+    position: 'absolute',
+    top: spacing.md,
+    right: spacing.md,
     width: 20,
     height: 20,
     opacity: 0.6,

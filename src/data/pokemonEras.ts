@@ -148,8 +148,6 @@ export function getSeriesSlugFromId(setId: string): string {
     'xya',          // Yellow A Alternate (XY)
     'svp',          // SVP Black Star Promos (no logo/symbol in API)
     'mep',          // MEP Black Star Promos
-    'P-A',          // Promos-A
-    
     // Sets with symbol but no card images
     'bog',          // Best of Game (has symbol, no card images)
     '2021swsh',     // McDonald's 2021 (has logo, no card images)
@@ -236,14 +234,6 @@ export function getSeriesSlugFromId(setId: string): string {
   if (setId === 'dpp') return 'dp';         // DP Black Star Promos → dp series
   if (setId === 'np') return 'pop';         // Nintendo Black Star Promos → pop series
   if (setId === 'basep') return 'base';     // Wizards Black Star Promos → base series
-  
-  // === TCGP (Pokemon TCG Pocket) sets ===
-  if (setId === 'A1' || setId === 'A1a' || setId === 'A2' || 
-      setId === 'A2a' || setId === 'A2b' || setId === 'A3' ||
-      setId === 'A3a' || setId === 'A3b' || setId === 'A4' ||
-      setId === 'A4a' || setId === 'B1' || setId === 'B1a') {
-    return 'tcgp';
-  }
   
   // === STANDARD SERIES (prefix matching) ===
   if (setId.startsWith('me')) return 'me';       // Mega Evolution era

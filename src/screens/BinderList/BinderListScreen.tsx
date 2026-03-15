@@ -299,6 +299,11 @@ export default function BinderListScreen() {
         renderItem={renderBinderCard}
         keyExtractor={(item) => item.id}
         contentContainerStyle={binders.length === 0 ? styles.emptyListContainer : styles.listContainer}
+        ListHeaderComponent={binders.length > 0 ? (
+          <Text style={styles.binderCount}>
+            {binders.length} {binders.length === 1 ? 'binder' : 'binders'}
+          </Text>
+        ) : null}
         ListEmptyComponent={renderEmptyState}
         refreshControl={
           <RefreshControl
@@ -312,7 +317,7 @@ export default function BinderListScreen() {
 
       {/* Floating Action Button */}
       <TouchableOpacity style={styles.fab} onPress={handleCreateBinder} activeOpacity={0.85}>
-        <Text style={styles.fabIcon}>+</Text>
+        <Ionicons name="add" size={28} color={colors.background} />
       </TouchableOpacity>
     </SafeAreaView>
   );
@@ -331,8 +336,6 @@ const styles = StyleSheet.create({
     paddingTop: spacing.lg,
     paddingBottom: spacing.md,
     backgroundColor: colors.background,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.borderLight,
   },
   headerLogo: {
     height: 36,
@@ -365,6 +368,12 @@ const styles = StyleSheet.create({
   settingsButton: {
     padding: spacing.xs + 2,
   },
+  binderCount: {
+    fontSize: typography.sm,
+    fontFamily: fonts.regular,
+    color: colors.textTertiary,
+    marginBottom: spacing.md,
+  },
   listContainer: {
     padding: screenPadding,
     paddingBottom: 100,
@@ -383,12 +392,5 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     ...shadows.lg,
-  },
-  fabIcon: {
-    fontSize: 30,
-    lineHeight: 32,
-    color: colors.background,
-    textAlign: 'center',
-    includeFontPadding: false,
   },
 });

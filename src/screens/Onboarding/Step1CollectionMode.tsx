@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import { fonts } from '../../constants/theme';
 import CollectionModeSelector from '../../components/Binder/CollectionModeSelector';
 import type { CollectionMode } from '../../types';
 
@@ -29,11 +30,12 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 24,
-    fontWeight: 'bold',
+    fontFamily: fonts.bold,
     marginBottom: 8,
   },
   description: {
     fontSize: 16,
+    fontFamily: fonts.regular,
     color: '#666',
     marginBottom: 24,
   },

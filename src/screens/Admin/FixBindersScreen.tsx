@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert } from 'react-native';
 import { fixExistingBinders } from '../../utils/fixExistingBinders';
-import { colors, spacing, typography, borderRadius, screenPadding } from '../../constants/theme';
+import { colors, spacing, typography, fonts, borderRadius, screenPadding } from '../../constants/theme';
 
 /**
  * Admin screen to fix existing binders after progress caching migration
@@ -129,7 +129,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: typography['2xl'],
-    fontWeight: typography.bold,
+    fontFamily: fonts.bold,
     color: colors.text,
     marginBottom: spacing.lg,
   },
@@ -143,7 +143,7 @@ const styles = StyleSheet.create({
   },
   infoTitle: {
     fontSize: typography.base,
-    fontWeight: typography.semibold,
+    fontFamily: fonts.semibold,
     color: colors.text,
     marginBottom: spacing.sm,
   },
@@ -165,14 +165,14 @@ const styles = StyleSheet.create({
   buttonText: {
     color: colors.background,
     fontSize: typography.base,
-    fontWeight: typography.semibold,
+    fontFamily: fonts.semibold,
   },
   resultsContainer: {
     marginTop: spacing.lg,
   },
   resultsTitle: {
     fontSize: typography.lg,
-    fontWeight: typography.semibold,
+    fontFamily: fonts.semibold,
     color: colors.text,
     marginBottom: spacing.md,
   },
@@ -192,7 +192,7 @@ const styles = StyleSheet.create({
   },
   detailsTitle: {
     fontSize: typography.base,
-    fontWeight: typography.semibold,
+    fontFamily: fonts.semibold,
     color: colors.text,
     marginBottom: spacing.sm,
   },
@@ -204,7 +204,7 @@ const styles = StyleSheet.create({
   },
   detailName: {
     fontSize: typography.sm,
-    fontWeight: typography.semibold,
+    fontFamily: fonts.semibold,
     color: colors.text,
     marginBottom: spacing.xs,
   },
@@ -222,7 +222,7 @@ const styles = StyleSheet.create({
   },
   noteTitle: {
     fontSize: typography.base,
-    fontWeight: typography.semibold,
+    fontFamily: fonts.semibold,
     color: colors.text,
     marginBottom: spacing.sm,
   },
@@ -231,4 +231,3 @@ const styles = StyleSheet.create({
     color: colors.textLight,
   },
 });
-

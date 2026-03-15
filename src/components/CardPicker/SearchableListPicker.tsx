@@ -12,7 +12,7 @@ import {
   Keyboard,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { colors, spacing, typography, borderRadius, shadows } from '../../constants/theme';
+import { colors, spacing, typography, borderRadius, shadows, fonts } from '../../constants/theme';
 
 /**
  * A single item in the searchable list
@@ -38,7 +38,7 @@ export interface SearchableListPickerProps {
   items: ListPickerItem[];
   /** Set of currently selected item IDs (supports multi-select) */
   selectedIds: Set<string>;
-  /** Called when the user taps Done — receives the final set of selected IDs */
+  /** Called when the user taps Done Ã¢â‚¬â€ receives the final set of selected IDs */
   onDone: (selectedIds: Set<string>) => void;
   /** Called when the picker is closed via Cancel or backdrop */
   onClose: () => void;
@@ -98,7 +98,7 @@ export function SearchableListPicker({
     onClose();
   }, [onClose]);
 
-  // Handle Done — save selections
+  // Handle Done Ã¢â‚¬â€ save selections
   const handleDone = useCallback(() => {
     setSearchText('');
     onDone(localSelected);
@@ -134,7 +134,7 @@ export function SearchableListPicker({
         >
           {/* Checkbox */}
           <View style={[styles.checkbox, isSelected && styles.checkboxSelected]}>
-            {isSelected && <Text style={styles.checkboxIcon}>✓</Text>}
+            {isSelected && <Text style={styles.checkboxIcon}>Ã¢Å“â€œ</Text>}
           </View>
           <View style={styles.listItemContent}>
             <Text
@@ -211,7 +211,7 @@ export function SearchableListPicker({
           {/* Search input */}
           <View style={styles.searchContainer}>
             <View style={styles.searchInputContainer}>
-              <Text style={styles.searchIcon}>🔍</Text>
+              <Text style={styles.searchIcon}>Ã°Å¸â€Â</Text>
               <TextInput
                 style={styles.searchInput}
                 placeholder={searchPlaceholder}
@@ -228,7 +228,7 @@ export function SearchableListPicker({
                   onPress={() => setSearchText('')}
                   hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                 >
-                  <Text style={styles.clearIcon}>✕</Text>
+                  <Text style={styles.clearIcon}>Ã¢Å“â€¢</Text>
                 </TouchableOpacity>
               )}
             </View>
@@ -312,7 +312,7 @@ const styles = StyleSheet.create({
   cancelText: {
     fontSize: typography.base,
     color: colors.primary,
-    fontWeight: typography.medium,
+    fontFamily: fonts.medium,
     minWidth: 60,
   },
   titleContainer: {
@@ -321,20 +321,20 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: typography.lg,
-    fontWeight: typography.semibold,
+    fontFamily: fonts.semibold,
     color: colors.text,
     textAlign: 'center',
   },
   selectionCount: {
     fontSize: typography.xs,
     color: colors.primary,
-    fontWeight: typography.medium,
+    fontFamily: fonts.medium,
     marginTop: 2,
   },
   doneText: {
     fontSize: typography.base,
     color: colors.primary,
-    fontWeight: typography.semibold,
+    fontFamily: fonts.semibold,
     minWidth: 60,
     textAlign: 'right',
   },
@@ -376,7 +376,7 @@ const styles = StyleSheet.create({
   clearFilterText: {
     fontSize: typography.sm,
     color: colors.error,
-    fontWeight: typography.medium,
+    fontFamily: fonts.medium,
     textAlign: 'center',
   },
   list: {
@@ -414,7 +414,7 @@ const styles = StyleSheet.create({
   checkboxIcon: {
     fontSize: 14,
     color: '#fff',
-    fontWeight: typography.bold,
+    fontFamily: fonts.bold,
   },
   listItemContent: {
     flex: 1,
@@ -422,11 +422,11 @@ const styles = StyleSheet.create({
   listItemLabel: {
     fontSize: typography.base,
     color: colors.text,
-    fontWeight: typography.regular,
+    fontFamily: fonts.regular,
   },
   listItemLabelSelected: {
     color: colors.primary,
-    fontWeight: typography.semibold,
+    fontFamily: fonts.semibold,
   },
   listItemSubtitle: {
     fontSize: typography.xs,

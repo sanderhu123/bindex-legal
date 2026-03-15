@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, Text, TextInput, TouchableOpacity, Alert, Platform, Linking } from 'react-native';
+import { View, StyleSheet, Text, TextInput, TouchableOpacity, Alert, Platform, Linking, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { signIn, signInWithGoogle, signInWithApple } from '../../services/supabase/auth';
 import { useAuth } from '../../context/AuthContext';
-import { colors, spacing, typography, borderRadius, screenPadding } from '../../constants/theme';
+import { colors, fonts, spacing, typography, borderRadius, screenPadding } from '../../constants/theme';
 
 interface LoginScreenProps {
   navigation: any;
@@ -26,7 +26,6 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
     setLoading(true);
     try {
       await signIn(email, password);
-      // Directly refresh user state so the app navigates immediately
       await refreshUser();
     } catch (error: any) {
       Alert.alert('Login Failed', error.message || 'An error occurred');
@@ -39,7 +38,6 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
     setSocialLoading('google');
     try {
       const result = await signInWithGoogle();
-      // On React Native, Supabase returns a URL we need to open manually.
       if (result?.url) {
         await Linking.openURL(result.url);
       } else {
@@ -75,7 +73,15 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
 
   return (
     <SafeAreaView style={styles.container}>
-      <Text style={styles.title}>Login</Text>
+      <View style={styles.logoContainer}>
+        <Image
+          source={require('../../../assets/logo-wordmark.png')}
+          style={styles.logo}
+          resizeMode="contain"
+        />
+      </View>
+
+      <Text style={styles.title}>Welcome back</Text>
       
       <TextInput
         style={styles.input}
@@ -155,10 +161,18 @@ const styles = StyleSheet.create({
     padding: screenPadding,
     backgroundColor: colors.background,
   },
+  logoContainer: {
+    alignItems: 'center',
+    marginBottom: spacing.xl,
+  },
+  logo: {
+    height: 40,
+    width: 160,
+  },
   title: {
-    fontSize: typography['4xl'],
-    fontWeight: typography.bold,
-    marginBottom: spacing.xl + 6,
+    fontSize: typography['2xl'],
+    fontFamily: fonts.semibold,
+    marginBottom: spacing.xl,
     textAlign: 'center',
     color: colors.text,
   },
@@ -169,6 +183,7 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     marginBottom: spacing.md,
     fontSize: typography.base,
+    fontFamily: fonts.regular,
     backgroundColor: colors.background,
     color: colors.text,
   },
@@ -185,7 +200,7 @@ const styles = StyleSheet.create({
   buttonText: {
     color: colors.background,
     fontSize: typography.base,
-    fontWeight: typography.semibold,
+    fontFamily: fonts.semibold,
   },
   dividerContainer: {
     flexDirection: 'row',
@@ -201,6 +216,7 @@ const styles = StyleSheet.create({
     marginHorizontal: spacing.sm,
     color: colors.textTertiary,
     fontSize: typography.sm,
+    fontFamily: fonts.regular,
   },
   socialButton: {
     backgroundColor: colors.background,
@@ -214,13 +230,14 @@ const styles = StyleSheet.create({
   socialButtonText: {
     color: colors.text,
     fontSize: typography.base,
-    fontWeight: typography.medium,
+    fontFamily: fonts.medium,
   },
   linkText: {
     color: colors.primary,
     textAlign: 'center',
     marginTop: spacing.lg,
     fontSize: typography.sm,
+    fontFamily: fonts.regular,
   },
   checkboxContainer: {
     flexDirection: 'row',
@@ -246,13 +263,11 @@ const styles = StyleSheet.create({
   checkmark: {
     color: colors.background,
     fontSize: typography.sm,
-    fontWeight: typography.bold,
+    fontFamily: fonts.bold,
   },
   checkboxLabel: {
     fontSize: typography.sm,
+    fontFamily: fonts.regular,
     color: colors.textSecondary,
   },
 });
-
-
-

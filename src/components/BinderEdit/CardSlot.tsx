@@ -2,7 +2,7 @@ import React, { useMemo, useRef } from 'react';
 import { View, StyleSheet, Text } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { Image } from 'expo-image';
-import { colors, spacing, borderRadius, shadows } from '../../constants/theme';
+import { colors, spacing, borderRadius, shadows, fonts } from '../../constants/theme';
 import { isCustomCard, CUSTOM_CARD_COLORS } from '../../services/supabase/customCards';
 import { mediumTap } from '../../utils/haptics';
 
@@ -211,7 +211,7 @@ export function CardSlot({
         ) : (
           // Fallback placeholder when no image URL
           <View style={[styles.placeholderContent, isDragSource && { opacity: 0.3 }]}>
-            <Text style={styles.placeholderIcon}>🃏</Text>
+            <Text style={styles.placeholderIcon}>Ã°Å¸Æ’Â</Text>
             <Text style={styles.placeholderText} numberOfLines={2}>
               {cardName || 'Card'}
             </Text>
@@ -221,7 +221,7 @@ export function CardSlot({
         {/* Selection indicator - small corner badge */}
         {isSelected && (
           <View style={styles.selectionBadge}>
-            <Text style={styles.checkmarkText}>✓</Text>
+            <Text style={styles.checkmarkText}>Ã¢Å“â€œ</Text>
           </View>
         )}
 
@@ -237,7 +237,7 @@ export function CardSlot({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    aspectRatio: 0.716, // Card aspect ratio (245×342 pixels)
+    aspectRatio: 0.716, // Card aspect ratio (245Ãƒâ€”342 pixels)
     margin: spacing.xs,
     borderRadius: borderRadius.md,
     overflow: 'hidden',
@@ -320,7 +320,7 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: 'white',
     textAlign: 'center',
-    fontWeight: '500',
+    fontFamily: fonts.medium,
   },
   // Selection badge - small corner indicator
   selectionBadge: {
@@ -342,7 +342,7 @@ const styles = StyleSheet.create({
   checkmarkText: {
     color: colors.background,
     fontSize: 14,
-    fontWeight: 'bold',
+    fontFamily: fonts.bold,
   },
   // Drop target highlight overlay (green glow when hovering)
   dropTargetOverlay: {
@@ -362,7 +362,7 @@ const styles = StyleSheet.create({
   },
   customCardText: {
     fontSize: 11,
-    fontWeight: '700',
+    fontFamily: fonts.bold,
     textAlign: 'center',
     lineHeight: 14,
   },

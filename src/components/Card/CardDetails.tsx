@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, StyleSheet, Text } from 'react-native';
+import { fonts } from '../../constants/theme';
 import type { Card } from '../../types';
 
 interface CardDetailsProps {
@@ -126,7 +127,7 @@ const styles = StyleSheet.create({
   compactName: {
     fontSize: 12,
     color: '#333',
-    fontWeight: '500',
+    fontFamily: fonts.medium,
     textAlign: 'center',
     flex: 1,
   },
@@ -141,7 +142,7 @@ const styles = StyleSheet.create({
   },
   compactBadgeText: {
     fontSize: 8,
-    fontWeight: '700',
+    fontFamily: fonts.bold,
     color: '#fff',
     textShadowColor: 'rgba(0, 0, 0, 0.3)',
     textShadowOffset: { width: 0, height: 1 },
@@ -171,7 +172,7 @@ const styles = StyleSheet.create({
   },
   fullName: {
     fontSize: 24,
-    fontWeight: '600',
+    fontFamily: fonts.semibold,
     color: '#333',
     flex: 1,
   },
@@ -186,7 +187,7 @@ const styles = StyleSheet.create({
   },
   fullBadgeText: {
     fontSize: 12,
-    fontWeight: '700',
+    fontFamily: fonts.bold,
     color: '#fff',
     textShadowColor: 'rgba(0, 0, 0, 0.3)',
     textShadowOffset: { width: 0, height: 1 },
@@ -205,7 +206,7 @@ const styles = StyleSheet.create({
   fullLabel: {
     fontSize: 14,
     color: '#999',
-    fontWeight: '500',
+    fontFamily: fonts.medium,
     width: 70,
   },
   fullValue: {

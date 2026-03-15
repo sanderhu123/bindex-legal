@@ -21,7 +21,7 @@ import type { Card } from '../../types';
 import { useCardPicker } from '../../hooks/useCardPicker';
 import { CardSearchResults } from './CardSearchResults';
 import { CardPickerFilters } from './CardPickerFilters';
-import { colors, spacing, typography, borderRadius, shadows } from '../../constants/theme';
+import { colors, spacing, typography, borderRadius, shadows, fonts } from '../../constants/theme';
 import { createCustomCard, CUSTOM_CARD_COLORS } from '../../services/supabase/customCards';
 
 /** Modal height as percentage of screen (85%) */
@@ -511,11 +511,11 @@ const styles = StyleSheet.create({
   cancelText: {
     fontSize: typography.base,
     color: colors.primary,
-    fontWeight: typography.medium,
+    fontFamily: fonts.medium,
   },
   title: {
     fontSize: typography.lg,
-    fontWeight: typography.semibold,
+    fontFamily: fonts.semibold,
     color: colors.text,
     textAlign: 'center',
     flex: 1,
@@ -564,14 +564,14 @@ const styles = StyleSheet.create({
   },
   customCardTitle: {
     fontSize: typography.xl,
-    fontWeight: typography.bold,
+    fontFamily: fonts.bold,
     color: colors.text,
     textAlign: 'center',
     marginBottom: spacing.lg,
   },
   customCardLabel: {
     fontSize: typography.base,
-    fontWeight: typography.semibold,
+    fontFamily: fonts.semibold,
     color: colors.text,
     marginBottom: spacing.sm,
     marginTop: spacing.md,
@@ -609,7 +609,7 @@ const styles = StyleSheet.create({
   },
   colorCheckmark: {
     fontSize: 18,
-    fontWeight: 'bold' as const,
+    fontFamily: fonts.bold,
   },
   customCardPreviewWrapper: {
     alignItems: 'center',
@@ -625,7 +625,7 @@ const styles = StyleSheet.create({
   },
   customCardPreviewName: {
     fontSize: typography.lg,
-    fontWeight: typography.bold,
+    fontFamily: fonts.bold,
     textAlign: 'center',
   },
   createCardButton: {
@@ -640,7 +640,7 @@ const styles = StyleSheet.create({
   },
   createCardButtonText: {
     fontSize: typography.base,
-    fontWeight: typography.bold,
+    fontFamily: fonts.bold,
     color: '#FFFFFF',
   },
   enlargeOverlay: {
@@ -666,7 +666,7 @@ const styles = StyleSheet.create({
   },
   enlargedCardName: {
     fontSize: typography.xl,
-    fontWeight: typography.bold,
+    fontFamily: fonts.bold,
     color: '#FFFFFF',
     marginTop: spacing.md,
     textAlign: 'center',

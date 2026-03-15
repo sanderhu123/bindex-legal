@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, StyleSheet, Text } from 'react-native';
+import { colors, fonts, typography } from '../../constants/theme';
 
 interface CardListScreenProps {
   navigation: any;
@@ -23,7 +24,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 28,
-    fontWeight: 'bold',
+    fontFamily: fonts.bold,
     marginBottom: 20,
     marginTop: 20,
   },
@@ -32,9 +33,3 @@ const styles = StyleSheet.create({
     color: '#666',
   },
 });
-
-
-
-
-
-

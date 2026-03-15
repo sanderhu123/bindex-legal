@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { fonts } from '../../constants/theme';
 
 interface VariantSelectorProps {
   selected: string[];
@@ -76,7 +77,7 @@ const styles = StyleSheet.create({
   },
   optionLabel: {
     fontSize: 16,
-    fontWeight: '500',
+    fontFamily: fonts.medium,
     marginBottom: 2,
   },
   optionSubtitle: {

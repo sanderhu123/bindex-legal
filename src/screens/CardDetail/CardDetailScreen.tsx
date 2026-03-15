@@ -11,7 +11,7 @@ import CardDetails from '../../components/Card/CardDetails';
 import LoadingScreen from '../../components/Loading/LoadingScreen';
 import ErrorScreen from '../../components/Error/ErrorScreen';
 import { getAvailableVariantsForCard } from '../../data/cardVariants';
-import { colors, spacing, typography, borderRadius, screenPadding, shadows } from '../../constants/theme';
+import { colors, spacing, typography, fonts, borderRadius, screenPadding, shadows } from '../../constants/theme';
 import { getUserFriendlyErrorMessage, isNotFoundError } from '../../utils/errorUtils';
 import { showSuccess, showError } from '../../utils/toast';
 import { lightTap } from '../../utils/haptics';
@@ -783,7 +783,7 @@ const styles = StyleSheet.create({
   },
   variantLabel: {
     fontSize: typography.sm,
-    fontWeight: typography.semibold as any,
+    fontFamily: fonts.semibold,
     color: colors.textSecondary,
     marginBottom: spacing.xs,
   },
@@ -808,7 +808,7 @@ const styles = StyleSheet.create({
   },
   variantChipText: {
     fontSize: typography.sm,
-    fontWeight: typography.medium as any,
+    fontFamily: fonts.medium,
   },
   variantChipTextSelected: {
     color: colors.background,
@@ -835,7 +835,7 @@ const styles = StyleSheet.create({
   positionText: {
     fontSize: typography.base,
     color: colors.textSecondary,
-    fontWeight: typography.medium,
+    fontFamily: fonts.medium,
   },
   // Personal note
   noteContainer: {
@@ -850,7 +850,7 @@ const styles = StyleSheet.create({
   },
   noteLabel: {
     fontSize: typography.sm,
-    fontWeight: typography.semibold,
+    fontFamily: fonts.semibold,
     color: colors.textSecondary,
   },
   noteSaving: {
@@ -898,7 +898,7 @@ const styles = StyleSheet.create({
   toggleButtonText: {
     color: colors.background,
     fontSize: typography.base,
-    fontWeight: typography.semibold,
+    fontFamily: fonts.semibold,
   },
   // Region mode buttons
   regionButtonContainer: {
@@ -918,7 +918,7 @@ const styles = StyleSheet.create({
   chooseCardButtonText: {
     color: colors.background,
     fontSize: typography.base,
-    fontWeight: typography.semibold,
+    fontFamily: fonts.semibold,
   },
   clearSelectionButton: {
     paddingVertical: spacing.md - 2,
@@ -934,7 +934,7 @@ const styles = StyleSheet.create({
   clearSelectionButtonText: {
     color: colors.error || '#ef4444',
     fontSize: typography.base,
-    fontWeight: typography.semibold,
+    fontFamily: fonts.semibold,
   },
 });
 

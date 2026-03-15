@@ -11,7 +11,7 @@ import {
 import type { CardSearchFilters } from '../../types';
 import { POKEMON_ERAS } from '../../data/pokemonEras';
 import { SearchableListPicker, type ListPickerItem } from './SearchableListPicker';
-import { colors, spacing, typography, borderRadius } from '../../constants/theme';
+import { colors, spacing, typography, borderRadius, fonts } from '../../constants/theme';
 import { getRarities, getRaritiesForSets } from '../../services/api/pokemonApi';
 
 /**
@@ -76,7 +76,7 @@ export function CardPickerFilters({ filters, onFiltersChange }: CardPickerFilter
             items.push({
               id: set.id,
               label: set.name,
-              subtitle: `${era.name} • ${set.releaseDate}`,
+              subtitle: `${era.name} â€¢ ${set.releaseDate}`,
             });
           }
         }
@@ -88,7 +88,7 @@ export function CardPickerFilters({ filters, onFiltersChange }: CardPickerFilter
           items.push({
             id: set.id,
             label: set.name,
-            subtitle: `${era.name} • ${set.releaseDate}`,
+            subtitle: `${era.name} â€¢ ${set.releaseDate}`,
           });
         }
       }
@@ -289,7 +289,7 @@ export function CardPickerFilters({ filters, onFiltersChange }: CardPickerFilter
                 onPress={() => handleRemoveIllustrator(name)}
                 hitSlop={{ top: 6, bottom: 6, left: 4, right: 6 }}
               >
-                <Text style={styles.tagRemove}>✕</Text>
+                <Text style={styles.tagRemove}>âœ•</Text>
               </TouchableOpacity>
             </View>
           ))}
@@ -327,7 +327,7 @@ export function CardPickerFilters({ filters, onFiltersChange }: CardPickerFilter
                 onPress={() => setIllustratorText('')}
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               >
-                <Text style={styles.inputClearIcon}>✕</Text>
+                <Text style={styles.inputClearIcon}>âœ•</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -406,7 +406,7 @@ function FilterChip({ label, value, onPress, onClear }: FilterChipProps) {
           hitSlop={{ top: 8, bottom: 8, left: 4, right: 8 }}
           style={styles.chipClearButton}
         >
-          <Text style={styles.chipClearIcon}>✕</Text>
+          <Text style={styles.chipClearIcon}>âœ•</Text>
         </TouchableOpacity>
       </View>
     );
@@ -421,7 +421,7 @@ function FilterChip({ label, value, onPress, onClear }: FilterChipProps) {
       <Text style={styles.chipText} numberOfLines={1}>
         {label}
       </Text>
-      <Text style={styles.chipArrow}>▾</Text>
+      <Text style={styles.chipArrow}>â–¾</Text>
     </TouchableOpacity>
   );
 }
@@ -464,12 +464,12 @@ const styles = StyleSheet.create({
   chipText: {
     fontSize: typography.sm,
     color: colors.textTertiary,
-    fontWeight: typography.medium,
+    fontFamily: fonts.medium,
     flexShrink: 1,
   },
   chipTextActive: {
     color: colors.primary,
-    fontWeight: typography.semibold,
+    fontFamily: fonts.semibold,
   },
   chipArrow: {
     fontSize: 10,
@@ -483,7 +483,7 @@ const styles = StyleSheet.create({
   chipClearIcon: {
     fontSize: 10,
     color: colors.primary,
-    fontWeight: typography.bold,
+    fontFamily: fonts.bold,
   },
 
   // -- Clear all --
@@ -495,7 +495,7 @@ const styles = StyleSheet.create({
   clearAllText: {
     fontSize: typography.sm,
     color: colors.error,
-    fontWeight: typography.medium,
+    fontFamily: fonts.medium,
   },
 
   // -- Illustrator tags row --
@@ -520,13 +520,13 @@ const styles = StyleSheet.create({
   tagText: {
     fontSize: typography.xs,
     color: colors.primary,
-    fontWeight: typography.medium,
+    fontFamily: fonts.medium,
     maxWidth: 120,
   },
   tagRemove: {
     fontSize: 10,
     color: colors.primary,
-    fontWeight: typography.bold,
+    fontFamily: fonts.bold,
     marginLeft: 4,
   },
   addMoreButton: {
@@ -536,7 +536,7 @@ const styles = StyleSheet.create({
   addMoreText: {
     fontSize: typography.xs,
     color: colors.primary,
-    fontWeight: typography.semibold,
+    fontFamily: fonts.semibold,
   },
 
   // -- Illustrator inline input --
@@ -578,7 +578,7 @@ const styles = StyleSheet.create({
   illustratorApplyText: {
     fontSize: typography.sm,
     color: colors.background,
-    fontWeight: typography.semibold,
+    fontFamily: fonts.semibold,
   },
   illustratorCancelButton: {
     paddingHorizontal: spacing.xs,
@@ -587,7 +587,7 @@ const styles = StyleSheet.create({
   illustratorCancelText: {
     fontSize: typography.sm,
     color: colors.textTertiary,
-    fontWeight: typography.medium,
+    fontFamily: fonts.medium,
   },
 });
 

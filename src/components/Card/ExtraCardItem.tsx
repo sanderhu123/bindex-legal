@@ -1,7 +1,7 @@
 import React, { useCallback } from 'react';
 import { View, StyleSheet, Text, TouchableOpacity, Alert, Image } from 'react-native';
 import type { Card } from '../../types';
-import { colors, spacing, typography, borderRadius, shadows } from '../../constants/theme';
+import { colors, spacing, typography, borderRadius, shadows, fonts } from '../../constants/theme';
 
 /**
  * Card with ownership status for extra cards
@@ -180,7 +180,7 @@ const styles = StyleSheet.create({
   extraBadgeText: {
     color: colors.text,
     fontSize: typography.xs - 1,
-    fontWeight: typography.bold,
+    fontFamily: fonts.bold,
     letterSpacing: 0.5,
   },
   checkbox: {
@@ -207,7 +207,7 @@ const styles = StyleSheet.create({
   checkmark: {
     color: colors.background,
     fontSize: typography.sm,
-    fontWeight: typography.bold,
+    fontFamily: fonts.bold,
   },
   infoContainer: {
     paddingTop: spacing.xs,
@@ -215,7 +215,7 @@ const styles = StyleSheet.create({
   },
   cardName: {
     fontSize: typography.xs,
-    fontWeight: typography.medium,
+    fontFamily: fonts.medium,
     color: colors.text,
     textAlign: 'center',
   },

@@ -1,10 +1,13 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { fonts } from '../../constants/theme';
 import type { OwnershipFilter } from '../../hooks/useCardFilter';
 
 interface FilterPanelProps {
   ownershipFilter: OwnershipFilter;
   onOwnershipFilterChange: (filter: OwnershipFilter) => void;
+  showPageBreaks?: boolean;
+  onShowPageBreaksChange?: (show: boolean) => void;
 }
 
 /**
@@ -13,6 +16,8 @@ interface FilterPanelProps {
 export default function FilterPanel({
   ownershipFilter,
   onOwnershipFilterChange,
+  showPageBreaks,
+  onShowPageBreaksChange,
 }: FilterPanelProps) {
   return (
     <View style={styles.container}>
@@ -70,6 +75,19 @@ export default function FilterPanel({
           </TouchableOpacity>
         </View>
       </View>
+
+      {/* Page Breaks Toggle - only shown when handler is provided */}
+      {onShowPageBreaksChange && (
+        <TouchableOpacity
+          style={styles.toggleRow}
+          onPress={() => onShowPageBreaksChange(!showPageBreaks)}
+        >
+          <Text style={styles.toggleLabel}>Show page breaks</Text>
+          <Text style={styles.toggleIcon}>
+            {showPageBreaks ? '☑' : '☐'}
+          </Text>
+        </TouchableOpacity>
+      )}
     </View>
   );
 }
@@ -83,7 +101,7 @@ const styles = StyleSheet.create({
   },
   filterLabel: {
     fontSize: 14,
-    fontWeight: '600',
+    fontFamily: fonts.semibold,
     color: '#333',
     marginBottom: 8,
   },
@@ -108,9 +126,26 @@ const styles = StyleSheet.create({
   filterButtonText: {
     fontSize: 14,
     color: '#666',
-    fontWeight: '500',
+    fontFamily: fonts.medium,
   },
   filterButtonTextActive: {
     color: '#fff',
+  },
+  toggleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 10,
+    paddingHorizontal: 4,
+    marginTop: 4,
+  },
+  toggleLabel: {
+    fontSize: 14,
+    fontFamily: fonts.medium,
+    color: '#333',
+  },
+  toggleIcon: {
+    fontSize: 20,
+    color: '#007AFF',
   },
 });

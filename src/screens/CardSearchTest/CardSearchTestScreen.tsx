@@ -16,7 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { searchCardsByName, type CardSearchOptions } from '../../services/api/pokemonApi';
 import type { Card } from '../../types';
-import { colors, spacing, typography, borderRadius, screenPadding } from '../../constants/theme';
+import { colors, spacing, typography, fonts, borderRadius, screenPadding } from '../../constants/theme';
 import { CardPickerModal } from '../../components/CardPicker';
 
 /**
@@ -307,11 +307,11 @@ const styles = StyleSheet.create({
   backButtonText: {
     fontSize: typography.base,
     color: colors.primary,
-    fontWeight: typography.semibold,
+    fontFamily: fonts.semibold,
   },
   title: {
     fontSize: typography.lg,
-    fontWeight: typography.bold,
+    fontFamily: fonts.bold,
     color: colors.text,
   },
   headerSpacer: {
@@ -345,7 +345,7 @@ const styles = StyleSheet.create({
   modalTestButtonText: {
     color: colors.background,
     fontSize: typography.base,
-    fontWeight: typography.semibold,
+    fontFamily: fonts.semibold,
   },
   selectedCardInfo: {
     marginTop: spacing.sm,
@@ -360,7 +360,7 @@ const styles = StyleSheet.create({
   },
   selectedCardName: {
     fontSize: typography.base,
-    fontWeight: typography.semibold,
+    fontFamily: fonts.semibold,
     color: colors.text,
   },
   selectedCardDetails: {
@@ -421,7 +421,7 @@ const styles = StyleSheet.create({
   },
   optionTextActive: {
     color: colors.primary,
-    fontWeight: typography.semibold,
+    fontFamily: fonts.semibold,
   },
   searchButton: {
     backgroundColor: colors.primary,
@@ -434,7 +434,7 @@ const styles = StyleSheet.create({
   searchButtonText: {
     color: colors.background,
     fontSize: typography.base,
-    fontWeight: typography.semibold,
+    fontFamily: fonts.semibold,
   },
   statsContainer: {
     paddingHorizontal: screenPadding,
@@ -443,12 +443,12 @@ const styles = StyleSheet.create({
   statsText: {
     fontSize: typography.sm,
     color: colors.success,
-    fontWeight: typography.medium,
+    fontFamily: fonts.medium,
   },
   errorText: {
     fontSize: typography.sm,
     color: colors.error,
-    fontWeight: typography.medium,
+    fontFamily: fonts.medium,
   },
   listContent: {
     paddingBottom: spacing.xl,
@@ -484,7 +484,7 @@ const styles = StyleSheet.create({
   },
   cardName: {
     fontSize: typography.base,
-    fontWeight: typography.semibold,
+    fontFamily: fonts.semibold,
     color: colors.text,
     marginBottom: spacing.xs,
   },

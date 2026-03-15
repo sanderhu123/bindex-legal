@@ -1,6 +1,6 @@
 import React, { memo } from 'react';
 import { View, TouchableOpacity, Text, StyleSheet } from 'react-native';
-import { colors, spacing, typography, borderRadius } from '../constants/theme';
+import { colors, spacing, typography, fonts, borderRadius } from '../constants/theme';
 
 type ViewMode = 'grid' | 'list' | 'binder';
 
@@ -63,7 +63,7 @@ const styles = StyleSheet.create({
   },
   toggleButtonText: {
     fontSize: typography.sm,
-    fontWeight: typography.medium,
+    fontFamily: fonts.medium,
     color: colors.textTertiary,
   },
   toggleButtonTextActive: {

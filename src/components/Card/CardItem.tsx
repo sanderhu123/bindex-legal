@@ -1,5 +1,6 @@
 import React, { memo, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { fonts } from '../../constants/theme';
 import { useNavigation } from '@react-navigation/native';
 import type { StackNavigationProp } from '@react-navigation/stack';
 import CardImage from './CardImage';
@@ -278,7 +279,7 @@ const styles = StyleSheet.create({
   },
   variantBadgeText: {
     fontSize: 10,
-    fontWeight: '700',
+    fontFamily: fonts.bold,
     color: '#fff',
     textShadowColor: 'rgba(0, 0, 0, 0.3)',
     textShadowOffset: { width: 0, height: 1 },
@@ -310,7 +311,7 @@ const styles = StyleSheet.create({
   },
   listCardName: {
     fontSize: 16,
-    fontWeight: '600',
+    fontFamily: fonts.semibold,
     color: '#333',
     flex: 1,
   },
@@ -353,7 +354,7 @@ const styles = StyleSheet.create({
   },
   listVariantBadgeText: {
     fontSize: 9,
-    fontWeight: '700',
+    fontFamily: fonts.bold,
     color: '#fff',
     textShadowColor: 'rgba(0, 0, 0, 0.3)',
     textShadowOffset: { width: 0, height: 1 },

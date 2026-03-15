@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, Text, TextInput, TouchableOpacity } from 'react-native';
+import { fonts } from '../../constants/theme';
 
 interface Step5BinderNameProps {
   value: string | null;
@@ -65,12 +66,13 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 24,
-    fontWeight: '600',
+    fontFamily: fonts.semibold,
     color: '#000',
     marginBottom: 12,
   },
   description: {
     fontSize: 16,
+    fontFamily: fonts.regular,
     color: '#666',
     marginBottom: 24,
     lineHeight: 22,
@@ -83,12 +85,14 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     padding: 16,
     fontSize: 16,
+    fontFamily: fonts.regular,
     color: '#000',
     borderWidth: 1,
     borderColor: '#e0e0e0',
   },
   errorText: {
     fontSize: 14,
+    fontFamily: fonts.regular,
     color: '#FF3B30',
     marginTop: 8,
   },
@@ -97,6 +101,7 @@ const styles = StyleSheet.create({
   },
   suggestionLabel: {
     fontSize: 14,
+    fontFamily: fonts.regular,
     color: '#666',
     marginBottom: 8,
   },
@@ -109,6 +114,7 @@ const styles = StyleSheet.create({
   },
   suggestionText: {
     fontSize: 16,
+    fontFamily: fonts.regular,
     color: '#007AFF',
   },
 });

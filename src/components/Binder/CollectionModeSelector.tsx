@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { fonts } from '../../constants/theme';
 import type { CollectionMode } from '../../types';
 
 interface CollectionModeSelectorProps {
@@ -78,7 +79,7 @@ const styles = StyleSheet.create({
   },
   optionLabel: {
     fontSize: 16,
-    fontWeight: '600',
+    fontFamily: fonts.semibold,
   },
   optionDescription: {
     fontSize: 14,

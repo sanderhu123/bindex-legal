@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { colors, spacing, typography, borderRadius } from '../../constants/theme';
+import { colors, spacing, typography, fonts, borderRadius } from '../../constants/theme';
 
 interface ErrorScreenProps {
   title?: string;
@@ -53,7 +53,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: typography['2xl'],
-    fontWeight: typography.bold,
+    fontFamily: fonts.bold,
     color: colors.text,
     marginBottom: spacing.sm,
     textAlign: 'center',
@@ -79,7 +79,7 @@ const styles = StyleSheet.create({
   primaryButtonText: {
     color: colors.background,
     fontSize: typography.base,
-    fontWeight: typography.semibold,
+    fontFamily: fonts.semibold,
   },
   secondaryButton: {
     backgroundColor: colors.background,
@@ -92,7 +92,7 @@ const styles = StyleSheet.create({
   secondaryButtonText: {
     color: colors.text,
     fontSize: typography.base,
-    fontWeight: typography.medium,
+    fontFamily: fonts.medium,
   },
 });
 

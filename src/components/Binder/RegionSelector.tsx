@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { fonts } from '../../constants/theme';
 import type { Region } from '../../services/api/pokemonApi';
 
 interface RegionSelectorProps {
@@ -53,9 +54,10 @@ const styles = StyleSheet.create({
   },
   optionLabel: {
     fontSize: 16,
-    fontWeight: '500',
+    fontFamily: fonts.medium,
   },
 });
+
 
 
 

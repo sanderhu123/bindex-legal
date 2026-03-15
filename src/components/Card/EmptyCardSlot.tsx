@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { colors, spacing, typography, borderRadius } from '../../constants/theme';
+import { colors, spacing, typography, borderRadius, fonts } from '../../constants/theme';
 
 interface EmptyCardSlotProps {
   /** Position/slot number in the grid (0-based) */
@@ -95,13 +95,13 @@ const styles = StyleSheet.create({
   },
   plusIcon: {
     fontSize: 36,
-    fontWeight: typography.bold,
+    fontFamily: fonts.bold,
     color: colors.primary,
     marginBottom: spacing.xs,
   },
   addCardText: {
     fontSize: typography.sm,
-    fontWeight: typography.medium,
+    fontFamily: fonts.medium,
     color: colors.textTertiary,
     textAlign: 'center',
   },

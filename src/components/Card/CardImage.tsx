@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { View, StyleSheet, ActivityIndicator, Text } from 'react-native';
+import { fonts } from '../../constants/theme';
 import { Image, ImageSource } from 'expo-image';
 import { isCustomCard, getCustomCardColor, getCustomCardTextColor } from '../../services/supabase/customCards';
 
@@ -425,13 +426,13 @@ const styles = StyleSheet.create({
   },
   cardInfoNumber: {
     fontSize: 14,
-    fontWeight: '700',
+    fontFamily: fonts.bold,
     color: '#ffd700',
     marginBottom: 4,
   },
   cardInfoName: {
     fontSize: 12,
-    fontWeight: '600',
+    fontFamily: fonts.semibold,
     color: '#ffffff',
     textAlign: 'center',
     lineHeight: 16,
@@ -441,7 +442,7 @@ const styles = StyleSheet.create({
     bottom: 8,
     fontSize: 10,
     color: 'rgba(255, 255, 255, 0.7)',
-    fontWeight: '600',
+    fontFamily: fonts.semibold,
   },
   // Custom placeholder card styles
   customCardContainer: {
@@ -454,7 +455,7 @@ const styles = StyleSheet.create({
   },
   customCardName: {
     fontSize: 14,
-    fontWeight: '700',
+    fontFamily: fonts.bold,
     textAlign: 'center',
     lineHeight: 18,
   },

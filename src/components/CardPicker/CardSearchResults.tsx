@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import type { Card } from '../../types';
 import CardImage from '../Card/CardImage';
-import { colors, spacing, typography, borderRadius } from '../../constants/theme';
+import { colors, spacing, typography, borderRadius, fonts } from '../../constants/theme';
 import { canRetryError, classifyError, type AppErrorType } from '../../utils/errorUtils';
 
 /**
@@ -378,7 +378,7 @@ const styles = StyleSheet.create({
   },
   cardName: {
     fontSize: typography.base,
-    fontWeight: typography.semibold,
+    fontFamily: fonts.semibold,
     color: colors.text,
     marginBottom: 2,
   },
@@ -404,7 +404,7 @@ const styles = StyleSheet.create({
   selectIcon: {
     fontSize: 20,
     color: colors.textSecondary,
-    fontWeight: typography.bold,
+    fontFamily: fonts.bold,
   },
   centerContainer: {
     alignItems: 'center',
@@ -467,7 +467,7 @@ const styles = StyleSheet.create({
   loadMoreText: {
     fontSize: typography.sm,
     color: colors.primary,
-    fontWeight: typography.semibold,
+    fontFamily: fonts.semibold,
   },
   footerEnd: {
     alignItems: 'center',
@@ -487,7 +487,7 @@ const styles = StyleSheet.create({
   },
   retryButtonText: {
     fontSize: typography.base,
-    fontWeight: typography.semibold,
+    fontFamily: fonts.semibold,
     color: colors.background,
   },
 });

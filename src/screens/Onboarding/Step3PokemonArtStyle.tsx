@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Image } from 'expo-image';
+import { fonts } from '../../constants/theme';
 import type { PokemonArtStyle } from '../../types';
 
 interface Step3PokemonArtStyleProps {
@@ -129,11 +130,12 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 24,
-    fontWeight: 'bold',
+    fontFamily: fonts.bold,
     marginBottom: 8,
   },
   description: {
     fontSize: 16,
+    fontFamily: fonts.regular,
     color: '#666',
     marginBottom: 24,
   },
@@ -183,11 +185,12 @@ const styles = StyleSheet.create({
   },
   optionLabel: {
     fontSize: 16,
-    fontWeight: '600',
+    fontFamily: fonts.semibold,
     marginBottom: 4,
   },
   optionDescription: {
     fontSize: 14,
+    fontFamily: fonts.regular,
     color: '#666',
   },
   errorContainer: {
@@ -199,8 +202,8 @@ const styles = StyleSheet.create({
   },
   errorText: {
     fontSize: 24,
+    fontFamily: fonts.bold,
     color: '#999',
-    fontWeight: 'bold',
   },
 });
 

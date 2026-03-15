@@ -1,17 +1,23 @@
 {
   "expo": {
-    "name": "trackerapp",
-    "slug": "trackerapp",
+    "name": "Bindex",
+    "slug": "bindex",
     "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
-    "scheme": "trackerapp",
+    "scheme": "bindex",
+    "icon": "./assets/app-icon.png",
+    "splash": {
+      "image": "./assets/splash-logo.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#000000"
+    },
     "assetBundlePatterns": [
       "**/*"
     ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.trackerapp",
+      "bundleIdentifier": "com.bindexofficial.app",
       "infoPlist": {
         "NSAppTransportSecurity": {
           "NSAllowsArbitraryLoads": true
@@ -19,12 +25,16 @@
       }
     },
     "android": {
-      "package": "com.trackerapp",
+      "package": "com.bindexofficial.app",
       "permissions": [
         "INTERNET",
         "ACCESS_NETWORK_STATE"
       ],
-      "usesCleartextTraffic": true
+      "usesCleartextTraffic": true,
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/app-icon.png",
+        "backgroundColor": "#000000"
+      }
     },
     "web": {},
     "extra": {

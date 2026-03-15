@@ -28,7 +28,7 @@ import LoadingScreen from '../../components/Loading/LoadingScreen';
 import ErrorScreen from '../../components/Error/ErrorScreen';
 import RegionBinderEditView from './RegionBinderEditView';
 import type { Binder, Card } from '../../types';
-import { colors, spacing, typography, borderRadius } from '../../constants/theme';
+import { colors, spacing, typography, fonts, borderRadius } from '../../constants/theme';
 import { lightTap } from '../../utils/haptics';
 
 /**
@@ -2052,12 +2052,12 @@ const styles = StyleSheet.create({
   backButtonText: {
     fontSize: typography.base,
     color: colors.primary,
-    fontWeight: typography.medium,
+    fontFamily: fonts.medium,
   },
   title: {
     flex: 1,
     fontSize: typography.lg,
-    fontWeight: typography.bold,
+    fontFamily: fonts.bold,
     color: colors.text,
     textAlign: 'center',
   },
@@ -2073,7 +2073,7 @@ const styles = StyleSheet.create({
   },
   saveButtonText: {
     fontSize: typography.sm,
-    fontWeight: typography.semibold,
+    fontFamily: fonts.semibold,
     color: colors.background,
   },
   scrollView: {
@@ -2126,7 +2126,7 @@ const styles = StyleSheet.create({
     fontSize: 9,
     color: 'white',
     textAlign: 'center',
-    fontWeight: '500',
+    fontFamily: fonts.medium,
   },
   savingOverlay: {
     ...StyleSheet.absoluteFillObject,
@@ -2146,6 +2146,6 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
     fontSize: typography.md,
     color: colors.text,
-    fontWeight: typography.medium,
+    fontFamily: fonts.medium,
   },
 });

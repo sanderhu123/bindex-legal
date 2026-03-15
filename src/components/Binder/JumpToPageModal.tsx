@@ -11,7 +11,7 @@ import {
   TouchableWithoutFeedback,
   Keyboard,
 } from 'react-native';
-import { colors, spacing, typography, borderRadius, shadows } from '../../constants/theme';
+import { colors, spacing, typography, fonts, borderRadius, shadows } from '../../constants/theme';
 
 /**
  * Props for JumpToPageModal component
@@ -242,7 +242,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: typography.xl,
-    fontWeight: typography.semibold,
+    fontFamily: fonts.semibold,
     color: colors.text,
     textAlign: 'center',
     marginBottom: spacing.md,
@@ -295,7 +295,7 @@ const styles = StyleSheet.create({
   },
   cancelButtonText: {
     fontSize: typography.base,
-    fontWeight: typography.medium,
+    fontFamily: fonts.medium,
     color: colors.textSecondary,
   },
   goButton: {
@@ -303,7 +303,7 @@ const styles = StyleSheet.create({
   },
   goButtonText: {
     fontSize: typography.base,
-    fontWeight: typography.semibold,
+    fontFamily: fonts.semibold,
     color: colors.background,
   },
 });

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, ActivityIndicator, TouchableOpacity, Image } from 'react-native';
+import { fonts } from '../../constants/theme';
 import SetSelector from '../../components/Binder/SetSelector';
 import { getSetsBySerie, getErasList } from '../../services/api/pokemonApi';
 import type { PokemonSet } from '../../services/api/pokemonApi';
@@ -202,23 +203,25 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 24,
-    fontWeight: 'bold',
+    fontFamily: fonts.bold,
     marginBottom: 8,
   },
   description: {
     fontSize: 16,
+    fontFamily: fonts.regular,
     color: '#666',
     marginBottom: 24,
   },
   loadingText: {
     marginTop: 12,
     fontSize: 14,
+    fontFamily: fonts.regular,
     color: '#666',
     textAlign: 'center',
   },
   sectionTitle: {
     fontSize: 18,
-    fontWeight: '600',
+    fontFamily: fonts.semibold,
     marginBottom: 16,
     marginTop: 8,
   },
@@ -232,11 +235,12 @@ const styles = StyleSheet.create({
   },
   eraLabel: {
     fontSize: 16,
-    fontWeight: '600',
+    fontFamily: fonts.semibold,
     marginBottom: 4,
   },
   eraSubtext: {
     fontSize: 14,
+    fontFamily: fonts.regular,
     color: '#666',
   },
   backToEras: {
@@ -245,8 +249,8 @@ const styles = StyleSheet.create({
   },
   backToErasText: {
     fontSize: 16,
+    fontFamily: fonts.medium,
     color: '#007AFF',
-    fontWeight: '500',
   },
   loadingContainer: {
     padding: 32,
@@ -259,6 +263,7 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 14,
+    fontFamily: fonts.regular,
     color: '#666',
   },
 });

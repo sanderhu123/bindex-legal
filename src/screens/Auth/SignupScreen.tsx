@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, Text, TextInput, TouchableOpacity, Alert } from 'react-native';
+import { View, StyleSheet, Text, TextInput, TouchableOpacity, Alert, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { signUp } from '../../services/supabase/auth';
-import { colors, spacing, typography, borderRadius, screenPadding } from '../../constants/theme';
+import { colors, fonts, spacing, typography, borderRadius, screenPadding } from '../../constants/theme';
 
 interface SignupScreenProps {
   navigation: any;
@@ -59,7 +59,15 @@ export default function SignupScreen({ navigation }: SignupScreenProps) {
 
   return (
     <SafeAreaView style={styles.container}>
-      <Text style={styles.title}>Sign Up</Text>
+      <View style={styles.logoContainer}>
+        <Image
+          source={require('../../../assets/logo-wordmark.png')}
+          style={styles.logo}
+          resizeMode="contain"
+        />
+      </View>
+
+      <Text style={styles.title}>Create account</Text>
       
       <View style={styles.inputContainer}>
         <Text style={styles.label}>Display Name (optional)</Text>
@@ -119,10 +127,18 @@ const styles = StyleSheet.create({
     padding: screenPadding,
     backgroundColor: colors.background,
   },
+  logoContainer: {
+    alignItems: 'center',
+    marginBottom: spacing.xl,
+  },
+  logo: {
+    height: 40,
+    width: 160,
+  },
   title: {
-    fontSize: typography['4xl'],
-    fontWeight: typography.bold,
-    marginBottom: spacing.xl + 6,
+    fontSize: typography['2xl'],
+    fontFamily: fonts.semibold,
+    marginBottom: spacing.xl,
     textAlign: 'center',
     color: colors.text,
   },
@@ -131,7 +147,7 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: typography.sm,
-    fontWeight: typography.semibold,
+    fontFamily: fonts.medium,
     color: colors.textSecondary,
     marginBottom: spacing.sm,
   },
@@ -141,6 +157,7 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.md,
     padding: spacing.md,
     fontSize: typography.base,
+    fontFamily: fonts.regular,
     backgroundColor: colors.background,
     color: colors.text,
   },
@@ -157,13 +174,14 @@ const styles = StyleSheet.create({
   buttonText: {
     color: colors.background,
     fontSize: typography.base,
-    fontWeight: typography.semibold,
+    fontFamily: fonts.semibold,
   },
   linkText: {
     color: colors.primary,
     textAlign: 'center',
     marginTop: spacing.lg,
     fontSize: typography.sm,
+    fontFamily: fonts.regular,
   },
 });
 

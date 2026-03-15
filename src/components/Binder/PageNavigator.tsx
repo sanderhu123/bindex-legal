@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { colors, spacing, typography, borderRadius, shadows } from '../../constants/theme';
+import { colors, spacing, typography, fonts, borderRadius, shadows } from '../../constants/theme';
 
 /**
  * Props for the PageNavigator component
@@ -127,7 +127,7 @@ const styles = StyleSheet.create({
   arrowText: {
     fontSize: typography.lg,
     color: colors.background,
-    fontWeight: typography.bold,
+    fontFamily: fonts.bold,
   },
   arrowTextDisabled: {
     color: colors.disabledText,
@@ -141,7 +141,7 @@ const styles = StyleSheet.create({
   },
   pageText: {
     fontSize: typography.base,
-    fontWeight: typography.semibold,
+    fontFamily: fonts.semibold,
     color: colors.text,
   },
 });

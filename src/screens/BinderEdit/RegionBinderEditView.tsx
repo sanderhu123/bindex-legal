@@ -24,7 +24,7 @@ import { CardPickerModal } from '../../components/CardPicker';
 import LoadingScreen from '../../components/Loading/LoadingScreen';
 import ErrorScreen from '../../components/Error/ErrorScreen';
 import type { Binder, Card } from '../../types';
-import { colors, spacing, typography, borderRadius, shadows } from '../../constants/theme';
+import { colors, spacing, typography, fonts, borderRadius, shadows } from '../../constants/theme';
 
 /**
  * A single Pokémon slot in the region binder grid.
@@ -502,12 +502,12 @@ const styles = StyleSheet.create({
   backButtonText: {
     fontSize: typography.base,
     color: colors.primary,
-    fontWeight: typography.medium,
+    fontFamily: fonts.medium,
   },
   title: {
     flex: 1,
     fontSize: typography.lg,
-    fontWeight: typography.bold,
+    fontFamily: fonts.bold,
     color: colors.text,
     textAlign: 'center',
   },
@@ -561,7 +561,7 @@ const styles = StyleSheet.create({
   cardPlaceholderIcon: {
     fontSize: 28,
     color: colors.textLight,
-    fontWeight: typography.bold,
+    fontFamily: fonts.bold,
   },
   cardLabel: {
     position: 'absolute',
@@ -578,12 +578,12 @@ const styles = StyleSheet.create({
   cardNumber: {
     fontSize: 10,
     color: 'rgba(255, 255, 255, 0.8)',
-    fontWeight: typography.medium,
+    fontFamily: fonts.medium,
   },
   cardName: {
     fontSize: 10,
     color: '#FFFFFF',
-    fontWeight: typography.semibold,
+    fontFamily: fonts.semibold,
     flex: 1,
   },
   customBadge: {
@@ -598,6 +598,6 @@ const styles = StyleSheet.create({
   customBadgeText: {
     fontSize: 8,
     color: '#FFFFFF',
-    fontWeight: typography.bold,
+    fontFamily: fonts.bold,
   },
 });

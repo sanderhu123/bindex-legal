@@ -5,13 +5,14 @@ import {
   StyleSheet,
   TouchableOpacity,
   Alert,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import RevenueCatUI from 'react-native-purchases-ui';
 import type { CustomerInfo } from 'react-native-purchases';
 import { syncProStatusToSupabase } from '../../services/pro/proService';
-import { colors, spacing, typography, screenPadding } from '../../constants/theme';
+import { colors, fonts, spacing, typography, borderRadius, screenPadding } from '../../constants/theme';
 
 export default function UpgradeScreen() {
   const navigation = useNavigation();
@@ -21,7 +22,11 @@ export default function UpgradeScreen() {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.successContainer}>
-          <Text style={styles.successIcon}>✓</Text>
+          <Image
+            source={require('../../../assets/logo-icon-teal.png')}
+            style={styles.successLogo}
+            resizeMode="contain"
+          />
           <Text style={styles.successTitle}>You're Now Pro!</Text>
           <Text style={styles.successMessage}>
             You now have unlimited binders. Enjoy tracking your collection!
@@ -77,20 +82,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: screenPadding,
   },
-  successIcon: {
-    fontSize: 64,
-    color: colors.success,
-    fontWeight: typography.bold,
+  successLogo: {
+    width: 64,
+    height: 64,
     marginBottom: spacing.lg,
   },
   successTitle: {
     fontSize: typography['3xl'],
-    fontWeight: typography.bold,
+    fontFamily: fonts.bold,
     color: colors.text,
     marginBottom: spacing.md,
   },
   successMessage: {
     fontSize: typography.base,
+    fontFamily: fonts.regular,
     color: colors.textTertiary,
     textAlign: 'center',
     marginBottom: spacing.xl,
@@ -98,13 +103,13 @@ const styles = StyleSheet.create({
   },
   doneButton: {
     backgroundColor: colors.primary,
-    borderRadius: 12,
+    borderRadius: borderRadius.md,
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.xxl,
   },
   doneButtonText: {
     color: colors.background,
     fontSize: typography.base,
-    fontWeight: typography.semibold,
+    fontFamily: fonts.semibold,
   },
 });

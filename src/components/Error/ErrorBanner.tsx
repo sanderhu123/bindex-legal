@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { colors, spacing, typography, borderRadius } from '../../constants/theme';
+import { colors, spacing, typography, fonts, borderRadius } from '../../constants/theme';
 
 interface ErrorBannerProps {
   message: string;
@@ -68,7 +68,7 @@ const styles = StyleSheet.create({
   retryButtonText: {
     fontSize: typography.sm,
     color: colors.error,
-    fontWeight: typography.semibold,
+    fontFamily: fonts.semibold,
   },
   dismissButton: {
     padding: spacing.xs,
@@ -80,7 +80,7 @@ const styles = StyleSheet.create({
   dismissButtonText: {
     fontSize: typography.base,
     color: colors.error,
-    fontWeight: typography.bold,
+    fontFamily: fonts.bold,
   },
 });
 

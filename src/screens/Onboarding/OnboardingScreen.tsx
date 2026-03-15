@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, TouchableOpacity, Text, Alert, ActivityIndicator } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, Text, Alert, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { MainStackParamList } from '../../navigation/AppNavigator';
@@ -11,6 +11,8 @@ import { recordBinderCreated } from '../../services/pro/proService';
 import { showSuccess, showError } from '../../utils/toast';
 import { successVibration } from '../../utils/haptics';
 import { getAvailableVariantsForSet } from '../../data/cardVariants';
+import LoadingScreen from '../../components/Loading/LoadingScreen';
+import { colors, fonts, spacing, typography, borderRadius, screenPadding } from '../../constants/theme';
 import Step1CollectionMode from './Step1CollectionMode';
 import Step2MasterSet from './Step2MasterSet';
 import Step2Region from './Step2Region';
@@ -420,8 +422,7 @@ export default function OnboardingScreen() {
   if (saving) {
     return (
       <SafeAreaView style={styles.savingContainer}>
-        <ActivityIndicator size="large" color="#007AFF" />
-        <Text style={styles.savingText}>Creating binder...</Text>
+        <LoadingScreen message="Creating binder..." fullScreen={false} />
       </SafeAreaView>
     );
   }
@@ -466,71 +467,66 @@ export default function OnboardingScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: colors.background,
   },
   savingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#fff',
-  },
-  savingText: {
-    marginTop: 12,
-    fontSize: 16,
-    color: '#666',
+    backgroundColor: colors.background,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    paddingHorizontal: screenPadding,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.md,
   },
   backButton: {
-    padding: 8,
+    padding: spacing.xs,
   },
   backButtonText: {
-    fontSize: 16,
-    color: '#007AFF',
+    fontSize: typography.base,
+    fontFamily: fonts.medium,
+    color: colors.primary,
   },
   stepTitle: {
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: typography.base,
+    fontFamily: fonts.semibold,
+    color: colors.text,
   },
   placeholder: {
     width: 60,
   },
   progressContainer: {
-    height: 4,
-    backgroundColor: '#eee',
+    height: 3,
+    backgroundColor: colors.backgroundDark,
   },
   progressBar: {
     height: '100%',
-    backgroundColor: '#007AFF',
+    backgroundColor: colors.primary,
   },
   content: {
     flex: 1,
   },
   footer: {
-    padding: 20,
+    padding: screenPadding,
     borderTopWidth: 1,
-    borderTopColor: '#eee',
+    borderTopColor: colors.borderLight,
   },
   nextButton: {
-    backgroundColor: '#007AFF',
-    borderRadius: 8,
-    padding: 16,
+    backgroundColor: colors.primary,
+    borderRadius: borderRadius.md,
+    padding: spacing.md,
     alignItems: 'center',
   },
   nextButtonDisabled: {
     opacity: 0.5,
   },
   nextButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
+    color: colors.background,
+    fontSize: typography.base,
+    fontFamily: fonts.semibold,
   },
 });

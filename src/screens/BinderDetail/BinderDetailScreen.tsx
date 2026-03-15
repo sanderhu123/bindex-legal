@@ -47,7 +47,7 @@ import LoadingSpinner from '../../components/Loading/LoadingSpinner';
 import EmptyState from '../../components/EmptyState/EmptyState';
 import ErrorScreen from '../../components/Error/ErrorScreen';
 import ViewModeToggle from '../../components/ViewModeToggle';
-import { colors, spacing, typography, borderRadius, screenPadding } from '../../constants/theme';
+import { colors, spacing, typography, fonts, borderRadius, screenPadding } from '../../constants/theme';
 import { showSuccess, showError } from '../../utils/toast';
 import { lightTap } from '../../utils/haptics';
 
@@ -2894,7 +2894,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: typography['3xl'],
-    fontWeight: typography.bold,
+    fontFamily: fonts.bold,
     marginBottom: spacing.sm,
     marginTop: spacing.lg,
     color: colors.text,
@@ -2903,7 +2903,7 @@ const styles = StyleSheet.create({
     fontSize: typography.xl,
     color: colors.textSecondary,
     marginBottom: spacing.md,
-    fontWeight: typography.semibold,
+    fontFamily: fonts.semibold,
   },
   text: {
     fontSize: typography.lg,
@@ -2937,7 +2937,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: typography['2xl'],
-    fontWeight: typography.semibold,
+    fontFamily: fonts.semibold,
     color: colors.textSecondary,
   },
   row: {
@@ -2991,7 +2991,7 @@ const styles = StyleSheet.create({
   },
   addCardButtonText: {
     fontSize: typography.base,
-    fontWeight: typography.medium,
+    fontFamily: fonts.medium,
     color: colors.primary,
   },
   // Region mode card styles
@@ -3019,7 +3019,7 @@ const styles = StyleSheet.create({
   },
   regionVariantBadgeText: {
     fontSize: 10,
-    fontWeight: '700',
+    fontFamily: fonts.bold,
     color: '#fff',
     textShadowColor: 'rgba(0, 0, 0, 0.3)',
     textShadowOffset: { width: 0, height: 1 },
@@ -3071,7 +3071,7 @@ const styles = StyleSheet.create({
   },
   editButtonText: {
     fontSize: typography.sm,
-    fontWeight: typography.semibold,
+    fontFamily: fonts.semibold,
     color: colors.primary,
   },
   // Step 34A: Enlarged card overlay
@@ -3098,7 +3098,7 @@ const styles = StyleSheet.create({
   },
   enlargedCardName: {
     fontSize: typography.xl,
-    fontWeight: typography.bold,
+    fontFamily: fonts.bold,
     color: colors.background,
     marginTop: spacing.md,
     textAlign: 'center',
@@ -3157,7 +3157,7 @@ const styles = StyleSheet.create({
   },
   displayModeExitText: {
     fontSize: typography.sm,
-    fontWeight: typography.semibold,
+    fontFamily: fonts.semibold,
     color: colors.text,
   },
   });

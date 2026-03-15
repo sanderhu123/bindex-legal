@@ -2,7 +2,7 @@ import React, { useMemo, useRef } from 'react';
 import { View, StyleSheet, Text, ScrollView, TouchableOpacity } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import CardImage from '../Card/CardImage';
-import { colors, spacing, typography, borderRadius, shadows } from '../../constants/theme';
+import { colors, spacing, typography, borderRadius, shadows, fonts } from '../../constants/theme';
 
 /**
  * Card info for placeholder tray
@@ -164,7 +164,7 @@ function PlaceholderCardItem({
         />
         {isSelected && (
           <View style={styles.selectedOverlay}>
-            <Text style={styles.selectedCheck}>✓</Text>
+            <Text style={styles.selectedCheck}>Ã¢Å“â€œ</Text>
           </View>
         )}
       </View>
@@ -222,7 +222,7 @@ export function CardPlaceholder({
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
-          <Text style={styles.headerIcon}>📥</Text>
+          <Text style={styles.headerIcon}>Ã°Å¸â€œÂ¥</Text>
           <Text style={styles.headerTitle}>CARD PLACEHOLDER</Text>
         </View>
         <Text style={styles.headerCount}>
@@ -230,7 +230,7 @@ export function CardPlaceholder({
         </Text>
       </View>
 
-      {/* Cards row — always shows all 18 slots */}
+      {/* Cards row Ã¢â‚¬â€ always shows all 18 slots */}
       <View style={styles.contentRow}>
         <ScrollView
           horizontal
@@ -272,7 +272,7 @@ export function CardPlaceholder({
           })}
         </ScrollView>
 
-        {/* Trash Zone — always rendered so the ref/measurement is available,
+        {/* Trash Zone Ã¢â‚¬â€ always rendered so the ref/measurement is available,
             but visually hidden when no card is selected and no drag is active */}
         <TouchableOpacity
           ref={(ref) => trashZoneRef?.(ref as unknown as View | null)}
@@ -286,7 +286,7 @@ export function CardPlaceholder({
           activeOpacity={0.7}
           accessibilityLabel="Trash zone, tap to remove selected card"
         >
-          <Text style={styles.trashIcon}>🗑️</Text>
+          <Text style={styles.trashIcon}>Ã°Å¸â€”â€˜Ã¯Â¸Â</Text>
           <Text style={[styles.trashText, isDragOverTrash && styles.trashTextActive]}>
             {isDragOverTrash ? 'Drop to\nRemove' : 'Remove'}
           </Text>
@@ -325,13 +325,13 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: typography.sm,
-    fontWeight: typography.semibold,
+    fontFamily: fonts.semibold,
     color: colors.textSecondary,
     letterSpacing: 0.5,
   },
   headerCount: {
     fontSize: typography.sm,
-    fontWeight: typography.medium,
+    fontFamily: fonts.medium,
     color: colors.textTertiary,
   },
   contentRow: {
@@ -396,7 +396,7 @@ const styles = StyleSheet.create({
   selectedCheck: {
     fontSize: 20,
     color: colors.background,
-    fontWeight: 'bold',
+    fontFamily: fonts.bold,
   },
   trashZone: {
     width: 70,
@@ -434,13 +434,13 @@ const styles = StyleSheet.create({
   trashText: {
     fontSize: typography.xs,
     color: colors.error,
-    fontWeight: typography.medium,
+    fontFamily: fonts.medium,
     marginTop: 2,
     textAlign: 'center',
   },
   trashTextActive: {
     color: '#FF1744',
-    fontWeight: 'bold' as const,
+    fontFamily: fonts.bold,
   },
 });
 

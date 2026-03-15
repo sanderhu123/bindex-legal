@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { fonts } from '../../constants/theme';
 import type { LayoutPreference } from '../../types';
 
 interface Step4LayoutProps {
@@ -54,11 +55,12 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 24,
-    fontWeight: 'bold',
+    fontFamily: fonts.bold,
     marginBottom: 8,
   },
   description: {
     fontSize: 16,
+    fontFamily: fonts.regular,
     color: '#666',
     marginBottom: 24,
   },
@@ -76,11 +78,12 @@ const styles = StyleSheet.create({
   },
   optionLabel: {
     fontSize: 16,
-    fontWeight: '600',
+    fontFamily: fonts.semibold,
     marginBottom: 4,
   },
   optionDescription: {
     fontSize: 14,
+    fontFamily: fonts.regular,
     color: '#666',
   },
 });

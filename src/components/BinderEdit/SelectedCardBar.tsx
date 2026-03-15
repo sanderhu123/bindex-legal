@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, StyleSheet, Text, TouchableOpacity } from 'react-native';
-import { colors, spacing, typography, borderRadius, shadows } from '../../constants/theme';
+import { colors, spacing, typography, borderRadius, shadows, fonts } from '../../constants/theme';
 
 /**
  * Props for SelectedCardBar component
@@ -28,9 +28,9 @@ export interface SelectedCardBarProps {
  * - Remove button to send card to trash
  * 
  * Layout:
- * ┌────────────────────────────────────────────────────────────┐
- * │ 🃏 Charizard #6 (Page 1)   [Replace] [Remove] [Cancel]   │
- * └────────────────────────────────────────────────────────────┘
+ * Ã¢â€Å’Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€Â
+ * Ã¢â€â€š Ã°Å¸Æ’Â Charizard #6 (Page 1)   [Replace] [Remove] [Cancel]   Ã¢â€â€š
+ * Ã¢â€â€Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€Ëœ
  */
 export function SelectedCardBar({
   cardName,
@@ -43,7 +43,7 @@ export function SelectedCardBar({
     <View style={styles.container}>
       {/* Card info */}
       <View style={styles.cardInfo}>
-        <Text style={styles.cardIcon}>🃏</Text>
+        <Text style={styles.cardIcon}>Ã°Å¸Æ’Â</Text>
         <View style={styles.textContainer}>
           <Text style={styles.cardName} numberOfLines={1}>
             {cardName}
@@ -114,7 +114,7 @@ const styles = StyleSheet.create({
   },
   cardName: {
     fontSize: typography.base,
-    fontWeight: typography.semibold,
+    fontFamily: fonts.semibold,
     color: colors.background,
   },
   sourcePage: {
@@ -137,7 +137,7 @@ const styles = StyleSheet.create({
   },
   replaceButtonText: {
     fontSize: typography.sm,
-    fontWeight: typography.medium,
+    fontFamily: fonts.medium,
     color: colors.background,
   },
   removeButton: {
@@ -145,7 +145,7 @@ const styles = StyleSheet.create({
   },
   removeButtonText: {
     fontSize: typography.sm,
-    fontWeight: typography.medium,
+    fontFamily: fonts.medium,
     color: colors.background,
   },
   cancelButton: {
@@ -153,7 +153,7 @@ const styles = StyleSheet.create({
   },
   cancelButtonText: {
     fontSize: typography.sm,
-    fontWeight: typography.medium,
+    fontFamily: fonts.medium,
     color: colors.background,
   },
 });

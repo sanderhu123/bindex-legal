@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Image, ActivityIndicator } from 'react-native';
+import { fonts } from '../../constants/theme';
 import type { PokemonSet } from '../../services/api/pokemonApi';
 
 interface SetSelectorProps {
@@ -145,7 +146,7 @@ const styles = StyleSheet.create({
   },
   itemTitle: {
     fontSize: 16,
-    fontWeight: '600',
+    fontFamily: fonts.semibold,
     marginBottom: 2,
   },
   itemSubtitle: {

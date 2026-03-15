@@ -9,7 +9,7 @@ import {
   isProgressCacheMigrationCompleted, 
   markProgressCacheMigrationCompleted 
 } from '../../utils/migrationCheck';
-import { colors, spacing, typography, screenPadding } from '../../constants/theme';
+import { colors, spacing, typography, fonts, screenPadding } from '../../constants/theme';
 
 type NavigationProp = NativeStackNavigationProp<MainStackParamList>;
 
@@ -124,7 +124,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: typography['2xl'],
-    fontWeight: typography.semibold,
+    fontFamily: fonts.semibold,
     color: colors.text,
     marginTop: spacing.xl,
     textAlign: 'center',
@@ -152,4 +152,3 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 });
-

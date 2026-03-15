@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, Dimensions } from 'react-nati
 import { useNavigation } from '@react-navigation/native';
 import type { StackNavigationProp } from '@react-navigation/stack';
 import CardImage from '../Card/CardImage';
-import { colors, spacing, typography, borderRadius } from '../../constants/theme';
+import { colors, spacing, typography, fonts, borderRadius } from '../../constants/theme';
 import type { Card } from '../../types';
 import type { MainStackParamList } from '../../navigation/AppNavigator';
 
@@ -343,7 +343,7 @@ const styles = StyleSheet.create({
   },
   slotBadgeOnCard: {
     fontSize: 14,
-    fontWeight: typography.bold,
+    fontFamily: fonts.bold,
     color: colors.background,
   },
   slotBadge: {
@@ -381,7 +381,7 @@ const styles = StyleSheet.create({
   },
   variantBadgeText: {
     fontSize: 10,
-    fontWeight: typography.bold,
+    fontFamily: fonts.bold,
     color: colors.background,
     textShadowColor: 'rgba(0, 0, 0, 0.3)',
     textShadowOffset: { width: 0, height: 1 },
@@ -406,7 +406,7 @@ const styles = StyleSheet.create({
   // Card info below image
   cardName: {
     fontSize: typography.sm,
-    fontWeight: typography.semibold,
+    fontFamily: fonts.semibold,
     color: colors.text,
     marginTop: spacing.xs,
     textAlign: 'center',

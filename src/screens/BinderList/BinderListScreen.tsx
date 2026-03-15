@@ -352,6 +352,7 @@ const styles = StyleSheet.create({
   headerLogo: {
     height: 36,
     width: 150,
+    marginLeft: -6,
   },
   headerActions: {
     flexDirection: 'row',

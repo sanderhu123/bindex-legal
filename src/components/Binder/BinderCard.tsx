@@ -103,8 +103,9 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: typography.lg,
-    fontFamily: fonts.semibold,
+    fontFamily: fonts.medium,
     color: colors.text,
+    letterSpacing: -0.3,
     marginBottom: 2,
   },
   subtitle: {

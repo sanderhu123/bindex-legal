@@ -35,6 +35,21 @@ function isPocketSet(setId: string): boolean {
 }
 
 /**
+ * McDonald's promo set IDs from TCGDEX — temporarily excluded.
+ */
+const MCDONALDS_SET_IDS = new Set([
+  'mcd21', 'mcd19', 'mcd18', 'mcd17', 'mcd16', 'mcd15', 'mcd14', 'mcd12', 'mcd11',
+]);
+
+function isMcDonaldsSet(setId: string): boolean {
+  return MCDONALDS_SET_IDS.has(setId.toLowerCase());
+}
+
+function isExcludedSet(setId: string): boolean {
+  return isPocketSet(setId) || isMcDonaldsSet(setId);
+}
+
+/**
  * Initialize TCGDEX SDK instance (English language)
  */
 const tcgdex = new TCGdex('en');
@@ -527,8 +542,8 @@ export async function getSetsMinimal(): Promise<PokemonSet[]> {
       // Transform minimal set data (no serie or releaseDate yet)
       const sets = tcgdexSetsMinimal.map(transformMinimalSetToPokemonSet);
       
-      // Filter out sets with missing required fields and Pocket sets
-      const validSets = sets.filter(set => set.id && set.name && !isPocketSet(set.id));
+      // Filter out sets with missing required fields and excluded sets
+      const validSets = sets.filter(set => set.id && set.name && !isExcludedSet(set.id));
       
       console.log('[24B] Minimal sets transformed:', {
         transformedCount: validSets.length,
@@ -657,8 +672,8 @@ export async function getSets(): Promise<PokemonSet[]> {
     // Step 3: Transform full set details to our PokemonSet type
     const sets = await Promise.all(fullSets.map(transformTcgdexSetToPokemonSet));
     
-    // Filter out sets with missing required fields and Pocket sets
-    const validSets = sets.filter(set => set.id && set.name && !isPocketSet(set.id));
+    // Filter out sets with missing required fields and excluded sets
+    const validSets = sets.filter(set => set.id && set.name && !isExcludedSet(set.id));
     
     if (validSets.length < sets.length) {
       console.warn('[24B] Some sets were filtered out due to missing id/name:', {
@@ -1980,10 +1995,10 @@ export async function searchCardsByName(
         });
       }
       
-      // Filter out Pokémon Pocket cards
+      // Filter out excluded sets (Pocket, McDonald's)
       filteredResults = filteredResults.filter((card: any) => {
         const cardSetId = card.id?.split('-')[0] || '';
-        return !isPocketSet(cardSetId);
+        return !isExcludedSet(cardSetId);
       });
       
       // Transform ALL results to our Card type FIRST

@@ -2352,6 +2352,11 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
     binder.collectionMode === 'region' ? 'Region' :
     'Custom';
 
+  const collectionModeIcon: keyof typeof Ionicons.glyphMap = 
+    binder.collectionMode === 'master-set' ? 'book-outline' :
+    binder.collectionMode === 'region' ? 'map-outline' :
+    'grid-outline';
+
   const isMasterSetMode = binder.collectionMode === 'master-set';
 
   // Progress: all modes use owned / total from binder state (kept in sync with DB)
@@ -2387,6 +2392,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
       {/* Row 2: Subtitle with set icon — collapses on scroll */}
       <Animated.View style={{ opacity: headerOpacity, height: headerHeight, overflow: 'hidden' }}>
         <View style={styles.subtitleRow}>
+          <Ionicons name={collectionModeIcon} size={14} color={colors.textTertiary} style={styles.subtitleModeIcon} />
           <Text style={styles.subtitle} numberOfLines={1}>
             {subtitleParts.join(' · ')}
           </Text>
@@ -3075,6 +3081,9 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     alignItems: 'center',
     marginBottom: spacing.sm,
     marginLeft: 40,
+  },
+  subtitleModeIcon: {
+    marginRight: 4,
   },
   subtitleSetIcon: {
     width: 16,

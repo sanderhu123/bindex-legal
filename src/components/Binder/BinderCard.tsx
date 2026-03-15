@@ -45,7 +45,7 @@ export default function BinderCard({ binder, completionPercentage, totalCards, o
   };
 
   const subtitle = getSubtitle();
-  const displayPercentage = Math.min(100, Math.max(0, Math.round(completionPercentage)));
+  const showSetLogo = binder.collectionMode === 'master-set' && setLogoUrl && !logoError;
 
   return (
     <TouchableOpacity
@@ -67,19 +67,7 @@ export default function BinderCard({ binder, completionPercentage, totalCards, o
               {subtitle && ` · ${subtitle}`}
             </Text>
           </View>
-          <Text style={styles.percentage}>{displayPercentage}%</Text>
-        </View>
-
-        <View style={styles.bottomRow}>
-          <View style={styles.progressArea}>
-            <ProgressBar
-              current={binder.ownedCards}
-              total={totalCards}
-              percentage={completionPercentage}
-              format="ratio"
-            />
-          </View>
-          {binder.collectionMode === 'master-set' && setLogoUrl && !logoError && (
+          {showSetLogo && (
             <Image
               source={{ uri: setLogoUrl }}
               style={styles.setLogo}
@@ -88,6 +76,13 @@ export default function BinderCard({ binder, completionPercentage, totalCards, o
             />
           )}
         </View>
+
+        <ProgressBar
+          current={binder.ownedCards}
+          total={totalCards}
+          percentage={completionPercentage}
+          format="ratio"
+        />
       </View>
     </TouchableOpacity>
   );
@@ -131,21 +126,8 @@ const styles = StyleSheet.create({
     fontFamily: fonts.regular,
     color: colors.textTertiary,
   },
-  percentage: {
-    fontSize: typography['2xl'],
-    fontFamily: fonts.bold,
-    color: colors.primary,
-  },
-  bottomRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  progressArea: {
-    flex: 1,
-  },
   setLogo: {
     width: 90,
     height: 26,
-    marginLeft: spacing.md,
   },
 });

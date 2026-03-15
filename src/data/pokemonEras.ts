@@ -623,6 +623,19 @@ export function getSetLogoByName(setName: string): string | null {
 }
 
 /**
+ * Get the symbol/icon URL for a set by its name
+ */
+export function getSetSymbolByName(setName: string): string | null {
+  for (const era of POKEMON_ERAS) {
+    const set = era.sets.find(s => s.name === setName);
+    if (set) {
+      return set.symbol || getSetSymbolUrl(set.id);
+    }
+  }
+  return null;
+}
+
+/**
  * Find which era a set belongs to by set ID (returns era name)
  */
 export function getEraForSetId(setId: string): string | null {

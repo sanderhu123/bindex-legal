@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, StyleSheet, Text, TouchableOpacity, Image } from 'react-native';
 import type { Binder } from '../../types';
 import ProgressBar from '../Progress/ProgressBar';
-import { getSetLogoByName } from '../../data/pokemonEras';
+import { getSetSymbolByName } from '../../data/pokemonEras';
 import { colors, fonts, typography, spacing, borderRadius, shadows } from '../../constants/theme';
 
 interface BinderCardProps {
@@ -14,10 +14,10 @@ interface BinderCardProps {
 }
 
 export default function BinderCard({ binder, completionPercentage, totalCards, onPress, onDelete }: BinderCardProps) {
-  const [logoError, setLogoError] = useState(false);
+  const [symbolError, setSymbolError] = useState(false);
 
-  const setLogoUrl = binder.collectionMode === 'master-set' && binder.set
-    ? getSetLogoByName(binder.set)
+  const setSymbolUrl = binder.collectionMode === 'master-set' && binder.set
+    ? getSetSymbolByName(binder.set)
     : null;
 
   const getCollectionModeLabel = (mode: string): string => {
@@ -45,7 +45,7 @@ export default function BinderCard({ binder, completionPercentage, totalCards, o
   };
 
   const subtitle = getSubtitle();
-  const showSetLogo = binder.collectionMode === 'master-set' && setLogoUrl && !logoError;
+  const showSetSymbol = binder.collectionMode === 'master-set' && setSymbolUrl && !symbolError;
 
   return (
     <TouchableOpacity
@@ -67,12 +67,12 @@ export default function BinderCard({ binder, completionPercentage, totalCards, o
               {subtitle && ` · ${subtitle}`}
             </Text>
           </View>
-          {showSetLogo && (
+          {showSetSymbol && (
             <Image
-              source={{ uri: setLogoUrl }}
-              style={styles.setLogo}
+              source={{ uri: setSymbolUrl }}
+              style={styles.setSymbol}
               resizeMode="contain"
-              onError={() => setLogoError(true)}
+              onError={() => setSymbolError(true)}
             />
           )}
         </View>
@@ -126,8 +126,9 @@ const styles = StyleSheet.create({
     fontFamily: fonts.regular,
     color: colors.textTertiary,
   },
-  setLogo: {
-    width: 90,
-    height: 26,
+  setSymbol: {
+    width: 30,
+    height: 30,
+    opacity: 0.7,
   },
 });

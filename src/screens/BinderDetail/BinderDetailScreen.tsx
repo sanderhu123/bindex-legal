@@ -19,6 +19,13 @@ import { getAllSelectedCardsForBinder, setSelectedCardForPokemon } from '../../s
 import { getCardPositionsForBinder } from '../../services/supabase/binderPositions';
 import { startBackgroundPrefetch } from '../../services/imagePrefetch';
 import { recordBinderAccess } from '../../services/cacheManager';
+import {
+  enqueueToggle,
+  markPendingCountSync,
+  clearPendingCountSync,
+  processToggleQueue,
+  processPendingCountSyncs,
+} from '../../services/offlineQueue';
 import type { Binder, Card } from '../../types';
 import CardItem from '../../components/Card/CardItem';
 import CardImage, { logFailedImageSummary } from '../../components/Card/CardImage';
@@ -152,31 +159,40 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
   
   // Flag to prevent refreshOwnershipFromDb from running while fetchCards is still loading
   const isFetchingCardsRef = useRef(false);
+
+  // Per-card toggle lock: prevents rapid double-taps from firing overlapping DB calls
+  const togglingCardsRef = useRef(new Set<string>());
   
   // Debounced count sync: waits for a pause in toggling before syncing the owned_cards count
   const countSyncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const binderIdForSyncRef = useRef<string | null>(null);
   const scheduleCountSync = useCallback((currentBinderId: string) => {
     binderIdForSyncRef.current = currentBinderId;
+    markPendingCountSync(currentBinderId);
     if (countSyncTimerRef.current) {
       clearTimeout(countSyncTimerRef.current);
     }
-    countSyncTimerRef.current = setTimeout(() => {
-      syncBinderCardCount(currentBinderId).catch(err => {
+    countSyncTimerRef.current = setTimeout(async () => {
+      try {
+        await syncBinderCardCount(currentBinderId);
+        await clearPendingCountSync(currentBinderId);
+      } catch (err) {
         console.error('[BinderDetail] Failed to sync card count:', err);
-      });
+      }
     }, 2000);
   }, []);
 
-  // Flush the sync immediately on unmount so the binder list shows the correct count
+  // On unmount: mark the binder for count sync so the list screen picks it up
   useEffect(() => {
     return () => {
       if (countSyncTimerRef.current) {
         clearTimeout(countSyncTimerRef.current);
         if (binderIdForSyncRef.current) {
-          syncBinderCardCount(binderIdForSyncRef.current).catch(err => {
-            console.error('[BinderDetail] Failed to sync card count on unmount:', err);
-          });
+          const id = binderIdForSyncRef.current;
+          markPendingCountSync(id);
+          syncBinderCardCount(id)
+            .then(() => clearPendingCountSync(id))
+            .catch(() => {});
         }
       }
     };
@@ -530,17 +546,22 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
 
   useFocusEffect(
     useCallback(() => {
-      refreshOwnershipFromDb();
+      // Process any queued offline operations before refreshing
+      processToggleQueue()
+        .then(() => processPendingCountSyncs())
+        .catch(() => {})
+        .finally(() => refreshOwnershipFromDb());
 
-      // When leaving this screen, flush any pending card count sync immediately
-      // so BinderList reads the correct owned_cards from the DB
       return () => {
         if (countSyncTimerRef.current) {
           clearTimeout(countSyncTimerRef.current);
           countSyncTimerRef.current = null;
         }
         if (binderId) {
-          syncBinderCardCount(binderId).catch(() => {});
+          markPendingCountSync(binderId);
+          syncBinderCardCount(binderId)
+            .then(() => clearPendingCountSync(binderId))
+            .catch(() => {});
         }
       };
     }, [refreshOwnershipFromDb, binderId])
@@ -1128,6 +1149,10 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
   const handleToggleCard = useCallback(async (card: CardWithOwnership) => {
     if (!binder) return;
 
+    const lockKey = `${card.id}_${card.variant || ''}`;
+    if (togglingCardsRef.current.has(lockKey)) return;
+    togglingCardsRef.current.add(lockKey);
+
     const newIsOwned = !card.isOwned;
     const cardId = card.id;
     const cardVariant = card.variant;
@@ -1140,7 +1165,6 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
       )
     );
 
-    // Also update savedPositionMap so binder page view reflects ownership changes
     setSavedPositionMap((prevMap) => {
       if (!prevMap) return prevMap;
       const newMap = new Map(prevMap);
@@ -1167,18 +1191,24 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
       };
     });
 
-    // Sync with database using fast functions (1 DB call instead of 5-7)
     try {
       if (newIsOwned) {
         await addCardToBinderFast(currentBinderId, cardId, cardVariant);
       } else {
         await removeCardFromBinderFast(currentBinderId, cardId, cardVariant);
       }
-      // Schedule a debounced count sync (waits for pause in toggling)
       scheduleCountSync(currentBinderId);
     } catch (err) {
-      // Revert on error using functional setState
       console.error('[BinderDetail] Failed to save card toggle:', err);
+
+      enqueueToggle({
+        type: newIsOwned ? 'add_card' : 'remove_card',
+        binderId: currentBinderId,
+        cardId,
+        variant: cardVariant || null,
+        isOwned: newIsOwned,
+      }).catch(() => {});
+
       setCards((prevCards) =>
         prevCards.map((c) =>
           c.id === cardId ? { ...c, isOwned: !newIsOwned } : c
@@ -1208,7 +1238,9 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
           ownedCards: revertedOwnedCards
         };
       });
-      Alert.alert('Save Failed', 'Could not save card status. Please check your connection and try again.');
+      Alert.alert('Save Failed', 'Could not save right now. Will retry when connection is restored.');
+    } finally {
+      togglingCardsRef.current.delete(lockKey);
     }
   }, [binder?.id, scheduleCountSync]);
 
@@ -1218,13 +1250,18 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
   const handleToggleCustomCardOwnership = useCallback(async (position: number) => {
     if (!binder) return;
     
+    const lockKey = `custom_pos_${position}`;
+    if (togglingCardsRef.current.has(lockKey)) return;
+    togglingCardsRef.current.add(lockKey);
+    
     const card = positionCards.get(position);
-    if (!card) return;
+    if (!card) {
+      togglingCardsRef.current.delete(lockKey);
+      return;
+    }
     
     const newIsOwned = !card.isOwned;
-    console.log('[BinderDetail] Toggling card ownership at position', position, ':', card.name, '→', newIsOwned ? 'owned' : 'missing');
     
-    // Optimistically update UI
     setPositionCards((prev) => {
       const updated = new Map(prev);
       updated.set(position, { ...card, isOwned: newIsOwned });
@@ -1243,13 +1280,20 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
     
     try {
       await toggleCardOwnershipAtPosition(binder.id, position);
-      console.log('[BinderDetail] Card ownership toggled at position', position);
     } catch (err) {
       console.error('[BinderDetail] Failed to toggle card ownership:', err);
-      // Revert on error
+
+      enqueueToggle({
+        type: 'set_position_owned',
+        binderId: binder.id,
+        cardId: card.id,
+        position,
+        isOwned: newIsOwned,
+      }).catch(() => {});
+
       setPositionCards((prev) => {
         const updated = new Map(prev);
-        updated.set(position, card); // Revert to original
+        updated.set(position, card);
         return updated;
       });
       setBinder((prevBinder) => {
@@ -1261,7 +1305,9 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
             : Math.max(0, (prevBinder.ownedCards || 0) - 1),
         };
       });
-      Alert.alert('Error', 'Failed to update card. Please try again.');
+      Alert.alert('Error', 'Failed to update card. Will retry when connection is restored.');
+    } finally {
+      togglingCardsRef.current.delete(lockKey);
     }
   }, [binder, positionCards]);
 
@@ -1279,24 +1325,22 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
   
   
 
-  // Handle toggling ownership of an extra card (card added by user, not in official set)
-  // Works similar to handleToggleCard but updates extraCards state instead of cards state
   const handleToggleExtraCardOwnership = useCallback(async (card: CardWithOwnership) => {
     if (!binder) return;
+    
+    const lockKey = `extra_${card.id}_${card.variant || ''}`;
+    if (togglingCardsRef.current.has(lockKey)) return;
+    togglingCardsRef.current.add(lockKey);
     
     const newIsOwned = !card.isOwned;
     const cardId = card.id;
     const cardVariant = card.variant;
     const currentBinderId = binder.id;
     
-    console.log('[BinderDetail] Toggling extra card ownership:', card.name, '→', newIsOwned ? 'owned' : 'missing');
-    
-    // Optimistically update UI - update extraCards state
     setExtraCards((prev) =>
       prev.map((c) => (c.id === cardId ? { ...c, isOwned: newIsOwned } : c))
     );
 
-    // Update binder.ownedCards so the progress bar reflects the change
     setBinder((prev) => {
       if (!prev) return prev;
       return {
@@ -1309,10 +1353,17 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
     
     try {
       await toggleExtraCardOwnership(currentBinderId, cardId, cardVariant);
-      console.log('[BinderDetail] Extra card ownership toggled');
     } catch (err) {
       console.error('[BinderDetail] Failed to toggle extra card ownership:', err);
-      // Revert on error
+
+      enqueueToggle({
+        type: 'set_extra_owned',
+        binderId: currentBinderId,
+        cardId,
+        variant: cardVariant || null,
+        isOwned: newIsOwned,
+      }).catch(() => {});
+
       setExtraCards((prev) =>
         prev.map((c) => (c.id === cardId ? { ...c, isOwned: !newIsOwned } : c))
       );
@@ -1325,7 +1376,9 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
             : Math.max(0, (prev.ownedCards || 0) - 1),
         };
       });
-      Alert.alert('Error', 'Failed to update card. Please try again.');
+      Alert.alert('Error', 'Failed to update card. Will retry when connection is restored.');
+    } finally {
+      togglingCardsRef.current.delete(lockKey);
     }
   }, [binder]);
 

@@ -241,7 +241,7 @@ export async function syncBinderCardsFromPositions(
 
   if (posError) {
     console.error('[EditSync] Error reading positions:', posError);
-    return;
+    throw new Error(`Failed to sync binder: ${posError.message}`);
   }
 
   // Read existing binder_cards for this binder
@@ -253,7 +253,7 @@ export async function syncBinderCardsFromPositions(
 
   if (existError) {
     console.error('[EditSync] Error reading binder_cards:', existError);
-    return;
+    throw new Error(`Failed to sync binder: ${existError.message}`);
   }
 
   // Build lookup maps
@@ -280,7 +280,7 @@ export async function syncBinderCardsFromPositions(
 
   if (clearError) {
     console.error('[EditSync] Error clearing positions:', clearError);
-    return;
+    throw new Error(`Failed to sync binder: ${clearError.message}`);
   }
 
   if (collectionMode === 'custom') {

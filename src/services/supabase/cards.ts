@@ -1362,5 +1362,54 @@ export async function updateCardVariant(
   console.log(`[CardVariant] Updated variant from ${oldVariant || 'base'} to ${newVariant}`);
 }
 
+/**
+ * Directly set is_owned for a card at a specific position (idempotent).
+ * Used by the offline queue to replay failed Custom-mode toggles.
+ */
+export async function setCardOwnedAtPosition(
+  binderId: string,
+  position: number,
+  isOwned: boolean,
+): Promise<void> {
+  const userId = await getCachedUserId();
 
+  const { error } = await supabase
+    .from('binder_cards')
+    .update({ is_owned: isOwned })
+    .eq('user_id', userId)
+    .eq('binder_id', binderId)
+    .eq('position', position);
+
+  if (error) throw error;
+}
+
+/**
+ * Directly set is_owned for an extra card (idempotent).
+ * Used by the offline queue to replay failed extra-card toggles.
+ */
+export async function setExtraCardOwned(
+  binderId: string,
+  cardId: string,
+  variant: string | null,
+  isOwned: boolean,
+): Promise<void> {
+  const userId = await getCachedUserId();
+
+  let query = supabase
+    .from('binder_cards')
+    .update({ is_owned: isOwned })
+    .eq('user_id', userId)
+    .eq('binder_id', binderId)
+    .eq('card_id', cardId)
+    .eq('is_extra', true);
+
+  if (variant) {
+    query = query.eq('variant', variant);
+  } else {
+    query = query.is('variant', null);
+  }
+
+  const { error } = await query;
+  if (error) throw error;
+}
 

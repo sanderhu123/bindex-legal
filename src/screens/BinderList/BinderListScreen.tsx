@@ -14,6 +14,7 @@ import type { MainStackParamList } from '../../navigation/AppNavigator';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { signOut } from '../../services/supabase/auth';
 import { getBinders, deleteBinder } from '../../services/supabase/binders';
+import { processToggleQueue, processPendingCountSyncs } from '../../services/offlineQueue';
 import { canCreateBinder, canDeleteBinder, recordDeletionUsed, getBinderUsage, presentProPaywall, isUserPro } from '../../services/pro/proService';
 import type { Binder } from '../../types';
 import BinderCard from '../../components/Binder/BinderCard';
@@ -84,14 +85,17 @@ export default function BinderListScreen() {
     }
   }, []);
 
-  // Refresh binders when screen comes into focus
+  // Refresh binders when screen comes into focus.
+  // First process any queued offline toggles and pending count syncs
+  // so the progress numbers are accurate before we load.
   useFocusEffect(
     useCallback(() => {
-      loadBinders();
-      // Safety-net re-fetch: catches any in-flight DB writes from BinderDetail
-      const timer = setTimeout(silentRefresh, 500);
-      return () => clearTimeout(timer);
-    }, [silentRefresh])
+      processToggleQueue()
+        .then(() => processPendingCountSyncs())
+        .catch(() => {})
+        .finally(() => loadBinders());
+      return () => {};
+    }, [])
   );
 
   const handleRefresh = () => {

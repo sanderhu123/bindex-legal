@@ -103,7 +103,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: typography.lg,
-    fontFamily: fonts.medium,
+    fontFamily: fonts.semibold,
     color: colors.text,
     letterSpacing: -0.3,
     marginBottom: 2,

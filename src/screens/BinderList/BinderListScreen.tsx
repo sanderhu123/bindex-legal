@@ -24,6 +24,7 @@ import EmptyState from '../../components/EmptyState/EmptyState';
 import { colors, fonts, spacing, typography, borderRadius, screenPadding, shadows } from '../../constants/theme';
 import { showSuccess, showError } from '../../utils/toast';
 import { warningVibration } from '../../utils/haptics';
+import { Ionicons } from '@expo/vector-icons';
 
 type NavigationProp = NativeStackNavigationProp<MainStackParamList, 'BinderList'>;
 
@@ -262,6 +263,13 @@ export default function BinderListScreen() {
       message="Create your first binder to start tracking your Pokémon card collection!"
       actionLabel="Create Binder"
       onAction={handleCreateBinder}
+      icon={
+        <Image
+          source={require('../../../assets/logo-icon-teal.png')}
+          style={{ width: 64, height: 64, opacity: 0.3 }}
+          resizeMode="contain"
+        />
+      }
     />
   );
 
@@ -303,8 +311,8 @@ export default function BinderListScreen() {
               {isPro ? 'Pro' : 'Pro'}
             </Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-            <Text style={styles.logoutText}>Logout</Text>
+          <TouchableOpacity style={styles.settingsButton} onPress={handleLogout}>
+            <Ionicons name="settings-outline" size={22} color={colors.textTertiary} />
           </TouchableOpacity>
         </View>
       </View>
@@ -377,14 +385,8 @@ const styles = StyleSheet.create({
   proBadgeTextActive: {
     color: colors.background,
   },
-  logoutButton: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs + 2,
-  },
-  logoutText: {
-    color: colors.textTertiary,
-    fontSize: typography.sm,
-    fontFamily: fonts.medium,
+  settingsButton: {
+    padding: spacing.xs + 2,
   },
   listContainer: {
     padding: screenPadding,

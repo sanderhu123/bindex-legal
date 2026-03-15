@@ -1,25 +1,48 @@
-import React from 'react';
-import { View, ActivityIndicator, Text, StyleSheet } from 'react-native';
-import { colors, spacing, typography } from '../../constants/theme';
+import React, { useEffect, useRef } from 'react';
+import { View, Text, Image, Animated, StyleSheet } from 'react-native';
+import { colors, fonts, spacing, typography } from '../../constants/theme';
 
 interface LoadingScreenProps {
   message?: string;
   fullScreen?: boolean;
 }
 
-/**
- * Full-screen loading component
- * Use for initial screen loads (e.g., loading binder, loading cards)
- */
 export default function LoadingScreen({
   message = 'Loading...',
   fullScreen = true,
 }: LoadingScreenProps) {
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    const pulse = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 0.4,
+          duration: 800,
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 800,
+          useNativeDriver: true,
+        }),
+      ])
+    );
+    pulse.start();
+    return () => pulse.stop();
+  }, []);
+
   const containerStyle = fullScreen ? styles.fullScreen : styles.container;
 
   return (
     <View style={containerStyle}>
-      <ActivityIndicator size="large" color={colors.primary} />
+      <Animated.View style={{ opacity: pulseAnim }}>
+        <Image
+          source={require('../../../assets/logo-icon-teal.png')}
+          style={styles.logo}
+          resizeMode="contain"
+        />
+      </Animated.View>
       <Text style={styles.message}>{message}</Text>
     </View>
   );
@@ -34,15 +57,20 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
   },
   container: {
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     padding: spacing.lg,
   },
+  logo: {
+    width: 48,
+    height: 48,
+  },
   message: {
     marginTop: spacing.md,
-    fontSize: typography.base,
+    fontSize: typography.sm,
+    fontFamily: fonts.regular,
     color: colors.textTertiary,
     textAlign: 'center',
   },
 });
-

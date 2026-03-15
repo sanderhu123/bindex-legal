@@ -20,19 +20,11 @@ import type { Binder } from '../../types';
 import BinderCard from '../../components/Binder/BinderCard';
 import LoadingScreen from '../../components/Loading/LoadingScreen';
 import EmptyState from '../../components/EmptyState/EmptyState';
-import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { fonts, spacing, typography, borderRadius, screenPadding, shadows, type ThemeColors } from '../../constants/theme';
 import { showSuccess, showError } from '../../utils/toast';
 import { warningVibration } from '../../utils/haptics';
 import { Ionicons } from '@expo/vector-icons';
-
-function getGreeting(): string {
-  const hour = new Date().getHours();
-  if (hour < 12) return 'Good morning';
-  if (hour < 18) return 'Good afternoon';
-  return 'Good evening';
-}
 
 type NavigationProp = NativeStackNavigationProp<MainStackParamList, 'BinderList'>;
 
@@ -44,15 +36,11 @@ interface BinderWithProgress extends Binder {
 export default function BinderListScreen() {
   const navigation = useNavigation<NavigationProp>();
   const { colors, isDark } = useTheme();
-  const { user } = useAuth();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const [binders, setBinders] = useState<BinderWithProgress[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [isPro, setIsPro] = useState(false);
-
-  const greeting = getGreeting();
-  const displayName = user?.displayName || user?.email?.split('@')[0];
 
   const loadBinders = async () => {
     try {
@@ -318,9 +306,6 @@ export default function BinderListScreen() {
           </View>
         </View>
 
-        <Text style={styles.greeting}>
-          {greeting}{displayName ? `, ${displayName}` : ''}!
-        </Text>
       </View>
 
       <FlatList
@@ -398,11 +383,6 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   settingsButton: {
     padding: spacing.xs + 2,
-  },
-  greeting: {
-    fontSize: typography.lg,
-    fontFamily: fonts.medium,
-    color: colors.textSecondary,
   },
   listContainer: {
     padding: screenPadding,

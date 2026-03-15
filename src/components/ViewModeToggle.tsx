@@ -20,6 +20,14 @@ function ViewModeToggle({ viewMode, onViewModeChange }: ViewModeToggleProps) {
   return (
     <View style={styles.viewToggle}>
       <TouchableOpacity
+        style={[styles.toggleButton, viewMode === 'binder' && styles.toggleButtonActive]}
+        onPress={() => onViewModeChange('binder')}
+      >
+        <Text style={[styles.toggleButtonText, viewMode === 'binder' && styles.toggleButtonTextActive]}>
+          Binder
+        </Text>
+      </TouchableOpacity>
+      <TouchableOpacity
         style={[styles.toggleButton, viewMode === 'grid' && styles.toggleButtonActive]}
         onPress={() => onViewModeChange('grid')}
       >
@@ -33,14 +41,6 @@ function ViewModeToggle({ viewMode, onViewModeChange }: ViewModeToggleProps) {
       >
         <Text style={[styles.toggleButtonText, viewMode === 'list' && styles.toggleButtonTextActive]}>
           List
-        </Text>
-      </TouchableOpacity>
-      <TouchableOpacity
-        style={[styles.toggleButton, viewMode === 'binder' && styles.toggleButtonActive]}
-        onPress={() => onViewModeChange('binder')}
-      >
-        <Text style={[styles.toggleButtonText, viewMode === 'binder' && styles.toggleButtonTextActive]}>
-          Binder
         </Text>
       </TouchableOpacity>
     </View>

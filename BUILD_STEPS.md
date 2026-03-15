@@ -1,8 +1,8 @@
 # Build Steps - Pokémon TCG Binder Tracker App
 
-> **📅 Last Updated:** March 1, 2026  
-> **🎯 Status:** ~90% Complete - Core features done, Phase 10 (Advanced Features) done, Binder Position System done, Binder Edit Mode complete. Monetization redesigned: In-App Purchase (Pro upgrade) via RevenueCat — replaces old activation code system.  
-> **✅ Major Milestones:** All phases 1-8 complete, Phase 10 (Advanced Features) complete, Step 33 (Binder Position System) complete, Step 34 (Binder Edit Mode) complete. Phase 9 (Monetization) redesigned and not yet started. Old Phase 11 (Activation Codes) removed.
+> **📅 Last Updated:** March 15, 2026  
+> **🎯 Status:** ~95% Complete - Core features done, Phase 10 (Advanced Features) done, Binder Position System done, Binder Edit Mode complete. Phase 9 (Monetization) mostly implemented: Pro service, upgrade screen, binder limits, and RevenueCat integration code all done. Remaining: RevenueCat account setup, restore in Settings, testing, and production build.  
+> **✅ Major Milestones:** All phases 1-8 complete, Phase 10 (Advanced Features) complete, Step 33 (Binder Position System) complete, Step 34 (Binder Edit Mode) complete. Phase 9 Steps 27A-27F implemented. Old Phase 11 (Activation Codes) removed and cleaned up.
 
 ## Overview
 
@@ -72,26 +72,28 @@ This guide walks you through building the app step-by-step. We'll build it incre
 - **Step 19**: Offline Support - React Query caching exists, but dedicated offline storage files not created
 - **Step 24F**: Variant Handling - Comprehensive logic implemented, needs integration testing
 
+### ✅ **Phase 9: Monetization — Mostly Implemented**
+- **Step 27**: Pro System (One-Time In-App Purchase via RevenueCat)
+  - Step 27A: Database Schema for Pro System ✅ (SQL written, needs to be run in Supabase if not already)
+  - Step 27B: RevenueCat Account & SDK Setup ⚠️ (SDK installed & init code done; RevenueCat/Apple/Google account setup needed)
+  - Step 27C: Pro Check Service (`isUserPro()`) ✅ (proService.ts complete — 352 lines)
+  - Step 27D: Binder Creation Limit (1 free binder) ✅ (integrated in BinderListScreen)
+  - Step 27E: Binder Deletion Limit (1 free do-over) ✅ (integrated in BinderListScreen)
+  - Step 27F: Upgrade Screen UI ✅ (UpgradeScreen.tsx complete with RevenueCat Paywall + success state)
+  - Step 27G: Restore Purchases ⚠️ (restorePurchases() exists in proService; restore works on UpgradeScreen via paywall; not yet added to a Settings screen)
+  - Step 27H: Integration & Testing - Not started (needs RevenueCat account to test)
+
 ### ❌ **Not Yet Implemented**
-- **Phase 9**: Monetization — Pro Upgrade via In-App Purchase (RevenueCat) - Not started
-  - Step 27A: Database Schema for Pro System
-  - Step 27B: RevenueCat Account & SDK Setup
-  - Step 27C: Pro Check Service (`isUserPro()`)
-  - Step 27D: Binder Creation Limit (1 free binder)
-  - Step 27E: Binder Deletion Limit (1 free do-over)
-  - Step 27F: Upgrade Screen UI
-  - Step 27G: Restore Purchases
-  - Step 27H: Integration & Testing
 - **Step 23**: Comprehensive Testing - Needs user testing
 - **Step 25**: Build for Production - Not started
 - **Step 26**: Deploy to App Stores - Not started
 
 ### 🗑️ **Removed / Replaced**
-- **Old Phase 11**: Binder Activation System (Step 35) — **Removed.** Was based on physical binders with activation codes. Replaced by Phase 9 (In-App Purchase Pro model). Code to remove: `registeredTags.ts`, `ActivationCodeScreen.tsx`, `add_registered_tags.sql`, `test_activation_codes.sql`.
-- **Old Step 27**: Premium System (NFC-based Freemium) — **Replaced** with new Step 27 (In-App Purchase Pro).
+- **Old Phase 11**: Binder Activation System (Step 35) — **Removed.** Was based on physical binders with activation codes. Replaced by Phase 9 (In-App Purchase Pro model). Old code files (`registeredTags.ts`, `ActivationCodeScreen.tsx`, `add_registered_tags.sql`, `test_activation_codes.sql`) already cleaned up — none remain in the codebase.
+- **Old Step 27**: Premium System (NFC-based Freemium) — **Replaced** with new Step 27 (In-App Purchase Pro via RevenueCat).
 - **Step 36**: NFC Tag Integration — **Removed.** No longer needed for app-only monetization.
 
-### 📊 **Overall Progress**: ~90% Complete (Core features done, Phase 10 advanced features done, Binder Position System done, Binder Edit Mode complete. Remaining: monetization (Pro upgrade), old activation code cleanup, testing, production build)
+### 📊 **Overall Progress**: ~95% Complete (Core features done, Phase 10 advanced features done, Binder Position System done, Binder Edit Mode complete, Pro system code mostly done. Remaining: RevenueCat account setup, restore purchases in Settings, comprehensive testing, production build & app store deployment)
 
 ---
 
@@ -1801,7 +1803,7 @@ Each step uses a unique log prefix to make debugging easier:
 ## Phase 9: Monetization (Pro Upgrade via In-App Purchase)
 
 ### Step 27: Pro System (One-Time In-App Purchase)
-- [ ] **Status**: Not started
+- [x] **Status**: Mostly complete (code done, needs RevenueCat account setup & testing)
 
 **What we're doing:** Implement a one-time in-app purchase ("Pro Upgrade") using RevenueCat. The app is free to download. Free users get 1 binder to try the app. Pro users get unlimited binders. All features are the same — the only difference is binder quantity.
 
@@ -1894,7 +1896,7 @@ Each step uses a unique log prefix to make debugging easier:
 ---
 
 #### Step 27A: Database Schema for Pro System
-- [ ] **Status**: Not started
+- [x] **Status**: Complete (SQL written; run in Supabase if not already)
 
 **What we're doing:** Add two fields to the `user_profiles` table in Supabase to track whether a user is Pro and how many times they've used their free delete.
 
@@ -1930,7 +1932,7 @@ ON public.user_profiles(user_tier);
 ---
 
 #### Step 27B: RevenueCat Account & SDK Setup
-- [ ] **Status**: Not started
+- [ ] **Status**: Partially done (SDK installed, init code in proService.ts; RevenueCat/Apple/Google account setup still needed)
 
 **What we're doing:** Create a RevenueCat account, set up the product in Apple/Google stores, and install the RevenueCat SDK in the app.
 
@@ -2003,7 +2005,7 @@ Purchases.configure({
 ---
 
 #### Step 27C: Pro Check Service (`isUserPro()`)
-- [ ] **Status**: Not started
+- [x] **Status**: Complete (proService.ts — 352 lines with all functions implemented)
 
 **What we're doing:** Create a centralized service that checks if a user is Pro. Every screen that needs to know the user's tier calls this one function.
 
@@ -2069,7 +2071,7 @@ export async function recordDeletionUsed(): Promise<void>
 ---
 
 #### Step 27D: Binder Creation Limit (1 Free Binder)
-- [ ] **Status**: Not started
+- [x] **Status**: Complete (integrated in BinderListScreen.tsx — canCreateBinder() check + upgrade prompt)
 
 **What we're doing:** Add a check before binder creation. Free users can only create 1 binder (with 1 do-over). If they're at their limit, show an "Upgrade to Pro" prompt instead.
 
@@ -2092,7 +2094,7 @@ export async function recordDeletionUsed(): Promise<void>
 ---
 
 #### Step 27E: Binder Deletion Limit (1 Free Do-Over)
-- [ ] **Status**: Not started
+- [x] **Status**: Complete (integrated in BinderListScreen.tsx — canDeleteBinder() check + recordDeletionUsed())
 
 **What we're doing:** Add a check before binder deletion. Free users get 1 "do-over" delete. After that, deleting requires Pro.
 
@@ -2119,7 +2121,7 @@ export async function recordDeletionUsed(): Promise<void>
 ---
 
 #### Step 27F: Upgrade Screen UI
-- [ ] **Status**: Not started
+- [x] **Status**: Complete (UpgradeScreen.tsx with RevenueCat Paywall, purchase/restore callbacks, success state, navigation wired up)
 
 **What we're doing:** Create a screen or modal that shows what Pro includes and lets users purchase it.
 
@@ -2174,7 +2176,7 @@ export async function recordDeletionUsed(): Promise<void>
 ---
 
 #### Step 27G: Restore Purchases
-- [ ] **Status**: Not started
+- [ ] **Status**: Partially done (restorePurchases() in proService.ts; restore works via UpgradeScreen paywall; "Restore Purchases" button not yet added to Settings screen)
 
 **What we're doing:** Allow users to restore their Pro purchase on a new device or after reinstalling. Apple requires this button to exist.
 
@@ -2194,7 +2196,7 @@ export async function recordDeletionUsed(): Promise<void>
 ---
 
 #### Step 27H: Integration & Testing
-- [ ] **Status**: Not started
+- [ ] **Status**: Not started (needs RevenueCat account configured to test end-to-end)
 
 **What we're doing:** Test the complete Pro system end-to-end.
 
@@ -2302,10 +2304,10 @@ eas build --profile production --platform all
 9. ✅ **Offline** - Work without internet
 10. ✅ **Polish** - UI improvements
 11. ✅ **Production** - Real API, build, deploy
-12. ⏳ **Monetization** - Premium system (freemium)
+12. ✅ **Monetization** - Pro system code done (RevenueCat account setup + testing remaining)
 13. ✅ **Advanced Features** - Custom binders, extra cards, region card selection
 14. ✅ **Binder Position System** - Page view, navigation, position info
-15. ⏳ **Binder Edit Mode** - Partially done (select, swap, placeholder done; insert, drag-drop, region edit, position storage remaining)
+15. ✅ **Binder Edit Mode** - Complete (select, swap, placeholder, insert, drag-drop, undo/save, region edit, position storage)
 
 ---
 
@@ -2343,47 +2345,31 @@ I'll begin with Phase 1, Step 1, and we'll build it step by step! 🚀
 
 ### 🔧 **To Complete Before Production:**
 
-1. **Premium System** (Step 27):
-   - Implement freemium monetization model
-   - Add database fields for premium tracking
-   - Create premium gates (3 binder limit for free users)
-   - Implement NFC premium activation
-   - Create premium status screen
-   - Test premium flow end-to-end
+1. **Pro System — Remaining Items** (Step 27):
+   - ⚠️ Set up RevenueCat account + connect Apple/Google stores (Step 27B — manual setup, not code)
+   - ⚠️ Add "Restore Purchases" button to Settings screen (Step 27G)
+   - ⚠️ Run database SQL in Supabase if not already done (Step 27A)
+   - ⚠️ End-to-end testing with RevenueCat sandbox (Step 27H)
 
-2. **Binder Edit Mode** (Step 34): ✅ All complete
-   - **Step 34E**: Insert Functionality (Plus Signs) ✅
-   - **Step 34F**: Drag & Drop System ✅
-   - **Step 34H**: Region Binder Edit (Simple Version Picker) ✅
-   - **Step 34I**: Database Storage for Card Positions ✅
-
-3. **Install NFC Package** (if you want NFC functionality):
-   ```bash
-   npm install react-native-nfc-manager
-   ```
-   - Then create development build (see DEVELOPMENT_BUILD_GUIDE.md)
-   - Test NFC scanning on physical device
-
-4. **Optional Enhancements:**
+2. **Optional Enhancements:**
    - Implement full offline sync (currently has basic caching)
    - Add illustrator filter to BinderDetailScreen (currently only rarity filter)
 
-5. **Testing** (Step 23):
+3. **Testing** (Step 23):
    - Test all features thoroughly
    - Test on both iOS and Android
    - Test offline mode
-   - Test NFC functionality (requires physical device + NFC tags)
-   - Test premium system (free tier limits, premium activation)
+   - Test Pro system (free tier limits, upgrade flow, restore purchases)
    - Verify variant system works correctly
    - Test Phase 10 features (custom binders, extra cards, region selection)
    - Test Binder Position System (page view, navigation, jump to page)
-   - Test Binder Edit Mode (select, swap, placeholder, undo/save)
+   - Test Binder Edit Mode (select, swap, placeholder, insert, drag & drop, undo/save)
 
-6. **Production Build** (Step 25):
+4. **Production Build** (Step 25):
    - Configure EAS build
    - Create production builds for iOS and Android
 
-7. **App Store Deployment** (Step 26):
+5. **App Store Deployment** (Step 26):
    - Create app store listings
    - Prepare screenshots
    - Submit to App Store and Google Play
@@ -2422,12 +2408,12 @@ I'll begin with Phase 1, Step 1, and we'll build it step by step! 🚀
   - Undo stack and save system (Step 34G)
   - Region binder edit with version picker (Step 34H)
   - Database storage for card positions (Step 34I)
-- **Binder Activation System (mostly complete - Step 35):**
-  - Database registered_tags table with RLS (Step 35A)
-  - Binder limit functions (Step 35B)
-  - Activation code validation service (Step 35E)
-  - Activation code entry UI screen (Step 35F)
-  - Transfer binder ownership service (Step 35I)
+- **Pro System (mostly complete - Step 27):**
+  - Pro check service with RevenueCat + Supabase fallback (Step 27C)
+  - Binder creation limit with upgrade prompt (Step 27D)
+  - Binder deletion limit with do-over tracking (Step 27E)
+  - Upgrade screen with RevenueCat Paywall (Step 27F)
+  - Restore purchases function (Step 27G — needs Settings button)
 - **Additional features:**
   - Migration system for database schema updates
   - Admin screen for fixing existing binders
@@ -2439,9 +2425,8 @@ I'll begin with Phase 1, Step 1, and we'll build it step by step! 🚀
   - Persistent search cache (memory + AsyncStorage)
 
 ### 🎯 **Current State:** 
-The app is **~95% complete** and fully functional for core and advanced features. You can create binders (Master Set, Region, Custom), add cards, track progress, search globally, add extra cards, select region card versions, view binder pages, edit card positions (insert, drag & drop), and activate binder codes. What remains is:
-- **Phase 9** (Step 27): Premium/monetization system
-- **Step 35J**: Binder limit enforcement in UI
+The app is **~95% complete** and fully functional for core and advanced features. You can create binders (Master Set, Region, Custom), add cards, track progress, search globally, add extra cards, select region card versions, view binder pages, and edit card positions (insert, drag & drop). The Pro system code is written and integrated (binder limits, upgrade prompts, RevenueCat paywall). What remains is:
+- **Phase 9** (Step 27): RevenueCat account setup, restore in Settings, end-to-end testing
 - **Testing** (Step 23): Comprehensive testing
 - **Production** (Steps 25-26): Build and deploy to app stores
 
@@ -2449,40 +2434,26 @@ The app is **~95% complete** and fully functional for core and advanced features
 
 ## 📋 **Premium/Monetization System Overview**
 
-### **Business Model: Freemium with Physical Product**
+### **Business Model: One-Time In-App Purchase (Pro Upgrade via RevenueCat)**
 
-**Free Tier (Generous):**
-- ✅ 3 binders max
-- ✅ Unlimited cards per binder
-- ✅ All core features (card images, search, progress tracking, variants)
-- ✅ Offline mode (local storage)
-- ❌ No NFC tap-to-open
-- ❌ No cloud sync (local only)
-- ❌ No export (CSV/PDF)
-- ❌ No detailed analytics
+| | Free | Pro (one-time purchase, $4.99–$6.99) |
+|---|---|---|
+| Binders | 1 | Unlimited |
+| Cards per binder | Unlimited | Unlimited |
+| All collection modes | Yes | Yes |
+| Search & filter | Yes | Yes |
+| Grid, list & binder views | Yes | Yes |
+| Progress tracking | Yes | Yes |
+| Cloud sync | Yes | Yes |
+| Binder edit mode | Yes | Yes |
+| Delete binders | 1 do-over (lifetime) | Unlimited |
 
-**Premium Tier (Lifetime - $24.99):**
-- ✅ Unlimited binders
-- ✅ NFC tap-to-open magic
-- ✅ Cloud sync across devices
-- ✅ Export to CSV/PDF
-- ✅ Detailed analytics
-- ✅ Priority support
-- ✅ All future features
+**Free tier anti-gaming:**
+- Free users can create 1 binder (lifetime count)
+- Free users get 1 "do-over" — they can delete their binder once and create a new one
+- After the do-over is used, they cannot delete or create new binders without upgrading
 
-**How to Get Premium:**
-- Buy a physical smart binder ($24.99) with pre-installed NFC tag
-- Tap the NFC tag with phone → Premium activated for life
-- One-time payment, no subscription ever
-
-**Why This Works:**
-- Physical product drives app adoption
-- NFC creates "magic moment" experience
-- Lifetime premium = amazing value perception
-- No subscription fatigue
-- Clear upgrade path (hit 3 binder limit → buy physical binder)
-
-See **Step 27** for complete implementation guide.
+**Implementation status:** Pro service, binder limits, upgrade screen, and restore function all coded. See **Step 27** for full details.
 
 ---
 

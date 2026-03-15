@@ -126,9 +126,9 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     opacity: 0.3,
   },
   arrowText: {
-    fontSize: typography.xl,
+    fontSize: typography.lg,
     color: colors.primary,
-    fontFamily: fonts.bold,
+    fontFamily: fonts.medium,
   },
   arrowTextDisabled: {
     color: colors.textTertiary,
@@ -141,8 +141,8 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     marginHorizontal: spacing.md,
   },
   pageText: {
-    fontSize: typography.base,
-    fontFamily: fonts.semibold,
+    fontSize: typography.sm,
+    fontFamily: fonts.medium,
     color: colors.text,
   },
 });

@@ -3060,16 +3060,16 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     justifyContent: 'center',
   },
   title: {
-    fontSize: typography['2xl'],
-    fontFamily: fonts.bold,
+    fontSize: typography.lg,
+    fontFamily: fonts.semibold,
     color: colors.text,
     flex: 1,
   },
   subtitle: {
-    fontSize: typography.sm,
+    fontSize: typography.xs,
     color: colors.textTertiary,
-    fontFamily: fonts.medium,
-    marginBottom: spacing.md,
+    fontFamily: fonts.regular,
+    marginBottom: spacing.sm,
     marginLeft: 40,
   },
   toolbar: {
@@ -3121,7 +3121,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   optionLabel: {
     fontSize: typography.sm,
-    fontFamily: fonts.semibold,
+    fontFamily: fonts.medium,
     color: colors.text,
   },
   optionHint: {
@@ -3143,7 +3143,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     backgroundColor: colors.primary,
   },
   filterChipText: {
-    fontSize: typography.sm,
+    fontSize: typography.xs,
     fontFamily: fonts.medium,
     color: colors.textSecondary,
   },
@@ -3181,22 +3181,22 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   stickyFooterTotal: {
     fontSize: typography.xs,
-    fontFamily: fonts.semibold,
-    color: colors.text,
+    fontFamily: fonts.medium,
+    color: colors.textSecondary,
   },
   stickyFooterOwned: {
     fontSize: typography.xs,
-    fontFamily: fonts.semibold,
+    fontFamily: fonts.medium,
     color: colors.primary,
   },
   stickyFooterMissing: {
     fontSize: typography.xs,
-    fontFamily: fonts.semibold,
+    fontFamily: fonts.medium,
     color: colors.textTertiary,
   },
   stickyFooterPercent: {
     fontSize: typography.xs,
-    fontFamily: fonts.bold,
+    fontFamily: fonts.semibold,
     color: colors.text,
   },
   stickyFooterDot: {
@@ -3341,8 +3341,8 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     borderRadius: borderRadius.lg,
   },
   enlargedCardName: {
-    fontSize: typography.xl,
-    fontFamily: fonts.bold,
+    fontSize: typography.lg,
+    fontFamily: fonts.semibold,
     color: colors.onPrimary,
     marginTop: spacing.md,
     textAlign: 'center',
@@ -3383,7 +3383,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   displayModeExitText: {
     fontSize: typography.sm,
-    fontFamily: fonts.semibold,
+    fontFamily: fonts.medium,
     color: colors.text,
   },
   });

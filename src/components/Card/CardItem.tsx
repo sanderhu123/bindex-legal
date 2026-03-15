@@ -341,18 +341,18 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     marginBottom: 2,
   },
   listCardName: {
-    fontSize: 16,
-    fontFamily: fonts.semibold,
+    fontSize: 14,
+    fontFamily: fonts.medium,
     color: colors.text,
     flex: 1,
   },
   listCardNumber: {
-    fontSize: 14,
+    fontSize: 12,
     color: colors.textSecondary,
     marginBottom: 1,
   },
   listCardRarity: {
-    fontSize: 12,
+    fontSize: 11,
     color: colors.textTertiary,
   },
   listVariantBadgeInline: {

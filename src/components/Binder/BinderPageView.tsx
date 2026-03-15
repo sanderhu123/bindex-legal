@@ -399,8 +399,8 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   // Card info below image
   cardName: {
-    fontSize: typography.sm,
-    fontFamily: fonts.semibold,
+    fontSize: typography.xs,
+    fontFamily: fonts.medium,
     color: colors.text,
     marginTop: spacing.xs,
     textAlign: 'center',

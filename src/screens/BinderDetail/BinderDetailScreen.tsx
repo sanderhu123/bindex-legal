@@ -1463,16 +1463,16 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
       await setSelectedCardForPokemon(binder.id, selectedPokemonForPicker.pokedexNumber, selectedCard.id);
       console.log('[BinderDetail] Card selection saved');
       
-      // Update the cards state to show the new image immediately
+      // Update the cards state immediately with search data (fast)
+      const pokedexNum = selectedPokemonForPicker.pokedexNumber;
       setCards((prevCards) =>
         prevCards.map((card) => {
-          if (card.pokedexNumber === selectedPokemonForPicker.pokedexNumber) {
+          if (card.pokedexNumber === pokedexNum) {
             return {
               ...card,
               imageUrl: selectedCard.imageUrl,
               imageUrlHiRes: selectedCard.imageUrlHiRes,
-              selectedCardId: selectedCard.id, // Mark as having custom selection
-              // Store TCG card details for the detail view
+              selectedCardId: selectedCard.id,
               selectedCardRarity: selectedCard.rarity,
               selectedCardIllustrator: selectedCard.illustrator,
               selectedCardSet: selectedCard.set,
@@ -1483,6 +1483,32 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
       );
       
       console.log('[BinderDetail] UI updated with new card image');
+
+      // Search results only have minimal data (no rarity, illustrator, or full set name).
+      // Fetch full details in the background and update the card state.
+      if (!selectedCard.rarity && !selectedCard.illustrator) {
+        try {
+          const fullCard = await getCardById(selectedCard.id);
+          if (fullCard && (fullCard.rarity || fullCard.illustrator || fullCard.set)) {
+            setCards((prevCards) =>
+              prevCards.map((card) => {
+                if (card.pokedexNumber === pokedexNum) {
+                  return {
+                    ...card,
+                    selectedCardRarity: fullCard.rarity || card.selectedCardRarity,
+                    selectedCardIllustrator: fullCard.illustrator || card.selectedCardIllustrator,
+                    selectedCardSet: fullCard.set || card.selectedCardSet,
+                  };
+                }
+                return card;
+              })
+            );
+            console.log('[BinderDetail] Region card enriched with full details');
+          }
+        } catch (enrichErr) {
+          console.warn('[BinderDetail] Could not fetch full card details for enrichment:', enrichErr);
+        }
+      }
     } catch (err) {
       console.error('[BinderDetail] Failed to save card selection:', err);
       Alert.alert('Error', 'Failed to save card selection. Please try again.');

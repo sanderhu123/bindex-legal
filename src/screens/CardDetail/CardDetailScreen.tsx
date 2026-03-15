@@ -114,6 +114,33 @@ export default function CardDetailScreen({ navigation, route }: CardDetailScreen
           setCard(regionCardData as Card);
           setBinder(binderData);
           setLoading(false);
+
+          // Region cards selected from search only have minimal data (set abbreviation, no rarity/illustrator).
+          // Fetch full details in the background if key fields are missing.
+          const tcgCardId = regionCardData.selectedCardId;
+          if (tcgCardId) {
+            const hasDetailFields = !!(regionCardData.rarity || regionCardData.illustrator);
+            if (!hasDetailFields) {
+              console.log('[CardDetail] Region card data is incomplete, fetching full details for:', tcgCardId);
+              try {
+                const fullCard = await getCardById(tcgCardId);
+                if (fullCard) {
+                  setCard((prev) => prev ? {
+                    ...prev,
+                    rarity: fullCard.rarity || prev.rarity,
+                    illustrator: fullCard.illustrator || prev.illustrator,
+                    set: fullCard.set || prev.set,
+                    supertype: fullCard.supertype || prev.supertype,
+                    setTotal: fullCard.setTotal || prev.setTotal,
+                    imageUrlHiRes: fullCard.imageUrlHiRes || prev.imageUrlHiRes,
+                  } : fullCard);
+                  console.log('[CardDetail] Region card details enriched from API');
+                }
+              } catch (enrichErr) {
+                console.warn('[CardDetail] Could not fetch full Region card details:', enrichErr);
+              }
+            }
+          }
           return;
         }
 
@@ -137,9 +164,11 @@ export default function CardDetailScreen({ navigation, route }: CardDetailScreen
           setLoading(false);
 
           // Cards from the search picker only have minimal data (id, name, image).
-          // If key detail fields are empty, fetch full details in the background.
+          // If key detail fields are empty, or the set name looks like an abbreviation
+          // (no spaces, e.g. "swsh1" instead of "Sword & Shield"), fetch full details.
           const hasDetailFields = !!(cardData.rarity || cardData.illustrator || cardData.supertype);
-          if (!hasDetailFields && cardData.id) {
+          const setLooksIncomplete = cardData.set && !cardData.set.includes(' ') && cardData.set.length < 15;
+          if ((!hasDetailFields || setLooksIncomplete) && cardData.id) {
             console.log('[CardDetail] Card data is incomplete, fetching full details for:', cardData.id);
             try {
               const fullCard = await getCardById(cardData.id);
@@ -345,8 +374,7 @@ export default function CardDetailScreen({ navigation, route }: CardDetailScreen
       await setSelectedCardForPokemon(binder.id, pokedexNumber, selectedCard.id);
       console.log('[CardDetail] Card selection saved');
       
-      // Update the current card to show the new image
-      // Include selectedCardId so the "Clear Selection" button stays visible
+      // Update the current card to show the new image immediately
       setCard({
         ...selectedCard,
         pokedexNumber: pokedexNumber,
@@ -354,6 +382,27 @@ export default function CardDetailScreen({ navigation, route }: CardDetailScreen
       });
       
       showSuccess('Card updated', `Now showing ${selectedCard.name}`);
+
+      // Search results only have minimal data. Fetch full details to show set name, rarity, illustrator.
+      if (!selectedCard.rarity && !selectedCard.illustrator) {
+        try {
+          const fullCard = await getCardById(selectedCard.id);
+          if (fullCard) {
+            setCard((prev) => prev ? {
+              ...prev,
+              rarity: fullCard.rarity || prev.rarity,
+              illustrator: fullCard.illustrator || prev.illustrator,
+              set: fullCard.set || prev.set,
+              supertype: fullCard.supertype || prev.supertype,
+              setTotal: fullCard.setTotal || prev.setTotal,
+              imageUrlHiRes: fullCard.imageUrlHiRes || prev.imageUrlHiRes,
+            } : fullCard);
+            console.log('[CardDetail] Region card enriched with full details');
+          }
+        } catch (enrichErr) {
+          console.warn('[CardDetail] Could not enrich Region card details:', enrichErr);
+        }
+      }
     } catch (err) {
       console.error('[CardDetail] Failed to save card selection:', err);
       showError('Failed to save selection', 'Please try again');

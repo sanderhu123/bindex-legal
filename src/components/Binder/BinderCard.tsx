@@ -3,6 +3,7 @@ import { View, StyleSheet, Text, TouchableOpacity, Image } from 'react-native';
 import type { Binder } from '../../types';
 import ProgressBar from '../Progress/ProgressBar';
 import { getSetLogoByName } from '../../data/pokemonEras';
+import { colors, fonts, typography, spacing, borderRadius, shadows } from '../../constants/theme';
 
 interface BinderCardProps {
   binder: Binder;
@@ -14,13 +15,11 @@ interface BinderCardProps {
 
 export default function BinderCard({ binder, completionPercentage, totalCards, onPress, onDelete }: BinderCardProps) {
   const [logoError, setLogoError] = useState(false);
-  
-  // Get set logo URL for master-set binders
-  const setLogoUrl = binder.collectionMode === 'master-set' && binder.set 
-    ? getSetLogoByName(binder.set) 
+
+  const setLogoUrl = binder.collectionMode === 'master-set' && binder.set
+    ? getSetLogoByName(binder.set)
     : null;
 
-  // Format collection mode for display
   const getCollectionModeLabel = (mode: string): string => {
     switch (mode) {
       case 'master-set':
@@ -34,7 +33,6 @@ export default function BinderCard({ binder, completionPercentage, totalCards, o
     }
   };
 
-  // Get subtitle based on collection mode
   const getSubtitle = (): string => {
     if (binder.collectionMode === 'master-set' && binder.set) {
       return binder.set;
@@ -46,35 +44,34 @@ export default function BinderCard({ binder, completionPercentage, totalCards, o
     return '';
   };
 
+  const subtitle = getSubtitle();
+  const displayPercentage = Math.min(100, Math.max(0, Math.round(completionPercentage)));
+
   return (
-    <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.7}>
+    <TouchableOpacity
+      style={styles.card}
+      onPress={onPress}
+      onLongPress={onDelete}
+      activeOpacity={0.7}
+      delayLongPress={600}
+    >
+      <View style={styles.accentBar} />
       <View style={styles.content}>
-        <View style={styles.header}>
-          <View style={styles.titleContainer}>
+        <View style={styles.topRow}>
+          <View style={styles.titleArea}>
             <Text style={styles.title} numberOfLines={1}>
               {binder.name}
             </Text>
+            <Text style={styles.subtitle} numberOfLines={1}>
+              {getCollectionModeLabel(binder.collectionMode)}
+              {subtitle && ` · ${subtitle}`}
+            </Text>
           </View>
-          {onDelete && (
-            <TouchableOpacity
-              style={styles.deleteButton}
-              onPress={(e) => {
-                e.stopPropagation();
-                onDelete();
-              }}
-            >
-              <Text style={styles.deleteText}>✕</Text>
-            </TouchableOpacity>
-          )}
+          <Text style={styles.percentage}>{displayPercentage}%</Text>
         </View>
-        
-        <Text style={styles.subtitle} numberOfLines={1}>
-          {getCollectionModeLabel(binder.collectionMode)}
-          {getSubtitle() && ` • ${getSubtitle()}`}
-        </Text>
 
-        <View style={styles.progressRow}>
-          <View style={styles.progressContainer}>
+        <View style={styles.bottomRow}>
+          <View style={styles.progressArea}>
             <ProgressBar
               current={binder.ownedCards}
               total={totalCards}
@@ -82,17 +79,13 @@ export default function BinderCard({ binder, completionPercentage, totalCards, o
               format="ratio"
             />
           </View>
-          
-          {/* Set logo for master-set binders - next to progress bar */}
           {binder.collectionMode === 'master-set' && setLogoUrl && !logoError && (
-            <View style={styles.logoContainer}>
-              <Image
-                source={{ uri: setLogoUrl }}
-                style={styles.setLogo}
-                resizeMode="contain"
-                onError={() => setLogoError(true)}
-              />
-            </View>
+            <Image
+              source={{ uri: setLogoUrl }}
+              style={styles.setLogo}
+              resizeMode="contain"
+              onError={() => setLogoError(true)}
+            />
           )}
         </View>
       </View>
@@ -102,69 +95,57 @@ export default function BinderCard({ binder, completionPercentage, totalCards, o
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
+    flexDirection: 'row',
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.lg,
+    marginBottom: spacing.md,
+    overflow: 'hidden',
+    ...shadows.md,
+  },
+  accentBar: {
+    width: 4,
+    backgroundColor: colors.primary,
   },
   content: {
-    padding: 16,
-  },
-  progressRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  progressContainer: {
     flex: 1,
+    padding: spacing.md,
   },
-  logoContainer: {
-    marginLeft: 12,
-  },
-  setLogo: {
-    width: 100,
-    height: 28,
-  },
-  header: {
+  topRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 8,
+    marginBottom: spacing.sm,
   },
-  titleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  titleArea: {
     flex: 1,
-    marginRight: 8,
+    marginRight: spacing.md,
   },
   title: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#000',
-    flex: 1,
-  },
-  deleteButton: {
-    padding: 4,
-    width: 28,
-    height: 28,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  deleteText: {
-    fontSize: 18,
-    color: '#999',
-    fontWeight: '600',
+    fontSize: typography.lg,
+    fontFamily: fonts.semibold,
+    color: colors.text,
+    marginBottom: 2,
   },
   subtitle: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 12,
+    fontSize: typography.sm,
+    fontFamily: fonts.regular,
+    color: colors.textTertiary,
+  },
+  percentage: {
+    fontSize: typography['2xl'],
+    fontFamily: fonts.bold,
+    color: colors.primary,
+  },
+  bottomRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  progressArea: {
+    flex: 1,
+  },
+  setLogo: {
+    width: 90,
+    height: 26,
+    marginLeft: spacing.md,
   },
 });
-
-

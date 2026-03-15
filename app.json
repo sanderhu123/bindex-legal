@@ -6,17 +6,24 @@
     "orientation": "portrait",
     "userInterfaceStyle": "light",
     "scheme": "trackerapp",
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.trackerapp",
       "infoPlist": {
-        "NSAppTransportSecurity": { "NSAllowsArbitraryLoads": true }
+        "NSAppTransportSecurity": {
+          "NSAllowsArbitraryLoads": true
+        }
       }
     },
     "android": {
       "package": "com.trackerapp",
-      "permissions": ["INTERNET", "ACCESS_NETWORK_STATE"],
+      "permissions": [
+        "INTERNET",
+        "ACCESS_NETWORK_STATE"
+      ],
       "usesCleartextTraffic": true
     },
     "web": {},
@@ -24,6 +31,9 @@
       "eas": {
         "projectId": "cf1e564f-825d-49a4-8d35-2c596b286813"
       }
-    }
+    },
+    "plugins": [
+      "expo-font"
+    ]
   }
 }

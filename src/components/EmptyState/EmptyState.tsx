@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { colors, spacing, typography, borderRadius } from '../../constants/theme';
+import { colors, fonts, spacing, typography, borderRadius } from '../../constants/theme';
 
 interface EmptyStateProps {
   title: string;
@@ -10,10 +10,6 @@ interface EmptyStateProps {
   icon?: React.ReactNode;
 }
 
-/**
- * Reusable empty state component
- * Use when there's no data to display (e.g., no binders, no cards, no search results)
- */
 export default function EmptyState({
   title,
   message,
@@ -27,7 +23,7 @@ export default function EmptyState({
       <Text style={styles.title}>{title}</Text>
       {message && <Text style={styles.message}>{message}</Text>}
       {actionLabel && onAction && (
-        <TouchableOpacity style={styles.button} onPress={onAction}>
+        <TouchableOpacity style={styles.button} onPress={onAction} activeOpacity={0.8}>
           <Text style={styles.buttonText}>{actionLabel}</Text>
         </TouchableOpacity>
       )}
@@ -48,17 +44,18 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: typography['2xl'],
-    fontWeight: typography.semibold,
+    fontFamily: fonts.semibold,
     color: colors.text,
     marginBottom: spacing.sm,
     textAlign: 'center',
   },
   message: {
     fontSize: typography.base,
+    fontFamily: fonts.regular,
     color: colors.textTertiary,
     textAlign: 'center',
     marginBottom: spacing.lg,
-    lineHeight: 22,
+    lineHeight: 24,
   },
   button: {
     backgroundColor: colors.primary,
@@ -70,8 +67,7 @@ const styles = StyleSheet.create({
   buttonText: {
     color: colors.background,
     fontSize: typography.base,
-    fontWeight: typography.semibold,
+    fontFamily: fonts.semibold,
     textAlign: 'center',
   },
 });
-

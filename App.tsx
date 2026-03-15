@@ -12,6 +12,14 @@ import Toast from 'react-native-toast-message';
 import { initializePersistentCache } from './src/services/api/pokemonApi';
 import { performCacheCleanup } from './src/services/cacheManager';
 import { initializeRevenueCat, identifyUser } from './src/services/pro/proService';
+import {
+  useFonts,
+  Poppins_400Regular,
+  Poppins_500Medium,
+  Poppins_600SemiBold,
+  Poppins_700Bold,
+} from '@expo-google-fonts/poppins';
+import { colors } from './src/constants/theme';
 
 // Create React Query client with caching configuration
 const queryClient = new QueryClient({
@@ -86,7 +94,7 @@ function AppContent() {
   if (!initialized || loading || !cacheInitialized) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#007AFF" />
+        <ActivityIndicator size="large" color={colors.primary} />
         <StatusBar style="auto" />
       </View>
     );
@@ -102,6 +110,22 @@ function AppContent() {
 }
 
 export default function App() {
+  const [fontsLoaded] = useFonts({
+    Poppins_400Regular,
+    Poppins_500Medium,
+    Poppins_600SemiBold,
+    Poppins_700Bold,
+  });
+
+  if (!fontsLoaded) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={colors.primary} />
+        <StatusBar style="auto" />
+      </View>
+    );
+  }
+
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>

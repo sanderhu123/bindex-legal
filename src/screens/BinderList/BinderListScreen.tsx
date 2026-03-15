@@ -20,7 +20,7 @@ import type { Binder } from '../../types';
 import BinderCard from '../../components/Binder/BinderCard';
 import LoadingScreen from '../../components/Loading/LoadingScreen';
 import EmptyState from '../../components/EmptyState/EmptyState';
-import { colors, spacing, typography, borderRadius, screenPadding } from '../../constants/theme';
+import { colors, fonts, spacing, typography, borderRadius, screenPadding, shadows } from '../../constants/theme';
 import { showSuccess, showError } from '../../utils/toast';
 import { warningVibration } from '../../utils/haptics';
 
@@ -41,22 +41,21 @@ export default function BinderListScreen() {
   const loadBinders = async () => {
     try {
       const fetchedBinders = await getBinders();
-      
+
       const bindersWithProgress = fetchedBinders.map((binder) => {
-        const progress = binder.totalCards > 0 
+        const progress = binder.totalCards > 0
           ? Math.round((binder.ownedCards / binder.totalCards) * 100)
           : 0;
-        
-        return { 
-          ...binder, 
-          progress, 
-          totalCards: binder.totalCards 
+
+        return {
+          ...binder,
+          progress,
+          totalCards: binder.totalCards
         };
       });
 
       setBinders(bindersWithProgress);
 
-      // Check Pro status (non-blocking)
       isUserPro().then(setIsPro).catch(() => {});
     } catch (error: any) {
       console.error('Error loading binders:', error);
@@ -71,7 +70,6 @@ export default function BinderListScreen() {
     loadBinders();
   }, []);
 
-  // Silently re-fetch binder data without showing errors or loading states
   const silentRefresh = useCallback(async () => {
     try {
       const fetchedBinders = await getBinders();
@@ -83,13 +81,10 @@ export default function BinderListScreen() {
       });
       setBinders(bindersWithProgress);
     } catch {
-      // Silent — don't show alerts for background refresh
+      // Silent refresh — no alerts
     }
   }, []);
 
-  // Refresh binders when screen comes into focus.
-  // First process any queued offline toggles and pending count syncs
-  // so the progress numbers are accurate before we load.
   useFocusEffect(
     useCallback(() => {
       processToggleQueue()
@@ -137,51 +132,10 @@ export default function BinderListScreen() {
     }
   };
 
-  const handleFixBinders = async () => {
-    Alert.alert(
-      'Recalculate Card Counts',
-      'This will recalculate the total card count for all your binders. Use this if you see "0 / 0 cards". Continue?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Fix Now',
-          onPress: async () => {
-            try {
-              // Import dynamically to avoid loading unless needed
-              const { fixExistingBinders } = await import('../../utils/fixExistingBinders');
-              
-              setLoading(true);
-              const result = await fixExistingBinders();
-              setLoading(false);
-              
-              if (result.success) {
-                Alert.alert(
-                  'Success!',
-                  `Fixed ${result.fixed} binder${result.fixed !== 1 ? 's' : ''} successfully! Refreshing...`,
-                  [{ text: 'OK', onPress: () => loadBinders() }]
-                );
-              } else {
-                Alert.alert(
-                  'Completed',
-                  `Fixed ${result.fixed} binder${result.fixed !== 1 ? 's' : ''}. ${result.errors} had errors.`,
-                  [{ text: 'OK', onPress: () => loadBinders() }]
-                );
-              }
-            } catch (error: any) {
-              setLoading(false);
-              Alert.alert('Error', error.message || 'Failed to fix binders');
-            }
-          },
-        },
-      ]
-    );
-  };
-
   const handleDeleteBinder = async (binder: Binder) => {
     try {
       const usage = await getBinderUsage();
 
-      // Pro users get normal delete confirmation
       if (usage.tier === 'pro') {
         Alert.alert(
           'Delete Binder',
@@ -207,7 +161,6 @@ export default function BinderListScreen() {
         return;
       }
 
-      // Free user — check if they can still delete
       if (!usage.canDelete) {
         Alert.alert(
           'Upgrade to Bindex Pro',
@@ -223,7 +176,6 @@ export default function BinderListScreen() {
         return;
       }
 
-      // Free user with do-over available — show warning
       Alert.alert(
         'Use Your Do-Over?',
         `This is your only free do-over. After deleting "${binder.name}", you won't be able to delete binders again unless you upgrade to Pro.\n\nAre you sure?`,
@@ -247,7 +199,6 @@ export default function BinderListScreen() {
         ]
       );
     } catch {
-      // Fallback: allow delete with standard confirmation
       Alert.alert(
         'Delete Binder',
         `Are you sure you want to delete "${binder.name}"? This action cannot be undone.`,
@@ -284,7 +235,6 @@ export default function BinderListScreen() {
           onPress: async () => {
             try {
               await signOut();
-              // AuthContext will detect the change and return user to the login screen
             } catch (error) {
               console.error('Error signing out:', error);
               Alert.alert('Error', 'Failed to logout. Please try again.');
@@ -317,11 +267,8 @@ export default function BinderListScreen() {
   if (loading) {
     return (
       <SafeAreaView style={styles.container}>
-        <View style={styles.headerRow}>
+        <View style={styles.header}>
           <Text style={styles.title}>My Binders</Text>
-          <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-            <Text style={styles.logoutText}>Logout</Text>
-          </TouchableOpacity>
         </View>
         <LoadingScreen message="Loading binders..." fullScreen={false} />
       </SafeAreaView>
@@ -330,20 +277,11 @@ export default function BinderListScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.headerRow}>
+      <View style={styles.header}>
         <Text style={styles.title}>My Binders</Text>
-        <View style={styles.headerButtons}>
-          <TouchableOpacity 
-            style={styles.fixButton} 
-            onPress={() => navigation.navigate('CardSearchTest')}
-          >
-            <Text style={styles.fixButtonText}>🔍 Search</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.fixButton} onPress={handleFixBinders}>
-            <Text style={styles.fixButtonText}>🔧 Fix</Text>
-          </TouchableOpacity>
+        <View style={styles.headerActions}>
           <TouchableOpacity
-            style={[styles.proButton, isPro && styles.proButtonActive]}
+            style={[styles.proBadge, isPro && styles.proBadgeActive]}
             onPress={() => {
               if (isPro) {
                 Alert.alert('Bindex Pro', 'You have Bindex Pro! Unlimited binders are unlocked.');
@@ -352,7 +290,9 @@ export default function BinderListScreen() {
               }
             }}
           >
-            <Text style={styles.proButtonText}>{isPro ? 'Pro ✓' : 'Pro'}</Text>
+            <Text style={[styles.proBadgeText, isPro && styles.proBadgeTextActive]}>
+              {isPro ? 'Pro' : 'Pro'}
+            </Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
             <Text style={styles.logoutText}>Logout</Text>
@@ -367,15 +307,19 @@ export default function BinderListScreen() {
         contentContainerStyle={binders.length === 0 ? styles.emptyListContainer : styles.listContainer}
         ListEmptyComponent={renderEmptyState}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            tintColor={colors.primary}
+          />
         }
+        showsVerticalScrollIndicator={false}
       />
 
-      <View style={styles.footer}>
-        <TouchableOpacity style={styles.createButton} onPress={handleCreateBinder}>
-          <Text style={styles.createButtonText}>Create New Binder</Text>
-        </TouchableOpacity>
-      </View>
+      {/* Floating Action Button */}
+      <TouchableOpacity style={styles.fab} onPress={handleCreateBinder} activeOpacity={0.85}>
+        <Text style={styles.fabIcon}>+</Text>
+      </TouchableOpacity>
     </SafeAreaView>
   );
 }
@@ -385,85 +329,77 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.backgroundLight,
   },
-  headerRow: {
+  header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: screenPadding,
-    paddingTop: screenPadding,
+    paddingTop: spacing.lg,
     paddingBottom: spacing.md,
     backgroundColor: colors.background,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    borderBottomColor: colors.borderLight,
   },
   title: {
     fontSize: typography['3xl'],
-    fontWeight: typography.bold,
+    fontFamily: fonts.bold,
     color: colors.text,
   },
-  headerButtons: {
+  headerActions: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
   },
-  fixButton: {
+  proBadge: {
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
+    paddingVertical: spacing.xs + 2,
+    borderRadius: borderRadius.full,
+    borderWidth: 1.5,
+    borderColor: colors.primary,
+  },
+  proBadgeActive: {
     backgroundColor: colors.primary,
-    borderRadius: borderRadius.sm,
   },
-  fixButtonText: {
-    color: colors.background,
+  proBadgeText: {
     fontSize: typography.xs,
-    fontWeight: typography.semibold,
+    fontFamily: fonts.semibold,
+    color: colors.primary,
   },
-  proButton: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    backgroundColor: colors.warning,
-    borderRadius: borderRadius.sm,
-  },
-  proButtonActive: {
-    backgroundColor: colors.success,
-  },
-  proButtonText: {
+  proBadgeTextActive: {
     color: colors.background,
-    fontSize: typography.xs,
-    fontWeight: typography.bold,
   },
   logoutButton: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs + 2,
   },
   logoutText: {
-    color: colors.primary,
+    color: colors.textTertiary,
     fontSize: typography.sm,
-    fontWeight: typography.semibold,
+    fontFamily: fonts.medium,
   },
   listContainer: {
     padding: screenPadding,
+    paddingBottom: 100,
   },
   emptyListContainer: {
     flex: 1,
   },
-  footer: {
-    padding: screenPadding,
-    backgroundColor: colors.background,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-  },
-  createButton: {
+  fab: {
+    position: 'absolute',
+    bottom: 32,
+    right: 24,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     backgroundColor: colors.primary,
-    borderRadius: borderRadius.md,
-    padding: spacing.md,
     alignItems: 'center',
+    justifyContent: 'center',
+    ...shadows.lg,
   },
-  createButtonText: {
+  fabIcon: {
+    fontSize: 28,
     color: colors.background,
-    fontSize: typography.base,
-    fontWeight: typography.semibold,
+    fontFamily: fonts.regular,
+    marginTop: -1,
   },
 });
-
-
-

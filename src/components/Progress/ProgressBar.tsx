@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { View, StyleSheet, Text, Animated } from 'react-native';
+import { colors, fonts, typography, borderRadius } from '../../constants/theme';
 
 interface ProgressBarProps {
   /** Current value (e.g., owned cards) */
@@ -16,11 +17,6 @@ interface ProgressBarProps {
   textSize?: 'small' | 'large';
 }
 
-/**
- * Reusable progress bar component
- * Displays a visual progress bar with percentage and card count.
- * The fill animates smoothly when the percentage changes.
- */
 export default function ProgressBar({
   current,
   total,
@@ -82,25 +78,26 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   text: {
-    fontSize: 12,
-    color: '#666',
+    fontSize: typography.xs,
+    fontFamily: fonts.regular,
+    color: colors.textTertiary,
     marginBottom: 6,
   },
   textLarge: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#333',
+    fontSize: typography.xl,
+    fontFamily: fonts.semibold,
+    color: colors.textSecondary,
     marginBottom: 8,
   },
   barContainer: {
-    height: 8,
-    backgroundColor: '#e0e0e0',
-    borderRadius: 4,
+    height: 6,
+    backgroundColor: colors.backgroundDark,
+    borderRadius: borderRadius.full,
     overflow: 'hidden',
   },
   barFill: {
     height: '100%',
-    backgroundColor: '#007AFF',
-    borderRadius: 4,
+    backgroundColor: colors.primary,
+    borderRadius: borderRadius.full,
   },
 });

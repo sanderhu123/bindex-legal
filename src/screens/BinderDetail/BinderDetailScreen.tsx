@@ -125,6 +125,10 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
   // Display mode: clean binder view with just card images (no badges, names, checkboxes)
   const [displayMode, setDisplayMode] = useState(false);
   
+  // Collapsible toolbar panels
+  const [showSearch, setShowSearch] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
+  
   // Pagination state for infinite scroll (only used for Custom mode)
   // For Master Set and Region modes, we show all cards once loaded
   const [displayCount, setDisplayCount] = useState(PAGE_SIZE);
@@ -2313,31 +2317,39 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
   // IMPORTANT: This must be a JSX element (not an arrow function component)
   // so that FlatList updates it in place instead of unmounting/remounting,
   // which would cause the SearchBar's TextInput to lose focus and dismiss the keyboard.
+  const subtitleParts = [collectionModeText];
+  if (binder.set) subtitleParts.push(binder.set);
+  if (binder.region) subtitleParts.push(binder.region);
+
+  const hasActiveSearch = searchQuery.length > 0;
+  const hasActiveFilter = ownershipFilter !== 'all';
+
   const listHeader = (
     <View style={styles.headerContainer}>
-      {/* Step 34A: Header row with title and Edit button */}
+      {/* Row 1: Title + Edit icon */}
       <View style={styles.titleRow}>
-        <Text style={styles.title}>{binder.name}</Text>
+        <Text style={styles.title} numberOfLines={1}>{binder.name}</Text>
         <TouchableOpacity
-          style={styles.editButton}
+          style={styles.editIconButton}
           onPress={() => navigation.navigate('BinderEdit', { binderId: binder.id })}
         >
-          <Text style={styles.editButtonIcon}>📝</Text>
-          <Text style={styles.editButtonText}>Edit</Text>
+          <Text style={styles.editIconText}>✏️</Text>
         </TouchableOpacity>
       </View>
-      <Text style={styles.subtitle}>Collection Mode: {collectionModeText}</Text>
-      {binder.set && <Text style={styles.text}>Set: {binder.set}</Text>}
-      {binder.region && <Text style={styles.text}>Region: {binder.region}</Text>}
-      
-      {/* Progress Summary — same formula for all modes */}
+
+      {/* Row 2: Compact subtitle — "Master Set · Prismatic Evolutions" */}
+      <Text style={styles.subtitle} numberOfLines={1}>
+        {subtitleParts.join(' · ')}
+      </Text>
+
+      {/* Row 3: Compact progress */}
       <View style={styles.progressContainer}>
         <ProgressBar
           current={ownedCount}
           total={totalCount}
           percentage={progressPercentage}
           format="full"
-          textSize="large"
+          textSize="small"
         />
         {isCustomMode && (
           <Text style={styles.customSlotInfo}>
@@ -2345,58 +2357,59 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
           </Text>
         )}
       </View>
-      
-      {__DEV__ && binder && (
-        <Text style={styles.debugText}>
-          Debug: Binder has {binder.cardIds.length} card IDs
-        </Text>
-      )}
-      
-      <View style={styles.cardsContainer}>
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>{isCustomMode ? 'Card Slots:' : 'Cards:'}</Text>
-          <View style={styles.sectionHeaderRight}>
-            <ViewModeToggle 
-              viewMode={viewMode} 
-              onViewModeChange={setViewMode} 
-            />
-            <TouchableOpacity
-              style={styles.displayModeToggle}
-              onPress={() => {
-                setViewMode('binder');
-                setDisplayMode(true);
-              }}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.displayModeToggleIcon}>👁</Text>
-            </TouchableOpacity>
-          </View>
+
+      {/* Row 4: Toolbar — view toggle + action icons */}
+      <View style={styles.toolbar}>
+        <ViewModeToggle 
+          viewMode={viewMode} 
+          onViewModeChange={setViewMode} 
+        />
+        <View style={styles.toolbarActions}>
+          <TouchableOpacity
+            style={[styles.toolbarButton, (showSearch || hasActiveSearch) && styles.toolbarButtonActive]}
+            onPress={() => setShowSearch(prev => !prev)}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.toolbarButtonIcon, (showSearch || hasActiveSearch) && styles.toolbarButtonIconActive]}>🔍</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.toolbarButton, (showFilters || hasActiveFilter) && styles.toolbarButtonActive]}
+            onPress={() => setShowFilters(prev => !prev)}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.toolbarButtonIcon, (showFilters || hasActiveFilter) && styles.toolbarButtonIconActive]}>⚙️</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.toolbarButton}
+            onPress={() => {
+              setViewMode('binder');
+              setDisplayMode(true);
+            }}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.toolbarButtonIcon}>👁</Text>
+          </TouchableOpacity>
         </View>
-        
-        {/* Search and Filter */}
+      </View>
+
+      {/* Collapsible search */}
+      {showSearch && (
         <SearchBar
           value={searchQuery}
           onChangeText={setSearchQuery}
           placeholder="Search by name or number..."
         />
-        
-        {/* Filter panel - page breaks toggle only for non-Custom modes */}
+      )}
+
+      {/* Collapsible filters */}
+      {showFilters && (
         <FilterPanel
           ownershipFilter={ownershipFilter}
           onOwnershipFilterChange={setOwnershipFilter}
           showPageBreaks={isCustomMode ? undefined : showPageBreaks}
           onShowPageBreaksChange={isCustomMode ? undefined : setShowPageBreaks}
         />
-        
-        <Text style={styles.helpText}>
-          {isCustomMode 
-            ? 'Use Edit mode to add cards, tap checkbox to mark owned'
-            : binder?.collectionMode === 'region'
-            ? 'Tap a Pokémon to choose a TCG card, long-press for options, checkbox to mark owned'
-            : 'Tap a card to view details, tap checkbox to mark owned'
-          }
-        </Text>
-      </View>
+      )}
     </View>
   );
 
@@ -2893,55 +2906,53 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     paddingBottom: 80,
   },
   headerContainer: {
-    marginBottom: spacing.md,
+    marginBottom: spacing.sm,
   },
   title: {
-    fontSize: typography['3xl'],
+    fontSize: typography['2xl'],
     fontFamily: fonts.bold,
-    marginBottom: spacing.sm,
-    marginTop: spacing.lg,
     color: colors.text,
+    flex: 1,
+    marginRight: spacing.sm,
   },
   subtitle: {
-    fontSize: typography.xl,
-    color: colors.textSecondary,
-    marginBottom: spacing.md,
-    fontFamily: fonts.semibold,
-  },
-  text: {
-    fontSize: typography.lg,
+    fontSize: typography.sm,
     color: colors.textTertiary,
+    fontFamily: fonts.medium,
     marginBottom: spacing.sm,
   },
   progressContainer: {
-    marginTop: spacing.md,
     marginBottom: spacing.md,
   },
-  debugText: {
-    fontSize: typography.xs,
-    color: colors.textLight,
-    fontStyle: 'italic',
-    marginBottom: spacing.sm,
-  },
-  helpText: {
-    fontSize: typography.base,
-    color: colors.textTertiary,
-    marginBottom: spacing.md,
-    fontStyle: 'italic',
-  },
-  cardsContainer: {
-    marginTop: spacing.lg,
-  },
-  sectionHeader: {
+  toolbar: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: spacing.md,
   },
-  sectionTitle: {
-    fontSize: typography['2xl'],
-    fontFamily: fonts.semibold,
-    color: colors.textSecondary,
+  toolbarActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  toolbarButton: {
+    width: 36,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.backgroundDark,
+  },
+  toolbarButtonActive: {
+    backgroundColor: colors.primary + '25',
+    borderWidth: 1,
+    borderColor: colors.primary,
+  },
+  toolbarButtonIcon: {
+    fontSize: 16,
+  },
+  toolbarButtonIconActive: {
+    fontSize: 16,
   },
   row: {
     marginHorizontal: -CARD_MARGIN,
@@ -3049,33 +3060,23 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     flexDirection: 'row',
     marginHorizontal: -2, // Match the CARD_MARGIN negative margin
   },
-  // Step 34A: Title row with Edit button
   titleRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: spacing.lg,
-    marginBottom: spacing.sm,
+    marginTop: spacing.md,
+    marginBottom: spacing.xs,
   },
-  // Step 34A: Edit button
-  editButton: {
-    flexDirection: 'row',
+  editIconButton: {
+    width: 36,
+    height: 36,
     alignItems: 'center',
-    backgroundColor: colors.primary + '20',
-    borderRadius: borderRadius.md,
-    paddingVertical: spacing.xs,
-    paddingHorizontal: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.primary,
+    justifyContent: 'center',
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.primary + '15',
   },
-  editButtonIcon: {
-    fontSize: typography.base,
-    marginRight: spacing.xs,
-  },
-  editButtonText: {
-    fontSize: typography.sm,
-    fontFamily: fonts.semibold,
-    color: colors.primary,
+  editIconText: {
+    fontSize: 16,
   },
   // Step 34A: Enlarged card overlay
   enlargeOverlay: {
@@ -3119,24 +3120,6 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     fontStyle: 'italic',
   },
   // Display mode styles
-  sectionHeaderRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  displayModeToggle: {
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.primary,
-    borderRadius: borderRadius.full,
-    marginLeft: spacing.sm,
-    marginRight: spacing.md,
-  },
-  displayModeToggleIcon: {
-    fontSize: 20,
-  },
   displayModeBar: {
     flexDirection: 'row',
     justifyContent: 'flex-end',

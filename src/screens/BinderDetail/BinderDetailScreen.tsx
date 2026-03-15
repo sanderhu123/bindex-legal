@@ -3033,7 +3033,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
     padding: screenPadding,
-    paddingBottom: 80, // Extra space at bottom to see last row card numbers
+    paddingBottom: 120,
     backgroundColor: colors.background,
   },
   flatListContainer: {

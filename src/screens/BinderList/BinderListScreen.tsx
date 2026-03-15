@@ -350,8 +350,8 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.borderLight,
   },
   headerLogo: {
-    height: 28,
-    width: 120,
+    height: 36,
+    width: 150,
   },
   headerActions: {
     flexDirection: 'row',

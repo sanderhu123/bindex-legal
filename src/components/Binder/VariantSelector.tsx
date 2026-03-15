@@ -1,14 +1,11 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { fonts } from '../../constants/theme';
+import { Ionicons } from '@expo/vector-icons';
+import { colors, fonts, spacing, typography, borderRadius, shadows } from '../../constants/theme';
 
 interface VariantSelectorProps {
   selected: string[];
   onChange: (variants: string[]) => void;
-  /**
-   * Limit which variant keys are shown (e.g. only reverse-holo, poke-ball, master-ball).
-   * If not provided, all known variants are shown.
-   */
   availableKeys?: string[];
 }
 
@@ -28,12 +25,9 @@ export default function VariantSelector({
     let newSelected: string[];
     if (selected.includes(key)) {
       newSelected = selected.filter((v) => v !== key);
-      console.log('[VariantSelector] REMOVED variant:', key);
     } else {
       newSelected = [...selected, key];
-      console.log('[VariantSelector] ADDED variant:', key);
     }
-    console.log('[VariantSelector] New selected variants:', newSelected);
     onChange(newSelected);
   };
 
@@ -50,11 +44,21 @@ export default function VariantSelector({
             key={variant.key}
             style={[styles.option, isSelected && styles.optionSelected]}
             onPress={() => toggleVariant(variant.key)}
+            activeOpacity={0.7}
           >
-            <Text style={styles.optionLabel}>{variant.label}</Text>
-            <Text style={styles.optionSubtitle}>
-              {isSelected ? 'Tracking this variant' : 'Tap to include this variant'}
-            </Text>
+            <View style={styles.optionContent}>
+              <View style={[styles.checkbox, isSelected && styles.checkboxSelected]}>
+                {isSelected && <Ionicons name="checkmark" size={14} color={colors.onPrimary} />}
+              </View>
+              <View style={styles.textArea}>
+                <Text style={[styles.optionLabel, isSelected && styles.optionLabelSelected]}>
+                  {variant.label}
+                </Text>
+                <Text style={styles.optionSubtitle}>
+                  {isSelected ? 'Tracking this variant' : 'Tap to include'}
+                </Text>
+              </View>
+            </View>
           </TouchableOpacity>
         );
       })}
@@ -64,26 +68,53 @@ export default function VariantSelector({
 
 const styles = StyleSheet.create({
   option: {
-    padding: 12,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#ddd',
-    marginBottom: 8,
-    backgroundColor: '#fff',
+    padding: spacing.md,
+    borderRadius: borderRadius.lg,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    marginBottom: spacing.sm,
+    backgroundColor: colors.surface,
+    ...shadows.sm,
   },
   optionSelected: {
-    borderColor: '#007AFF',
-    backgroundColor: '#E5F0FF',
+    borderColor: colors.primary,
+    backgroundColor: colors.primaryTint,
+    ...shadows.md,
+  },
+  optionContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderRadius: borderRadius.sm,
+    borderWidth: 2,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: spacing.md,
+    backgroundColor: colors.background,
+  },
+  checkboxSelected: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  textArea: {
+    flex: 1,
   },
   optionLabel: {
-    fontSize: 16,
+    fontSize: typography.base,
     fontFamily: fonts.medium,
+    color: colors.text,
     marginBottom: 2,
   },
+  optionLabelSelected: {
+    color: colors.primary,
+  },
   optionSubtitle: {
-    fontSize: 13,
-    color: '#666',
+    fontSize: typography.xs,
+    fontFamily: fonts.regular,
+    color: colors.textTertiary,
   },
 });
-
-

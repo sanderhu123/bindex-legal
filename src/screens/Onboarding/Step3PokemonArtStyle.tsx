@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Image } from 'expo-image';
-import { fonts } from '../../constants/theme';
+import { Ionicons } from '@expo/vector-icons';
+import { colors, fonts, spacing, typography, borderRadius, shadows, screenPadding } from '../../constants/theme';
 import type { PokemonArtStyle } from '../../types';
 
 interface Step3PokemonArtStyleProps {
@@ -90,7 +91,7 @@ export default function Step3PokemonArtStyle({ value, onChange }: Step3PokemonAr
                   <>
                     {!optionImageLoadStates[option.key] && (
                       <View style={styles.optionImagePlaceholder}>
-                        <ActivityIndicator size="small" color="#666" />
+                        <ActivityIndicator size="small" color={colors.textTertiary} />
                       </View>
                     )}
                     <Image
@@ -113,6 +114,9 @@ export default function Step3PokemonArtStyle({ value, onChange }: Step3PokemonAr
                 <Text style={styles.optionLabel}>{option.label}</Text>
                 <Text style={styles.optionDescription}>{option.description}</Text>
               </View>
+              {isSelected && (
+                <Ionicons name="checkmark-circle" size={22} color={colors.primary} />
+              )}
             </View>
           </TouchableOpacity>
         );
@@ -126,33 +130,35 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
-    padding: 20,
+    padding: screenPadding,
   },
   title: {
-    fontSize: 24,
+    fontSize: typography['2xl'],
     fontFamily: fonts.bold,
-    marginBottom: 8,
+    marginBottom: spacing.sm,
   },
   description: {
-    fontSize: 16,
+    fontSize: typography.base,
     fontFamily: fonts.regular,
-    color: '#666',
-    marginBottom: 24,
+    color: colors.textTertiary,
+    marginBottom: spacing.lg,
   },
   imageHidden: {
     opacity: 0,
   },
   option: {
-    padding: 16,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#ddd',
-    marginBottom: 12,
-    backgroundColor: '#fff',
+    padding: spacing.md,
+    borderRadius: borderRadius.lg,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    marginBottom: spacing.md,
+    backgroundColor: colors.surface,
+    ...shadows.sm,
   },
   optionSelected: {
-    borderColor: '#007AFF',
-    backgroundColor: '#E5F0FF',
+    borderColor: colors.primary,
+    backgroundColor: colors.primaryTint,
+    ...shadows.md,
   },
   optionContent: {
     flexDirection: 'row',
@@ -161,11 +167,11 @@ const styles = StyleSheet.create({
   optionImageContainer: {
     width: 80,
     height: 80,
-    marginRight: 16,
+    marginRight: spacing.md,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f5f5f5',
-    borderRadius: 8,
+    backgroundColor: colors.backgroundLight,
+    borderRadius: borderRadius.lg,
     overflow: 'hidden',
   },
   optionImagePlaceholder: {
@@ -184,26 +190,26 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   optionLabel: {
-    fontSize: 16,
+    fontSize: typography.base,
     fontFamily: fonts.semibold,
-    marginBottom: 4,
+    marginBottom: spacing.xs,
   },
   optionDescription: {
-    fontSize: 14,
+    fontSize: typography.sm,
     fontFamily: fonts.regular,
-    color: '#666',
+    color: colors.textTertiary,
   },
   errorContainer: {
     width: '100%',
     height: '100%',
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#e0e0e0',
+    backgroundColor: colors.border,
   },
   errorText: {
-    fontSize: 24,
+    fontSize: typography['2xl'],
     fontFamily: fonts.bold,
-    color: '#999',
+    color: colors.textLight,
   },
 });
 

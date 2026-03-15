@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, Text, TextInput, TouchableOpacity } from 'react-native';
-import { fonts } from '../../constants/theme';
+import { colors, fonts, spacing, typography, borderRadius, screenPadding } from '../../constants/theme';
 
 interface Step5BinderNameProps {
   value: string | null;
@@ -10,6 +10,7 @@ interface Step5BinderNameProps {
 
 export default function Step5BinderName({ value, onChange, defaultName }: Step5BinderNameProps) {
   const [name, setName] = useState(value || defaultName);
+  const [focused, setFocused] = useState(false);
 
   // Initialize parent state once on mount with default name if value is null
   useEffect(() => {
@@ -27,14 +28,16 @@ export default function Step5BinderName({ value, onChange, defaultName }: Step5B
 
       <View style={styles.inputContainer}>
         <TextInput
-          style={styles.input}
+          style={[styles.input, focused && styles.inputFocused]}
           value={name}
           onChangeText={(text) => {
             setName(text);
             onChange(text);
           }}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
           placeholder="Enter binder name"
-          placeholderTextColor="#999"
+          placeholderTextColor={colors.textLight}
           autoFocus
           maxLength={100}
         />
@@ -62,60 +65,64 @@ export default function Step5BinderName({ value, onChange, defaultName }: Step5B
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 20,
+    padding: screenPadding,
   },
   title: {
-    fontSize: 24,
+    fontSize: typography['2xl'],
     fontFamily: fonts.semibold,
-    color: '#000',
-    marginBottom: 12,
+    color: colors.text,
+    marginBottom: spacing.md,
   },
   description: {
-    fontSize: 16,
+    fontSize: typography.base,
     fontFamily: fonts.regular,
-    color: '#666',
-    marginBottom: 24,
+    color: colors.textTertiary,
+    marginBottom: spacing.lg,
     lineHeight: 22,
   },
   inputContainer: {
-    marginBottom: 20,
+    marginBottom: spacing.lg,
   },
   input: {
-    backgroundColor: '#f5f5f5',
-    borderRadius: 8,
-    padding: 16,
-    fontSize: 16,
+    backgroundColor: colors.backgroundLight,
+    borderRadius: borderRadius.lg,
+    padding: spacing.md,
+    fontSize: typography.base,
     fontFamily: fonts.regular,
-    color: '#000',
+    color: colors.text,
     borderWidth: 1,
-    borderColor: '#e0e0e0',
+    borderColor: colors.border,
+  },
+  inputFocused: {
+    borderColor: colors.primary,
+    borderWidth: 2,
   },
   errorText: {
-    fontSize: 14,
+    fontSize: typography.sm,
     fontFamily: fonts.regular,
-    color: '#FF3B30',
-    marginTop: 8,
+    color: colors.error,
+    marginTop: spacing.sm,
   },
   suggestionContainer: {
-    marginTop: 8,
+    marginTop: spacing.sm,
   },
   suggestionLabel: {
-    fontSize: 14,
+    fontSize: typography.sm,
     fontFamily: fonts.regular,
-    color: '#666',
-    marginBottom: 8,
+    color: colors.textTertiary,
+    marginBottom: spacing.sm,
   },
   suggestionButton: {
-    backgroundColor: '#f0f0f0',
-    borderRadius: 8,
-    padding: 12,
+    backgroundColor: colors.backgroundLight,
+    borderRadius: borderRadius.lg,
+    padding: spacing.md,
     borderWidth: 1,
-    borderColor: '#e0e0e0',
+    borderColor: colors.primary,
   },
   suggestionText: {
-    fontSize: 16,
+    fontSize: typography.base,
     fontFamily: fonts.regular,
-    color: '#007AFF',
+    color: colors.primary,
   },
 });
 

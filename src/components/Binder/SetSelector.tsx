@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Image, ActivityIndicator } from 'react-native';
-import { fonts } from '../../constants/theme';
+import { Ionicons } from '@expo/vector-icons';
+import { colors, fonts, spacing, typography, borderRadius } from '../../constants/theme';
 import type { PokemonSet } from '../../services/api/pokemonApi';
 
 interface SetSelectorProps {
@@ -30,7 +31,7 @@ function SetItem({ item, isSelected, onSelect }: { item: PokemonSet; isSelected:
             <>
               {imageLoading && (
                 <View style={styles.logoPlaceholder}>
-                  <ActivityIndicator size="small" color="#007AFF" />
+                  <ActivityIndicator size="small" color={colors.primary} />
                 </View>
               )}
               <Image
@@ -61,6 +62,9 @@ function SetItem({ item, isSelected, onSelect }: { item: PokemonSet; isSelected:
             {item.series} • {item.releaseDate}
           </Text>
         </View>
+        {isSelected && (
+          <Ionicons name="checkmark-circle" size={22} color={colors.primary} />
+        )}
       </View>
     </TouchableOpacity>
   );
@@ -99,16 +103,16 @@ export default function SetSelector({ sets, selectedSetId, onSelect }: SetSelect
 
 const styles = StyleSheet.create({
   item: {
-    padding: 12,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#ddd',
-    marginBottom: 8,
-    backgroundColor: '#fff',
+    padding: spacing.md,
+    borderRadius: borderRadius.lg,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    marginBottom: spacing.sm,
+    backgroundColor: colors.surface,
   },
   itemSelected: {
-    borderColor: '#007AFF',
-    backgroundColor: '#E5F0FF',
+    borderColor: colors.primary,
+    backgroundColor: colors.primaryTint,
   },
   itemContent: {
     flexDirection: 'row',
@@ -117,7 +121,7 @@ const styles = StyleSheet.create({
   logoContainer: {
     width: 60,
     height: 40,
-    marginRight: 12,
+    marginRight: spacing.md,
     position: 'relative',
   },
   setLogo: {
@@ -130,8 +134,8 @@ const styles = StyleSheet.create({
   logoPlaceholder: {
     width: 60,
     height: 40,
-    backgroundColor: '#f0f0f0',
-    borderRadius: 4,
+    backgroundColor: colors.backgroundLight,
+    borderRadius: borderRadius.sm,
     justifyContent: 'center',
     alignItems: 'center',
     position: 'absolute',
@@ -145,21 +149,22 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   itemTitle: {
-    fontSize: 16,
+    fontSize: typography.base,
     fontFamily: fonts.semibold,
+    color: colors.text,
     marginBottom: 2,
   },
   itemSubtitle: {
-    fontSize: 13,
-    color: '#666',
+    fontSize: typography.sm,
+    color: colors.textTertiary,
   },
   emptyContainer: {
-    padding: 16,
+    padding: spacing.md,
     alignItems: 'center',
   },
   emptyText: {
-    fontSize: 14,
-    color: '#666',
+    fontSize: typography.sm,
+    color: colors.textTertiary,
   },
 });
 

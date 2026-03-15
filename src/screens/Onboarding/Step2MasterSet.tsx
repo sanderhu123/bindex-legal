@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, ActivityIndicator, TouchableOpacity, Image } from 'react-native';
-import { fonts } from '../../constants/theme';
+import { colors, fonts, spacing, typography, borderRadius, shadows, screenPadding } from '../../constants/theme';
 import SetSelector from '../../components/Binder/SetSelector';
 import { getSetsBySerie, getErasList } from '../../services/api/pokemonApi';
 import type { PokemonSet } from '../../services/api/pokemonApi';
@@ -133,7 +133,7 @@ export default function Step2MasterSet({
   if (loading) {
     return (
       <View style={styles.container}>
-        <ActivityIndicator size="large" color="#007AFF" />
+        <ActivityIndicator size="large" color={colors.primary} />
         <Text style={styles.loadingText}>Loading eras...</Text>
       </View>
     );
@@ -174,7 +174,7 @@ export default function Step2MasterSet({
           
           {loadingEraSets ? (
             <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color="#007AFF" />
+              <ActivityIndicator size="large" color={colors.primary} />
               <Text style={styles.loadingText}>Loading sets for {selectedEra}...</Text>
             </View>
           ) : setsInEra.length > 0 ? (
@@ -199,71 +199,72 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
-    padding: 20,
+    padding: screenPadding,
   },
   title: {
-    fontSize: 24,
+    fontSize: typography['2xl'],
     fontFamily: fonts.bold,
-    marginBottom: 8,
+    marginBottom: spacing.sm,
   },
   description: {
-    fontSize: 16,
+    fontSize: typography.base,
     fontFamily: fonts.regular,
-    color: '#666',
-    marginBottom: 24,
+    color: colors.textTertiary,
+    marginBottom: spacing.lg,
   },
   loadingText: {
-    marginTop: 12,
-    fontSize: 14,
+    marginTop: spacing.md,
+    fontSize: typography.sm,
     fontFamily: fonts.regular,
-    color: '#666',
+    color: colors.textTertiary,
     textAlign: 'center',
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: typography.lg,
     fontFamily: fonts.semibold,
-    marginBottom: 16,
-    marginTop: 8,
+    marginBottom: spacing.md,
+    marginTop: spacing.sm,
   },
   eraOption: {
-    padding: 16,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#ddd',
-    marginBottom: 12,
-    backgroundColor: '#fff',
+    padding: spacing.md,
+    borderRadius: borderRadius.lg,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    marginBottom: spacing.md,
+    backgroundColor: colors.surface,
+    ...shadows.sm,
   },
   eraLabel: {
-    fontSize: 16,
+    fontSize: typography.base,
     fontFamily: fonts.semibold,
-    marginBottom: 4,
+    marginBottom: spacing.xs,
   },
   eraSubtext: {
-    fontSize: 14,
+    fontSize: typography.sm,
     fontFamily: fonts.regular,
-    color: '#666',
+    color: colors.textTertiary,
   },
   backToEras: {
-    padding: 12,
-    marginBottom: 16,
+    padding: spacing.md,
+    marginBottom: spacing.md,
   },
   backToErasText: {
-    fontSize: 16,
+    fontSize: typography.base,
     fontFamily: fonts.medium,
-    color: '#007AFF',
+    color: colors.primary,
   },
   loadingContainer: {
-    padding: 32,
+    padding: spacing.xl,
     alignItems: 'center',
     justifyContent: 'center',
   },
   emptyContainer: {
-    padding: 32,
+    padding: spacing.xl,
     alignItems: 'center',
   },
   emptyText: {
-    fontSize: 14,
+    fontSize: typography.sm,
     fontFamily: fonts.regular,
-    color: '#666',
+    color: colors.textTertiary,
   },
 });

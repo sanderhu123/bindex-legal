@@ -1,6 +1,6 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
-import { fonts } from '../../constants/theme';
+import { View, Text, StyleSheet, ScrollView, Image } from 'react-native';
+import { colors, fonts, spacing, typography, screenPadding } from '../../constants/theme';
 import CollectionModeSelector from '../../components/Binder/CollectionModeSelector';
 import type { CollectionMode } from '../../types';
 
@@ -12,6 +12,11 @@ interface Step1CollectionModeProps {
 export default function Step1CollectionMode({ value, onChange }: Step1CollectionModeProps) {
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      <Image
+        source={require('../../../assets/logo-icon-teal.png')}
+        style={styles.logo}
+        resizeMode="contain"
+      />
       <Text style={styles.title}>Choose Collection Mode</Text>
       <Text style={styles.description}>
         Select how you want to organize your binder collection.
@@ -26,17 +31,23 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
-    padding: 20,
+    padding: screenPadding,
+  },
+  logo: {
+    width: 48,
+    height: 48,
+    marginBottom: spacing.lg,
+    opacity: 0.8,
   },
   title: {
-    fontSize: 24,
+    fontSize: typography['2xl'],
     fontFamily: fonts.bold,
-    marginBottom: 8,
+    marginBottom: spacing.sm,
   },
   description: {
-    fontSize: 16,
+    fontSize: typography.base,
     fontFamily: fonts.regular,
-    color: '#666',
-    marginBottom: 24,
+    color: colors.textTertiary,
+    marginBottom: spacing.lg,
   },
 });

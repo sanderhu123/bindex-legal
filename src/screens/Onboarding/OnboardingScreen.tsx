@@ -1,7 +1,8 @@
-import React, { useState, useMemo } from 'react';
-import { View, StyleSheet, TouchableOpacity, Text, Alert, Image } from 'react-native';
+import React, { useState, useRef, useMemo } from 'react';
+import { View, StyleSheet, TouchableOpacity, Text, Alert, Image, Animated } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
 import type { MainStackParamList } from '../../navigation/AppNavigator';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { CollectionMode, VariantPlacement, LayoutPreference, PokemonArtStyle } from '../../types';
@@ -9,11 +10,11 @@ import type { Region } from '../../services/api/pokemonApi';
 import { createBinder } from '../../services/supabase/binders';
 import { recordBinderCreated } from '../../services/pro/proService';
 import { showSuccess, showError } from '../../utils/toast';
-import { successVibration } from '../../utils/haptics';
+import { successVibration, lightTap } from '../../utils/haptics';
 import { getAvailableVariantsForSet } from '../../data/cardVariants';
 import LoadingScreen from '../../components/Loading/LoadingScreen';
 import { useTheme } from '../../context/ThemeContext';
-import { fonts, spacing, typography, borderRadius, screenPadding, type ThemeColors } from '../../constants/theme';
+import { fonts, spacing, typography, borderRadius, screenPadding, shadows, type ThemeColors } from '../../constants/theme';
 import Step1CollectionMode from './Step1CollectionMode';
 import Step2MasterSet from './Step2MasterSet';
 import Step2Region from './Step2Region';
@@ -52,6 +53,24 @@ export default function OnboardingScreen() {
 
   const [currentStep, setCurrentStep] = useState(1);
   const [saving, setSaving] = useState(false);
+  const slideAnim = useRef(new Animated.Value(0)).current;
+
+  const animateToStep = (nextStep: number) => {
+    const direction = nextStep > currentStep ? 1 : -1;
+    Animated.timing(slideAnim, {
+      toValue: direction * -1,
+      duration: 120,
+      useNativeDriver: true,
+    }).start(() => {
+      setCurrentStep(nextStep);
+      slideAnim.setValue(direction * 1);
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: 180,
+        useNativeDriver: true,
+      }).start();
+    });
+  };
   const [state, setState] = useState<OnboardingState>({
     collectionMode: null,
     selectedSetId: null,
@@ -102,27 +121,21 @@ export default function OnboardingScreen() {
 
   const handleBack = () => {
     if (currentStep > 1) {
-      // For custom mode: step 1 → 2 (layout) → 3 (binder name)
-      // For region mode: step 1 → 2 → 3 (art style) → 4 (layout) → 5 (binder name)
-      // For master-set mode (full): step 1 → 2 → 3 (variants) → 4 (variant placement) → 5 (layout) → 6 (binder name)
-      //   (step 3 is skipped if set has no reverse holos)
-      //   (step 4 is skipped if variant placement is not needed)
+      let prevStep = currentStep - 1;
       if (state.collectionMode === 'custom') {
-        // Custom mode: simple step-by-step back
-        setCurrentStep(currentStep - 1);
+        prevStep = currentStep - 1;
       } else if (state.collectionMode === 'region' && currentStep === 5) {
-        setCurrentStep(4); // Go back from step 5 (binder name) to step 4 (layout)
+        prevStep = 4;
       } else if (state.collectionMode === 'region' && currentStep === 4) {
-        setCurrentStep(3); // Go back from step 4 (layout) to step 3 (art style)
+        prevStep = 3;
       } else if (state.collectionMode === 'master-set' && currentStep === 6) {
-        setCurrentStep(5); // Go back from step 6 (binder name) to step 5 (layout)
+        prevStep = 5;
       } else if (state.collectionMode === 'master-set' && currentStep === 5 && !needsVariantStep()) {
-        setCurrentStep(2); // Skip back over steps 3+4 to step 2 (set selection) when set has no reverse holos
+        prevStep = 2;
       } else if (state.collectionMode === 'master-set' && currentStep === 5 && !needsVariantPlacement()) {
-        setCurrentStep(3); // Skip step 4 (variant placement) when not needed
-      } else {
-        setCurrentStep(currentStep - 1);
+        prevStep = 3;
       }
+      animateToStep(prevStep);
     } else {
       handleCancel();
     }
@@ -208,25 +221,21 @@ export default function OnboardingScreen() {
       : 6; // master-set
     
     if (currentStep === lastInternalStep) {
-      // Last step - finish
       handleFinish();
     } else {
+      lightTap();
       let nextStep = currentStep + 1;
       
       if (state.collectionMode === 'master-set') {
-        // Skip variant selection (step 3) for sets without reverse holos (e.g. Base Set, Neo)
-        // Auto-set variants to just ['base'] since that's the only option
         if (nextStep === 3 && !needsVariantStep()) {
           setState(prev => ({ ...prev, selectedVariants: ['base'] }));
-          nextStep = 5; // Skip both step 3 (variants) and step 4 (variant placement)
-        }
-        // Skip variant placement (step 4) for master-set when not needed
-        else if (nextStep === 4 && !needsVariantPlacement()) {
+          nextStep = 5;
+        } else if (nextStep === 4 && !needsVariantPlacement()) {
           nextStep = 5;
         }
       }
       
-      setCurrentStep(nextStep);
+      animateToStep(nextStep);
     }
   };
 
@@ -430,37 +439,73 @@ export default function OnboardingScreen() {
     );
   }
 
+  const isLastStep = currentStep === (state.collectionMode === 'custom' ? 3 : state.collectionMode === 'region' ? 5 : 6);
+  const totalSteps = getTotalSteps();
+  const actualStep = getActualStep();
+  const progressPercent = (actualStep / totalSteps) * 100;
+
   return (
     <SafeAreaView style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={handleBack} style={styles.backButton}>
-          <Text style={styles.backButtonText}>{currentStep === 1 ? 'Cancel' : 'Back'}</Text>
+          {currentStep === 1 ? (
+            <Text style={styles.cancelText}>Cancel</Text>
+          ) : (
+            <Ionicons name="chevron-back" size={24} color={colors.text} />
+          )}
         </TouchableOpacity>
         <Text style={styles.stepTitle}>{getStepTitle()}</Text>
         <View style={styles.placeholder} />
       </View>
 
-      {/* Progress indicator */}
+      {/* Progress bar */}
       <View style={styles.progressContainer}>
-        <View style={[styles.progressBar, { width: `${(getActualStep() / getTotalSteps()) * 100}%` }]} />
+        <View style={[styles.progressBar, { width: `${progressPercent}%` }]} />
       </View>
 
-      {/* Step content */}
-      <View style={styles.content}>{renderStep()}</View>
+      {/* Step content with slide animation */}
+      <Animated.View
+        style={[
+          styles.content,
+          {
+            transform: [{
+              translateX: slideAnim.interpolate({
+                inputRange: [-1, 0, 1],
+                outputRange: [-300, 0, 300],
+              }),
+            }],
+            opacity: slideAnim.interpolate({
+              inputRange: [-1, -0.5, 0, 0.5, 1],
+              outputRange: [0, 0.5, 1, 0.5, 0],
+            }),
+          },
+        ]}
+      >
+        {renderStep()}
+      </Animated.View>
 
-      {/* Footer with Next button */}
+      {/* Footer */}
       <View style={styles.footer}>
         <TouchableOpacity
-          style={[styles.nextButton, !canProceedToNextStep() && styles.nextButtonDisabled]}
+          style={[
+            styles.nextButton,
+            isLastStep && styles.createButton,
+            !canProceedToNextStep() && styles.nextButtonDisabled,
+          ]}
           onPress={handleNext}
           disabled={!canProceedToNextStep()}
+          activeOpacity={0.8}
         >
+          {isLastStep && (
+            <Ionicons name="checkmark-circle" size={20} color={colors.onPrimary} style={styles.createIcon} />
+          )}
           <Text style={styles.nextButtonText}>
-            {currentStep === (state.collectionMode === 'custom' ? 3 : state.collectionMode === 'region' ? 5 : 6)
-              ? 'Create Binder'
-              : 'Next'}
+            {isLastStep ? 'Create Binder' : 'Next'}
           </Text>
+          {!isLastStep && (
+            <Ionicons name="chevron-forward" size={18} color={colors.onPrimary} style={styles.nextIcon} />
+          )}
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -489,48 +534,65 @@ const createStyles = (colors: ThemeColors) =>
   },
   backButton: {
     padding: spacing.xs,
+    minWidth: 60,
   },
-  backButtonText: {
+  cancelText: {
     fontSize: typography.base,
     fontFamily: fonts.medium,
-    color: colors.primary,
+    color: colors.textTertiary,
   },
   stepTitle: {
-    fontSize: typography.base,
-    fontFamily: fonts.semibold,
-    color: colors.text,
+    fontSize: typography.sm,
+    fontFamily: fonts.medium,
+    color: colors.textTertiary,
   },
   placeholder: {
     width: 60,
   },
   progressContainer: {
-    height: 3,
+    height: 4,
     backgroundColor: colors.backgroundDark,
+    borderRadius: 2,
+    marginHorizontal: screenPadding,
+    marginBottom: spacing.xs,
+    overflow: 'hidden',
   },
   progressBar: {
     height: '100%',
     backgroundColor: colors.primary,
+    borderRadius: 2,
   },
   content: {
     flex: 1,
   },
   footer: {
     padding: screenPadding,
-    borderTopWidth: 1,
-    borderTopColor: colors.borderLight,
   },
   nextButton: {
     backgroundColor: colors.primary,
-    borderRadius: borderRadius.md,
+    borderRadius: borderRadius.lg,
     padding: spacing.md,
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    ...shadows.md,
+  },
+  createButton: {
+    backgroundColor: colors.primary,
   },
   nextButtonDisabled: {
-    opacity: 0.5,
+    opacity: 0.4,
+    ...shadows.sm,
   },
   nextButtonText: {
     color: colors.onPrimary,
     fontSize: typography.base,
     fontFamily: fonts.semibold,
+  },
+  nextIcon: {
+    marginLeft: spacing.xs,
+  },
+  createIcon: {
+    marginRight: spacing.sm,
   },
   });

@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
-import { fonts } from '../../constants/theme';
+import { colors, fonts, spacing, typography, screenPadding } from '../../constants/theme';
 import VariantSelector from '../../components/Binder/VariantSelector';
 import { getAvailableVariantsForSet } from '../../data/cardVariants';
 
@@ -46,18 +46,18 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
-    padding: 20,
+    padding: screenPadding,
   },
   title: {
-    fontSize: 24,
+    fontSize: typography['2xl'],
     fontFamily: fonts.bold,
-    marginBottom: 8,
+    marginBottom: spacing.sm,
   },
   description: {
-    fontSize: 16,
+    fontSize: typography.base,
     fontFamily: fonts.regular,
-    color: '#666',
-    marginBottom: 24,
+    color: colors.textTertiary,
+    marginBottom: spacing.lg,
   },
 });
 

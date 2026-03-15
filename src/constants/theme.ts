@@ -8,6 +8,7 @@ export const lightColors = {
   primary: '#126D5F',
   primaryDark: '#0E5A4E',
   primaryLight: '#1A8F7D',
+  primaryTint: 'rgba(18, 109, 95, 0.08)',
   onPrimary: '#FFFFFF',
 
   secondary: '#2D2D2D',
@@ -47,6 +48,7 @@ export const darkColors: ThemeColors = {
   primary: '#126D5F',
   primaryDark: '#0E5A4E',
   primaryLight: '#1A8F7D',
+  primaryTint: 'rgba(18, 109, 95, 0.15)',
   onPrimary: '#FFFFFF',
 
   secondary: '#D0D0D0',

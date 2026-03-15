@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
-import { fonts } from '../../constants/theme';
+import { Ionicons } from '@expo/vector-icons';
+import { colors, fonts, spacing, typography, borderRadius, shadows, screenPadding } from '../../constants/theme';
 import type { LayoutPreference } from '../../types';
 
 interface Step4LayoutProps {
@@ -37,8 +38,15 @@ export default function Step4Layout({ value, onChange }: Step4LayoutProps) {
             style={[styles.option, isSelected && styles.optionSelected]}
             onPress={() => onChange(option.key)}
           >
-            <Text style={styles.optionLabel}>{option.label}</Text>
-            <Text style={styles.optionDescription}>{option.description}</Text>
+            <View style={styles.optionContent}>
+              <View style={styles.optionTextWrapper}>
+                <Text style={styles.optionLabel}>{option.label}</Text>
+                <Text style={styles.optionDescription}>{option.description}</Text>
+              </View>
+              {isSelected && (
+                <Ionicons name="checkmark-circle" size={22} color={colors.primary} />
+              )}
+            </View>
           </TouchableOpacity>
         );
       })}
@@ -51,39 +59,48 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
-    padding: 20,
+    padding: screenPadding,
   },
   title: {
-    fontSize: 24,
+    fontSize: typography['2xl'],
     fontFamily: fonts.bold,
-    marginBottom: 8,
+    marginBottom: spacing.sm,
   },
   description: {
-    fontSize: 16,
+    fontSize: typography.base,
     fontFamily: fonts.regular,
-    color: '#666',
-    marginBottom: 24,
+    color: colors.textTertiary,
+    marginBottom: spacing.lg,
   },
   option: {
-    padding: 16,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#ddd',
-    marginBottom: 12,
-    backgroundColor: '#fff',
+    padding: spacing.md,
+    borderRadius: borderRadius.lg,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    marginBottom: spacing.md,
+    backgroundColor: colors.surface,
+    ...shadows.sm,
   },
   optionSelected: {
-    borderColor: '#007AFF',
-    backgroundColor: '#E5F0FF',
+    borderColor: colors.primary,
+    backgroundColor: colors.primaryTint,
+    ...shadows.md,
+  },
+  optionContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  optionTextWrapper: {
+    flex: 1,
   },
   optionLabel: {
-    fontSize: 16,
+    fontSize: typography.base,
     fontFamily: fonts.semibold,
-    marginBottom: 4,
+    marginBottom: spacing.xs,
   },
   optionDescription: {
-    fontSize: 14,
+    fontSize: typography.sm,
     fontFamily: fonts.regular,
-    color: '#666',
+    color: colors.textTertiary,
   },
 });

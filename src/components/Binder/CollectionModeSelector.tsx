@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { fonts } from '../../constants/theme';
+import { Ionicons } from '@expo/vector-icons';
+import { colors, fonts, spacing, typography, borderRadius, shadows } from '../../constants/theme';
 import type { CollectionMode } from '../../types';
 
 interface CollectionModeSelectorProps {
@@ -8,46 +9,55 @@ interface CollectionModeSelectorProps {
   onChange: (mode: CollectionMode) => void;
 }
 
-export default function CollectionModeSelector({
-  value,
-  onChange,
-}: CollectionModeSelectorProps) {
-  const modes: { key: CollectionMode; label: string; description: string; icon: string }[] = [
-    {
-      key: 'master-set',
-      label: 'Master Set',
-      description: 'Track one specific set (e.g. Base Set, Scarlet & Violet).',
-      icon: '📦',
-    },
-    {
-      key: 'region',
-      label: 'Region',
-      description: 'Track cards by Pokédex region (Kanto, Johto, etc.).',
-      icon: '🗺️',
-    },
-    {
-      key: 'custom',
-      label: 'Custom',
-      description: 'Create your own collection with any cards from any set.',
-      icon: '✨',
-    },
-  ];
+const MODE_OPTIONS: { key: CollectionMode; label: string; description: string; icon: keyof typeof Ionicons.glyphMap }[] = [
+  {
+    key: 'master-set',
+    label: 'Master Set',
+    description: 'Track one specific set (e.g. Base Set, Scarlet & Violet).',
+    icon: 'book-outline',
+  },
+  {
+    key: 'region',
+    label: 'Region',
+    description: 'Track cards by Pokédex region (Kanto, Johto, etc.).',
+    icon: 'map-outline',
+  },
+  {
+    key: 'custom',
+    label: 'Custom',
+    description: 'Create your own collection with any cards from any set.',
+    icon: 'grid-outline',
+  },
+];
 
+export default function CollectionModeSelector({ value, onChange }: CollectionModeSelectorProps) {
   return (
     <View>
-      {modes.map((mode) => {
+      {MODE_OPTIONS.map((mode) => {
         const isSelected = value === mode.key;
         return (
           <TouchableOpacity
             key={mode.key}
             style={[styles.option, isSelected && styles.optionSelected]}
             onPress={() => onChange(mode.key)}
+            activeOpacity={0.7}
           >
             <View style={styles.optionHeader}>
-              <Text style={styles.optionIcon}>{mode.icon}</Text>
-              <Text style={styles.optionLabel}>{mode.label}</Text>
+              <View style={[styles.iconContainer, isSelected && styles.iconContainerSelected]}>
+                <Ionicons
+                  name={isSelected ? (mode.icon.replace('-outline', '') as keyof typeof Ionicons.glyphMap) : mode.icon}
+                  size={20}
+                  color={isSelected ? colors.primary : colors.textTertiary}
+                />
+              </View>
+              <View style={styles.textContainer}>
+                <Text style={[styles.optionLabel, isSelected && styles.optionLabelSelected]}>{mode.label}</Text>
+                <Text style={styles.optionDescription}>{mode.description}</Text>
+              </View>
+              {isSelected && (
+                <Ionicons name="checkmark-circle" size={22} color={colors.primary} />
+              )}
             </View>
-            <Text style={styles.optionDescription}>{mode.description}</Text>
           </TouchableOpacity>
         );
       })}
@@ -57,43 +67,51 @@ export default function CollectionModeSelector({
 
 const styles = StyleSheet.create({
   option: {
-    padding: 16,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#ddd',
-    marginBottom: 12,
-    backgroundColor: '#fff',
+    padding: spacing.md,
+    borderRadius: borderRadius.lg,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    marginBottom: spacing.md,
+    backgroundColor: colors.surface,
+    ...shadows.sm,
   },
   optionSelected: {
-    borderColor: '#007AFF',
-    backgroundColor: '#E5F0FF',
+    borderColor: colors.primary,
+    backgroundColor: colors.primaryTint,
+    ...shadows.md,
   },
   optionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 4,
   },
-  optionIcon: {
-    fontSize: 20,
-    marginRight: 8,
+  iconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: borderRadius.md,
+    backgroundColor: colors.backgroundLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: spacing.md,
+  },
+  iconContainerSelected: {
+    backgroundColor: colors.primaryTint,
+  },
+  textContainer: {
+    flex: 1,
   },
   optionLabel: {
-    fontSize: 16,
+    fontSize: typography.base,
     fontFamily: fonts.semibold,
+    color: colors.text,
+    marginBottom: 2,
+  },
+  optionLabelSelected: {
+    color: colors.primary,
   },
   optionDescription: {
-    fontSize: 14,
-    color: '#666',
-    marginLeft: 28, // Align with text after icon
+    fontSize: typography.sm,
+    fontFamily: fonts.regular,
+    color: colors.textTertiary,
+    lineHeight: 20,
   },
 });
-
-
-
-
-
-
-
-
-
-

@@ -22,6 +22,19 @@ export type Region =
   | 'Paldea';
 
 /**
+ * Pokémon TCG Pocket set IDs — these are from a different game and should be
+ * excluded from all results in this app.
+ */
+const POCKET_SET_IDS = new Set([
+  'a1', 'a1a', 'a2', 'a2a', 'a2b', 'a3', 'a3a', 'a3b', 'a4', 'a4a',
+  'b1', 'b1a', 'p-a',
+]);
+
+function isPocketSet(setId: string): boolean {
+  return POCKET_SET_IDS.has(setId.toLowerCase());
+}
+
+/**
  * Initialize TCGDEX SDK instance (English language)
  */
 const tcgdex = new TCGdex('en');
@@ -514,8 +527,8 @@ export async function getSetsMinimal(): Promise<PokemonSet[]> {
       // Transform minimal set data (no serie or releaseDate yet)
       const sets = tcgdexSetsMinimal.map(transformMinimalSetToPokemonSet);
       
-      // Filter out sets with missing required fields (id or name)
-      const validSets = sets.filter(set => set.id && set.name);
+      // Filter out sets with missing required fields and Pocket sets
+      const validSets = sets.filter(set => set.id && set.name && !isPocketSet(set.id));
       
       console.log('[24B] Minimal sets transformed:', {
         transformedCount: validSets.length,
@@ -644,8 +657,8 @@ export async function getSets(): Promise<PokemonSet[]> {
     // Step 3: Transform full set details to our PokemonSet type
     const sets = await Promise.all(fullSets.map(transformTcgdexSetToPokemonSet));
     
-    // Filter out sets with missing required fields (id or name)
-    const validSets = sets.filter(set => set.id && set.name);
+    // Filter out sets with missing required fields and Pocket sets
+    const validSets = sets.filter(set => set.id && set.name && !isPocketSet(set.id));
     
     if (validSets.length < sets.length) {
       console.warn('[24B] Some sets were filtered out due to missing id/name:', {
@@ -1966,6 +1979,12 @@ export async function searchCardsByName(
           note: 'Using word boundary matching',
         });
       }
+      
+      // Filter out Pokémon Pocket cards
+      filteredResults = filteredResults.filter((card: any) => {
+        const cardSetId = card.id?.split('-')[0] || '';
+        return !isPocketSet(cardSetId);
+      });
       
       // Transform ALL results to our Card type FIRST
       const transformStartTime = performance.now();

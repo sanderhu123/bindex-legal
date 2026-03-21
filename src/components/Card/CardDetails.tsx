@@ -1,8 +1,9 @@
-import React, { useMemo } from 'react';
-import { View, StyleSheet, Text } from 'react-native';
+import React, { useMemo, useState } from 'react';
+import { View, StyleSheet, Text, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { fonts, spacing, typography, borderRadius, type ThemeColors } from '../../constants/theme';
 import { useTheme } from '../../context/ThemeContext';
+import { getSetSymbolByName } from '../../data/pokemonEras';
 import type { Card } from '../../types';
 
 interface CardDetailsProps {
@@ -47,6 +48,8 @@ export default function CardDetails({
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const badge = showVariantBadge ? getVariantBadge(card.variant) : null;
+  const [symbolError, setSymbolError] = useState(false);
+  const setSymbolUrl = card.set ? getSetSymbolByName(card.set) : null;
 
   if (variant === 'compact') {
     return (
@@ -96,6 +99,14 @@ export default function CardDetails({
           <View style={styles.fullRow}>
             <Ionicons name={row.icon as any} size={16} color={colors.textTertiary} style={styles.fullRowIcon} />
             <Text style={styles.fullLabel}>{row.label}</Text>
+            {row.label === 'Set' && setSymbolUrl && !symbolError && (
+              <Image
+                source={{ uri: setSymbolUrl }}
+                style={styles.setSymbol}
+                resizeMode="contain"
+                onError={() => setSymbolError(true)}
+              />
+            )}
             <Text style={styles.fullValue} numberOfLines={1}>{row.value}</Text>
           </View>
         </React.Fragment>
@@ -226,6 +237,11 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     color: colors.text,
     fontFamily: fonts.regular,
     flex: 1,
+  },
+  setSymbol: {
+    width: 16,
+    height: 16,
+    marginRight: spacing.xs,
   },
 });
 

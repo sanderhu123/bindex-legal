@@ -741,6 +741,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
                         selectedCardRarity: tcgCard.rarity,
                         selectedCardIllustrator: tcgCard.illustrator,
                         selectedCardSet: tcgCard.set,
+                        setTotal: tcgCard.setTotal,
                       };
                     }
                   } catch (err) {
@@ -1499,6 +1500,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
           imageUrlHiRes: pokemon.imageUrlHiRes || pokemon.imageUrl,
           pokedexNumber: pokemon.pokedexNumber,
           selectedCardId: pokemon.selectedCardId,
+          setTotal: pokemon.setTotal,
           variant: pokemon.variant || 'base',
         },
       });
@@ -1534,6 +1536,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
               selectedCardRarity: selectedCard.rarity,
               selectedCardIllustrator: selectedCard.illustrator,
               selectedCardSet: selectedCard.set,
+              setTotal: selectedCard.setTotal,
             };
           }
           return card;
@@ -1558,6 +1561,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
                     selectedCardRarity: fullCard.rarity || card.selectedCardRarity,
                     selectedCardIllustrator: fullCard.illustrator || card.selectedCardIllustrator,
                     selectedCardSet: fullCard.set || card.selectedCardSet,
+                    setTotal: fullCard.setTotal || card.setTotal,
                   };
                 }
                 return card;

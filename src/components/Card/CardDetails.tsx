@@ -99,6 +99,7 @@ export default function CardDetails({
           <View style={styles.fullRow}>
             <Ionicons name={row.icon as any} size={16} color={colors.textTertiary} style={styles.fullRowIcon} />
             <Text style={styles.fullLabel}>{row.label}</Text>
+            <Text style={styles.fullValue} numberOfLines={1}>{row.value}</Text>
             {row.label === 'Set' && setSymbolUrl && !symbolError && (
               <Image
                 source={{ uri: setSymbolUrl }}
@@ -107,7 +108,6 @@ export default function CardDetails({
                 onError={() => setSymbolError(true)}
               />
             )}
-            <Text style={styles.fullValue} numberOfLines={1}>{row.value}</Text>
           </View>
         </React.Fragment>
       ))}
@@ -241,7 +241,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   setSymbol: {
     width: 16,
     height: 16,
-    marginRight: spacing.xs,
+    marginLeft: spacing.xs,
   },
 });
 

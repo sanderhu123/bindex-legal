@@ -99,14 +99,18 @@ export default function CardDetails({
           <View style={styles.fullRow}>
             <Ionicons name={row.icon as any} size={16} color={colors.textTertiary} style={styles.fullRowIcon} />
             <Text style={styles.fullLabel}>{row.label}</Text>
-            <Text style={styles.fullValue} numberOfLines={1}>{row.value}</Text>
-            {row.label === 'Set' && setSymbolUrl && !symbolError && (
-              <Image
-                source={{ uri: setSymbolUrl }}
-                style={styles.setSymbol}
-                resizeMode="contain"
-                onError={() => setSymbolError(true)}
-              />
+            {row.label === 'Set' && setSymbolUrl && !symbolError ? (
+              <View style={styles.setValueRow}>
+                <Text style={styles.fullValueInline} numberOfLines={1}>{row.value}</Text>
+                <Image
+                  source={{ uri: setSymbolUrl }}
+                  style={styles.setSymbol}
+                  resizeMode="contain"
+                  onError={() => setSymbolError(true)}
+                />
+              </View>
+            ) : (
+              <Text style={styles.fullValue} numberOfLines={1}>{row.value}</Text>
             )}
           </View>
         </React.Fragment>
@@ -238,10 +242,21 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     fontFamily: fonts.regular,
     flex: 1,
   },
+  setValueRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  fullValueInline: {
+    fontSize: typography.sm,
+    color: colors.text,
+    fontFamily: fonts.regular,
+    flexShrink: 1,
+  },
   setSymbol: {
     width: 16,
     height: 16,
-    marginLeft: spacing.xs,
+    marginLeft: 4,
   },
 });
 

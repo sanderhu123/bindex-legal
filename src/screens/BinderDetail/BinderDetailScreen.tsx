@@ -736,6 +736,8 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
                         imageUrl: tcgCard.imageUrl || undefined,
                         imageUrlHiRes: tcgCard.imageUrlHiRes || undefined,
                         selectedCardId: selectedCardId,
+                        selectedCardName: tcgCard.name,
+                        selectedCardNumber: tcgCard.number,
                         selectedCardRarity: tcgCard.rarity,
                         selectedCardIllustrator: tcgCard.illustrator,
                         selectedCardSet: tcgCard.set,
@@ -1488,8 +1490,8 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
         // Pass full card data for Region mode with TCG card details
         regionCardData: {
           id: pokemon.id,
-          name: pokemon.name,
-          number: pokemon.pokedexNumber?.toString() || '',
+          name: pokemon.selectedCardName || pokemon.name,
+          number: pokemon.selectedCardNumber || pokemon.pokedexNumber?.toString() || '',
           set: pokemon.selectedCardSet || binder?.region || '',
           rarity: pokemon.selectedCardRarity || '',
           illustrator: pokemon.selectedCardIllustrator || '',
@@ -1527,6 +1529,8 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
               imageUrl: selectedCard.imageUrl,
               imageUrlHiRes: selectedCard.imageUrlHiRes,
               selectedCardId: selectedCard.id,
+              selectedCardName: selectedCard.name,
+              selectedCardNumber: selectedCard.number,
               selectedCardRarity: selectedCard.rarity,
               selectedCardIllustrator: selectedCard.illustrator,
               selectedCardSet: selectedCard.set,
@@ -1549,6 +1553,8 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
                 if (card.pokedexNumber === pokedexNum) {
                   return {
                     ...card,
+                    selectedCardName: fullCard.name || card.selectedCardName,
+                    selectedCardNumber: fullCard.number || card.selectedCardNumber,
                     selectedCardRarity: fullCard.rarity || card.selectedCardRarity,
                     selectedCardIllustrator: fullCard.illustrator || card.selectedCardIllustrator,
                     selectedCardSet: fullCard.set || card.selectedCardSet,

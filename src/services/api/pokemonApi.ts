@@ -2,10 +2,11 @@ import type { Card } from '../../types';
 import type { PokemonArtStyle } from '../../types';
 import { mockCards, mockSets, type MockSet } from '../../data/mockupCards';
 import { getPokemonByRegion } from '../../data/pokemonRegions';
-import { getEras, getSetsByEra, convertSetToPokemonSet, sortCardsBySetDate, getSeriesSlugFromId, getTcgdexSetId, cleanCardNumberForTcgdex, convertSetIdForUrl } from '../../data/pokemonEras';
+import { getEras, getSetsByEra, getAllSets, convertSetToPokemonSet, sortCardsBySetDate, getSeriesSlugFromId, getTcgdexSetId, cleanCardNumberForTcgdex, convertSetIdForUrl } from '../../data/pokemonEras';
 import { getSpecialVariantsForCard, hasSpecialVariants } from '../../data/cardVariants';
 import TCGdex from '@tcgdex/sdk';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { isStorageFullError, emergencyStorageCleanup } from '../cacheManager';
 
 export type PokemonSet = MockSet;
 
@@ -237,8 +238,11 @@ function setCachedData(cacheKey: string, data: any): void {
       .then(() => {
         console.log('[CACHE] Stored in persistent storage:', { cacheKey });
       })
-      .catch((error) => {
+      .catch(async (error) => {
         console.warn('[CACHE] Failed to persist cache:', { cacheKey, error });
+        if (isStorageFullError(error)) {
+          await emergencyStorageCleanup();
+        }
       });
   }
 }
@@ -1595,6 +1599,27 @@ function looksLikeCardId(query: string): boolean {
 }
 
 /**
+ * Extract set ID from a full card ID.
+ * Card IDs are "setId-localId", and setId can include hyphens.
+ * Example: "tk-xy-b-12" -> "tk-xy-b"
+ */
+function extractSetIdFromCardId(cardId: string): string {
+  const lastDashIndex = cardId.lastIndexOf('-');
+  if (lastDashIndex <= 0) return '';
+  return cardId.slice(0, lastDashIndex);
+}
+
+/**
+ * Whitelisted set IDs from hard-coded app data.
+ * Cards outside this list are blocked from picker/search results.
+ */
+const ALLOWED_SET_IDS = new Set(getAllSets().map((set) => set.id.toLowerCase()));
+
+function isAllowedSetId(setId: string): boolean {
+  return ALLOWED_SET_IDS.has(setId.toLowerCase());
+}
+
+/**
  * Cached map of set ID → official card count (the printed total on cards, e.g. 159).
  * Populated lazily on first number search that includes a slash (e.g. "1/159").
  */
@@ -1642,12 +1667,63 @@ const SEARCH_CACHE_DURATION = 2 * 60 * 1000;
  * This allows stable pagination without re-fetching and re-sorting
  */
 const sortedSearchCache = new Map<string, { cards: Card[]; timestamp: number }>();
+const searchCardDetailsCache = new Map<string, Partial<Card>>();
 
 /**
  * Check if search cache is valid (2 minutes)
  */
 function isSearchCacheValid(timestamp: number): boolean {
   return Date.now() - timestamp < SEARCH_CACHE_DURATION;
+}
+
+/**
+ * Enrich lightweight search cards with missing fields from full card details.
+ * TCGDEX list search responses often omit rarity/illustrator/category fields.
+ */
+async function enrichSearchCards(cards: Card[]): Promise<Card[]> {
+  return Promise.all(cards.map(async (card) => {
+    const hasCoreDetails = !!(card.rarity && card.rarity.trim().length > 0);
+    if (hasCoreDetails) return card;
+
+    const baseId = card.id.replace(/-(base|holo|reverse|poke-ball|master-ball)$/i, '');
+    const cached = searchCardDetailsCache.get(baseId);
+    if (cached) {
+      return {
+        ...card,
+        rarity: card.rarity || cached.rarity || '',
+        illustrator: card.illustrator || cached.illustrator || '',
+        supertype: card.supertype || cached.supertype || '',
+        set: card.set || cached.set || '',
+        setTotal: card.setTotal || cached.setTotal || '',
+      };
+    }
+
+    try {
+      const fullCard = await getCardById(baseId);
+      if (fullCard) {
+        const detailPatch: Partial<Card> = {
+          rarity: fullCard.rarity || '',
+          illustrator: fullCard.illustrator || '',
+          supertype: fullCard.supertype || '',
+          set: fullCard.set || '',
+          setTotal: fullCard.setTotal || '',
+        };
+        searchCardDetailsCache.set(baseId, detailPatch);
+        return {
+          ...card,
+          rarity: card.rarity || detailPatch.rarity || '',
+          illustrator: card.illustrator || detailPatch.illustrator || '',
+          supertype: card.supertype || detailPatch.supertype || '',
+          set: card.set || detailPatch.set || '',
+          setTotal: card.setTotal || detailPatch.setTotal || '',
+        };
+      }
+    } catch {
+      // If detail fetch fails, keep the lightweight card shape.
+    }
+
+    return card;
+  }));
 }
 
 /**
@@ -1717,6 +1793,7 @@ export async function searchCardsByName(
   if (cachedSorted && isSearchCacheValid(cachedSorted.timestamp)) {
     // We have the full sorted list - return the requested page
     const paginatedResults = cachedSorted.cards.slice(offset, offset + limit);
+    const enrichedPaginatedResults = await enrichSearchCards(paginatedResults);
     const duration = performance.now() - startTime;
     
     console.log('[28A] Returning from sorted cache:', {
@@ -1724,12 +1801,12 @@ export async function searchCardsByName(
       totalCached: cachedSorted.cards.length,
       offset,
       limit,
-      returned: paginatedResults.length,
+      returned: enrichedPaginatedResults.length,
       duration: `${duration.toFixed(2)}ms`,
       performance: 'excellent (cached)',
     });
     
-    return paginatedResults;
+    return enrichedPaginatedResults;
   }
   
   // Step 2: Check if rate limited
@@ -1905,7 +1982,7 @@ export async function searchCardsByName(
           if (allowedSetIds) {
             // Card ID format: "setId-localId" (e.g. "swsh5-1")
             // Extract set ID (everything before the last dash+localId)
-            const cardSetId = card.id?.split('-').slice(0, -1).join('-') || '';
+            const cardSetId = extractSetIdFromCardId(card.id || '');
             if (!allowedSetIds.has(cardSetId)) return false;
           }
           
@@ -1997,15 +2074,17 @@ export async function searchCardsByName(
       
       // Filter out excluded sets (Pocket, McDonald's)
       filteredResults = filteredResults.filter((card: any) => {
-        const cardSetId = card.id?.split('-')[0] || '';
-        return !isExcludedSet(cardSetId);
+        const cardSetId = card?.set?.id || extractSetIdFromCardId(card?.id || '');
+        if (!cardSetId) return false;
+        return isAllowedSetId(cardSetId) && !isExcludedSet(cardSetId);
       });
       
       // Transform ALL results to our Card type FIRST
       const transformStartTime = performance.now();
       const allTransformedCards: Card[] = filteredResults.map((card: any) => {
         // Extract set info from card ID (format: setId-localId, e.g., "swsh1-25")
-        const setId = card.id?.split('-')[0] || '';
+        // Use robust extraction to support set IDs that include hyphens.
+        const setId = extractSetIdFromCardId(card.id || '');
         
         // Build image URL from the image base URL
         let imageUrl = '';
@@ -2050,7 +2129,7 @@ export async function searchCardsByName(
         }
         
         clientFilteredCards = clientFilteredCards.filter(card => {
-          const cardSetId = (card.id?.split('-')[0] || '').toLowerCase();
+          const cardSetId = extractSetIdFromCardId(card.id || '').toLowerCase();
           if (eraSetIds.has(cardSetId)) return true;
           if (card.set && eraSetNames.has(card.set.toLowerCase())) return true;
           return false;
@@ -2067,7 +2146,7 @@ export async function searchCardsByName(
       if (filters?.setIds && filters.setIds.length > 1) {
         const setIdSet = new Set(filters.setIds.map(s => s.toLowerCase()));
         clientFilteredCards = clientFilteredCards.filter(card => {
-          const cardSetId = (card.id?.split('-')[0] || '').toLowerCase();
+          const cardSetId = extractSetIdFromCardId(card.id || '').toLowerCase();
           return setIdSet.has(cardSetId);
         });
         console.log('[28A] Filtered by multiple sets (client-side):', {
@@ -2105,26 +2184,27 @@ export async function searchCardsByName(
       // SORT ALL cards by set release date (newest first) ONCE
       const sortStartTime = performance.now();
       const allSortedCards = sortCardsBySetDate(clientFilteredCards);
+      const enrichedAllSortedCards = await enrichSearchCards(allSortedCards);
       const sortDuration = performance.now() - sortStartTime;
       
       console.log('[28A] All cards sorted by release date:', {
-        totalCards: allSortedCards.length,
+        totalCards: enrichedAllSortedCards.length,
         sortDuration: `${sortDuration.toFixed(2)}ms`,
-        newestCard: allSortedCards[0] ? { id: allSortedCards[0].id, set: allSortedCards[0].set } : null,
-        oldestCard: allSortedCards[allSortedCards.length - 1] ? { 
-          id: allSortedCards[allSortedCards.length - 1].id, 
-          set: allSortedCards[allSortedCards.length - 1].set 
+        newestCard: enrichedAllSortedCards[0] ? { id: enrichedAllSortedCards[0].id, set: enrichedAllSortedCards[0].set } : null,
+        oldestCard: enrichedAllSortedCards[enrichedAllSortedCards.length - 1] ? { 
+          id: enrichedAllSortedCards[enrichedAllSortedCards.length - 1].id, 
+          set: enrichedAllSortedCards[enrichedAllSortedCards.length - 1].set 
         } : null,
       });
       
       // Cache the FULL sorted list for stable pagination
       sortedSearchCache.set(sortedCacheKey, {
-        cards: allSortedCards,
+        cards: enrichedAllSortedCards,
         timestamp: Date.now(),
       });
       
       // Return only the requested page
-      const paginatedResults = allSortedCards.slice(offset, offset + limit);
+      const paginatedResults = enrichedAllSortedCards.slice(offset, offset + limit);
       
       const totalDuration = performance.now() - startTime;
       const performanceRating = totalDuration < 1000 ? 'excellent' : 
@@ -2133,7 +2213,7 @@ export async function searchCardsByName(
       
       console.log('[28A] searchCardsByName() completed:', {
         query: sanitizedQuery,
-        totalAvailable: allSortedCards.length,
+        totalAvailable: enrichedAllSortedCards.length,
         offset,
         limit,
         returned: paginatedResults.length,

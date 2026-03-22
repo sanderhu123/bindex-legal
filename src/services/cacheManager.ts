@@ -10,7 +10,65 @@ import { Image } from 'expo-image';
  * - Tracking when binders were last opened
  * - Cleaning up cache for inactive binders (30+ days)
  * - Managing storage limits
+ * - Automatic cleanup when storage is full (SQLITE_FULL)
  */
+
+/**
+ * Detect if an error is a "storage full" / SQLITE_FULL error.
+ * Android AsyncStorage uses SQLite under the hood and throws code 13 when full.
+ */
+export function isStorageFullError(error: any): boolean {
+  if (!error) return false;
+  const msg = String(error?.message || error || '').toLowerCase();
+  return (
+    msg.includes('sqlite_full') ||
+    msg.includes('disk is full') ||
+    msg.includes('database or disk is full') ||
+    msg.includes('code 13') ||
+    msg.includes('no space left')
+  );
+}
+
+let isEmergencyCleanupRunning = false;
+
+/**
+ * Emergency cleanup when storage is full.
+ * Clears API cache, search cache, and image cache to free space.
+ * Safe to call multiple times — only one cleanup runs at a time.
+ */
+export async function emergencyStorageCleanup(): Promise<void> {
+  if (isEmergencyCleanupRunning) return;
+  isEmergencyCleanupRunning = true;
+
+  console.warn('[CacheManager] EMERGENCY: Storage full — clearing caches to free space...');
+
+  try {
+    await clearApiCache();
+  } catch (e) {
+    console.warn('[CacheManager] Emergency: failed to clear API cache:', e);
+  }
+
+  try {
+    const allKeys = await AsyncStorage.getAllKeys();
+    const searchKeys = allKeys.filter(k => k.startsWith('@search_cache_'));
+    if (searchKeys.length > 0) {
+      await AsyncStorage.multiRemove(searchKeys);
+      console.log('[CacheManager] Emergency: cleared search cache keys:', searchKeys.length);
+    }
+  } catch (e) {
+    console.warn('[CacheManager] Emergency: failed to clear search cache:', e);
+  }
+
+  try {
+    await Image.clearDiskCache();
+    console.log('[CacheManager] Emergency: cleared image disk cache');
+  } catch (e) {
+    console.warn('[CacheManager] Emergency: failed to clear image cache:', e);
+  }
+
+  isEmergencyCleanupRunning = false;
+  console.log('[CacheManager] Emergency cleanup complete');
+}
 
 // Storage keys
 const BINDER_ACCESS_KEY = '@binder_last_accessed';
@@ -50,6 +108,14 @@ async function saveBinderAccessRecord(record: BinderAccessRecord): Promise<void>
     await AsyncStorage.setItem(BINDER_ACCESS_KEY, JSON.stringify(record));
   } catch (error) {
     console.error('[CacheManager] Error saving access record:', error);
+    if (isStorageFullError(error)) {
+      await emergencyStorageCleanup();
+      try {
+        await AsyncStorage.setItem(BINDER_ACCESS_KEY, JSON.stringify(record));
+      } catch (retryError) {
+        console.error('[CacheManager] Retry after cleanup also failed:', retryError);
+      }
+    }
   }
 }
 
@@ -122,6 +188,9 @@ async function recordCleanup(): Promise<void> {
     await AsyncStorage.setItem(CACHE_CLEANUP_KEY, Date.now().toString());
   } catch (error) {
     console.error('[CacheManager] Error recording cleanup time:', error);
+    if (isStorageFullError(error)) {
+      await emergencyStorageCleanup();
+    }
   }
 }
 

@@ -326,7 +326,8 @@ export default function BinderEditScreen() {
           return getSetNumber(a.number) - getSetNumber(b.number);
         });
 
-        if (binderData.variantPlacement === 'grouped') {
+        const editPlacement = binderData.variantPlacement || 'grouped';
+        if (editPlacement === 'grouped') {
           const isBaseCard = (card: Card) => !card.variant || card.variant === 'base';
           const getBaseId = (card: Card) => `${card.name}-${card.number}`;
           const baseCards: Card[] = [];
@@ -356,7 +357,7 @@ export default function BinderEditScreen() {
             if (!baseCards.some((c) => getBaseId(c) === baseId)) grouped.push(...variants);
           });
           cardsToPlace = grouped;
-        } else if (binderData.variantPlacement === 'end') {
+        } else if (editPlacement === 'end') {
           const isBaseCard = (card: Card) => !card.variant || card.variant === 'base';
           const bases = cardsToPlace.filter(isBaseCard);
           const variants = cardsToPlace.filter((c) => !isBaseCard(c));
@@ -1919,25 +1920,18 @@ export default function BinderEditScreen() {
           </View>
         </View>
 
-        {/* Page Navigator */}
-        <PageNavigator
-          currentPage={currentPage}
-          totalPages={totalPages}
-          onPreviousPage={() => setCurrentPage(p => Math.max(1, p - 1))}
-          onNextPage={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-          onJumpToPage={() => setShowJumpModal(true)}
-        />
-
         {/* Selected Card Bar (tap-selected) */}
-        {selectedCard && !draggedCard && (
-          <SelectedCardBar
-            cardName={selectedCard.cardName}
-            sourcePage={selectedCard.sourcePage}
-            onCancel={handleCancelSelection}
-            onReplace={handleReplaceCard}
-            onRemove={handleRemoveCard}
-          />
-        )}
+        <View style={styles.selectedCardBarContainer}>
+          {selectedCard && !draggedCard && (
+            <SelectedCardBar
+              cardName={selectedCard.cardName}
+              sourcePage={selectedCard.sourcePage}
+              onCancel={handleCancelSelection}
+              onReplace={handleReplaceCard}
+              onRemove={handleRemoveCard}
+            />
+          )}
+        </View>
 
         {/* Card Grid */}
         <ScrollView
@@ -1947,6 +1941,15 @@ export default function BinderEditScreen() {
         >
           {renderCardGrid()}
         </ScrollView>
+
+        {/* Page Navigator */}
+        <PageNavigator
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPreviousPage={() => setCurrentPage(p => Math.max(1, p - 1))}
+          onNextPage={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+          onJumpToPage={() => setShowJumpModal(true)}
+        />
 
         {/* Card Placeholder Tray */}
         <CardPlaceholder
@@ -2084,6 +2087,11 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   scrollContent: {
     padding: spacing.sm,
+  },
+  selectedCardBarContainer: {
+    height: 112,
+    justifyContent: 'center',
+    marginBottom: spacing.sm,
   },
   gridContainer: {
     flex: 1,

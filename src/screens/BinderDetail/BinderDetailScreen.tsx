@@ -1016,8 +1016,9 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
         }
         // Custom mode: no specific sorting (keep as-is or could sort by name)
 
-        // Apply variant placement logic (only for master-set mode with variants)
-        if (binder.collectionMode === 'master-set' && binder.variantPlacement) {
+        // Apply variant placement logic (only for master-set mode with multiple variants)
+        const effectivePlacement = binder.variantPlacement || 'grouped';
+        if (binder.collectionMode === 'master-set' && binder.variantsToTrack && binder.variantsToTrack.length > 1) {
           const isBaseCard = (card: CardWithOwnership): boolean => {
             return !card.variant || card.variant === 'base';
           };
@@ -1027,7 +1028,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
             return `${card.name}-${card.number}`;
           };
 
-          if (binder.variantPlacement === 'grouped') {
+          if (effectivePlacement === 'grouped') {
             // Group variants with their base card
             // Cards are already sorted by set number, so we just need to ensure
             // variants appear immediately after their base card
@@ -1074,7 +1075,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
             });
 
             cardsWithOwnership = grouped;
-          } else if (binder.variantPlacement === 'end') {
+          } else if (effectivePlacement === 'end') {
             // All base cards first, then all variants at the end
             const baseCards: CardWithOwnership[] = [];
             const variants: CardWithOwnership[] = [];

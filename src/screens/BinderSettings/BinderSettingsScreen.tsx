@@ -197,7 +197,13 @@ export default function BinderSettingsScreen() {
       const variantsEqual = originalVariants.length === variantsToTrack.length &&
         originalVariants.every((variant) => variantsToTrack.includes(variant));
 
-      if (!variantsEqual) updates.variantsToTrack = variantsToTrack;
+      if (!variantsEqual) {
+        updates.variantsToTrack = variantsToTrack;
+        // Always persist placement when variants change so the DB is never null
+        if (!binder.variantPlacement) {
+          updates.variantPlacement = variantPlacement;
+        }
+      }
       if (variantPlacement !== (binder.variantPlacement || 'grouped')) {
         updates.variantPlacement = variantPlacement;
       }

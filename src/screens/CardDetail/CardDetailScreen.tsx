@@ -860,8 +860,8 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   panelVariantIcon: {
     width: 40,
-    height: 40,
-    borderRadius: borderRadius.md,
+    height: 30,
+    borderRadius: borderRadius.sm,
     alignItems: 'center',
     justifyContent: 'center',
   },

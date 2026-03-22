@@ -633,23 +633,35 @@ export default function CardDetailScreen({ navigation, route }: CardDetailScreen
                 disabled={isUpdating}
                 activeOpacity={1}
               >
-                {isUpdating ? (
-                  <Text style={styles.panelBtnText}>...</Text>
-                ) : (
-                  <>
-                    <Ionicons
-                      name={isOwned ? 'close-circle-outline' : 'checkmark-circle'}
-                      size={16}
-                      color="#FFFFFF"
-                      style={{ marginRight: 4 }}
-                    />
-                    <Text style={styles.panelBtnText} numberOfLines={1}>
-                      {isOwned ? 'Missing' : 'Owned'}
-                    </Text>
-                  </>
-                )}
+                <Ionicons
+                  name={isOwned ? 'close-circle-outline' : 'checkmark-circle'}
+                  size={20}
+                  color="#FFFFFF"
+                />
               </TouchableOpacity>
             </Animated.View>
+
+            {/* Region: Change */}
+            {isRegionMode && pokedexNumber && (
+              <TouchableOpacity
+                style={[styles.panelBtn, styles.panelBtnChange]}
+                onPress={() => setShowCardPicker(true)}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="swap-horizontal-outline" size={20} color="#FFFFFF" />
+              </TouchableOpacity>
+            )}
+
+            {/* Region: Delete */}
+            {isRegionMode && pokedexNumber && card?.selectedCardId && (
+              <TouchableOpacity
+                style={[styles.panelBtn, styles.panelBtnDelete]}
+                onPress={handleClearSelection}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="trash-outline" size={20} color={colors.error} />
+              </TouchableOpacity>
+            )}
 
             {/* Variant selector */}
             {showVariantSelector && (
@@ -681,30 +693,6 @@ export default function CardDetailScreen({ navigation, route }: CardDetailScreen
                   );
                 })}
               </View>
-            )}
-
-            {/* Region: Change */}
-            {isRegionMode && pokedexNumber && (
-              <TouchableOpacity
-                style={[styles.panelBtn, styles.panelBtnChange]}
-                onPress={() => setShowCardPicker(true)}
-                activeOpacity={0.7}
-              >
-                <Ionicons name="swap-horizontal-outline" size={16} color="#FFFFFF" style={{ marginRight: 4 }} />
-                <Text style={styles.panelBtnText} numberOfLines={1}>Change</Text>
-              </TouchableOpacity>
-            )}
-
-            {/* Region: Delete */}
-            {isRegionMode && pokedexNumber && card?.selectedCardId && (
-              <TouchableOpacity
-                style={[styles.panelBtn, styles.panelBtnDelete]}
-                onPress={handleClearSelection}
-                activeOpacity={0.7}
-              >
-                <Ionicons name="trash-outline" size={16} color={colors.error} style={{ marginRight: 4 }} />
-                <Text style={[styles.panelBtnText, { color: colors.error }]} numberOfLines={1}>Delete</Text>
-              </TouchableOpacity>
             )}
           </View>
         </View>
@@ -799,14 +787,14 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   // Action panel (right of image)
   actionPanel: {
     flex: 1,
+    alignItems: 'center',
     gap: spacing.sm,
   },
   panelBtn: {
-    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.sm,
+    width: 40,
+    height: 40,
     borderRadius: borderRadius.lg,
     minHeight: 40,
   },
@@ -827,13 +815,9 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   panelBtnDisabled: {
     opacity: 0.6,
   },
-  panelBtnText: {
-    color: '#FFFFFF',
-    fontSize: typography.xs,
-    fontFamily: fonts.semibold,
-  },
   // Variant selector in action panel
   panelVariantSection: {
+    alignSelf: 'stretch',
     gap: spacing.xs,
   },
   panelVariantLabel: {

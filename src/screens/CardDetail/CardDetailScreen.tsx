@@ -641,6 +641,7 @@ export default function CardDetailScreen({ navigation, route }: CardDetailScreen
             showIllustrator={true}
             showVariantBadge={true}
             showPokedex={false}
+            binderPosition={binderPosition}
           />
           {showVariantSelector && (
             <View style={styles.variantSection}>
@@ -678,17 +679,6 @@ export default function CardDetailScreen({ navigation, route }: CardDetailScreen
 
         {/* Surface Card: Binder Position + Note */}
         <View style={styles.detailsCard}>
-          {binderPosition && (
-            <>
-              <View style={styles.positionRow}>
-                <Ionicons name="location-outline" size={16} color={colors.textTertiary} style={{ marginRight: spacing.sm }} />
-                <Text style={styles.positionText}>
-                  Page {binderPosition.page}, Slot {binderPosition.slot}
-                </Text>
-              </View>
-              <View style={styles.sectionDivider} />
-            </>
-          )}
           <View style={styles.noteSection}>
             <View style={styles.noteHeader}>
               <View style={styles.noteLabelRow}>
@@ -894,16 +884,6 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   variantChipTextUnselected: {
     color: colors.textSecondary,
-  },
-  // Binder position row
-  positionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  positionText: {
-    fontSize: typography.sm,
-    color: colors.textSecondary,
-    fontFamily: fonts.medium,
   },
   // Note section (inside detailsCard)
   noteSection: {},

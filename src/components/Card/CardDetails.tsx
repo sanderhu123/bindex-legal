@@ -14,6 +14,7 @@ interface CardDetailsProps {
   showIllustrator?: boolean;
   showVariantBadge?: boolean;
   showPokedex?: boolean;
+  binderPosition?: { page: number; slot: number } | null;
 }
 
 /**
@@ -44,6 +45,7 @@ export default function CardDetails({
   showIllustrator = true,
   showVariantBadge = true,
   showPokedex = true,
+  binderPosition,
 }: CardDetailsProps) {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
@@ -88,10 +90,20 @@ export default function CardDetails({
           </View>
         )}
       </View>
-      <View style={styles.fullNumberPill}>
-        <Text style={styles.fullNumber}>
-          {card.setTotal ? `${card.number}/${card.setTotal}` : card.number}
-        </Text>
+      <View style={styles.fullNumberRow}>
+        <View style={styles.fullNumberPill}>
+          <Text style={styles.fullNumber}>
+            {card.setTotal ? `${card.number}/${card.setTotal}` : card.number}
+          </Text>
+        </View>
+        {binderPosition && (
+          <View style={styles.fullPositionPill}>
+            <Ionicons name="location-outline" size={12} color={colors.textTertiary} style={{ marginRight: 3 }} />
+            <Text style={styles.fullPositionText}>
+              Page {binderPosition.page}, Slot {binderPosition.slot}
+            </Text>
+          </View>
+        )}
       </View>
       {infoRows.map((row, index) => (
         <React.Fragment key={row.label}>
@@ -204,13 +216,30 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     textShadowRadius: 2,
     includeFontPadding: false,
   },
+  fullNumberRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.sm,
+    gap: spacing.xs,
+  },
   fullNumberPill: {
-    alignSelf: 'flex-start',
     backgroundColor: colors.backgroundDark,
     paddingHorizontal: spacing.sm + 2,
     paddingVertical: 2,
     borderRadius: borderRadius.full,
-    marginBottom: spacing.sm,
+  },
+  fullPositionPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.backgroundDark,
+    paddingHorizontal: spacing.sm + 2,
+    paddingVertical: 2,
+    borderRadius: borderRadius.full,
+  },
+  fullPositionText: {
+    fontSize: typography.sm,
+    color: colors.textTertiary,
+    fontFamily: fonts.medium,
   },
   fullNumber: {
     fontSize: typography.sm,

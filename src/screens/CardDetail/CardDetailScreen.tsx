@@ -735,11 +735,9 @@ export default function CardDetailScreen({ navigation, route }: CardDetailScreen
               style={styles.noteInput}
               value={note}
               onChangeText={handleNoteChange}
-              placeholder="Add a note about this card..."
+              placeholder="Add a note..."
               placeholderTextColor={colors.textLight}
-              multiline
               maxLength={500}
-              textAlignVertical="top"
               returnKeyType="done"
               blurOnSubmit={true}
               onSubmitEditing={() => Keyboard.dismiss()}
@@ -916,8 +914,6 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     fontSize: typography.sm,
     fontFamily: fonts.regular,
     color: colors.text,
-    minHeight: 60,
-    maxHeight: 120,
   },
 });
 

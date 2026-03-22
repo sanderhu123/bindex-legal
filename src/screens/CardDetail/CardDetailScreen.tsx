@@ -797,9 +797,13 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   panelBtnOwned: {
     backgroundColor: 'transparent',
+    width: 48,
+    height: 48,
   },
   panelBtnMissing: {
     backgroundColor: 'transparent',
+    width: 48,
+    height: 48,
   },
   panelBtnChange: {
     backgroundColor: colors.secondary,
@@ -813,8 +817,8 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     opacity: 0.6,
   },
   panelBtnLogo: {
-    width: 22,
-    height: 22,
+    width: 44,
+    height: 44,
   },
   // Variant selector in action panel
   panelVariantSection: {

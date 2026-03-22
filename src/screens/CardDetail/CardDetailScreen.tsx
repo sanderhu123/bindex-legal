@@ -627,47 +627,56 @@ export default function CardDetailScreen({ navigation, route }: CardDetailScreen
           {/* Action Panel */}
           <View style={styles.actionPanel}>
             {/* Ownership toggle */}
-            <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
-              <TouchableOpacity
-                style={[
-                  styles.panelBtn,
-                  isOwned ? styles.panelBtnOwned : styles.panelBtnMissing,
-                  isUpdating && styles.panelBtnDisabled,
-                ]}
-                onPress={handleToggleOwnership}
-                onPressIn={handleBtnPressIn}
-                onPressOut={handleBtnPressOut}
-                disabled={isUpdating}
-                activeOpacity={1}
-              >
-                <Image
-                  source={require('../../../assets/logo-icon-teal.png')}
-                  style={[styles.panelBtnLogo, !isOwned && { opacity: 0.2 }]}
-                  resizeMode="contain"
-                />
-              </TouchableOpacity>
-            </Animated.View>
+            <View style={styles.panelActionGroup}>
+              <Text style={styles.panelActionLabel}>Owned</Text>
+              <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
+                <TouchableOpacity
+                  style={[
+                    styles.panelBtn,
+                    isOwned ? styles.panelBtnOwned : styles.panelBtnMissing,
+                    isUpdating && styles.panelBtnDisabled,
+                  ]}
+                  onPress={handleToggleOwnership}
+                  onPressIn={handleBtnPressIn}
+                  onPressOut={handleBtnPressOut}
+                  disabled={isUpdating}
+                  activeOpacity={1}
+                >
+                  <Image
+                    source={require('../../../assets/logo-icon-teal.png')}
+                    style={[styles.panelBtnLogo, !isOwned && { opacity: 0.2 }]}
+                    resizeMode="contain"
+                  />
+                </TouchableOpacity>
+              </Animated.View>
+            </View>
 
             {/* Region: Change */}
             {isRegionMode && pokedexNumber && (
-              <TouchableOpacity
-                style={[styles.panelBtn, styles.panelBtnChange]}
-                onPress={() => setShowCardPicker(true)}
-                activeOpacity={0.7}
-              >
-                <Ionicons name="swap-horizontal-outline" size={20} color="#FFFFFF" />
-              </TouchableOpacity>
+              <View style={styles.panelActionGroup}>
+                <Text style={styles.panelActionLabel}>Switch</Text>
+                <TouchableOpacity
+                  style={[styles.panelBtn, styles.panelBtnChange]}
+                  onPress={() => setShowCardPicker(true)}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="swap-horizontal-outline" size={20} color="#FFFFFF" />
+                </TouchableOpacity>
+              </View>
             )}
 
             {/* Region: Delete */}
             {isRegionMode && pokedexNumber && card?.selectedCardId && (
-              <TouchableOpacity
-                style={[styles.panelBtn, styles.panelBtnDelete]}
-                onPress={handleClearSelection}
-                activeOpacity={0.7}
-              >
-                <Ionicons name="trash-outline" size={20} color={colors.error} />
-              </TouchableOpacity>
+              <View style={styles.panelActionGroup}>
+                <Text style={styles.panelActionLabel}>Delete</Text>
+                <TouchableOpacity
+                  style={[styles.panelBtn, styles.panelBtnDelete]}
+                  onPress={handleClearSelection}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="trash-outline" size={20} color={colors.error} />
+                </TouchableOpacity>
+              </View>
             )}
 
             {/* Holo selector */}
@@ -791,6 +800,15 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     gap: spacing.sm,
+  },
+  panelActionGroup: {
+    alignItems: 'center',
+    gap: 2,
+  },
+  panelActionLabel: {
+    fontSize: typography.xs,
+    fontFamily: fonts.semibold,
+    color: colors.textTertiary,
   },
   panelBtn: {
     alignItems: 'center',

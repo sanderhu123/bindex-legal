@@ -25,7 +25,7 @@ import { getBinderById, updateBinder, deleteBinder } from '../../services/supaba
 import {
   clearAllPositionsForBinder,
   getPlacedCardCount,
-  preserveExtraCardsBeforeClear,
+  moveExtraCardsToPlaceholder,
 } from '../../services/supabase/binderPositions';
 import {
   getBinderUsage,
@@ -228,7 +228,7 @@ export default function BinderSettingsScreen() {
     setSaving(true);
     try {
       if (shouldClearPositions) {
-        await preserveExtraCardsBeforeClear(binder.id);
+        await moveExtraCardsToPlaceholder(binder.id);
         await clearAllPositionsForBinder(binder.id);
       }
 
@@ -266,7 +266,7 @@ export default function BinderSettingsScreen() {
 
     Alert.alert(
       'Reset Card Arrangement?',
-      'Changing variant settings will reset your card arrangement. Extra cards you added will move to the end of your binder.\n\nContinue?',
+      'Changing variant settings will reset your card arrangement. Extra cards you added will be moved to the placeholder tray (max 18).\n\nContinue?',
       [
         { text: 'Cancel', style: 'cancel' },
         {

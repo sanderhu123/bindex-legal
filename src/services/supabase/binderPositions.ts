@@ -248,6 +248,86 @@ export async function savePlaceholderCardsForBinder(
   console.log(`[Placeholder] Saved ${cards.length} placeholder cards for binder ${binderId}`);
 }
 
+const PLACEHOLDER_MAX = 18;
+
+/**
+ * Move extra cards (is_extra=true in binder_cards) into the placeholder tray.
+ * Existing placeholder cards are kept; extras are appended up to the 18-card cap.
+ * After moving, extra card rows are removed from binder_cards.
+ */
+export async function moveExtraCardsToPlaceholder(
+  binderId: string
+): Promise<number> {
+  const { data: user } = await supabase.auth.getUser();
+  if (!user.user) throw new Error('Not authenticated');
+  const userId = user.user.id;
+
+  // 1. Load existing placeholder cards
+  const existingPlaceholders = await getPlaceholderCardsForBinder(binderId);
+  const currentCount = existingPlaceholders.length;
+
+  if (currentCount >= PLACEHOLDER_MAX) {
+    console.log('[Settings] Placeholder already full, skipping extra card move');
+    // Still delete extra cards from binder_cards so they don't linger
+    await supabase
+      .from('binder_cards')
+      .delete()
+      .eq('binder_id', binderId)
+      .eq('user_id', userId)
+      .eq('is_extra', true);
+    return 0;
+  }
+
+  // 2. Load extra cards from binder_cards
+  const { data: extraRows } = await supabase
+    .from('binder_cards')
+    .select('card_id')
+    .eq('binder_id', binderId)
+    .eq('user_id', userId)
+    .eq('is_extra', true);
+
+  const extraCardIds = (extraRows || []).map(r => r.card_id).filter(Boolean) as string[];
+
+  if (extraCardIds.length === 0) {
+    console.log('[Settings] No extra cards to move');
+    return 0;
+  }
+
+  // 3. Merge: existing placeholders + extras, capped at 18
+  const slotsAvailable = PLACEHOLDER_MAX - currentCount;
+  const extrasToMove = extraCardIds.slice(0, slotsAvailable);
+
+  const merged = [
+    ...existingPlaceholders.map(p => ({ cardId: p.cardId })),
+    ...extrasToMove.map(id => ({ cardId: id })),
+  ];
+
+  await savePlaceholderCardsForBinder(binderId, merged);
+
+  // 4. Remove all extra card rows from binder_cards
+  const { error: deleteError } = await supabase
+    .from('binder_cards')
+    .delete()
+    .eq('binder_id', binderId)
+    .eq('user_id', userId)
+    .eq('is_extra', true);
+
+  if (deleteError) {
+    console.error('[Settings] Error removing extra cards:', deleteError);
+  }
+
+  // 5. Recount so progress bar stays accurate
+  await syncBinderCardCount(binderId);
+
+  const skipped = extraCardIds.length - extrasToMove.length;
+  console.log(
+    `[Settings] Moved ${extrasToMove.length} extra cards to placeholder` +
+    (skipped > 0 ? ` (${skipped} cards dropped — placeholder full)` : '')
+  );
+
+  return extrasToMove.length;
+}
+
 /**
  * Get count of placed cards in a binder
  */

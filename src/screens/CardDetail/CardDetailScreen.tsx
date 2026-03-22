@@ -26,6 +26,13 @@ const VARIANT_LABELS: Record<string, string> = {
   'master-ball': 'MB',
 };
 
+const VARIANT_COLORS: Record<string, string> = {
+  'base': '#AAAAAA',
+  'reverse-holo': '#FFD700',
+  'poke-ball': '#FF6B6B',
+  'master-ball': '#4ECDC4',
+};
+
 interface CardDetailScreenProps {
   navigation: any;
   route: any;
@@ -670,21 +677,19 @@ export default function CardDetailScreen({ navigation, route }: CardDetailScreen
                 <View style={styles.panelVariantRow}>
                   {availableVariants.map((v) => {
                     const isSelected = (card.variant || 'base') === v;
+                    const badgeColor = VARIANT_COLORS[v] || '#AAAAAA';
                     return (
                       <TouchableOpacity
                         key={v}
                         style={[
                           styles.panelVariantIcon,
-                          isSelected ? styles.panelVariantIconSelected : styles.panelVariantIconUnselected,
+                          { backgroundColor: badgeColor, opacity: isSelected ? 1 : 0.35 },
                         ]}
                         onPress={() => handleVariantChange(v as CardVariant)}
                         disabled={isUpdatingVariant || isSelected}
                         activeOpacity={0.7}
                       >
-                        <Text style={[
-                          styles.panelVariantIconText,
-                          { color: isSelected ? '#FFFFFF' : colors.textSecondary },
-                        ]}>
+                        <Text style={styles.panelVariantIconText}>
                           {VARIANT_LABELS[v] || v}
                         </Text>
                       </TouchableOpacity>
@@ -838,21 +843,20 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     gap: spacing.xs,
   },
   panelVariantIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: borderRadius.lg,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+    minWidth: 28,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  panelVariantIconSelected: {
-    backgroundColor: colors.primary,
-  },
-  panelVariantIconUnselected: {
-    backgroundColor: colors.backgroundDark,
-  },
   panelVariantIconText: {
-    fontSize: typography.xs,
-    fontFamily: fonts.semibold,
+    fontSize: 10,
+    fontFamily: fonts.bold,
+    color: '#FFFFFF',
+    textShadowColor: 'rgba(0, 0, 0, 0.3)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
   // Surface cards
   infoCard: {

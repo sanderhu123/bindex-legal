@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { View, StyleSheet, Text, ScrollView, Dimensions, TouchableOpacity, Alert, TextInput, Keyboard, Animated, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { getCardById } from '../../services/api/pokemonApi';
 import { getBinderById } from '../../services/supabase/binders';
 import { addCardToBinder, removeCardFromBinder, toggleCardOwnershipAtPosition, toggleExtraCardOwnership, getBinderCardData, saveCardNote, updateCardVariant } from '../../services/supabase/cards';
@@ -20,17 +20,10 @@ import { lightTap } from '../../utils/haptics';
 import type { Card, Binder, CardVariant } from '../../types';
 
 const VARIANT_LABELS: Record<string, string> = {
-  'base': 'Standard',
-  'reverse-holo': 'Reverse Holo',
-  'poke-ball': 'Poke Ball',
-  'master-ball': 'Master Ball',
-};
-
-const VARIANT_ICONS: Record<string, { set: 'ionicons' | 'mci'; name: string; color?: string }> = {
-  'base': { set: 'ionicons', name: 'card-outline' },
-  'reverse-holo': { set: 'ionicons', name: 'sparkles' },
-  'poke-ball': { set: 'mci', name: 'pokeball', color: '#EE1515' },
-  'master-ball': { set: 'mci', name: 'pokeball', color: '#7B2D8E' },
+  'base': 'No',
+  'reverse-holo': 'RH',
+  'poke-ball': 'PB',
+  'master-ball': 'MB',
 };
 
 interface CardDetailScreenProps {
@@ -673,15 +666,13 @@ export default function CardDetailScreen({ navigation, route }: CardDetailScreen
               </TouchableOpacity>
             )}
 
-            {/* Variant selector */}
+            {/* Holo selector */}
             {showVariantSelector && (
               <View style={styles.panelVariantSection}>
-                <Text style={styles.panelVariantLabel}>Variant</Text>
+                <Text style={styles.panelVariantLabel}>Holo</Text>
                 <View style={styles.panelVariantRow}>
                   {availableVariants.map((v) => {
                     const isSelected = (card.variant || 'base') === v;
-                    const iconInfo = VARIANT_ICONS[v];
-                    const iconColor = isSelected ? '#FFFFFF' : (iconInfo?.color || colors.textSecondary);
                     return (
                       <TouchableOpacity
                         key={v}
@@ -693,11 +684,12 @@ export default function CardDetailScreen({ navigation, route }: CardDetailScreen
                         disabled={isUpdatingVariant || isSelected}
                         activeOpacity={0.7}
                       >
-                        {iconInfo?.set === 'mci' ? (
-                          <MaterialCommunityIcons name={iconInfo.name as any} size={20} color={iconColor} />
-                        ) : (
-                          <Ionicons name={(iconInfo?.name || 'help-outline') as any} size={20} color={iconColor} />
-                        )}
+                        <Text style={[
+                          styles.panelVariantIconText,
+                          { color: isSelected ? '#FFFFFF' : colors.textSecondary },
+                        ]}>
+                          {VARIANT_LABELS[v] || v}
+                        </Text>
                       </TouchableOpacity>
                     );
                   })}
@@ -858,6 +850,10 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   panelVariantIconUnselected: {
     backgroundColor: colors.backgroundDark,
+  },
+  panelVariantIconText: {
+    fontSize: typography.xs,
+    fontFamily: fonts.semibold,
   },
   // Surface cards
   infoCard: {

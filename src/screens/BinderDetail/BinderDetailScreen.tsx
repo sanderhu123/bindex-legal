@@ -3,6 +3,7 @@ import { View, StyleSheet, Text, ScrollView, TouchableOpacity, Dimensions, FlatL
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import * as ScreenOrientation from 'expo-screen-orientation';
 import { useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getBinderById } from '../../services/supabase/binders';
@@ -15,6 +16,7 @@ import {
   getExtraCardsWithVariants,
   toggleExtraCardOwnership,
   getCardVariantsForBinder,
+  getBinderCardData,
 } from '../../services/supabase/cards';
 import { getCardsBySet, getCardsByRegion, getCardById, getPokemonImageUrl, type Region } from '../../services/api/pokemonApi';
 import { getSetSymbolByName } from '../../data/pokemonEras';
@@ -62,6 +64,8 @@ const CARD_MARGIN = 2; // Margin between cards (margin: 2 means 2px on all sides
 /** Number of cards to load per page (for infinite scroll) */
 const PAGE_SIZE = 36; // 12 rows of 3, or 9 rows of 4
 
+const MILESTONES = [25, 50, 75, 100] as const;
+
 /**
  * Binder-level cache for fully-resolved custom binder position cards.
  * Keyed by binder ID. Avoids re-fetching from DB + API on every open.
@@ -85,6 +89,17 @@ const CUSTOM_MAX_SLOTS_4X3 = 480; // 40 pages × 12 cards
 function calculateCardWidth(screenWidth: number, columns: number): number {
   const gridWidth = screenWidth - ((CONTAINER_PADDING - CARD_MARGIN) * 2);
   return (gridWidth / columns) - (CARD_MARGIN * 2);
+}
+
+function getMaxSpreadStart(totalPages: number): number {
+  if (totalPages <= 1) return 0;
+  return totalPages % 2 === 0 ? totalPages : totalPages - 1;
+}
+
+function pageToSpreadStart(page: number, totalPages: number): number {
+  if (page <= 1) return 0;
+  const normalizedPage = page % 2 === 0 ? page : page - 1;
+  return Math.min(getMaxSpreadStart(totalPages), Math.max(0, normalizedPage));
 }
 
 interface BinderDetailScreenProps {
@@ -125,9 +140,12 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
   const [ownershipFilter, setOwnershipFilter] = useState<OwnershipFilter>('all');
   const [showPageBreaks, setShowPageBreaks] = useState(false);
   const [screenWidth, setScreenWidth] = useState(Dimensions.get('window').width);
+  const [screenHeight, setScreenHeight] = useState(Dimensions.get('window').height);
   
   // Display mode: clean binder view with just card images (no badges, names, checkboxes)
   const [displayMode, setDisplayMode] = useState(false);
+  const [displaySpreadStart, setDisplaySpreadStart] = useState(0);
+  const [displayViewport, setDisplayViewport] = useState({ width: 0, height: 0 });
   
   // Dropdown options panel
   const [showOptions, setShowOptions] = useState(false);
@@ -151,6 +169,10 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
   
   // Track whether per-binder preferences have been loaded
   const prefsLoadedRef = useRef(false);
+  const milestoneStorageKey = binderId ? `binder_milestones_${binderId}` : null;
+  const unlockedMilestonesRef = useRef<Set<number>>(new Set());
+  const previousProgressRef = useRef(0);
+  const milestonesReadyRef = useRef(false);
   
   // Pagination state for infinite scroll (only used for Custom mode)
   // For Master Set and Region modes, we show all cards once loaded
@@ -258,9 +280,30 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
   useEffect(() => {
     const subscription = Dimensions.addEventListener('change', ({ window }) => {
       setScreenWidth(window.width);
+      setScreenHeight(window.height);
     });
     return () => subscription?.remove();
   }, []);
+
+  useEffect(() => {
+    const applyOrientation = async () => {
+      try {
+        if (displayMode) {
+          await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE);
+        } else {
+          await ScreenOrientation.unlockAsync();
+        }
+      } catch {
+        // Ignore orientation failures so display mode still works.
+      }
+    };
+    applyOrientation();
+    return () => {
+      if (displayMode) {
+        ScreenOrientation.unlockAsync().catch(() => {});
+      }
+    };
+  }, [displayMode]);
 
   useEffect(() => {
     async function fetchBinder() {
@@ -324,16 +367,22 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
         return;
       }
 
-      // Only update ownership-related fields (cardIds, ownedCards, totalCards)
-      // to avoid changing settings (variantsToTrack, variantPlacement, etc.)
-      // which would trigger fetchCards to re-run and rebuild all card data
+      // Update ownership fields and settings that may have changed
+      // in Binder Settings. If settings like variantsToTrack or
+      // variantPlacement changed, fetchCards will re-run automatically
+      // because it depends on those values.
       setBinder((prev) => {
         if (!prev) return latestBinder;
         return {
           ...prev,
+          name: latestBinder.name,
           cardIds: latestBinder.cardIds,
           ownedCards: latestBinder.ownedCards,
           totalCards: latestBinder.totalCards,
+          layoutPreference: latestBinder.layoutPreference,
+          variantsToTrack: latestBinder.variantsToTrack,
+          variantPlacement: latestBinder.variantPlacement,
+          pokemonArtStyle: latestBinder.pokemonArtStyle,
         };
       });
 
@@ -1459,6 +1508,44 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
   
   // Step 34A: Enlarged card preview state (for long-press in Grid/Binder view)
   const [enlargedCard, setEnlargedCard] = useState<CardWithOwnership | null>(null);
+  const [enlargedCardNote, setEnlargedCardNote] = useState<string | null>(null);
+  const [enlargedCardSlotIndex, setEnlargedCardSlotIndex] = useState<number | null>(null);
+  const enlargedNoteRequestRef = useRef(0);
+  const enlargedNoteCacheRef = useRef<Map<string, string | null>>(new Map());
+
+  const getCardSlotIndex = useCallback((card: CardWithOwnership): number | null => {
+    const normalizeVariant = (value?: string) => value || 'base';
+    const targetVariant = normalizeVariant(card.variant);
+
+    if (binder?.collectionMode === 'custom') {
+      for (const [slotIndex, slotCard] of positionCards.entries()) {
+        if (slotCard.id === card.id && normalizeVariant(slotCard.variant) === targetVariant) {
+          return slotIndex;
+        }
+      }
+    }
+
+    if (savedPositionMap && savedPositionMap.size > 0) {
+      for (const [slotIndex, slotCard] of savedPositionMap.entries()) {
+        if (slotCard.id === card.id && normalizeVariant(slotCard.variant) === targetVariant) {
+          return slotIndex;
+        }
+      }
+      for (const [slotIndex, slotCard] of savedPositionMap.entries()) {
+        if (slotCard.id === card.id) {
+          return slotIndex;
+        }
+      }
+    }
+
+    const exactIndex = cards.findIndex(
+      (c) => c.id === card.id && normalizeVariant(c.variant) === targetVariant
+    );
+    if (exactIndex >= 0) return exactIndex;
+
+    const fallbackIndex = cards.findIndex((c) => c.id === card.id);
+    return fallbackIndex >= 0 ? fallbackIndex : null;
+  }, [binder?.collectionMode, positionCards, savedPositionMap, cards]);
   
   // Handle tapping a Region Pokemon slot
   // - If no card selected: open card picker directly
@@ -1583,11 +1670,55 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
 
   // Step 34A: Long-press handlers for enlarged card preview
   const handleLongPressCard = useCallback((card: CardWithOwnership) => {
-    setEnlargedCard(card);
-  }, []);
+    const slotIndex = getCardSlotIndex(card);
+    const requestId = ++enlargedNoteRequestRef.current;
+    if (!binder?.id) {
+      setEnlargedCard(card);
+      setEnlargedCardSlotIndex(slotIndex);
+      setEnlargedCardNote(null);
+      return;
+    }
+
+    const normalizedVariant = card.variant || 'base';
+    const isExtraForNote = extraCards.some(
+      (extra) => extra.id === card.id && (extra.variant || 'base') === normalizedVariant
+    ) || extraCards.some((extra) => extra.id === card.id);
+    const notePosition = binder.collectionMode === 'custom' ? (slotIndex ?? undefined) : undefined;
+    const noteCacheKey = `${binder.id}|${card.id}|${normalizedVariant}|${notePosition ?? 'none'}|${isExtraForNote ? 'extra' : 'regular'}`;
+
+    if (enlargedNoteCacheRef.current.has(noteCacheKey)) {
+      const cachedNote = enlargedNoteCacheRef.current.get(noteCacheKey) ?? null;
+      setEnlargedCard(card);
+      setEnlargedCardSlotIndex(slotIndex);
+      setEnlargedCardNote(cachedNote);
+      return;
+    }
+
+    getBinderCardData(binder.id, card.id, card.variant, notePosition, isExtraForNote)
+      .then((data) => {
+        if (enlargedNoteRequestRef.current !== requestId) return;
+        const note = data?.note ?? null;
+        const normalizedNote = note && note.trim().length > 0 ? note.trim() : null;
+        enlargedNoteCacheRef.current.set(noteCacheKey, normalizedNote);
+        // Set all preview data together so the modal opens in final state (no note pop-in re-render).
+        setEnlargedCard(card);
+        setEnlargedCardSlotIndex(slotIndex);
+        setEnlargedCardNote(normalizedNote);
+      })
+      .catch(() => {
+        if (enlargedNoteRequestRef.current !== requestId) return;
+        enlargedNoteCacheRef.current.set(noteCacheKey, null);
+        setEnlargedCard(card);
+        setEnlargedCardSlotIndex(slotIndex);
+        setEnlargedCardNote(null);
+      });
+  }, [binder?.id, binder?.collectionMode, getCardSlotIndex, extraCards]);
 
   const handleLongPressRelease = useCallback(() => {
+    enlargedNoteRequestRef.current += 1;
     setEnlargedCard(null);
+    setEnlargedCardNote(null);
+    setEnlargedCardSlotIndex(null);
   }, []);
 
   // Update header title when binder loads
@@ -1787,10 +1918,17 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
   // Refs for swipe gesture (needed because PanResponder callbacks are created once)
   const currentPageRef = useRef(currentPage);
   const totalPagesRef = useRef(totalPages);
+  const displayModeRef = useRef(displayMode);
+  const displaySpreadStartRef = useRef(displaySpreadStart);
   useEffect(() => {
     currentPageRef.current = currentPage;
-    totalPagesRef.current = totalPages;
-  }, [currentPage, totalPages]);
+  }, [currentPage]);
+  useEffect(() => {
+    displayModeRef.current = displayMode;
+  }, [displayMode]);
+  useEffect(() => {
+    displaySpreadStartRef.current = displaySpreadStart;
+  }, [displaySpreadStart]);
 
   // Swipe gesture handler for binder page navigation
   const SWIPE_THRESHOLD = 50; // Minimum distance to trigger a swipe
@@ -1805,13 +1943,22 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
         const { dx } = gestureState;
         
         if (dx < -SWIPE_THRESHOLD) {
-          // Swipe left → go to next page
-          if (currentPageRef.current < totalPagesRef.current) {
+          if (displayModeRef.current) {
+            const maxSpreadStart = getMaxSpreadStart(totalPagesRef.current);
+            if (displaySpreadStartRef.current < maxSpreadStart) {
+              setDisplaySpreadStart((prev) => Math.min(maxSpreadStart, prev + 2));
+            }
+          } else if (currentPageRef.current < totalPagesRef.current) {
+            // Swipe left → go to next page
             setCurrentPage(p => Math.min(totalPagesRef.current, p + 1));
           }
         } else if (dx > SWIPE_THRESHOLD) {
-          // Swipe right → go to previous page
-          if (currentPageRef.current > 1) {
+          if (displayModeRef.current) {
+            if (displaySpreadStartRef.current > 0) {
+              setDisplaySpreadStart((prev) => Math.max(0, prev - 2));
+            }
+          } else if (currentPageRef.current > 1) {
+            // Swipe right → go to previous page
             setCurrentPage(p => Math.max(1, p - 1));
           }
         }
@@ -2073,6 +2220,20 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
     return Math.max(1, Math.ceil(customMaxSlots / cardsPerPage));
   }, [isCustomMode, customMaxSlots, cardsPerPage]);
 
+  const totalPagesForDisplay = isCustomMode ? customTotalPages : totalPages;
+
+  useEffect(() => {
+    totalPagesRef.current = totalPagesForDisplay;
+  }, [totalPagesForDisplay]);
+
+  useEffect(() => {
+    if (!displayMode) return;
+    const maxSpreadStart = getMaxSpreadStart(totalPagesForDisplay);
+    if (displaySpreadStart > maxSpreadStart) {
+      setDisplaySpreadStart(maxSpreadStart);
+    }
+  }, [displayMode, displaySpreadStart, totalPagesForDisplay]);
+
   // Only allow loading more when no filter is active (filtered mode shows all matching at once)
   const isCustomFiltering = isCustomMode && (searchQuery.trim().length > 0 || ownershipFilter !== 'all');
   const hasMoreCustomSlots = !isCustomFiltering && displayCount < customMaxSlots;
@@ -2183,7 +2344,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
 
       if (binder?.collectionMode === 'region') {
         const variantBadge = card.variant && card.variant !== 'base'
-          ? { 'reverse-holo': { label: 'RH', color: '#FFD700' }, 'poke-ball': { label: 'PB', color: '#FF6B6B' }, 'master-ball': { label: 'MB', color: '#4ECDC4' } }[card.variant] || null
+          ? { 'reverse-holo': { label: 'RH', color: '#FFD700' }, 'poke-ball': { label: 'PB', color: '#FF6B6B' }, 'master-ball': { label: 'MB', color: '#7B2D8E' } }[card.variant] || null
           : null;
 
         return (
@@ -2191,7 +2352,8 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
             style={[styles.regionCardItem, { width: cardWidth }]}
             onPress={() => handleRegionCardTap(card, position)}
             onLongPress={() => handleLongPressCard(card)}
-            onPressOut={handleLongPressRelease}
+            onResponderRelease={handleLongPressRelease}
+            onResponderTerminate={handleLongPressRelease}
             delayLongPress={300}
             activeOpacity={0.7}
           >
@@ -2252,7 +2414,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
   const renderRegionCard = useCallback(
     ({ item, index }: { item: CardWithOwnership; index: number }) => {
       const variantBadge = item.variant && item.variant !== 'base'
-        ? { 'reverse-holo': { label: 'RH', color: '#FFD700' }, 'poke-ball': { label: 'PB', color: '#FF6B6B' }, 'master-ball': { label: 'MB', color: '#4ECDC4' } }[item.variant] || null
+        ? { 'reverse-holo': { label: 'RH', color: '#FFD700' }, 'poke-ball': { label: 'PB', color: '#FF6B6B' }, 'master-ball': { label: 'MB', color: '#7B2D8E' } }[item.variant] || null
         : null;
 
       return (
@@ -2260,7 +2422,8 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
           style={[styles.regionCardItem, { width: cardWidth }]}
           onPress={() => handleRegionCardTap(item, index)}
           onLongPress={() => handleLongPressCard(item)}
-          onPressOut={handleLongPressRelease}
+          onResponderRelease={handleLongPressRelease}
+          onResponderTerminate={handleLongPressRelease}
           delayLongPress={300}
           activeOpacity={0.7}
         >
@@ -2303,6 +2466,28 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
   // Step 34A: Enlarged card overlay component (for long-press preview)
   const EnlargedCardOverlay = () => {
     if (!enlargedCard) return null;
+    const isDisplayPreview = displayMode;
+    const cardsPerPageForPosition = binder?.layoutPreference === '4x3' ? 12 : 9;
+    const binderPage = enlargedCardSlotIndex !== null
+      ? Math.floor(enlargedCardSlotIndex / cardsPerPageForPosition) + 1
+      : null;
+    const binderSlot = enlargedCardSlotIndex !== null
+      ? (enlargedCardSlotIndex % cardsPerPageForPosition) + 1
+      : null;
+    const cardNumberText = enlargedCard.number.includes('/')
+      ? enlargedCard.number
+      : enlargedCard.setTotal
+        ? `${enlargedCard.number}/${enlargedCard.setTotal}`
+        : enlargedCard.number;
+    const infoPanelWidth = Math.min(220, screenWidth * 0.28);
+    const previewMaxWidth = isDisplayPreview
+      ? Math.min(screenWidth - (screenPadding * 2) - infoPanelWidth - spacing.lg, 640)
+      : Math.min(screenWidth - (screenPadding * 2), 640);
+    const previewMaxHeight = isDisplayPreview
+      ? Math.min(screenHeight * 0.86, screenHeight - 120)
+      : Math.min(screenHeight * 0.78, screenHeight - 220);
+    const previewCardWidth = Math.min(previewMaxWidth, previewMaxHeight * 0.716);
+    const previewCardHeight = previewCardWidth / 0.716;
     
     return (
       <Modal
@@ -2315,20 +2500,133 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
           style={styles.enlargeOverlay}
           onPress={handleLongPressRelease}
         >
-          <View style={styles.enlargedCardContainer}>
+          <View
+            style={[
+              styles.enlargedCardContainer,
+              isDisplayPreview ? styles.enlargedCardContainerRow : styles.enlargedCardContainerColumn,
+            ]}
+          >
             <Image
               source={{ uri: enlargedCard.imageUrlHiRes || enlargedCard.imageUrl }}
-              style={styles.enlargedCard}
+              style={[styles.enlargedCard, { width: previewCardWidth, height: previewCardHeight }]}
               contentFit="contain"
             />
-            <Text style={styles.enlargedCardName}>{enlargedCard.name}</Text>
-            <Text style={styles.enlargedCardNumber}>{enlargedCard.number}</Text>
-            <Text style={styles.enlargedHint}>Tap anywhere to close</Text>
+            <View
+              style={[
+                styles.enlargedInfoPanel,
+                isDisplayPreview ? styles.enlargedInfoPanelSide : styles.enlargedInfoPanelBelow,
+                isDisplayPreview ? { width: infoPanelWidth } : { maxWidth: Math.min(460, screenWidth - (screenPadding * 2)) },
+              ]}
+            >
+              <Text style={[styles.enlargedCardNumber, isDisplayPreview ? styles.enlargedTextLeft : styles.enlargedTextCenter]}>
+                {cardNumberText}
+              </Text>
+              <Text style={[styles.enlargedCardName, isDisplayPreview ? styles.enlargedTextLeft : styles.enlargedTextCenter]}>
+                {enlargedCard.name}
+              </Text>
+              {binderPage !== null && binderSlot !== null && (
+                <Text style={[styles.enlargedCardPosition, isDisplayPreview ? styles.enlargedTextLeft : styles.enlargedTextCenter]}>
+                  Page {binderPage}, Slot {binderSlot}
+                </Text>
+              )}
+              {enlargedCardNote && (
+                <View style={[styles.enlargedNoteBlock, isDisplayPreview ? styles.enlargedNoteBlockLeft : styles.enlargedNoteBlockCenter]}>
+                  <Text style={[styles.enlargedNoteLabel, isDisplayPreview ? styles.enlargedTextLeft : styles.enlargedTextCenter]}>
+                    Note
+                  </Text>
+                  <Text style={[styles.enlargedNoteText, isDisplayPreview ? styles.enlargedTextLeft : styles.enlargedTextCenter]}>
+                    {enlargedCardNote}
+                  </Text>
+                </View>
+              )}
+              <Text style={[styles.enlargedHint, isDisplayPreview ? styles.enlargedTextLeft : styles.enlargedTextCenter]}>
+                Tap anywhere to close
+              </Text>
+            </View>
           </View>
         </Pressable>
       </Modal>
     );
   };
+
+  // Progress counts:
+  // - Custom binders use visible slot data as source of truth (prevents stale DB count drift)
+  // - Other modes continue using binder cache (with cards fallback)
+  const customOwnedCount = Array.from(positionCards.values()).filter(c => c.isOwned).length;
+  const customTotalCount = positionCards.size;
+  const ownedCount = isCustomMode
+    ? customOwnedCount
+    : (binder?.ownedCards ?? cards.filter(c => c.isOwned).length);
+  const totalCount = isCustomMode
+    ? customTotalCount
+    : (binder?.totalCards ?? cards.length);
+  const progressPercentage = totalCount > 0 ? Math.round((ownedCount / totalCount) * 100) : 0;
+  const reachedMilestones = MILESTONES.filter((milestone) => progressPercentage >= milestone);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadMilestones = async () => {
+      if (!milestoneStorageKey || !binder) return;
+
+      try {
+        const raw = await AsyncStorage.getItem(milestoneStorageKey);
+        const saved: number[] = raw ? JSON.parse(raw) : [];
+
+        if (!isMounted) return;
+        unlockedMilestonesRef.current = new Set(saved);
+      } catch {
+        if (!isMounted) return;
+        unlockedMilestonesRef.current = new Set();
+      }
+
+      previousProgressRef.current = progressPercentage;
+      milestonesReadyRef.current = true;
+    };
+
+    milestonesReadyRef.current = false;
+    unlockedMilestonesRef.current = new Set();
+    previousProgressRef.current = 0;
+
+    loadMilestones();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [milestoneStorageKey, binder?.id]);
+
+  useEffect(() => {
+    if (!binder || !milestoneStorageKey || !milestonesReadyRef.current) return;
+
+    const previous = previousProgressRef.current;
+    const crossed = MILESTONES.filter((milestone) => (
+      previous < milestone
+      && progressPercentage >= milestone
+      && !unlockedMilestonesRef.current.has(milestone)
+    ));
+
+    if (crossed.length === 0) {
+      previousProgressRef.current = progressPercentage;
+      return;
+    }
+
+    crossed.forEach((milestone) => {
+      unlockedMilestonesRef.current.add(milestone);
+      if (milestone === 100) {
+        showSuccess('Binder complete! 100% collected');
+        lightTap();
+      } else {
+        showSuccess(`Milestone reached: ${milestone}%`);
+      }
+    });
+
+    AsyncStorage.setItem(
+      milestoneStorageKey,
+      JSON.stringify(Array.from(unlockedMilestonesRef.current))
+    ).catch(() => {});
+
+    previousProgressRef.current = progressPercentage;
+  }, [progressPercentage, milestoneStorageKey, binder]);
 
   if (loading && !binder) {
     return <LoadingScreen message="Loading binder..." />;
@@ -2368,12 +2666,6 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
     'grid-outline';
 
   const isMasterSetMode = binder.collectionMode === 'master-set';
-
-  // Progress: all modes use owned / total from binder state (kept in sync with DB)
-  // Extra cards (Master Set) are tracked separately and don't affect progress
-  const ownedCount = binder.ownedCards ?? cards.filter(c => c.isOwned).length;
-  const totalCount = binder.totalCards ?? cards.length;
-  const progressPercentage = totalCount > 0 ? Math.round((ownedCount / totalCount) * 100) : 0;
 
   // IMPORTANT: listHeader must be a JSX element (not an arrow function component)
   // so that FlatList updates it in place instead of unmounting/remounting,
@@ -2435,8 +2727,18 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
 
         <TouchableOpacity
           style={styles.toolbarIconButton}
+          onPress={() => navigation.navigate('BinderSettings', { binderId: binder.id })}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="settings-outline" size={18} color={colors.primary} />
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.toolbarIconButton}
           onPress={() => {
             setViewMode('binder');
+            setDisplaySpreadStart(0);
+            setDisplayViewport({ width: 0, height: 0 });
             setDisplayMode(true);
           }}
           activeOpacity={0.7}
@@ -2485,7 +2787,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
             </View>
           </View>
 
-          {!isCustomMode && (
+          {!isCustomMode && viewMode === 'grid' && (
             <TouchableOpacity
               style={styles.optionRow}
               onPress={() => setShowPageBreaks(!showPageBreaks)}
@@ -2504,7 +2806,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
     </View>
   );
 
-  const missingCount = totalCount - ownedCount;
+  const missingCount = Math.max(0, totalCount - ownedCount);
 
   // Sticky progress footer (rendered outside scrollable content)
   const stickyProgressFooter = (
@@ -2527,6 +2829,21 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
         </View>
         <View style={styles.stickyFooterBar}>
           <View style={[styles.stickyFooterBarFill, { width: `${progressPercentage}%`, backgroundColor: progressPercentage === 100 ? colors.success : colors.primary }]} />
+        </View>
+        <View style={styles.milestonesRow}>
+          {MILESTONES.map((milestone) => {
+            const reached = reachedMilestones.includes(milestone);
+            return (
+              <View
+                key={milestone}
+                style={[styles.milestoneBadge, reached && styles.milestoneBadgeReached]}
+              >
+                <Text style={[styles.milestoneBadgeText, reached && styles.milestoneBadgeTextReached]}>
+                  {milestone}%
+                </Text>
+              </View>
+            );
+          })}
         </View>
       </View>
     </View>
@@ -2650,6 +2967,187 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
     const binderTotalPages = isCustomMode ? customTotalPages : totalPages;
     const binderOnCardPress = isCustomMode ? handleCustomCardToggleByCard : handleToggleCard;
     const binderHasCards = isCustomMode ? positionCards.size > 0 : (filteredCards.length > 0 || !!savedPositionMap);
+    const maxDisplaySpreadStart = getMaxSpreadStart(binderTotalPages);
+    const clampedSpreadStart = Math.min(displaySpreadStart, maxDisplaySpreadStart);
+    const leftSpreadPage = clampedSpreadStart === 0 ? null : clampedSpreadStart;
+    const rightSpreadPage = clampedSpreadStart === 0
+      ? 1
+      : (clampedSpreadStart + 1 <= binderTotalPages ? clampedSpreadStart + 1 : null);
+    // Use one consistent middle gutter for both 3x3 and 4x3 layouts.
+    const spreadGap = spacing.xs;
+    const spreadDividerWidth = 2;
+    const fallbackViewportWidth = Math.max(260, screenWidth - (screenPadding * 2));
+    const fallbackViewportHeight = Math.max(240, screenHeight - 220);
+    const viewportWidth = displayViewport.width || fallbackViewportWidth;
+    const viewportHeight = displayViewport.height || fallbackViewportHeight;
+    const spreadPaneWidth = Math.max(120, (viewportWidth - spreadGap - spreadDividerWidth) / 2);
+    const rows = 3;
+    const displayCardWidthByWidth = Math.max(
+      20,
+      ((spreadPaneWidth - (spacing.sm * 2)) / gridColumns) - (spacing.xs * 2)
+    );
+    const displayCardHeightByHeight = Math.max(48, (viewportHeight - ((rows - 1) * spacing.sm)) / rows);
+    const displayCardWidthByHeight = Math.max(20, displayCardHeightByHeight * 0.716);
+    // Safety factor prevents tiny overflows on short/wide devices.
+    const displayCardWidth = Math.max(20, Math.min(displayCardWidthByWidth, displayCardWidthByHeight) * 0.98);
+    const displayNavigatorPage = clampedSpreadStart === 0 ? 1 : clampedSpreadStart;
+    const canDisplayPrev = clampedSpreadStart > 0;
+    const canDisplayNext = clampedSpreadStart < maxDisplaySpreadStart;
+
+    if (displayMode) {
+      return (
+        <SafeAreaView style={[styles.safeArea, styles.displayModeSafeArea]}>
+          <View style={styles.displayModeRoot}>
+            <View style={styles.displayModeBar}>
+              <TouchableOpacity
+                style={styles.displayModeExitButton}
+                onPress={() => setDisplayMode(false)}
+              >
+                <Text style={styles.displayModeExitIcon}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            <View
+              style={styles.displaySpreadViewport}
+              onLayout={(event) => {
+                const { width, height } = event.nativeEvent.layout;
+                setDisplayViewport((prev) => {
+                  if (Math.abs(prev.width - width) < 1 && Math.abs(prev.height - height) < 1) {
+                    return prev;
+                  }
+                  return { width, height };
+                });
+              }}
+            >
+              {loading ? (
+                <SkeletonCardGrid columns={gridColumns} rows={3} />
+              ) : !binderHasCards ? (
+                <ListEmptyComponent />
+              ) : (
+                <View style={styles.displaySpreadPanSurface} {...binderPanResponder.panHandlers}>
+                  <View style={styles.displaySpreadWrapper}>
+                    <View style={styles.displaySpreadPane}>
+                      {leftSpreadPage ? (
+                        <View style={styles.displayPagePane}>
+                          <BinderPageView
+                            cards={binderCards}
+                            currentPage={currentPage}
+                            pageOverride={leftSpreadPage}
+                            totalPages={binderTotalPages}
+                            cardsPerPage={cardsPerPage}
+                            columns={gridColumns}
+                            cardWidth={displayCardWidth}
+                            binderId={binder.id}
+                            onPageChange={setCurrentPage}
+                            onCardPress={binderOnCardPress}
+                            isCustomMode={isCustomMode}
+                            onCardLongPress={handleLongPressCard}
+                            onCardLongPressRelease={handleLongPressRelease}
+                            collectionMode={binder.collectionMode}
+                            displayMode={displayMode}
+                            onCardTap={binder.collectionMode === 'region' ? handleRegionCardTap : undefined}
+                            rowJustifyContent="flex-end"
+                          />
+                          <View style={[styles.displayPageNumberChip, styles.displayPageNumberChipLeft]}>
+                            <Text style={styles.displayPageNumberText}>{leftSpreadPage}</Text>
+                          </View>
+                        </View>
+                      ) : (
+                        <View style={styles.displaySpreadEmptyPane} />
+                      )}
+                    </View>
+                    <View style={styles.displayCenterColumn}>
+                      <View style={styles.displaySpreadDivider} />
+                    </View>
+                    <View style={styles.displaySpreadPane}>
+                      {rightSpreadPage ? (
+                        <View style={styles.displayPagePane}>
+                          <BinderPageView
+                            cards={binderCards}
+                            currentPage={currentPage}
+                            pageOverride={rightSpreadPage}
+                            totalPages={binderTotalPages}
+                            cardsPerPage={cardsPerPage}
+                            columns={gridColumns}
+                            cardWidth={displayCardWidth}
+                            binderId={binder.id}
+                            onPageChange={setCurrentPage}
+                            onCardPress={binderOnCardPress}
+                            isCustomMode={isCustomMode}
+                            onCardLongPress={handleLongPressCard}
+                            onCardLongPressRelease={handleLongPressRelease}
+                            collectionMode={binder.collectionMode}
+                            displayMode={displayMode}
+                            onCardTap={binder.collectionMode === 'region' ? handleRegionCardTap : undefined}
+                            rowJustifyContent="flex-start"
+                          />
+                          <View style={[styles.displayPageNumberChip, styles.displayPageNumberChipRight]}>
+                            <Text style={styles.displayPageNumberText}>{rightSpreadPage}</Text>
+                          </View>
+                        </View>
+                      ) : (
+                        <View style={styles.displaySpreadEmptyPane} />
+                      )}
+                    </View>
+                  </View>
+                  <TouchableOpacity
+                    style={[
+                      styles.displaySideArrowButton,
+                      styles.displaySideArrowLeft,
+                      !canDisplayPrev && styles.displayArrowButtonDisabled,
+                    ]}
+                    onPress={() => setDisplaySpreadStart((prev) => Math.max(0, prev - 2))}
+                    disabled={!canDisplayPrev}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={[styles.displayArrowText, !canDisplayPrev && styles.displayArrowTextDisabled]}>◄</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[
+                      styles.displaySideArrowButton,
+                      styles.displaySideArrowRight,
+                      !canDisplayNext && styles.displayArrowButtonDisabled,
+                    ]}
+                    onPress={() => setDisplaySpreadStart((prev) => Math.min(maxDisplaySpreadStart, prev + 2))}
+                    disabled={!canDisplayNext}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={[styles.displayArrowText, !canDisplayNext && styles.displayArrowTextDisabled]}>►</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+            </View>
+
+            {binderHasCards && <View style={styles.displayPageHintSpacer} />}
+          </View>
+
+          <JumpToPageModal
+            visible={showJumpModal}
+            currentPage={displayNavigatorPage}
+            totalPages={binderTotalPages}
+            onClose={() => setShowJumpModal(false)}
+            onJump={(page) => {
+              setDisplaySpreadStart(pageToSpreadStart(page, binderTotalPages));
+              setShowJumpModal(false);
+            }}
+          />
+          {binder.collectionMode === 'region' && (
+            <CardPickerModal
+              visible={showRegionCardPicker}
+              onClose={() => {
+                setShowRegionCardPicker(false);
+                setSelectedPokemonForPicker(null);
+              }}
+              onSelectCard={handleRegionCardSelected}
+              title={selectedPokemonForPicker ? `Choose a ${selectedPokemonForPicker.name} Card` : 'Choose Card'}
+              initialQuery={selectedPokemonForPicker?.name || ''}
+              pokemonOnly={true}
+            />
+          )}
+          <EnlargedCardOverlay />
+        </SafeAreaView>
+      );
+    }
 
     return (
       <SafeAreaView style={styles.safeArea}>
@@ -2659,19 +3157,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
           onScroll={onScrollEvent}
           scrollEventThrottle={16}
         >
-          {!displayMode && listHeader}
-          
-          {displayMode && (
-            <View style={styles.displayModeBar}>
-              <TouchableOpacity
-                style={styles.displayModeExitButton}
-                onPress={() => setDisplayMode(false)}
-              >
-                <Text style={styles.displayModeExitIcon}>✕</Text>
-                <Text style={styles.displayModeExitText}>Exit Display</Text>
-              </TouchableOpacity>
-            </View>
-          )}
+          {listHeader}
           
           {loading ? (
             <SkeletonCardGrid columns={gridColumns} rows={3} />
@@ -2705,13 +3191,11 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
                 onNextPage={() => setCurrentPage(p => Math.min(binderTotalPages, p + 1))}
                 onJumpToPage={() => setShowJumpModal(true)}
               />
-              {!displayMode && (
-                <View style={styles.binderPageInfo}>
-                  <Text style={styles.binderPageInfoText}>
-                    Cards {((currentPage - 1) * cardsPerPage) + 1} - {Math.min(currentPage * cardsPerPage, binderCards.length)} of {binderCards.length}
-                  </Text>
-                </View>
-              )}
+              <View style={styles.binderPageInfo}>
+                <Text style={styles.binderPageInfoText}>
+                  Cards {((currentPage - 1) * cardsPerPage) + 1} - {Math.min(currentPage * cardsPerPage, binderCards.length)} of {binderCards.length}
+                </Text>
+              </View>
             </>
           )}
         </ScrollView>
@@ -2738,7 +3222,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
             pokemonOnly={true}
           />
         )}
-        {!displayMode && stickyProgressFooter}
+        {stickyProgressFooter}
         <EnlargedCardOverlay />
       </SafeAreaView>
     );
@@ -3051,13 +3535,23 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
+  displayModeSafeArea: {
+    backgroundColor: '#000000',
+  },
   scrollViewStyle: {
     flex: 1,
     backgroundColor: colors.background,
   },
+  displayModeScrollView: {
+    backgroundColor: '#000000',
+  },
   container: {
     padding: screenPadding,
     paddingBottom: 60,
+  },
+  displayModeContainer: {
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.lg,
   },
   flatListContainer: {
     padding: screenPadding,
@@ -3251,6 +3745,34 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     height: '100%',
     borderRadius: borderRadius.full,
   },
+  milestonesRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 4,
+  },
+  milestoneBadge: {
+    paddingHorizontal: spacing.xs + 2,
+    paddingVertical: 2,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.border + '55',
+    minWidth: 42,
+    alignItems: 'center',
+  },
+  milestoneBadgeReached: {
+    backgroundColor: colors.background,
+    borderColor: colors.border + '85',
+  },
+  milestoneBadgeText: {
+    fontSize: 10,
+    fontFamily: fonts.medium,
+    color: colors.textTertiary + 'CC',
+  },
+  milestoneBadgeTextReached: {
+    color: colors.textSecondary + 'DD',
+    fontFamily: fonts.medium,
+  },
   row: {
     marginHorizontal: -CARD_MARGIN,
   },
@@ -3368,59 +3890,206 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     zIndex: 1000,
   },
   enlargedCardContainer: {
-    width: '85%',
-    maxHeight: '80%',
+    width: '100%',
+    maxHeight: '90%',
+    paddingHorizontal: screenPadding,
+    justifyContent: 'center',
     alignItems: 'center',
+    gap: spacing.md,
+  },
+  enlargedCardContainerRow: {
+    flexDirection: 'row',
+  },
+  enlargedCardContainerColumn: {
+    flexDirection: 'column',
+  },
+  enlargedInfoPanel: {
+    justifyContent: 'center',
+  },
+  enlargedInfoPanelSide: {
+    alignItems: 'flex-start',
+  },
+  enlargedInfoPanelBelow: {
+    alignItems: 'center',
+    marginTop: spacing.xs,
   },
   enlargedCard: {
-    width: '100%',
-    aspectRatio: 0.716, // TCG card aspect ratio (245×342 pixels)
     borderRadius: borderRadius.lg,
   },
   enlargedCardName: {
     fontSize: typography.lg,
     fontFamily: fonts.semibold,
     color: colors.onPrimary,
-    marginTop: spacing.md,
-    textAlign: 'center',
+    marginTop: spacing.xs,
   },
   enlargedCardNumber: {
     fontSize: typography.base,
     color: colors.onPrimary,
+  },
+  enlargedCardPosition: {
+    fontSize: typography.sm,
+    color: colors.onPrimary,
     marginTop: spacing.xs,
-    textAlign: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    borderRadius: borderRadius.sm,
+    paddingHorizontal: spacing.xs,
+    paddingVertical: 2,
+  },
+  enlargedNoteBlock: {
+    marginTop: spacing.sm,
+    backgroundColor: 'rgba(0, 0, 0, 0.35)',
+    borderRadius: borderRadius.sm,
+    paddingHorizontal: spacing.xs,
+    paddingVertical: spacing.xs,
+  },
+  enlargedNoteBlockLeft: {
+    alignSelf: 'flex-start',
+  },
+  enlargedNoteBlockCenter: {
+    alignSelf: 'center',
+  },
+  enlargedNoteLabel: {
+    fontSize: typography.sm,
+    color: colors.onPrimary,
+    fontFamily: fonts.medium,
+    marginBottom: 2,
+  },
+  enlargedNoteText: {
+    fontSize: typography.sm,
+    color: colors.onPrimary,
   },
   enlargedHint: {
     fontSize: typography.sm,
     color: colors.textTertiary,
-    marginTop: spacing.lg,
+    marginTop: spacing.md,
     fontStyle: 'italic',
   },
+  enlargedTextLeft: {
+    textAlign: 'left',
+    alignSelf: 'flex-start',
+  },
+  enlargedTextCenter: {
+    textAlign: 'center',
+    alignSelf: 'center',
+  },
   // Display mode styles
+  displayModeRoot: {
+    flex: 1,
+    backgroundColor: '#000000',
+  },
   displayModeBar: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    alignItems: 'center',
-    paddingHorizontal: spacing.md,
-    paddingTop: spacing.lg,
-    paddingBottom: spacing.sm,
+    position: 'absolute',
+    top: 4,
+    left: 8,
+    zIndex: 20,
   },
   displayModeExitButton: {
-    flexDirection: 'row',
+    width: 32,
+    height: 32,
     alignItems: 'center',
-    backgroundColor: colors.backgroundDark,
-    borderRadius: borderRadius.md,
-    paddingVertical: spacing.xs + 2,
-    paddingHorizontal: spacing.md,
+    justifyContent: 'center',
+    backgroundColor: 'rgba(20, 20, 20, 0.85)',
+    borderRadius: borderRadius.full,
   },
   displayModeExitIcon: {
-    fontSize: typography.base,
-    color: colors.text,
-    marginRight: spacing.xs,
+    fontSize: typography.lg,
+    color: '#FFFFFF',
   },
-  displayModeExitText: {
-    fontSize: typography.sm,
+  displaySpreadWrapper: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    justifyContent: 'center',
+    flex: 1,
+    gap: spacing.xs,
+  },
+  displaySpreadViewport: {
+    flex: 1,
+    paddingHorizontal: spacing.sm,
+    paddingTop: 0,
+    paddingBottom: spacing.xs,
+  },
+  displaySpreadPanSurface: {
+    flex: 1,
+  },
+  displaySpreadPane: {
+    flex: 1,
+    backgroundColor: '#000000',
+  },
+  displayPagePane: {
+    flex: 1,
+    position: 'relative',
+    paddingBottom: 22,
+  },
+  displayCenterColumn: {
+    width: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  displaySideArrowButton: {
+    position: 'absolute',
+    top: '50%',
+    marginTop: -18,
+    width: 36,
+    height: 36,
+    borderRadius: borderRadius.full,
+    backgroundColor: '#1A1A1A',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  displaySideArrowLeft: {
+    left: 2,
+  },
+  displaySideArrowRight: {
+    right: 2,
+  },
+  displayArrowButtonDisabled: {
+    opacity: 0.35,
+  },
+  displayArrowText: {
+    color: '#FFFFFF',
+    fontSize: typography.base,
+    fontFamily: fonts.semibold,
+  },
+  displayArrowTextDisabled: {
+    color: '#7A7A7A',
+  },
+  displaySpreadEmptyPane: {
+    flex: 1,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    borderColor: '#1A1A1A',
+    backgroundColor: '#050505',
+    minHeight: 0,
+  },
+  displaySpreadDivider: {
+    width: 2,
+    borderRadius: 1,
+    backgroundColor: '#2A2A2A',
+    flex: 1,
+  },
+  displayPageNumberChip: {
+    position: 'absolute',
+    bottom: 2,
+    backgroundColor: 'rgba(8, 8, 8, 0.75)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+    borderRadius: borderRadius.full,
+    paddingHorizontal: spacing.xs + 2,
+    paddingVertical: 2,
+    pointerEvents: 'none',
+  },
+  displayPageNumberChipLeft: {
+    left: 2,
+  },
+  displayPageNumberChipRight: {
+    right: 2,
+  },
+  displayPageNumberText: {
+    color: '#E5E5E5',
+    fontSize: 10,
     fontFamily: fonts.medium,
-    color: colors.text,
+  },
+  displayPageHintSpacer: {
+    height: 0,
   },
   });

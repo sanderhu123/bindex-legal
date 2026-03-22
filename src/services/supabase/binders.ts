@@ -150,18 +150,25 @@ async function calculateTotalCards(
       let cards = await getCardsBySet(set);
       
       if (variantsToTrack && variantsToTrack.length > 0) {
-        // Count variants per base card so single-variant cards
-        // (secret rares, illustration rares, etc.) are always included
-        const baseCardVariantCount = new Map<string, number>();
+        // Check which base cards have at least one tracked variant.
+        // Cards with no tracked variant (e.g. secret rares with only
+        // base+holo) keep their base version.
+        const baseCardHasTracked = new Map<string, boolean>();
         cards.forEach(card => {
           const baseId = card.id.replace(/-(base|holo|reverse|poke-ball|master-ball)$/, '');
-          baseCardVariantCount.set(baseId, (baseCardVariantCount.get(baseId) || 0) + 1);
+          const cardVariant = card.variant || 'base';
+          if (variantsToTrack.includes(cardVariant)) {
+            baseCardHasTracked.set(baseId, true);
+          }
+          if (!baseCardHasTracked.has(baseId)) {
+            baseCardHasTracked.set(baseId, false);
+          }
         });
 
         cards = cards.filter((card) => {
           const cardVariant = card.variant || 'base';
           const baseId = card.id.replace(/-(base|holo|reverse|poke-ball|master-ball)$/, '');
-          if (baseCardVariantCount.get(baseId) === 1) return true;
+          if (!baseCardHasTracked.get(baseId)) return cardVariant === 'base';
           return variantsToTrack.includes(cardVariant);
         });
       }

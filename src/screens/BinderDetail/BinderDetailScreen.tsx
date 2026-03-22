@@ -635,19 +635,47 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
         
         setCards(updatedMasterCards);
         
-        // Also refresh extra cards ownership for Master Set binders
+        // Refresh extra cards for Master Set binders — update existing
+        // ones and load any newly-added extras from the database
         const extraCardsData = await getExtraCardsWithVariants(binderId);
-        
-        // Update extraCards with latest ownership status from database
-        setExtraCards((prevExtraCards) =>
-          prevExtraCards.map((card) => {
-            // Find matching extra card data from database
+
+        setExtraCards((prevExtraCards) => {
+          // Update ownership on existing extras
+          const updated = prevExtraCards.map((card) => {
             const dbData = extraCardsData.find(
               (ec) => ec.cardId === card.id && ec.variant === (card.variant || null)
             );
             return dbData ? { ...card, isOwned: dbData.isOwned } : card;
-          })
-        );
+          });
+
+          // Find extras in the DB that aren't in state yet
+          const existingIds = new Set(
+            prevExtraCards.map(c => `${c.id}|${c.variant || ''}`)
+          );
+          const newExtras = extraCardsData.filter(
+            ec => !existingIds.has(`${ec.cardId}|${ec.variant || ''}`)
+          );
+
+          if (newExtras.length > 0) {
+            // Load new extras asynchronously and merge into state
+            Promise.all(
+              newExtras.map(async (ec) => {
+                try {
+                  const card = await getCardById(ec.cardId);
+                  if (card) return { ...card, isOwned: ec.isOwned } as CardWithOwnership;
+                  return null;
+                } catch { return null; }
+              })
+            ).then((loaded) => {
+              const validCards = loaded.filter((c): c is CardWithOwnership => c !== null);
+              if (validCards.length > 0) {
+                setExtraCards(prev => [...prev, ...validCards]);
+              }
+            });
+          }
+
+          return updated;
+        });
       }
     } catch (err) {
       console.error('Failed to refresh binder ownership:', err);
@@ -887,26 +915,33 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
           const originalCount = allCards.length;
           console.log('[BinderDetail] BEFORE FILTER - Total cards:', originalCount);
           
-          // Count how many variants exist per base card so we can identify
-          // single-variant cards (e.g. secret rares that only have 'base').
-          // These cards should always be shown regardless of variant filter.
-          const baseCardVariantCount = new Map<string, number>();
+          // For each base card, check if any of its variants is in the
+          // tracked list. Cards whose base ID has NO tracked variants
+          // (e.g. secret rares with only base+holo) keep their base version.
+          const baseCardHasTrackedVariant = new Map<string, boolean>();
           allCards.forEach(card => {
             const baseId = card.id.replace(/-(base|holo|reverse|poke-ball|master-ball)$/, '');
-            baseCardVariantCount.set(baseId, (baseCardVariantCount.get(baseId) || 0) + 1);
+            const cardVariant = card.variant || 'base';
+            if (binder.variantsToTrack!.includes(cardVariant)) {
+              baseCardHasTrackedVariant.set(baseId, true);
+            }
+            if (!baseCardHasTrackedVariant.has(baseId)) {
+              baseCardHasTrackedVariant.set(baseId, false);
+            }
           });
 
           // Track which cards are being removed and why
           const removedCards: { name: string; variant: string; rarity: string }[] = [];
           
-          // Only show cards with variants that the user selected,
-          // but always keep cards that only exist as a single variant
-          // (like secret rares, illustration rares, etc.)
           allCards = allCards.filter((card) => {
             const cardVariant = card.variant || 'base';
-
             const baseId = card.id.replace(/-(base|holo|reverse|poke-ball|master-ball)$/, '');
-            if (baseCardVariantCount.get(baseId) === 1) return true;
+
+            // If none of this card's variants are in the tracked list,
+            // always keep the base version (e.g. secret rares, illustration rares)
+            if (!baseCardHasTrackedVariant.get(baseId)) {
+              return cardVariant === 'base';
+            }
 
             const shouldKeep = binder.variantsToTrack!.includes(cardVariant);
             

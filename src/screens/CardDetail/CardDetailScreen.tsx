@@ -675,7 +675,7 @@ export default function CardDetailScreen({ navigation, route }: CardDetailScreen
               <View style={styles.panelVariantSection}>
                 <Text style={styles.panelVariantLabel}>Holo</Text>
                 <View style={styles.panelVariantRow}>
-                  {availableVariants.map((v) => {
+                  {availableVariants.filter((v) => v !== 'base').map((v) => {
                     const isSelected = (card.variant || 'base') === v;
                     const badgeColor = VARIANT_COLORS[v] || '#AAAAAA';
                     return (
@@ -685,8 +685,8 @@ export default function CardDetailScreen({ navigation, route }: CardDetailScreen
                           styles.panelVariantIcon,
                           { backgroundColor: badgeColor, opacity: isSelected ? 1 : 0.35 },
                         ]}
-                        onPress={() => handleVariantChange(v as CardVariant)}
-                        disabled={isUpdatingVariant || isSelected}
+                        onPress={() => handleVariantChange((isSelected ? 'base' : v) as CardVariant)}
+                        disabled={isUpdatingVariant}
                         activeOpacity={0.7}
                       >
                         <Text style={styles.panelVariantIconText}>
@@ -841,10 +841,9 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     gap: spacing.xs,
   },
   panelVariantIcon: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderRadius: borderRadius.sm,
-    minWidth: 32,
+    width: 40,
+    height: 40,
+    borderRadius: borderRadius.md,
     alignItems: 'center',
     justifyContent: 'center',
   },

@@ -14,7 +14,7 @@ import { POKEMON_ERAS } from '../../data/pokemonEras';
 import { SearchableListPicker, type ListPickerItem } from './SearchableListPicker';
 import { useTheme } from '../../context/ThemeContext';
 import { spacing, typography, borderRadius, fonts, type ThemeColors } from '../../constants/theme';
-import { getRarities, getRaritiesForSets, type SearchFilterMeta } from '../../services/api/pokemonApi';
+import { getRarities, type SearchFilterMeta } from '../../services/api/pokemonApi';
 
 /**
  * Props for CardPickerFilters
@@ -54,9 +54,8 @@ export function CardPickerFilters({
   const [showIllustratorInput, setShowIllustratorInput] = useState(false);
   // Local illustrator text (committed on submit)
   const [illustratorText, setIllustratorText] = useState('');
-  // Rarities fetched from API
+  // Rarities fetched from API (global fallback when no search is active)
   const [apiRarities, setApiRarities] = useState<string[]>([]);
-  const [searchRarities, setSearchRarities] = useState<string[]>([]);
 
   // Whether the search produced metadata we can use to narrow filter options
   const hasSearchMeta = !!(filterMeta && (filterMeta.setIds.length > 0 || filterMeta.eras.length > 0));
@@ -65,66 +64,6 @@ export function CardPickerFilters({
   useEffect(() => {
     getRarities().then(setApiRarities);
   }, []);
-
-  // Build lookups once from hard-coded era data
-  const setMetaById = useMemo(() => {
-    const byId = new Map<string, { name: string; eraName: string; releaseDate: string }>();
-    for (const era of POKEMON_ERAS) {
-      for (const set of era.sets) {
-        byId.set(set.id.toLowerCase(), {
-          name: set.name,
-          eraName: era.name,
-          releaseDate: set.releaseDate,
-        });
-      }
-    }
-    return byId;
-  }, []);
-
-  // Fetch rarities for the sets that have matching cards.
-  // Uses filterMeta.setIds (from all search results) when a search is active,
-  // or falls back to selected sets/eras from the filter UI.
-  useEffect(() => {
-    const needsRarityLookup = hasSearchMeta ||
-      (filters.setIds && filters.setIds.length > 0) ||
-      (filters.eras && filters.eras.length > 0);
-
-    if (!needsRarityLookup) {
-      setSearchRarities([]);
-      return;
-    }
-
-    let cancelled = false;
-
-    const fetchRarities = async () => {
-      try {
-        let setIdsForLookup: string[] = [];
-
-        if (filters.setIds && filters.setIds.length > 0) {
-          setIdsForLookup = filters.setIds;
-        } else if (hasSearchMeta && filterMeta) {
-          setIdsForLookup = filterMeta.setIds;
-        } else if (filters.eras && filters.eras.length > 0) {
-          const setIdSet = new Set<string>();
-          for (const eraName of filters.eras) {
-            const era = POKEMON_ERAS.find(e => e.name === eraName);
-            if (!era) continue;
-            for (const set of era.sets) setIdSet.add(set.id);
-          }
-          setIdsForLookup = Array.from(setIdSet);
-        }
-
-        const rarities = await getRaritiesForSets(setIdsForLookup);
-        if (cancelled) return;
-        setSearchRarities(rarities);
-      } catch {
-        if (!cancelled) setSearchRarities([]);
-      }
-    };
-
-    fetchRarities();
-    return () => { cancelled = true; };
-  }, [hasSearchMeta, filterMeta?.setIds, filters.eras, filters.setIds]);
 
   // ----- Build era items -----
   // When a search is active, only show eras that have matching cards (from filterMeta).
@@ -202,12 +141,14 @@ export function CardPickerFilters({
   }, [hasSearchMeta, filterMeta?.setIds, filters.eras]);
 
   // ----- Build rarity items -----
+  // When a search is active, use rarities from filterMeta (extracted from all matching cards).
+  // Otherwise fall back to the global rarity list.
   const rarityItems: ListPickerItem[] = useMemo(() => {
-    if (searchRarities.length > 0) {
-      return searchRarities.map(r => ({ id: r, label: r }));
+    if (hasSearchMeta && filterMeta && filterMeta.rarities.length > 0) {
+      return filterMeta.rarities.map(r => ({ id: r, label: r }));
     }
     return apiRarities.map(r => ({ id: r, label: r }));
-  }, [apiRarities, searchRarities]);
+  }, [apiRarities, hasSearchMeta, filterMeta?.rarities]);
 
   // Important: do NOT auto-clear selected filters when available options change.
   // Options are built from currently loaded results (which are paginated), so

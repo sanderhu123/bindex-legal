@@ -1567,6 +1567,8 @@ export interface SearchFilterMeta {
   setIds: string[];
   /** All unique era names found across all matching cards */
   eras: string[];
+  /** All unique rarities found across all matching cards */
+  rarities: string[];
 }
 
 /**
@@ -1791,7 +1793,7 @@ export async function searchCardsByName(
     (filters.illustrators && filters.illustrators.length > 0)
   );
   
-  const emptyResult: CardSearchResult = { cards: [], filterMeta: { setIds: [], eras: [] } };
+  const emptyResult: CardSearchResult = { cards: [], filterMeta: { setIds: [], eras: [], rarities: [] } };
 
   // Validate: need at least a query or a filter
   if ((!query || query.trim().length === 0) && !hasFilters) {
@@ -2227,6 +2229,7 @@ export async function searchCardsByName(
       // This lets the filter component show all relevant eras/sets.
       const metaSetIds = new Set<string>();
       const metaEras = new Set<string>();
+      const metaRarities = new Set<string>();
       for (const card of allSortedCards) {
         const cardSetId = extractSetIdFromCardId(card.id || '').toLowerCase();
         if (cardSetId) {
@@ -2242,10 +2245,13 @@ export async function searchCardsByName(
             if (eraForSet) metaEras.add(eraForSet.name);
           }
         }
+        const rarity = card.rarity?.trim();
+        if (rarity) metaRarities.add(rarity);
       }
       const filterMeta: SearchFilterMeta = {
         setIds: Array.from(metaSetIds),
         eras: Array.from(metaEras),
+        rarities: Array.from(metaRarities).sort((a, b) => a.localeCompare(b)),
       };
       
       console.log('[28A] All cards sorted by release date:', {

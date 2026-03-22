@@ -89,7 +89,7 @@ export function useCardPicker(options?: UseCardPickerOptions): UseCardPickerRetu
   const [totalFound, setTotalFound] = useState(0);
   const [offset, setOffset] = useState(0);
   const [filters, setFiltersInternal] = useState<CardSearchFilters>({});
-  const [filterMeta, setFilterMeta] = useState<SearchFilterMeta>({ setIds: [], eras: [] });
+  const [filterMeta, setFilterMeta] = useState<SearchFilterMeta>({ setIds: [], eras: [], rarities: [] });
 
   // Refs for debouncing and cancellation
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -330,7 +330,7 @@ export function useCardPicker(options?: UseCardPickerOptions): UseCardPickerRetu
     loadingRef.current = false;
     setLoading(false);
     setIsLoadingMore(false);
-    setFilterMeta({ setIds: [], eras: [] });
+    setFilterMeta({ setIds: [], eras: [], rarities: [] });
     setFiltersInternal({});
     filtersRef.current = {};
   }, []);

@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { searchCardsByName, type CardSearchOptions } from '../services/api/pokemonApi';
+import { searchCardsByName, type CardSearchOptions, type SearchFilterMeta } from '../services/api/pokemonApi';
 import type { Card, CardSearchFilters } from '../types';
 import { getUserFriendlyErrorMessage, sanitizeSearchQuery } from '../utils/errorUtils';
 
@@ -52,6 +52,8 @@ export interface UseCardPickerReturn {
   totalFound: number;
   /** Current active filters */
   filters: CardSearchFilters;
+  /** Metadata about all matching cards (for building filter dropdowns) */
+  filterMeta: SearchFilterMeta;
   /** Update filters (triggers new search). Pass force=true to re-apply unchanged filters. */
   setFilters: (filters: CardSearchFilters, options?: { force?: boolean }) => void;
   /** Clear all filters */
@@ -87,6 +89,7 @@ export function useCardPicker(options?: UseCardPickerOptions): UseCardPickerRetu
   const [totalFound, setTotalFound] = useState(0);
   const [offset, setOffset] = useState(0);
   const [filters, setFiltersInternal] = useState<CardSearchFilters>({});
+  const [filterMeta, setFilterMeta] = useState<SearchFilterMeta>({ setIds: [], eras: [] });
 
   // Refs for debouncing and cancellation
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -167,13 +170,20 @@ export function useCardPicker(options?: UseCardPickerOptions): UseCardPickerRetu
       };
 
       // API returns cards sorted by set release date (newest first)
-      const cards = await searchCardsByName(sanitizedQuery || '', searchOptions);
+      const searchResult = await searchCardsByName(sanitizedQuery || '', searchOptions);
+      const { cards, filterMeta: meta } = searchResult;
 
       console.log('[useCardPicker] Search complete:', { 
         query: sanitizedQuery, 
         resultsCount: cards.length,
         offset: searchOffset,
+        filterMeta: { sets: meta.setIds.length, eras: meta.eras.length },
       });
+
+      // Store filter metadata (only on first page -- metadata covers all results)
+      if (searchOffset === 0) {
+        setFilterMeta(meta);
+      }
 
       // Update results (deduplicate to prevent "same key" errors on fast scrolling)
       if (searchOffset === 0) {
@@ -320,6 +330,7 @@ export function useCardPicker(options?: UseCardPickerOptions): UseCardPickerRetu
     loadingRef.current = false;
     setLoading(false);
     setIsLoadingMore(false);
+    setFilterMeta({ setIds: [], eras: [] });
     setFiltersInternal({});
     filtersRef.current = {};
   }, []);
@@ -366,6 +377,7 @@ export function useCardPicker(options?: UseCardPickerOptions): UseCardPickerRetu
     clear,
     search,
     totalFound,
+    filterMeta,
     filters,
     setFilters,
     clearFilters,

@@ -1559,6 +1559,27 @@ export interface CardSearchOptions {
 }
 
 /**
+ * Metadata about all matching cards from a search (not just the current page).
+ * Used by filter components to show accurate filter options.
+ */
+export interface SearchFilterMeta {
+  /** All unique set IDs found across all matching cards */
+  setIds: string[];
+  /** All unique era names found across all matching cards */
+  eras: string[];
+}
+
+/**
+ * Return type for searchCardsByName()
+ */
+export interface CardSearchResult {
+  /** Paginated card results */
+  cards: Card[];
+  /** Metadata derived from ALL matching cards (for filter dropdowns) */
+  filterMeta: SearchFilterMeta;
+}
+
+/**
  * Escapes special regex characters in a string
  */
 function escapeRegExp(string: string): string {
@@ -1663,10 +1684,10 @@ async function getSetOfficialCounts(): Promise<Map<string, number>> {
 const SEARCH_CACHE_DURATION = 2 * 60 * 1000;
 
 /**
- * Cache for sorted search results - stores the FULL sorted list for each query
+ * Cache for sorted search results - stores the FULL sorted list and filter metadata
  * This allows stable pagination without re-fetching and re-sorting
  */
-const sortedSearchCache = new Map<string, { cards: Card[]; timestamp: number }>();
+const sortedSearchCache = new Map<string, { cards: Card[]; filterMeta: SearchFilterMeta; timestamp: number }>();
 const searchCardDetailsCache = new Map<string, Partial<Card>>();
 
 /**
@@ -1756,7 +1777,7 @@ async function enrichSearchCards(cards: Card[]): Promise<Card[]> {
 export async function searchCardsByName(
   query: string,
   options?: CardSearchOptions
-): Promise<Card[]> {
+): Promise<CardSearchResult> {
   const { limit = 50, offset = 0, pokemonOnly = false, exactMatch = false, filters } = options || {};
   
   console.log('[28A] searchCardsByName() called:', { query, limit, offset, pokemonOnly, exactMatch, filters });
@@ -1770,10 +1791,12 @@ export async function searchCardsByName(
     (filters.illustrators && filters.illustrators.length > 0)
   );
   
+  const emptyResult: CardSearchResult = { cards: [], filterMeta: { setIds: [], eras: [] } };
+
   // Validate: need at least a query or a filter
   if ((!query || query.trim().length === 0) && !hasFilters) {
-    console.log('[28A] Empty query and no filters, returning empty array');
-    return [];
+    console.log('[28A] Empty query and no filters, returning empty result');
+    return emptyResult;
   }
   
   // Sanitize query - remove special characters that could cause issues
@@ -1805,7 +1828,7 @@ export async function searchCardsByName(
       performance: 'excellent (cached)',
     });
     
-    return paginatedResults;
+    return { cards: paginatedResults, filterMeta: cachedSorted.filterMeta };
   }
   
   // Step 2: Check if rate limited
@@ -1815,7 +1838,7 @@ export async function searchCardsByName(
     if (cachedSorted) {
       const paginatedResults = cachedSorted.cards.slice(offset, offset + limit);
       console.log('[28A] Returning stale cache due to rate limit');
-      return paginatedResults;
+      return { cards: paginatedResults, filterMeta: cachedSorted.filterMeta };
     }
     throw new Error('Too many requests. Please wait a moment and try again.');
   }
@@ -2050,6 +2073,21 @@ export async function searchCardsByName(
         });
       }
       
+      // "Starts with" filter: only keep cards whose name starts with the query.
+      // The API does a "contains" search, so "cha" would match "Machamp".
+      // This filter narrows results to names starting with the query (e.g. "Charizard").
+      if (sanitizedQuery && !isNumberSearch && !isCardIdSearch) {
+        const beforeStartsWith = filteredResults.length;
+        filteredResults = filteredResults.filter((card: any) => {
+          return (card.name || '').toLowerCase().startsWith(sanitizedQuery);
+        });
+        console.log('[28A] Filtered to "starts with":', {
+          query: sanitizedQuery,
+          before: beforeStartsWith,
+          after: filteredResults.length,
+        });
+      }
+
       // Filter for exact word match if requested
       // This prevents "Pidgeot" from matching "Pidgeotto"
       if (exactMatch) {
@@ -2185,9 +2223,35 @@ export async function searchCardsByName(
       const allSortedCards = sortCardsBySetDate(clientFilteredCards);
       const sortDuration = performance.now() - sortStartTime;
       
+      // Extract filter metadata from ALL matching cards (not just the page).
+      // This lets the filter component show all relevant eras/sets.
+      const metaSetIds = new Set<string>();
+      const metaEras = new Set<string>();
+      for (const card of allSortedCards) {
+        const cardSetId = extractSetIdFromCardId(card.id || '').toLowerCase();
+        if (cardSetId) {
+          metaSetIds.add(cardSetId);
+          const setMeta = ALLOWED_SET_IDS.has(cardSetId)
+            ? getAllSets().find(s => s.id.toLowerCase() === cardSetId)
+            : null;
+          if (setMeta) {
+            const eraForSet = getEras().find(era => {
+              const eraSets = getSetsByEra(era.name);
+              return eraSets.some(s => s.id.toLowerCase() === cardSetId);
+            });
+            if (eraForSet) metaEras.add(eraForSet.name);
+          }
+        }
+      }
+      const filterMeta: SearchFilterMeta = {
+        setIds: Array.from(metaSetIds),
+        eras: Array.from(metaEras),
+      };
+      
       console.log('[28A] All cards sorted by release date:', {
         totalCards: allSortedCards.length,
         sortDuration: `${sortDuration.toFixed(2)}ms`,
+        filterMeta: { setCount: filterMeta.setIds.length, eraCount: filterMeta.eras.length },
         newestCard: allSortedCards[0] ? { id: allSortedCards[0].id, set: allSortedCards[0].set } : null,
         oldestCard: allSortedCards[allSortedCards.length - 1] ? { 
           id: allSortedCards[allSortedCards.length - 1].id, 
@@ -2195,9 +2259,10 @@ export async function searchCardsByName(
         } : null,
       });
       
-      // Cache the FULL sorted list for stable pagination
+      // Cache the FULL sorted list and metadata for stable pagination
       sortedSearchCache.set(sortedCacheKey, {
         cards: allSortedCards,
+        filterMeta,
         timestamp: Date.now(),
       });
       
@@ -2224,7 +2289,7 @@ export async function searchCardsByName(
         },
       });
       
-      return paginatedResults;
+      return { cards: paginatedResults, filterMeta };
     } catch (error) {
       const duration = performance.now() - startTime;
       
@@ -2246,8 +2311,8 @@ export async function searchCardsByName(
         error: error instanceof Error ? error.message : 'Unknown error',
       });
       
-      // Return empty array on error (don't throw - let UI handle empty state)
-      return [];
+      // Return empty result on error (don't throw - let UI handle empty state)
+      return emptyResult;
     }
   });
 }

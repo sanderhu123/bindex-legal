@@ -634,11 +634,8 @@ export default function CardDetailScreen({ navigation, route }: CardDetailScreen
                 activeOpacity={1}
               >
                 <Image
-                  source={isOwned
-                    ? require('../../../assets/logo-icon-white.png')
-                    : require('../../../assets/logo-icon-teal.png')
-                  }
-                  style={styles.panelBtnLogo}
+                  source={require('../../../assets/logo-icon-teal.png')}
+                  style={[styles.panelBtnLogo, !isOwned && { opacity: 0.2 }]}
                   resizeMode="contain"
                 />
               </TouchableOpacity>
@@ -799,10 +796,10 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     minHeight: 40,
   },
   panelBtnOwned: {
-    backgroundColor: colors.primary,
+    backgroundColor: 'transparent',
   },
   panelBtnMissing: {
-    backgroundColor: colors.backgroundDark,
+    backgroundColor: 'transparent',
   },
   panelBtnChange: {
     backgroundColor: colors.secondary,

@@ -25,6 +25,7 @@ import { getBinderById, updateBinder, deleteBinder } from '../../services/supaba
 import {
   clearAllPositionsForBinder,
   getPlacedCardCount,
+  preserveExtraCardsBeforeClear,
 } from '../../services/supabase/binderPositions';
 import {
   getBinderUsage,
@@ -221,6 +222,7 @@ export default function BinderSettingsScreen() {
     setSaving(true);
     try {
       if (shouldClearPositions) {
+        await preserveExtraCardsBeforeClear(binder.id);
         await clearAllPositionsForBinder(binder.id);
       }
 
@@ -474,29 +476,33 @@ export default function BinderSettingsScreen() {
                 availableKeys={availableVariantKeys}
               />
 
-              <Text style={[styles.label, styles.subSectionTop]}>Variant Placement</Text>
-              <View style={styles.segmentedRow}>
-                {VARIANT_PLACEMENT_OPTIONS.map((option, idx) => {
-                  const selected = variantPlacement === option.value;
-                  const isLast = idx === VARIANT_PLACEMENT_OPTIONS.length - 1;
-                  return (
-                    <TouchableOpacity
-                      key={option.value}
-                      style={[
-                        styles.segmentedButton,
-                        selected && styles.segmentedButtonActive,
-                        isLast && styles.segmentedButtonLast,
-                      ]}
-                      onPress={() => setVariantPlacement(option.value)}
-                      activeOpacity={0.7}
-                    >
-                      <Text style={[styles.segmentedText, selected && styles.segmentedTextActive]}>
-                        {option.label}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
+              {variantsToTrack.length > 1 && (
+                <>
+                  <Text style={[styles.label, styles.subSectionTop]}>Variant Placement</Text>
+                  <View style={styles.segmentedRow}>
+                    {VARIANT_PLACEMENT_OPTIONS.map((option, idx) => {
+                      const selected = variantPlacement === option.value;
+                      const isLast = idx === VARIANT_PLACEMENT_OPTIONS.length - 1;
+                      return (
+                        <TouchableOpacity
+                          key={option.value}
+                          style={[
+                            styles.segmentedButton,
+                            selected && styles.segmentedButtonActive,
+                            isLast && styles.segmentedButtonLast,
+                          ]}
+                          onPress={() => setVariantPlacement(option.value)}
+                          activeOpacity={0.7}
+                        >
+                          <Text style={[styles.segmentedText, selected && styles.segmentedTextActive]}>
+                            {option.label}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                </>
+              )}
             </>
           )}
 

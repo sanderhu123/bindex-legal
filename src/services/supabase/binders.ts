@@ -149,11 +149,19 @@ async function calculateTotalCards(
     if (collectionMode === 'master-set' && set) {
       let cards = await getCardsBySet(set);
       
-      // Apply variant filtering if specified (just like BinderDetailScreen does)
       if (variantsToTrack && variantsToTrack.length > 0) {
+        // Count variants per base card so single-variant cards
+        // (secret rares, illustration rares, etc.) are always included
+        const baseCardVariantCount = new Map<string, number>();
+        cards.forEach(card => {
+          const baseId = card.id.replace(/-(base|holo|reverse|poke-ball|master-ball)$/, '');
+          baseCardVariantCount.set(baseId, (baseCardVariantCount.get(baseId) || 0) + 1);
+        });
+
         cards = cards.filter((card) => {
-          // If card has no variant specified, treat it as 'base'
           const cardVariant = card.variant || 'base';
+          const baseId = card.id.replace(/-(base|holo|reverse|poke-ball|master-ball)$/, '');
+          if (baseCardVariantCount.get(baseId) === 1) return true;
           return variantsToTrack.includes(cardVariant);
         });
       }

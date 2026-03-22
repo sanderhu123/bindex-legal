@@ -887,13 +887,27 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
           const originalCount = allCards.length;
           console.log('[BinderDetail] BEFORE FILTER - Total cards:', originalCount);
           
+          // Count how many variants exist per base card so we can identify
+          // single-variant cards (e.g. secret rares that only have 'base').
+          // These cards should always be shown regardless of variant filter.
+          const baseCardVariantCount = new Map<string, number>();
+          allCards.forEach(card => {
+            const baseId = card.id.replace(/-(base|holo|reverse|poke-ball|master-ball)$/, '');
+            baseCardVariantCount.set(baseId, (baseCardVariantCount.get(baseId) || 0) + 1);
+          });
+
           // Track which cards are being removed and why
           const removedCards: { name: string; variant: string; rarity: string }[] = [];
           
-          // Only show cards with variants that the user selected
+          // Only show cards with variants that the user selected,
+          // but always keep cards that only exist as a single variant
+          // (like secret rares, illustration rares, etc.)
           allCards = allCards.filter((card) => {
-            // If card has no variant specified, treat it as 'base'
             const cardVariant = card.variant || 'base';
+
+            const baseId = card.id.replace(/-(base|holo|reverse|poke-ball|master-ball)$/, '');
+            if (baseCardVariantCount.get(baseId) === 1) return true;
+
             const shouldKeep = binder.variantsToTrack!.includes(cardVariant);
             
             if (!shouldKeep) {
@@ -925,33 +939,11 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
           });
           console.log('[BinderDetail] ✗ Removed cards by variant:', removedVariantCounts);
           
-          // Count unique base cards after filtering
-          const uniqueFilteredCards = new Set<string>();
-          allCards.forEach(card => {
-            const baseId = card.id.replace(/-(base|holo|reverse|poke-ball|master-ball)$/, '');
-            uniqueFilteredCards.add(baseId);
-          });
-          console.log('[BinderDetail] Unique base cards after filter:', uniqueFilteredCards.size);
-          
-          // Calculate expected count based on variants selected
-          console.log('[BinderDetail] ========================================');
-          console.log('[BinderDetail] EXPECTED vs ACTUAL');
-          console.log('[BinderDetail] ========================================');
-          console.log('[BinderDetail] Expected logic:');
-          console.log('  - 165 regular cards with base + reverse-holo = 330 cards');
-          console.log('  - 42 special cards with base only = 42 cards');
-          console.log('  - Total expected = 372 cards');
-          console.log('[BinderDetail] Actual:', allCards.length, 'cards');
-          console.log('[BinderDetail] Difference:', 372 - allCards.length, 'cards missing');
-          
-          console.log('[BinderDetail] ========================================');
           console.log('[BinderDetail] Filter summary:', {
             variantsToTrack: binder.variantsToTrack,
             originalCount: originalCount,
             filteredCount: allCards.length,
             removedCount: originalCount - allCards.length,
-            expectedCount: 372,
-            missingCards: 372 - allCards.length,
           });
         } else {
           console.log('[BinderDetail] SKIPPING FILTER - Reason:');

@@ -110,6 +110,66 @@ export async function clearAllPositionsForBinder(
   }
 }
 
+/**
+ * Ensure extra cards in positions are preserved in binder_cards before
+ * clearing positions. Cards in binder_card_positions that don't exist
+ * in binder_cards get added as is_extra so they appear at the end of the
+ * binder after positions are cleared.
+ */
+export async function preserveExtraCardsBeforeClear(
+  binderId: string
+): Promise<void> {
+  const { data: user } = await supabase.auth.getUser();
+  if (!user.user) throw new Error('Not authenticated');
+  const userId = user.user.id;
+
+  const { data: positions } = await supabase
+    .from('binder_card_positions')
+    .select('card_id')
+    .eq('binder_id', binderId)
+    .eq('user_id', userId);
+
+  const positionedCardIds = [...new Set(
+    (positions || []).map(p => p.card_id).filter(Boolean) as string[]
+  )];
+
+  if (positionedCardIds.length === 0) return;
+
+  const { data: existingCards } = await supabase
+    .from('binder_cards')
+    .select('card_id')
+    .eq('binder_id', binderId)
+    .eq('user_id', userId);
+
+  const existingCardIds = new Set(
+    (existingCards || []).map(c => c.card_id)
+  );
+
+  const missingCardIds = positionedCardIds.filter(id => !existingCardIds.has(id));
+
+  if (missingCardIds.length > 0) {
+    const rows = missingCardIds.map(cardId => ({
+      user_id: userId,
+      binder_id: binderId,
+      card_id: cardId,
+      is_extra: true,
+      is_owned: false,
+      variant: null,
+      position: null,
+    }));
+
+    const { error } = await supabase
+      .from('binder_cards')
+      .upsert(rows, { onConflict: 'binder_id,card_id,variant' });
+
+    if (error) {
+      console.error('[Settings] Error preserving extra cards:', error);
+    } else {
+      console.log('[Settings] Preserved', missingCardIds.length, 'extra cards before clearing positions');
+    }
+  }
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // PLACEHOLDER TRAY PERSISTENCE
 // ─────────────────────────────────────────────────────────────────────────────

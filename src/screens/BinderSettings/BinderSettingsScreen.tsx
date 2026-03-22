@@ -337,24 +337,6 @@ export default function BinderSettingsScreen() {
     }
   };
 
-  const openTextChoice = (
-    title: string,
-    options: { value: string; label: string }[],
-    onSelect: (value: string) => void
-  ) => {
-    Alert.alert(
-      title,
-      undefined,
-      [
-        ...options.map((option) => ({
-          text: option.label,
-          onPress: () => onSelect(option.value),
-        })),
-        { text: 'Cancel', style: 'cancel' as const },
-      ]
-    );
-  };
-
   if (loading) {
     return <LoadingScreen message="Loading binder settings..." />;
   }
@@ -460,17 +442,28 @@ export default function BinderSettingsScreen() {
         <Text style={styles.sectionTitle}>Display & Rules</Text>
         <View style={styles.section}>
           <Text style={styles.label}>Layout</Text>
-          <TouchableOpacity
-            style={styles.valueRow}
-            onPress={() =>
-              openTextChoice('Choose Layout', LAYOUT_OPTIONS, (value) =>
-                setLayoutPreference(value as LayoutPreference)
-              )
-            }
-          >
-            <Text style={styles.valueText}>{layoutPreference}</Text>
-            <Ionicons name="chevron-forward" size={18} color={colors.textLight} />
-          </TouchableOpacity>
+          <View style={styles.segmentedRow}>
+            {LAYOUT_OPTIONS.map((option, idx) => {
+              const selected = layoutPreference === option.value;
+              const isLast = idx === LAYOUT_OPTIONS.length - 1;
+              return (
+                <TouchableOpacity
+                  key={option.value}
+                  style={[
+                    styles.segmentedButton,
+                    selected && styles.segmentedButtonActive,
+                    isLast && styles.segmentedButtonLast,
+                  ]}
+                  onPress={() => setLayoutPreference(option.value)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.segmentedText, selected && styles.segmentedTextActive]}>
+                    {option.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
 
           {binder.collectionMode === 'master-set' && (
             <>
@@ -482,38 +475,56 @@ export default function BinderSettingsScreen() {
               />
 
               <Text style={[styles.label, styles.subSectionTop]}>Variant Placement</Text>
-              <TouchableOpacity
-                style={styles.valueRow}
-                onPress={() =>
-                  openTextChoice('Variant Placement', VARIANT_PLACEMENT_OPTIONS, (value) =>
-                    setVariantPlacement(value as VariantPlacement)
-                  )
-                }
-              >
-                <Text style={styles.valueText}>
-                  {variantPlacement === 'grouped' ? 'Grouped' : 'At End'}
-                </Text>
-                <Ionicons name="chevron-forward" size={18} color={colors.textLight} />
-              </TouchableOpacity>
+              <View style={styles.segmentedRow}>
+                {VARIANT_PLACEMENT_OPTIONS.map((option, idx) => {
+                  const selected = variantPlacement === option.value;
+                  const isLast = idx === VARIANT_PLACEMENT_OPTIONS.length - 1;
+                  return (
+                    <TouchableOpacity
+                      key={option.value}
+                      style={[
+                        styles.segmentedButton,
+                        selected && styles.segmentedButtonActive,
+                        isLast && styles.segmentedButtonLast,
+                      ]}
+                      onPress={() => setVariantPlacement(option.value)}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={[styles.segmentedText, selected && styles.segmentedTextActive]}>
+                        {option.label}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
             </>
           )}
 
           {binder.collectionMode === 'region' && (
             <>
               <Text style={[styles.label, styles.subSectionTop]}>Pokemon Art Style</Text>
-              <TouchableOpacity
-                style={styles.valueRow}
-                onPress={() =>
-                  openTextChoice('Pokemon Art Style', ART_STYLE_OPTIONS, (value) =>
-                    setPokemonArtStyle(value as PokemonArtStyle)
-                  )
-                }
-              >
-                <Text style={styles.valueText}>
-                  {ART_STYLE_OPTIONS.find((option) => option.value === pokemonArtStyle)?.label || 'Sprite'}
-                </Text>
-                <Ionicons name="chevron-forward" size={18} color={colors.textLight} />
-              </TouchableOpacity>
+              <View style={styles.segmentedRow}>
+                {ART_STYLE_OPTIONS.map((option, idx) => {
+                  const selected = pokemonArtStyle === option.value;
+                  const isLast = idx === ART_STYLE_OPTIONS.length - 1;
+                  return (
+                    <TouchableOpacity
+                      key={option.value}
+                      style={[
+                        styles.segmentedButton,
+                        selected && styles.segmentedButtonActive,
+                        isLast && styles.segmentedButtonLast,
+                      ]}
+                      onPress={() => setPokemonArtStyle(option.value)}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={[styles.segmentedText, selected && styles.segmentedTextActive]}>
+                        {option.label}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
             </>
           )}
         </View>
@@ -621,6 +632,38 @@ const createStyles = (colors: ThemeColors) =>
       justifyContent: 'space-between',
       marginBottom: spacing.md,
       backgroundColor: colors.background,
+    },
+    segmentedRow: {
+      flexDirection: 'row',
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: borderRadius.md,
+      overflow: 'hidden',
+      marginBottom: spacing.md,
+      backgroundColor: colors.background,
+    },
+    segmentedButton: {
+      flex: 1,
+      paddingVertical: spacing.sm + 2,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderRightWidth: 1,
+      borderRightColor: colors.border,
+    },
+    segmentedButtonActive: {
+      backgroundColor: colors.primary,
+    },
+    segmentedButtonLast: {
+      borderRightWidth: 0,
+    },
+    segmentedText: {
+      fontSize: typography.sm,
+      fontFamily: fonts.medium,
+      color: colors.textSecondary,
+    },
+    segmentedTextActive: {
+      color: colors.onPrimary,
+      fontFamily: fonts.semibold,
     },
     inlineIconButton: {
       width: 28,

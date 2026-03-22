@@ -40,7 +40,9 @@ function rowToBinder(row: BinderRow, cardIds: string[]): Binder {
     pokemonArtStyle: row.pokemon_art_style || undefined,
     cardIds,
     totalCards: row.total_cards || 0,
-    ownedCards: cardIds.length,
+    // Use the cached DB count as source of truth for binder-level progress.
+    // cardIds is still kept for quick ownership checks in UI.
+    ownedCards: row.owned_cards || 0,
     createdAt: new Date(row.created_at),
     updatedAt: new Date(row.updated_at),
   };
@@ -281,6 +283,7 @@ export async function updateBinder(
     variantsToTrack?: string[];
     variantPlacement?: VariantPlacement;
     layoutPreference?: LayoutPreference;
+    pokemonArtStyle?: PokemonArtStyle;
   }
 ): Promise<Binder> {
   const { data: { user } } = await supabase.auth.getUser();
@@ -294,6 +297,31 @@ export async function updateBinder(
   if (updates.variantsToTrack !== undefined) updateData.variants_to_track = updates.variantsToTrack;
   if (updates.variantPlacement !== undefined) updateData.variant_placement = updates.variantPlacement;
   if (updates.layoutPreference !== undefined) updateData.layout_preference = updates.layoutPreference;
+  if (updates.pokemonArtStyle !== undefined) updateData.pokemon_art_style = updates.pokemonArtStyle;
+
+  // Recalculate total_cards when variant or art style settings change
+  if (updates.variantsToTrack !== undefined || updates.pokemonArtStyle !== undefined) {
+    const { data: currentBinder } = await supabase
+      .from('binders')
+      .select('collection_mode, set, region, variants_to_track, pokemon_art_style')
+      .eq('id', binderId)
+      .eq('user_id', user.id)
+      .single();
+
+    if (currentBinder) {
+      const effectiveVariants = updates.variantsToTrack ?? currentBinder.variants_to_track;
+      const effectiveArtStyle = updates.pokemonArtStyle ?? currentBinder.pokemon_art_style;
+
+      const newTotal = await calculateTotalCards(
+        currentBinder.collection_mode,
+        currentBinder.set,
+        currentBinder.region,
+        effectiveVariants,
+        effectiveArtStyle
+      );
+      updateData.total_cards = newTotal;
+    }
+  }
 
   const { data, error } = await supabase
     .from('binders')

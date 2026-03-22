@@ -42,7 +42,7 @@ function getVariantBadge(variant?: string) {
   const badges: Record<string, { label: string; color: string }> = {
     'reverse-holo': { label: 'RH', color: '#FFD700' }, // Gold
     'poke-ball': { label: 'PB', color: '#FF6B6B' }, // Red
-    'master-ball': { label: 'MB', color: '#4ECDC4' }, // Teal
+    'master-ball': { label: 'MB', color: '#7B2D8E' }, // Purple
   };
   return badges[variant] || null;
 }

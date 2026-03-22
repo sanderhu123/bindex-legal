@@ -27,10 +27,10 @@ const VARIANT_LABELS: Record<string, string> = {
 };
 
 const VARIANT_COLORS: Record<string, string> = {
-  'base': '#AAAAAA',
+  'base': '#126D5F',
   'reverse-holo': '#FFD700',
   'poke-ball': '#FF6B6B',
-  'master-ball': '#4ECDC4',
+  'master-ball': '#7B2D8E',
 };
 
 interface CardDetailScreenProps {
@@ -837,26 +837,25 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     textAlign: 'center',
   },
   panelVariantRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
+    alignItems: 'center',
     gap: spacing.xs,
   },
   panelVariantIcon: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 4,
-    minWidth: 28,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.sm,
+    minWidth: 32,
     alignItems: 'center',
     justifyContent: 'center',
   },
   panelVariantIconText: {
-    fontSize: 10,
+    fontSize: 12,
     fontFamily: fonts.bold,
     color: '#FFFFFF',
     textShadowColor: 'rgba(0, 0, 0, 0.3)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 2,
+    includeFontPadding: false,
   },
   // Surface cards
   infoCard: {

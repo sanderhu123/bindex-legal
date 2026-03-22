@@ -541,6 +541,8 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
 
             updatedCards = reordered.filter(c => c !== null) as CardWithOwnership[];
             console.log('[BinderDetail] Applied saved positions on refresh:', dbPositions.length);
+          } else {
+            setSavedPositionMap(null);
           }
         } catch (dbErr) {
           console.warn('[BinderDetail] Could not load saved positions on refresh:', dbErr);
@@ -628,6 +630,8 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
 
             updatedMasterCards = reordered.filter(c => c !== null) as CardWithOwnership[];
             console.log('[BinderDetail] Applied saved positions on refresh:', dbPositions.length);
+          } else {
+            setSavedPositionMap(null);
           }
         } catch (dbErr) {
           console.warn('[BinderDetail] Could not load saved positions on refresh:', dbErr);
@@ -1161,6 +1165,8 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
 
               cardsWithOwnership = reordered.filter(c => c !== null) as CardWithOwnership[];
               console.log('[BinderDetail] Applied saved card positions:', cardsWithOwnership.length, 'cards, positionMap:', posMap.size);
+            } else {
+              setSavedPositionMap(null);
             }
           } catch (dbErr) {
             console.warn('[BinderDetail] Could not load saved positions, using default order:', dbErr);

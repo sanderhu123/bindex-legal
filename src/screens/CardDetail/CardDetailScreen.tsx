@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { View, StyleSheet, Text, ScrollView, Dimensions, TouchableOpacity, Alert, TextInput, Keyboard, Animated } from 'react-native';
+import { View, StyleSheet, Text, ScrollView, Dimensions, TouchableOpacity, Alert, TextInput, Keyboard, Animated, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { getCardById } from '../../services/api/pokemonApi';
@@ -633,10 +633,10 @@ export default function CardDetailScreen({ navigation, route }: CardDetailScreen
                 disabled={isUpdating}
                 activeOpacity={1}
               >
-                <Ionicons
-                  name={isOwned ? 'close-circle-outline' : 'checkmark-circle'}
-                  size={20}
-                  color="#FFFFFF"
+                <Image
+                  source={require('../../../assets/logo-icon-white.png')}
+                  style={styles.panelBtnLogo}
+                  resizeMode="contain"
                 />
               </TouchableOpacity>
             </Animated.View>
@@ -814,6 +814,10 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   panelBtnDisabled: {
     opacity: 0.6,
+  },
+  panelBtnLogo: {
+    width: 22,
+    height: 22,
   },
   // Variant selector in action panel
   panelVariantSection: {

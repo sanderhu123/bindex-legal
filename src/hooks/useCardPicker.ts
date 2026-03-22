@@ -34,6 +34,8 @@ export interface UseCardPickerReturn {
   results: Card[];
   /** Loading state */
   loading: boolean;
+  /** True only when loading additional pages (pagination) */
+  isLoadingMore: boolean;
   /** Error message if search failed (user-friendly) */
   error: string | null;
   /** Original error object (for retry determination) - Step 32C */
@@ -50,8 +52,8 @@ export interface UseCardPickerReturn {
   totalFound: number;
   /** Current active filters */
   filters: CardSearchFilters;
-  /** Update filters (triggers new search) */
-  setFilters: (filters: CardSearchFilters) => void;
+  /** Update filters (triggers new search). Pass force=true to re-apply unchanged filters. */
+  setFilters: (filters: CardSearchFilters, options?: { force?: boolean }) => void;
   /** Clear all filters */
   clearFilters: () => void;
 }
@@ -78,6 +80,7 @@ export function useCardPicker(options?: UseCardPickerOptions): UseCardPickerRetu
   const [query, setQueryInternal] = useState(initialQuery);
   const [results, setResults] = useState<Card[]>([]);
   const [loading, setLoading] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [originalError, setOriginalError] = useState<Error | null>(null);
   const [hasMore, setHasMore] = useState(false);
@@ -91,6 +94,8 @@ export function useCardPicker(options?: UseCardPickerOptions): UseCardPickerRetu
   // Keep a ref to filters so executeSearch always uses the latest value
   const filtersRef = useRef<CardSearchFilters>(filters);
   filtersRef.current = filters;
+  // Ref to track if a load is in progress (more reliable than state for rapid calls)
+  const loadingRef = useRef(false);
 
   /**
    * Execute the search
@@ -124,13 +129,21 @@ export function useCardPicker(options?: UseCardPickerOptions): UseCardPickerRetu
       return;
     }
 
+    // Skip if query is too short (< 3 chars) and no filters are active.
+    // This prevents premature API calls while the user is still typing.
+    if (sanitizedQuery && sanitizedQuery.length < 3 && !hasActiveFilters) {
+      return;
+    }
+
     // Cancel previous request if still pending
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
     }
     abortControllerRef.current = new AbortController();
 
+    loadingRef.current = true;
     setLoading(true);
+    setIsLoadingMore(searchOffset > 0);
     if (searchOffset === 0) {
       setError(null);
       setOriginalError(null);
@@ -162,12 +175,16 @@ export function useCardPicker(options?: UseCardPickerOptions): UseCardPickerRetu
         offset: searchOffset,
       });
 
-      // Update results
+      // Update results (deduplicate to prevent "same key" errors on fast scrolling)
       if (searchOffset === 0) {
         setResults(cards);
         setTotalFound(cards.length);
       } else {
-        setResults(prev => [...prev, ...cards]);
+        setResults(prev => {
+          const existingIds = new Set(prev.map(c => c.id));
+          const newCards = cards.filter(c => !existingIds.has(c.id));
+          return [...prev, ...newCards];
+        });
         setTotalFound(prev => prev + cards.length);
       }
 
@@ -194,7 +211,9 @@ export function useCardPicker(options?: UseCardPickerOptions): UseCardPickerRetu
       }
       setHasMore(false);
     } finally {
+      loadingRef.current = false;
       setLoading(false);
+      setIsLoadingMore(false);
     }
   }, [pokemonOnly, pageSize, exactMatch]);
 
@@ -215,10 +234,41 @@ export function useCardPicker(options?: UseCardPickerOptions): UseCardPickerRetu
     }, debounceMs);
   }, [debounceMs, executeSearch]);
 
+  const normalizeFilterArray = useCallback((items?: string[]): string[] => {
+    if (!items || items.length === 0) return [];
+    return [...items].sort((a, b) => a.localeCompare(b));
+  }, []);
+
+  const areFiltersEqual = useCallback((a: CardSearchFilters, b: CardSearchFilters): boolean => {
+    const aEras = normalizeFilterArray(a.eras);
+    const bEras = normalizeFilterArray(b.eras);
+    const aSetIds = normalizeFilterArray(a.setIds);
+    const bSetIds = normalizeFilterArray(b.setIds);
+    const aRarities = normalizeFilterArray(a.rarities);
+    const bRarities = normalizeFilterArray(b.rarities);
+    const aIllustrators = normalizeFilterArray(a.illustrators);
+    const bIllustrators = normalizeFilterArray(b.illustrators);
+
+    return (
+      JSON.stringify(aEras) === JSON.stringify(bEras) &&
+      JSON.stringify(aSetIds) === JSON.stringify(bSetIds) &&
+      JSON.stringify(aRarities) === JSON.stringify(bRarities) &&
+      JSON.stringify(aIllustrators) === JSON.stringify(bIllustrators)
+    );
+  }, [normalizeFilterArray]);
+
   /**
    * Update filters and trigger a new search immediately
    */
-  const setFilters = useCallback((newFilters: CardSearchFilters) => {
+  const setFilters = useCallback((newFilters: CardSearchFilters, options?: { force?: boolean }) => {
+    const forceApply = options?.force === true;
+    const currentFilters = filtersRef.current;
+    const hasChanged = !areFiltersEqual(currentFilters, newFilters);
+
+    if (!hasChanged && !forceApply) {
+      return;
+    }
+
     setFiltersInternal(newFilters);
     filtersRef.current = newFilters;
     
@@ -230,7 +280,7 @@ export function useCardPicker(options?: UseCardPickerOptions): UseCardPickerRetu
       clearTimeout(debounceTimerRef.current);
     }
     executeSearch(query, 0, newFilters);
-  }, [query, executeSearch]);
+  }, [query, executeSearch, areFiltersEqual]);
 
   /**
    * Clear all filters
@@ -243,9 +293,11 @@ export function useCardPicker(options?: UseCardPickerOptions): UseCardPickerRetu
    * Load more results (pagination)
    */
   const loadMore = useCallback(() => {
-    if (loading || !hasMore) return;
+    // Use loadingRef (instant) instead of loading state (async) to prevent
+    // duplicate requests when swiping fast through the list
+    if (loadingRef.current || !hasMore) return;
     executeSearch(query, offset);
-  }, [loading, hasMore, query, offset, executeSearch]);
+  }, [hasMore, query, offset, executeSearch]);
 
   /**
    * Clear search and results
@@ -265,7 +317,9 @@ export function useCardPicker(options?: UseCardPickerOptions): UseCardPickerRetu
     setHasMore(false);
     setTotalFound(0);
     setOffset(0);
+    loadingRef.current = false;
     setLoading(false);
+    setIsLoadingMore(false);
     setFiltersInternal({});
     filtersRef.current = {};
   }, []);
@@ -304,6 +358,7 @@ export function useCardPicker(options?: UseCardPickerOptions): UseCardPickerRetu
     setQuery,
     results,
     loading,
+    isLoadingMore,
     error,
     originalError,
     hasMore,

@@ -106,16 +106,16 @@ export function CardPickerModal({
     setQuery,
     results,
     loading,
+    isLoadingMore,
     error,
     originalError,
     hasMore,
     loadMore,
-    clear,
     search,
     filters,
     setFilters,
   } = useCardPicker({
-    debounceMs: 300,
+    debounceMs: 500,
     initialQuery,
     pokemonOnly,
     pageSize: 30,
@@ -146,6 +146,9 @@ export function CardPickerModal({
     (filters.rarities && filters.rarities.length > 0) ||
     (filters.illustrators && filters.illustrators.length > 0)
   );
+  // Keep filter option lists stable while selecting filters.
+  // Dynamic "available-only" options are used only during active text search.
+  const useAvailableFilterOptions = query.trim().length > 0;
 
   /**
    * Dismiss keyboard when scrolling results
@@ -170,9 +173,8 @@ export function CardPickerModal({
   const handleClose = useCallback(() => {
     console.log('[CardPickerModal] Modal closed');
     Keyboard.dismiss();
-    clear();
     onClose();
-  }, [clear, onClose]);
+  }, [onClose]);
 
   /**
    * Handle backdrop press
@@ -211,18 +213,19 @@ export function CardPickerModal({
     }
   }, [visible, initialQuery, setQuery]);
 
-  // Clear when modal closes
+  // Keep search/filter state when modal closes so user can
+  // quickly continue adding more cards with the same filters.
+  // Only reset temporary custom-card input state.
   useEffect(() => {
     if (!visible) {
       // Small delay to allow close animation
       const timer = setTimeout(() => {
-        clear();
         setCustomCardName('');
         setCustomCardColor(CUSTOM_CARD_COLORS[0].hex);
       }, ANIMATION_DURATION);
       return () => clearTimeout(timer);
     }
-  }, [visible, clear]);
+  }, [visible]);
 
   // Calculate modal height based on screen size
   const modalHeight = screenHeight * MODAL_HEIGHT_RATIO;
@@ -291,7 +294,7 @@ export function CardPickerModal({
               <TextInput
                 ref={searchInputRef}
                 style={styles.searchInput}
-                placeholder="Search by name, number, or card ID..."
+                placeholder="Search by name, number or ID"
                 placeholderTextColor={colors.textTertiary}
                 value={query}
                 onChangeText={setQuery}
@@ -322,6 +325,9 @@ export function CardPickerModal({
             <CardPickerFilters
               filters={filters}
               onFiltersChange={setFilters}
+              availableCards={results}
+              useAvailableOptions={useAvailableFilterOptions}
+              query={query}
             />
           )}
 
@@ -417,6 +423,7 @@ export function CardPickerModal({
                 results={results}
                 onSelectCard={handleSelectCard}
                 loading={loading}
+                isLoadingMore={isLoadingMore}
                 error={error}
                 originalError={originalError}
                 hasMore={hasMore}

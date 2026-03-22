@@ -8,7 +8,8 @@ import {
   TextInput,
   Keyboard,
 } from 'react-native';
-import type { CardSearchFilters } from '../../types';
+import { Ionicons } from '@expo/vector-icons';
+import type { Card, CardSearchFilters } from '../../types';
 import { POKEMON_ERAS } from '../../data/pokemonEras';
 import { SearchableListPicker, type ListPickerItem } from './SearchableListPicker';
 import { useTheme } from '../../context/ThemeContext';
@@ -22,7 +23,13 @@ export interface CardPickerFiltersProps {
   /** Current active filters */
   filters: CardSearchFilters;
   /** Called when filters change */
-  onFiltersChange: (filters: CardSearchFilters) => void;
+  onFiltersChange: (filters: CardSearchFilters, options?: { force?: boolean }) => void;
+  /** Current card results (used for dynamic/cascading filter options) */
+  availableCards?: Card[];
+  /** When true, build filter options from availableCards instead of global lists */
+  useAvailableOptions?: boolean;
+  /** Current search query from card picker */
+  query?: string;
 }
 
 
@@ -35,7 +42,13 @@ export interface CardPickerFiltersProps {
  * - Active chips show the count or single value, with an X to clear
  * - Era and Set are linked: selecting eras narrows the set list
  */
-export function CardPickerFilters({ filters, onFiltersChange }: CardPickerFiltersProps) {
+export function CardPickerFilters({
+  filters,
+  onFiltersChange,
+  availableCards = [],
+  useAvailableOptions = false,
+  query = '',
+}: CardPickerFiltersProps) {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   // Which picker is currently open
@@ -44,31 +57,195 @@ export function CardPickerFilters({ filters, onFiltersChange }: CardPickerFilter
   const [showIllustratorInput, setShowIllustratorInput] = useState(false);
   // Local illustrator text (committed on submit)
   const [illustratorText, setIllustratorText] = useState('');
-  // Rarities fetched from the TCGDEX API (filtered by selected sets when applicable)
+  // Rarities fetched from API for fallback mode (non-dynamic)
   const [apiRarities, setApiRarities] = useState<string[]>([]);
+  const [fullSearchRarities, setFullSearchRarities] = useState<string[]>([]);
 
   useEffect(() => {
-    const setIds = filters.setIds && filters.setIds.length > 0 ? filters.setIds : [];
-    if (setIds.length > 0) {
-      getRaritiesForSets(setIds).then(setApiRarities);
-    } else {
+    if (!useAvailableOptions) {
       getRarities().then(setApiRarities);
     }
-  }, [filters.setIds]);
+  }, [useAvailableOptions]);
 
-  // ----- Build era items from hard-coded data -----
+  // Build lookups once from hard-coded era data
+  const setMetaById = useMemo(() => {
+    const byId = new Map<string, { name: string; eraName: string; releaseDate: string }>();
+    for (const era of POKEMON_ERAS) {
+      for (const set of era.sets) {
+        byId.set(set.id.toLowerCase(), {
+          name: set.name,
+          eraName: era.name,
+          releaseDate: set.releaseDate,
+        });
+      }
+    }
+    return byId;
+  }, []);
+
+  const setIdByName = useMemo(() => {
+    const byName = new Map<string, string>();
+    for (const era of POKEMON_ERAS) {
+      for (const set of era.sets) {
+        byName.set(set.name.toLowerCase(), set.id);
+      }
+    }
+    return byName;
+  }, []);
+
+  const extractSetId = useCallback((cardId: string): string => {
+    const lastDash = cardId.lastIndexOf('-');
+    if (lastDash <= 0) return cardId.toLowerCase();
+    return cardId.slice(0, lastDash).toLowerCase();
+  }, []);
+
+  // Aggregate available set/era data from current search results
+  const availableSetMap = useMemo(() => {
+    const map = new Map<string, { label: string; eraName: string; releaseDate: string; count: number }>();
+
+    for (const card of availableCards) {
+      const rawSetId = extractSetId(card.id || '');
+      const byIdMeta = setMetaById.get(rawSetId);
+      const byNameId = card.set ? setIdByName.get(card.set.toLowerCase()) : undefined;
+      const resolvedSetId = (rawSetId && setMetaById.has(rawSetId))
+        ? rawSetId
+        : (byNameId ? byNameId.toLowerCase() : rawSetId);
+      const meta = setMetaById.get(resolvedSetId);
+
+      // Ignore cards that can't be mapped to a known set/era.
+      if (!resolvedSetId || !meta) continue;
+
+      const current = map.get(resolvedSetId);
+      if (current) {
+        current.count += 1;
+      } else {
+        map.set(resolvedSetId, {
+          // Always prefer canonical set name from hard-coded era data,
+          // so users see full names (not abbreviated set IDs like "sv08").
+          label: meta.name || byIdMeta?.name || card.set || resolvedSetId,
+          eraName: meta.eraName,
+          releaseDate: meta.releaseDate,
+          count: 1,
+        });
+      }
+    }
+
+    return map;
+  }, [availableCards, extractSetId, setMetaById, setIdByName]);
+
+  const availableEraCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const value of availableSetMap.values()) {
+      // Count sets per era (one availableSetMap entry = one set)
+      counts.set(value.eraName, (counts.get(value.eraName) || 0) + 1);
+    }
+    return counts;
+  }, [availableSetMap]);
+
+  const availableRarities = useMemo(() => {
+    const raritySet = new Set<string>();
+    for (const card of availableCards) {
+      const rarity = card.rarity?.trim();
+      if (rarity) raritySet.add(rarity);
+    }
+    return Array.from(raritySet).sort((a, b) => a.localeCompare(b));
+  }, [availableCards]);
+
+  // For rarity, use dynamic "available" options whenever a text search
+  // or non-rarity filters are active.
+  const hasOtherActiveFilters = !!(
+    (filters.eras && filters.eras.length > 0) ||
+    (filters.setIds && filters.setIds.length > 0) ||
+    (filters.illustrators && filters.illustrators.length > 0)
+  );
+  const useAvailableRarityOptions = useAvailableOptions || hasOtherActiveFilters;
+
+  // Build rarity options from the FULL matching search set (not just loaded page).
+  // We intentionally remove the rarity filter so users can see all possible rarities
+  // available under the current query + other active filters.
+  useEffect(() => {
+    if (!useAvailableRarityOptions) {
+      setFullSearchRarities([]);
+      return;
+    }
+
+    let cancelled = false;
+
+    const fetchRarities = async () => {
+      try {
+        // Always use the fast getRaritiesForSets path.
+        // Derive set IDs from selected sets or eras, then query the
+        // dedicated rarity endpoint (single cached API call per set).
+        // This avoids a slow second search with unlimited results.
+        let setIdsForLookup: string[] = [];
+        if (filters.setIds && filters.setIds.length > 0) {
+          setIdsForLookup = filters.setIds;
+        } else if (filters.eras && filters.eras.length > 0) {
+          const setIdSet = new Set<string>();
+          for (const eraName of filters.eras) {
+            const era = POKEMON_ERAS.find(e => e.name === eraName);
+            if (!era) continue;
+            for (const set of era.sets) setIdSet.add(set.id);
+          }
+          setIdsForLookup = Array.from(setIdSet);
+        }
+
+        const rarities = await getRaritiesForSets(setIdsForLookup);
+        if (cancelled) return;
+        setFullSearchRarities(rarities);
+      } catch {
+        if (!cancelled) {
+          setFullSearchRarities([]);
+        }
+      }
+    };
+
+    fetchRarities();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [useAvailableRarityOptions, filters.eras, filters.setIds]);
+
+  // ----- Build era items -----
   const eraItems: ListPickerItem[] = useMemo(() => {
+    if (useAvailableOptions) {
+      const items: ListPickerItem[] = [];
+      for (const era of POKEMON_ERAS) {
+        const count = availableEraCounts.get(era.name);
+        if (!count) continue;
+        items.push({
+          id: era.name,
+          label: era.name,
+          // Use canonical era metadata for stable, correct set counts.
+          subtitle: `${era.sets.length} set${era.sets.length === 1 ? '' : 's'}`,
+        });
+      }
+      return items;
+    }
+
     return POKEMON_ERAS.map(era => ({
       id: era.name,
       label: era.name,
       subtitle: `${era.sets.length} sets`,
     }));
-  }, []);
+  }, [availableEraCounts, useAvailableOptions]);
 
   // ----- Build set items (filtered by selected eras) -----
   const setItems: ListPickerItem[] = useMemo(() => {
-    const items: ListPickerItem[] = [];
     const selectedEras = filters.eras && filters.eras.length > 0 ? filters.eras : null;
+    const items: ListPickerItem[] = [];
+
+    if (useAvailableOptions) {
+      for (const [setId, value] of availableSetMap.entries()) {
+        if (selectedEras && !selectedEras.includes(value.eraName)) continue;
+        items.push({
+          id: setId,
+          label: value.label,
+          subtitle: `${value.eraName} - ${value.releaseDate || 'Unknown date'}`,
+        });
+      }
+      return items.sort((a, b) => a.label.localeCompare(b.label));
+    }
 
     if (selectedEras) {
       // Only show sets from selected eras
@@ -79,7 +256,7 @@ export function CardPickerFilters({ filters, onFiltersChange }: CardPickerFilter
             items.push({
               id: set.id,
               label: set.name,
-              subtitle: `${era.name} â€¢ ${set.releaseDate}`,
+              subtitle: `${era.name} - ${set.releaseDate}`,
             });
           }
         }
@@ -91,19 +268,26 @@ export function CardPickerFilters({ filters, onFiltersChange }: CardPickerFilter
           items.push({
             id: set.id,
             label: set.name,
-            subtitle: `${era.name} â€¢ ${set.releaseDate}`,
+            subtitle: `${era.name} - ${set.releaseDate}`,
           });
         }
       }
     }
 
     return items;
-  }, [filters.eras]);
+  }, [availableSetMap, filters.eras, useAvailableOptions]);
 
-  // ----- Build rarity items from API data -----
+  // ----- Build rarity items -----
   const rarityItems: ListPickerItem[] = useMemo(() => {
+    if (useAvailableRarityOptions) {
+      return fullSearchRarities.map(r => ({ id: r, label: r }));
+    }
     return apiRarities.map(r => ({ id: r, label: r }));
-  }, [apiRarities]);
+  }, [apiRarities, fullSearchRarities, useAvailableRarityOptions]);
+
+  // Important: do NOT auto-clear selected filters when available options change.
+  // Options are built from currently loaded results (which are paginated), so
+  // auto-pruning here can incorrectly remove active filters while scrolling.
 
   // ----- Convert arrays to Sets for the picker -----
   const eraSelectedIds = useMemo(() => new Set(filters.eras || []), [filters.eras]);
@@ -132,7 +316,7 @@ export function CardPickerFilters({ filters, onFiltersChange }: CardPickerFilter
         ...filters,
         eras: eras.length > 0 ? eras : undefined,
         setIds: setIds.length > 0 ? setIds : undefined,
-      });
+      }, { force: true });
     },
     [filters, onFiltersChange]
   );
@@ -146,7 +330,7 @@ export function CardPickerFilters({ filters, onFiltersChange }: CardPickerFilter
       onFiltersChange({
         ...filters,
         setIds: setIds.length > 0 ? setIds : undefined,
-      });
+      }, { force: true });
     },
     [filters, onFiltersChange]
   );
@@ -159,7 +343,7 @@ export function CardPickerFilters({ filters, onFiltersChange }: CardPickerFilter
       onFiltersChange({
         ...filters,
         rarities: rarities.length > 0 ? rarities : undefined,
-      });
+      }, { force: true });
     },
     [filters, onFiltersChange]
   );
@@ -292,7 +476,7 @@ export function CardPickerFilters({ filters, onFiltersChange }: CardPickerFilter
                 onPress={() => handleRemoveIllustrator(name)}
                 hitSlop={{ top: 6, bottom: 6, left: 4, right: 6 }}
               >
-                <Text style={styles.tagRemove}>âœ•</Text>
+                <Ionicons name="close" size={10} color={colors.primary} style={styles.tagRemove} />
               </TouchableOpacity>
             </View>
           ))}
@@ -330,7 +514,7 @@ export function CardPickerFilters({ filters, onFiltersChange }: CardPickerFilter
                 onPress={() => setIllustratorText('')}
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               >
-                <Text style={styles.inputClearIcon}>âœ•</Text>
+                <Ionicons name="close" size={12} color={colors.textTertiary} style={styles.inputClearIcon} />
               </TouchableOpacity>
             )}
           </View>
@@ -411,7 +595,7 @@ function FilterChip({ label, value, onPress, onClear }: FilterChipProps) {
           hitSlop={{ top: 8, bottom: 8, left: 4, right: 8 }}
           style={styles.chipClearButton}
         >
-          <Text style={styles.chipClearIcon}>âœ•</Text>
+          <Ionicons name="close" size={10} color={colors.primary} style={styles.chipClearIcon} />
         </TouchableOpacity>
       </View>
     );
@@ -426,7 +610,7 @@ function FilterChip({ label, value, onPress, onClear }: FilterChipProps) {
       <Text style={styles.chipText} numberOfLines={1}>
         {label}
       </Text>
-      <Text style={styles.chipArrow}>â–¾</Text>
+      <Ionicons name="chevron-down" size={10} color={colors.textTertiary} style={styles.chipArrow} />
     </TouchableOpacity>
   );
 }
@@ -488,7 +672,6 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   chipClearIcon: {
     fontSize: 10,
     color: colors.primary,
-    fontFamily: fonts.bold,
   },
 
   // -- Clear all --

@@ -1793,7 +1793,6 @@ export async function searchCardsByName(
   if (cachedSorted && isSearchCacheValid(cachedSorted.timestamp)) {
     // We have the full sorted list - return the requested page
     const paginatedResults = cachedSorted.cards.slice(offset, offset + limit);
-    const enrichedPaginatedResults = await enrichSearchCards(paginatedResults);
     const duration = performance.now() - startTime;
     
     console.log('[28A] Returning from sorted cache:', {
@@ -1801,12 +1800,12 @@ export async function searchCardsByName(
       totalCached: cachedSorted.cards.length,
       offset,
       limit,
-      returned: enrichedPaginatedResults.length,
+      returned: paginatedResults.length,
       duration: `${duration.toFixed(2)}ms`,
       performance: 'excellent (cached)',
     });
     
-    return enrichedPaginatedResults;
+    return paginatedResults;
   }
   
   // Step 2: Check if rate limited
@@ -2184,27 +2183,26 @@ export async function searchCardsByName(
       // SORT ALL cards by set release date (newest first) ONCE
       const sortStartTime = performance.now();
       const allSortedCards = sortCardsBySetDate(clientFilteredCards);
-      const enrichedAllSortedCards = await enrichSearchCards(allSortedCards);
       const sortDuration = performance.now() - sortStartTime;
       
       console.log('[28A] All cards sorted by release date:', {
-        totalCards: enrichedAllSortedCards.length,
+        totalCards: allSortedCards.length,
         sortDuration: `${sortDuration.toFixed(2)}ms`,
-        newestCard: enrichedAllSortedCards[0] ? { id: enrichedAllSortedCards[0].id, set: enrichedAllSortedCards[0].set } : null,
-        oldestCard: enrichedAllSortedCards[enrichedAllSortedCards.length - 1] ? { 
-          id: enrichedAllSortedCards[enrichedAllSortedCards.length - 1].id, 
-          set: enrichedAllSortedCards[enrichedAllSortedCards.length - 1].set 
+        newestCard: allSortedCards[0] ? { id: allSortedCards[0].id, set: allSortedCards[0].set } : null,
+        oldestCard: allSortedCards[allSortedCards.length - 1] ? { 
+          id: allSortedCards[allSortedCards.length - 1].id, 
+          set: allSortedCards[allSortedCards.length - 1].set 
         } : null,
       });
       
       // Cache the FULL sorted list for stable pagination
       sortedSearchCache.set(sortedCacheKey, {
-        cards: enrichedAllSortedCards,
+        cards: allSortedCards,
         timestamp: Date.now(),
       });
       
       // Return only the requested page
-      const paginatedResults = enrichedAllSortedCards.slice(offset, offset + limit);
+      const paginatedResults = allSortedCards.slice(offset, offset + limit);
       
       const totalDuration = performance.now() - startTime;
       const performanceRating = totalDuration < 1000 ? 'excellent' : 
@@ -2213,7 +2211,7 @@ export async function searchCardsByName(
       
       console.log('[28A] searchCardsByName() completed:', {
         query: sanitizedQuery,
-        totalAvailable: enrichedAllSortedCards.length,
+        totalAvailable: allSortedCards.length,
         offset,
         limit,
         returned: paginatedResults.length,

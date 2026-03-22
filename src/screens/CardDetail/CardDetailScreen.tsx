@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { View, StyleSheet, Text, ScrollView, Dimensions, TouchableOpacity, Alert, TextInput, Keyboard, Animated, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { getCardById } from '../../services/api/pokemonApi';
 import { getBinderById } from '../../services/supabase/binders';
 import { addCardToBinder, removeCardFromBinder, toggleCardOwnershipAtPosition, toggleExtraCardOwnership, getBinderCardData, saveCardNote, updateCardVariant } from '../../services/supabase/cards';
@@ -24,6 +24,13 @@ const VARIANT_LABELS: Record<string, string> = {
   'reverse-holo': 'Reverse Holo',
   'poke-ball': 'Poke Ball',
   'master-ball': 'Master Ball',
+};
+
+const VARIANT_ICONS: Record<string, { set: 'ionicons' | 'mci'; name: string; color?: string }> = {
+  'base': { set: 'ionicons', name: 'card-outline' },
+  'reverse-holo': { set: 'ionicons', name: 'sparkles' },
+  'poke-ball': { set: 'mci', name: 'pokeball', color: '#EE1515' },
+  'master-ball': { set: 'mci', name: 'pokeball', color: '#7B2D8E' },
 };
 
 interface CardDetailScreenProps {
@@ -670,31 +677,31 @@ export default function CardDetailScreen({ navigation, route }: CardDetailScreen
             {showVariantSelector && (
               <View style={styles.panelVariantSection}>
                 <Text style={styles.panelVariantLabel}>Variant</Text>
-                {availableVariants.map((v) => {
-                  const isSelected = (card.variant || 'base') === v;
-                  return (
-                    <TouchableOpacity
-                      key={v}
-                      style={[
-                        styles.panelVariantChip,
-                        isSelected ? styles.panelVariantChipSelected : styles.panelVariantChipUnselected,
-                      ]}
-                      onPress={() => handleVariantChange(v as CardVariant)}
-                      disabled={isUpdatingVariant || isSelected}
-                      activeOpacity={0.7}
-                    >
-                      <Text
+                <View style={styles.panelVariantRow}>
+                  {availableVariants.map((v) => {
+                    const isSelected = (card.variant || 'base') === v;
+                    const iconInfo = VARIANT_ICONS[v];
+                    const iconColor = isSelected ? '#FFFFFF' : (iconInfo?.color || colors.textSecondary);
+                    return (
+                      <TouchableOpacity
+                        key={v}
                         style={[
-                          styles.panelVariantChipText,
-                          isSelected ? styles.panelVariantChipTextSelected : styles.panelVariantChipTextUnselected,
+                          styles.panelVariantIcon,
+                          isSelected ? styles.panelVariantIconSelected : styles.panelVariantIconUnselected,
                         ]}
-                        numberOfLines={1}
+                        onPress={() => handleVariantChange(v as CardVariant)}
+                        disabled={isUpdatingVariant || isSelected}
+                        activeOpacity={0.7}
                       >
-                        {VARIANT_LABELS[v] || v}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
+                        {iconInfo?.set === 'mci' ? (
+                          <MaterialCommunityIcons name={iconInfo.name as any} size={20} color={iconColor} />
+                        ) : (
+                          <Ionicons name={(iconInfo?.name || 'help-outline') as any} size={20} color={iconColor} />
+                        )}
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
               </View>
             )}
           </View>
@@ -831,28 +838,26 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     fontSize: typography.xs,
     fontFamily: fonts.semibold,
     color: colors.textTertiary,
+    textAlign: 'center',
   },
-  panelVariantChip: {
-    paddingVertical: spacing.xs,
-    paddingHorizontal: spacing.sm,
-    borderRadius: borderRadius.sm,
+  panelVariantRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: spacing.xs,
+  },
+  panelVariantIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: borderRadius.lg,
     alignItems: 'center',
+    justifyContent: 'center',
   },
-  panelVariantChipSelected: {
+  panelVariantIconSelected: {
     backgroundColor: colors.primary,
   },
-  panelVariantChipUnselected: {
+  panelVariantIconUnselected: {
     backgroundColor: colors.backgroundDark,
-  },
-  panelVariantChipText: {
-    fontSize: typography.xs,
-    fontFamily: fonts.medium,
-  },
-  panelVariantChipTextSelected: {
-    color: colors.onPrimary,
-  },
-  panelVariantChipTextUnselected: {
-    color: colors.textSecondary,
   },
   // Surface cards
   infoCard: {

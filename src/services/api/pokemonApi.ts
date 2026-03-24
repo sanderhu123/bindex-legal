@@ -2225,6 +2225,38 @@ export async function searchCardsByName(
       const allSortedCards = sortCardsBySetDate(clientFilteredCards);
       const sortDuration = performance.now() - sortStartTime;
       
+      // Fetch rarity data for filter metadata.
+      // The list API doesn't include rarity, so fetch from individual card details.
+      const rarityMap = new Map<string, string>();
+      const baseIdsToFetch: string[] = [];
+      for (const card of allSortedCards) {
+        if (card.rarity && card.rarity.trim()) continue;
+        const baseId = card.id.replace(/-(base|holo|reverse|poke-ball|master-ball)$/i, '');
+        if (!baseId || rarityMap.has(baseId)) continue;
+        const cached = searchCardDetailsCache.get(baseId);
+        if (cached?.rarity) {
+          rarityMap.set(baseId, cached.rarity);
+        } else {
+          rarityMap.set(baseId, '');
+          baseIdsToFetch.push(baseId);
+        }
+      }
+
+      if (baseIdsToFetch.length > 0) {
+        await Promise.all(
+          baseIdsToFetch.map(async (baseId) => {
+            try {
+              const fullCard = await getCardById(baseId);
+              if (fullCard?.rarity) {
+                rarityMap.set(baseId, fullCard.rarity);
+              }
+            } catch {
+              // Skip failed fetches
+            }
+          })
+        );
+      }
+
       // Extract filter metadata from ALL matching cards (not just the page).
       // This lets the filter component show all relevant eras/sets.
       const metaSetIds = new Set<string>();
@@ -2245,7 +2277,11 @@ export async function searchCardsByName(
             if (eraForSet) metaEras.add(eraForSet.name);
           }
         }
-        const rarity = card.rarity?.trim();
+        let rarity = card.rarity?.trim();
+        if (!rarity) {
+          const baseId = card.id.replace(/-(base|holo|reverse|poke-ball|master-ball)$/i, '');
+          rarity = rarityMap.get(baseId)?.trim();
+        }
         if (rarity) metaRarities.add(rarity);
       }
       const filterMeta: SearchFilterMeta = {

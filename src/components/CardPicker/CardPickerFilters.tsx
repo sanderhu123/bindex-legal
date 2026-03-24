@@ -141,11 +141,15 @@ export function CardPickerFilters({
   }, [hasSearchMeta, filterMeta?.setIds, filters.eras]);
 
   // ----- Build rarity items -----
-  // When a search is active, use rarities from filterMeta (extracted from all matching cards).
-  // Otherwise fall back to the global rarity list.
+  // When search results include rarity data, use only those rarities.
+  // When a search is active but rarities are empty (API didn't return them),
+  // show nothing rather than the global list (which includes irrelevant rarities).
   const rarityItems: ListPickerItem[] = useMemo(() => {
-    if (hasSearchMeta && filterMeta && filterMeta.rarities.length > 0) {
+    if (filterMeta && filterMeta.rarities.length > 0) {
       return filterMeta.rarities.map(r => ({ id: r, label: r }));
+    }
+    if (hasSearchMeta) {
+      return [];
     }
     return apiRarities.map(r => ({ id: r, label: r }));
   }, [apiRarities, hasSearchMeta, filterMeta?.rarities]);

@@ -37,18 +37,51 @@ function getSetLogoUrl(setId: string, seriesSlug: string): string {
 }
 
 /**
- * Generate symbol URL for a set from TCGDEX
+ * Mapping of TCGDEX set IDs to pokemontcg.io set IDs (only for IDs that differ).
+ * Sets not listed here use the same ID on both platforms.
+ */
+const TCGDEX_TO_POKEMONTCGIO: Record<string, string> = {
+  // Mega Evolution era
+  'me02': 'me2',
+  'me01': 'me1',
+  // Scarlet & Violet era
+  'sv10.5b': 'zsv10pt5',
+  'sv10.5w': 'rsv10pt5',
+  'sv09': 'sv9',
+  'sv08.5': 'sv8pt5',
+  'sv08': 'sv8',
+  'sv07': 'sv7',
+  'sv06.5': 'sv6pt5',
+  'sv06': 'sv6',
+  'sv05': 'sv5',
+  'sv04.5': 'sv4pt5',
+  'sv04': 'sv4',
+  'sv03.5': 'sv3pt5',
+  'sv03': 'sv3',
+  'sv02': 'sv2',
+  'sv01': 'sv1',
+  // Sword & Shield era
+  'swsh12.5': 'swsh12pt5',
+  'swsh10.5': 'pgo',
+  'swsh4.5': 'swsh45',
+  'swsh3.5': 'swsh35',
+  // Sun & Moon era
+  'sm7.5': 'sm75',
+  'sm3.5': 'sm35',
+  // Special / Promo sets
+  'lc': 'base6',
+  'fut2020': 'fut20',
+  'hgssp': 'hsp',
+  'bog': 'bp',
+};
+
+/**
+ * Generate symbol URL for a set using pokemontcg.io
+ * Falls back to this source because TCGDEX is missing symbols for many newer sets.
  */
 function getSetSymbolUrl(setId: string): string {
-  const seriesSlug = getSeriesSlugFromId(setId);
-  
-  // If set has no images, return empty string
-  if (seriesSlug === 'NO_IMAGES' || !seriesSlug) {
-    return '';
-  }
-  
-  // NOTE: Symbols keep the dot in set IDs (e.g., 'sm3.5'), unlike card images which remove it
-  return `https://assets.tcgdex.net/univ/${seriesSlug}/${setId}/symbol.png`;
+  const pokemontcgioId = TCGDEX_TO_POKEMONTCGIO[setId] || setId;
+  return `https://images.pokemontcg.io/${pokemontcgioId}/symbol.png`;
 }
 
 /**

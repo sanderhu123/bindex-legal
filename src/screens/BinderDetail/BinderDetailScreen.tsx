@@ -3224,12 +3224,8 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
                 onPreviousPage={() => setCurrentPage(p => Math.max(1, p - 1))}
                 onNextPage={() => setCurrentPage(p => Math.min(binderTotalPages, p + 1))}
                 onJumpToPage={() => setShowJumpModal(true)}
+                subtitle={`Cards ${((currentPage - 1) * cardsPerPage) + 1}–${Math.min(currentPage * cardsPerPage, binderCards.length)} of ${binderCards.length}`}
               />
-              <View style={styles.binderPageInfo}>
-                <Text style={styles.binderPageInfoText}>
-                  Cards {((currentPage - 1) * cardsPerPage) + 1} - {Math.min(currentPage * cardsPerPage, binderCards.length)} of {binderCards.length}
-                </Text>
-              </View>
             </>
           )}
         </ScrollView>
@@ -3714,15 +3710,6 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   checkboxIcon: {
     fontSize: 22,
     color: colors.primary,
-  },
-  binderPageInfo: {
-    alignItems: 'center',
-    paddingVertical: spacing.xs,
-  },
-  binderPageInfoText: {
-    fontSize: typography.sm,
-    color: colors.textTertiary,
-    fontFamily: fonts.regular,
   },
   stickyFooter: {
     borderTopWidth: 1,

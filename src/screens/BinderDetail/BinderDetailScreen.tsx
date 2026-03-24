@@ -3185,21 +3185,17 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
 
     return (
       <SafeAreaView style={styles.safeArea}>
-        <ScrollView
-          style={styles.scrollViewStyle}
-          contentContainerStyle={styles.container}
-          onScroll={onScrollEvent}
-          scrollEventThrottle={16}
-        >
+        <View style={styles.binderHeaderWrapper}>
           {listHeader}
-          
+        </View>
+        <View style={styles.binderLockedArea}>
           {loading ? (
             <SkeletonCardGrid columns={gridColumns} rows={3} />
           ) : !binderHasCards ? (
             <ListEmptyComponent />
           ) : (
             <>
-              <View {...binderPanResponder.panHandlers}>
+              <View style={styles.binderGridArea} {...binderPanResponder.panHandlers}>
                 <BinderPageView
                   cards={binderCards}
                   currentPage={currentPage}
@@ -3228,7 +3224,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
               />
             </>
           )}
-        </ScrollView>
+        </View>
         <JumpToPageModal
           visible={showJumpModal}
           currentPage={currentPage}
@@ -3586,6 +3582,18 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   flatListContainer: {
     padding: screenPadding,
     paddingBottom: 80,
+  },
+  binderHeaderWrapper: {
+    paddingHorizontal: screenPadding,
+    paddingTop: screenPadding,
+  },
+  binderLockedArea: {
+    flex: 1,
+    paddingHorizontal: screenPadding,
+    paddingBottom: spacing.sm,
+  },
+  binderGridArea: {
+    flex: 1,
   },
   headerContainer: {
     marginBottom: spacing.xs,

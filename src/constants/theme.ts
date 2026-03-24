@@ -35,7 +35,11 @@ export const lightColors = {
 
   variantReverseHolo: '#FFD700',
   variantPokeBall: '#FF6B6B',
-  variantMasterBall: '#4ECDC4',
+  variantMasterBall: '#7B2D8E',
+
+  proAccent: '#DAA520',
+  proAccentText: '#FFFFFF',
+  proAccentTint: 'rgba(218, 165, 32, 0.08)',
 
   overlay: 'rgba(0, 0, 0, 0.4)',
   overlayLight: 'rgba(255, 255, 255, 0.9)',
@@ -75,7 +79,11 @@ export const darkColors: ThemeColors = {
 
   variantReverseHolo: '#FFD700',
   variantPokeBall: '#FF6B6B',
-  variantMasterBall: '#4ECDC4',
+  variantMasterBall: '#7B2D8E',
+
+  proAccent: '#DAA520',
+  proAccentText: '#FFFFFF',
+  proAccentTint: 'rgba(218, 165, 32, 0.12)',
 
   overlay: 'rgba(0, 0, 0, 0.6)',
   overlayLight: 'rgba(30, 30, 30, 0.9)',

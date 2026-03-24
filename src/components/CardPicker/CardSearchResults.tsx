@@ -1,4 +1,4 @@
-import React, { useCallback, memo, useMemo } from 'react';
+import React, { useCallback, memo, useMemo, useRef } from 'react';
 import {
   View,
   StyleSheet,
@@ -9,6 +9,7 @@ import {
   type ListRenderItemInfo,
   type ViewToken,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import type { Card } from '../../types';
 import CardImage from '../Card/CardImage';
 import { useTheme } from '../../context/ThemeContext';
@@ -43,7 +44,8 @@ const CardResultItem = memo(function CardResultItem({ card, onSelect, isVisible 
       style={styles.cardItem}
       onPress={() => onSelect(card)}
       onLongPress={onLongPress ? () => onLongPress(card) : undefined}
-      onPressOut={onLongPressRelease}
+      onResponderRelease={onLongPressRelease}
+      onResponderTerminate={onLongPressRelease}
       delayLongPress={300}
       activeOpacity={0.7}
     >
@@ -58,7 +60,7 @@ const CardResultItem = memo(function CardResultItem({ card, onSelect, isVisible 
           />
         ) : (
           <View style={styles.cardImagePlaceholder}>
-            <ActivityIndicator size="small" color="#999" />
+            <ActivityIndicator size="small" color={colors.textTertiary} />
           </View>
         )}
       </View>
@@ -67,17 +69,11 @@ const CardResultItem = memo(function CardResultItem({ card, onSelect, isVisible 
           {card.name}
         </Text>
         <Text style={styles.cardDetails} numberOfLines={1}>
-          #{card.number} • {card.set || 'Unknown Set'}
+          #{card.number} - {card.set || 'Unknown Set'}
         </Text>
-        {card.rarity ? (
-          <Text style={styles.cardRarity}>{card.rarity}</Text>
-        ) : null}
-        {card.supertype ? (
-          <Text style={styles.cardSupertype}>{card.supertype}</Text>
-        ) : null}
       </View>
       <View style={styles.selectIndicator}>
-        <Text style={styles.selectIcon}>›</Text>
+        <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
       </View>
     </TouchableOpacity>
   );
@@ -93,6 +89,8 @@ export interface CardSearchResultsProps {
   onSelectCard: (card: Card) => void;
   /** Loading state */
   loading?: boolean;
+  /** Whether loading is pagination (load more) instead of a new search */
+  isLoadingMore?: boolean;
   /** Error message to display */
   error?: string | null;
   /** The original error object (for determining if retry is possible) */
@@ -128,6 +126,7 @@ export function CardSearchResults({
   results,
   onSelectCard,
   loading = false,
+  isLoadingMore = false,
   error = null,
   originalError = null,
   hasMore = false,
@@ -148,35 +147,24 @@ export function CardSearchResults({
   const [visibleItems, setVisibleItems] = React.useState<Set<string>>(new Set());
   
   /**
-   * Viewability config for tracking visible items
-   * Items are considered visible when at least 20% is on screen
+   * Keep FlatList viewability config/callback stable for entire component life.
+   * FlatList throws if viewabilityConfigCallbackPairs identity changes.
    */
-  const viewabilityConfig = useMemo(() => ({
-    itemVisiblePercentThreshold: 20,
-    minimumViewTime: 100, // Minimum time visible before triggering
-  }), []);
-  
-  /**
-   * Callback when viewable items change
-   * Updates the set of visible items for lazy loading
-   */
-  const onViewableItemsChanged = useCallback(({ viewableItems }: { viewableItems: ViewToken[] }) => {
-    const newVisibleSet = new Set<string>();
-    viewableItems.forEach((item) => {
-      if (item.item?.id) {
-        newVisibleSet.add(item.item.id);
-      }
-    });
-    setVisibleItems(newVisibleSet);
-  }, []);
-  
-  /**
-   * Stable ref for viewableItemsChanged callback (required by FlatList)
-   */
-  const viewabilityConfigCallbackPairs = useMemo(() => [{
-    viewabilityConfig,
-    onViewableItemsChanged,
-  }], [viewabilityConfig, onViewableItemsChanged]);
+  const viewabilityConfigCallbackPairsRef = useRef([{
+    viewabilityConfig: {
+      itemVisiblePercentThreshold: 20,
+      minimumViewTime: 100,
+    },
+    onViewableItemsChanged: ({ viewableItems }: { viewableItems: ViewToken[] }) => {
+      const newVisibleSet = new Set<string>();
+      viewableItems.forEach((item) => {
+        if (item.item?.id) {
+          newVisibleSet.add(item.item.id);
+        }
+      });
+      setVisibleItems(newVisibleSet);
+    },
+  }]);
   
   /**
    * getItemLayout for fixed-height items (improves scroll performance)
@@ -206,7 +194,7 @@ export function CardSearchResults({
    * Render the footer (loading or load more button)
    */
   const renderFooter = useCallback(() => {
-    if (loading && results.length > 0) {
+    if (isLoadingMore && results.length > 0) {
       return (
         <View style={styles.footerLoading}>
           <ActivityIndicator size="small" color={colors.primary} />
@@ -234,23 +222,39 @@ export function CardSearchResults({
     }
 
     return null;
-  }, [loading, results.length, hasMore, onLoadMore]);
+  }, [isLoadingMore, results.length, hasMore, onLoadMore, colors.primary, styles.footerLoading, styles.footerText, styles.loadMoreButton, styles.loadMoreText, styles.footerEnd, styles.footerEndText]);
+
+  /**
+   * Render loading state at top when doing a new search with existing results.
+   * This keeps the spinner visible without needing to scroll to the footer.
+   */
+  const renderHeader = useCallback(() => {
+    if (loading && !isLoadingMore && results.length > 0) {
+      return (
+        <View style={styles.headerLoading}>
+          <ActivityIndicator size="small" color={colors.primary} />
+          <Text style={styles.headerLoadingText}>Searching...</Text>
+        </View>
+      );
+    }
+    return null;
+  }, [loading, isLoadingMore, results.length, colors.primary, styles.headerLoading, styles.headerLoadingText]);
 
   /**
    * Get error icon based on error type (Step 32C)
    */
-  const getErrorIcon = useCallback((errorType: AppErrorType): string => {
+  const getErrorIconName = useCallback((errorType: AppErrorType): keyof typeof Ionicons.glyphMap => {
     switch (errorType) {
       case 'network':
-        return '📶'; // Network/signal icon
+        return 'cloud-offline-outline';
       case 'rate_limit':
-        return '⏳'; // Hourglass for wait
+        return 'time-outline';
       case 'not_found':
-        return '🔍'; // Search not found
+        return 'search-outline';
       case 'server':
-        return '🔧'; // Server/maintenance
+        return 'construct-outline';
       default:
-        return '⚠️'; // Generic warning
+        return 'warning-outline';
     }
   }, []);
 
@@ -258,7 +262,7 @@ export function CardSearchResults({
    * Render empty state (enhanced for Step 32C)
    */
   const renderEmptyState = useCallback(() => {
-    if (loading) {
+    if (loading && !isLoadingMore) {
       return (
         <View style={styles.centerContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
@@ -268,14 +272,13 @@ export function CardSearchResults({
     }
 
     if (error) {
-      // Determine error type and if retry is possible
       const errorType = originalError ? classifyError(originalError) : 'unknown';
       const showRetry = onRetry && (originalError ? canRetryError(originalError) : true);
-      const icon = getErrorIcon(errorType);
+      const iconName = getErrorIconName(errorType);
       
       return (
         <View style={styles.centerContainer}>
-          <Text style={styles.errorIcon}>{icon}</Text>
+          <Ionicons name={iconName} size={32} color={colors.error} style={styles.stateIcon} />
           <Text style={styles.errorText}>{error}</Text>
           {showRetry && (
             <TouchableOpacity 
@@ -290,12 +293,17 @@ export function CardSearchResults({
       );
     }
 
-    // Step 32C: Enhanced empty state with helpful tips
     const isSearchAttempted = emptyMessage.toLowerCase().includes('no cards found');
+    const isInitialPrompt = emptyMessage.toLowerCase().includes('enter a name');
     
     return (
-      <View style={styles.centerContainer}>
-        <Text style={styles.emptyIcon}>{isSearchAttempted ? '🤔' : '🔎'}</Text>
+      <View style={isInitialPrompt ? styles.topContainer : styles.centerContainer}>
+        <Ionicons
+          name={isSearchAttempted ? 'help-circle-outline' : 'search-outline'}
+          size={32}
+          color={colors.textTertiary}
+          style={styles.stateIcon}
+        />
         <Text style={styles.emptyText}>{emptyMessage}</Text>
         {isSearchAttempted && (
           <Text style={styles.emptyHint}>
@@ -305,7 +313,7 @@ export function CardSearchResults({
         )}
       </View>
     );
-  }, [loading, error, originalError, emptyMessage, onRetry, getErrorIcon]);
+  }, [loading, isLoadingMore, error, originalError, emptyMessage, onRetry, getErrorIconName, colors]);
 
   return (
     <FlatList
@@ -314,6 +322,7 @@ export function CardSearchResults({
       keyExtractor={(item) => item.id}
       contentContainerStyle={results.length === 0 ? styles.emptyListContainer : styles.listContent}
       ListEmptyComponent={renderEmptyState}
+      ListHeaderComponent={renderHeader}
       ListFooterComponent={renderFooter}
       showsVerticalScrollIndicator={true}
       keyboardShouldPersistTaps="handled"
@@ -330,7 +339,7 @@ export function CardSearchResults({
       // getItemLayout for instant scroll calculations (fixed item height)
       getItemLayout={getItemLayout}
       // Viewability tracking for lazy image loading
-      viewabilityConfigCallbackPairs={viewabilityConfigCallbackPairs}
+      viewabilityConfigCallbackPairs={viewabilityConfigCallbackPairsRef.current}
     />
   );
 }
@@ -409,30 +418,41 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   selectIcon: {
     fontSize: 20,
     color: colors.textSecondary,
-    fontFamily: fonts.bold,
   },
   centerContainer: {
     alignItems: 'center',
     justifyContent: 'center',
     padding: spacing.xl,
   },
+  topContainer: {
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.lg,
+  },
   loadingText: {
     marginTop: spacing.md,
     fontSize: typography.base,
     color: colors.textSecondary,
   },
-  errorIcon: {
-    fontSize: 32,
+  headerLoading: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.sm,
+  },
+  headerLoadingText: {
+    marginLeft: spacing.sm,
+    fontSize: typography.sm,
+    color: colors.textSecondary,
+  },
+  stateIcon: {
     marginBottom: spacing.sm,
   },
   errorText: {
     fontSize: typography.base,
     color: colors.error,
     textAlign: 'center',
-  },
-  emptyIcon: {
-    fontSize: 32,
-    marginBottom: spacing.sm,
   },
   emptyText: {
     fontSize: typography.base,

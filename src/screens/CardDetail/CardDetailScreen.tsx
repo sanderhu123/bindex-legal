@@ -13,7 +13,8 @@ import LoadingScreen from '../../components/Loading/LoadingScreen';
 import ErrorScreen from '../../components/Error/ErrorScreen';
 import { getAvailableVariantsForCard } from '../../data/cardVariants';
 import { useTheme } from '../../context/ThemeContext';
-import { spacing, typography, fonts, borderRadius, screenPadding, shadows, type ThemeColors } from '../../constants/theme';
+import { lightColors, spacing, typography, fonts, borderRadius, screenPadding, shadows, type ThemeColors } from '../../constants/theme';
+import { ScreenHeader } from '../../components/ScreenHeader';
 import { getUserFriendlyErrorMessage, isNotFoundError } from '../../utils/errorUtils';
 import { showSuccess, showError } from '../../utils/toast';
 import { lightTap } from '../../utils/haptics';
@@ -27,10 +28,10 @@ const VARIANT_LABELS: Record<string, string> = {
 };
 
 const VARIANT_COLORS: Record<string, string> = {
-  'base': '#126D5F',
-  'reverse-holo': '#FFD700',
-  'poke-ball': '#FF6B6B',
-  'master-ball': '#7B2D8E',
+  'base': lightColors.primary,
+  'reverse-holo': lightColors.variantReverseHolo,
+  'poke-ball': lightColors.variantPokeBall,
+  'master-ball': lightColors.variantMasterBall,
 };
 
 interface CardDetailScreenProps {
@@ -611,6 +612,8 @@ export default function CardDetailScreen({ navigation, route }: CardDetailScreen
 
   return (
     <SafeAreaView style={styles.safeArea}>
+      <ScreenHeader title={card?.name || 'Card Details'} onBack={() => navigation.goBack()} />
+
       <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
         {/* Top Section: Image (left) + Actions (right) */}
         <View style={styles.topSection}>
@@ -643,8 +646,8 @@ export default function CardDetailScreen({ navigation, route }: CardDetailScreen
                   activeOpacity={1}
                 >
                   <Image
-                    source={require('../../../assets/logo-icon-teal.png')}
-                    style={[styles.panelBtnLogo, !isOwned && { opacity: 0.2 }]}
+                    source={isOwned ? require('../../../assets/logo-icon-teal.png') : require('../../../assets/logo-icon-white.png')}
+                    style={styles.panelBtnLogo}
                     resizeMode="contain"
                   />
                 </TouchableOpacity>
@@ -718,20 +721,12 @@ export default function CardDetailScreen({ navigation, route }: CardDetailScreen
             showSet={true}
             showRarity={true}
             showIllustrator={true}
-            showVariantBadge={true}
+            showVariantBadge={false}
             showPokedex={false}
             binderPosition={binderPosition}
           />
-        </View>
-
-        {/* Surface Card: Note */}
-        <View style={styles.detailsCard}>
           <View style={styles.noteSection}>
             <View style={styles.noteHeader}>
-              <View style={styles.noteLabelRow}>
-                <Ionicons name="create-outline" size={16} color={colors.textSecondary} style={{ marginRight: spacing.xs }} />
-                <Text style={styles.noteLabel}>My Note</Text>
-              </View>
               {isSavingNote && (
                 <Text style={styles.noteSaving}>Saving...</Text>
               )}
@@ -815,16 +810,16 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     justifyContent: 'center',
     width: 40,
     height: 40,
-    borderRadius: borderRadius.lg,
+    borderRadius: borderRadius.sm,
     minHeight: 40,
   },
   panelBtnOwned: {
-    backgroundColor: 'transparent',
+    backgroundColor: 'rgba(255, 255, 255, 0.6)',
     width: 48,
     height: 48,
   },
   panelBtnMissing: {
-    backgroundColor: 'transparent',
+    backgroundColor: 'rgba(0, 0, 0, 0.25)',
     width: 48,
     height: 48,
   },
@@ -842,6 +837,10 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   panelBtnLogo: {
     width: 44,
     height: 44,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.4,
+    shadowRadius: 3,
   },
   // Variant selector in action panel
   panelVariantSection: {
@@ -883,30 +882,15 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     marginBottom: spacing.sm,
     ...shadows.sm,
   },
-  detailsCard: {
-    width: '100%',
-    backgroundColor: colors.surface,
-    borderRadius: borderRadius.lg,
-    padding: spacing.md,
-    marginBottom: spacing.sm,
-    ...shadows.sm,
+  // Note section (inside infoCard)
+  noteSection: {
+    marginTop: spacing.xs,
   },
-  // Note section (inside detailsCard)
-  noteSection: {},
   noteHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-end',
     alignItems: 'center',
     marginBottom: spacing.xs,
-  },
-  noteLabelRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  noteLabel: {
-    fontSize: typography.sm,
-    fontFamily: fonts.semibold,
-    color: colors.textSecondary,
   },
   noteSaving: {
     fontSize: typography.xs,

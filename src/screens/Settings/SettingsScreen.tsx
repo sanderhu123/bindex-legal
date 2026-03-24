@@ -25,6 +25,7 @@ import { clearAllCache } from '../../services/cacheManager';
 import { fixExistingBinders } from '../../utils/fixExistingBinders';
 import { fonts, spacing, typography, borderRadius, screenPadding, shadows, type ThemeColors } from '../../constants/theme';
 import { showSuccess, showError } from '../../utils/toast';
+import { ScreenHeader } from '../../components/ScreenHeader';
 import Constants from 'expo-constants';
 
 export default function SettingsScreen() {
@@ -196,13 +197,7 @@ export default function SettingsScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-          <Ionicons name="arrow-back" size={24} color={colors.text} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Settings</Text>
-        <View style={styles.headerSpacer} />
-      </View>
+      <ScreenHeader title="Settings" onBack={() => navigation.goBack()} />
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         {/* Appearance Section */}
@@ -222,7 +217,7 @@ export default function SettingsScreen() {
               value={isDark}
               onValueChange={toggleTheme}
               trackColor={{ false: colors.border, true: colors.primary }}
-              thumbColor="#FFFFFF"
+              thumbColor={colors.onPrimary}
             />
           </View>
         </View>
@@ -291,29 +286,6 @@ const createStyles = (colors: ThemeColors) =>
     container: {
       flex: 1,
       backgroundColor: colors.backgroundLight,
-    },
-    header: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      paddingHorizontal: screenPadding,
-      paddingTop: spacing.lg,
-      paddingBottom: spacing.md,
-      backgroundColor: colors.background,
-      borderBottomWidth: 1,
-      borderBottomColor: colors.borderLight,
-    },
-    backButton: {
-      padding: spacing.xs,
-      marginLeft: -spacing.xs,
-    },
-    headerTitle: {
-      fontSize: typography.xl,
-      fontFamily: fonts.semibold,
-      color: colors.text,
-    },
-    headerSpacer: {
-      width: 32,
     },
     content: {
       flex: 1,

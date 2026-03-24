@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { View, TextInput, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../context/ThemeContext';
-import { fonts, type ThemeColors } from '../../constants/theme';
+import { fonts, spacing, typography, borderRadius, type ThemeColors } from '../../constants/theme';
 
 interface SearchBarProps {
   value: string;
@@ -38,11 +38,11 @@ export default function SearchBar({
 const createStyles = (colors: ThemeColors) =>
   StyleSheet.create({
     container: {
-      marginBottom: 12,
+      marginBottom: spacing.sm + 4,
       flexDirection: 'row',
       alignItems: 'center',
       backgroundColor: colors.surface,
-      borderRadius: 8,
+      borderRadius: borderRadius.md,
       borderWidth: 1,
       borderColor: colors.border,
     },
@@ -51,25 +51,25 @@ const createStyles = (colors: ThemeColors) =>
       flexDirection: 'row',
       alignItems: 'center',
       backgroundColor: colors.backgroundDark,
-      borderRadius: 8,
+      borderRadius: borderRadius.md,
       height: 36,
     },
     icon: {
-      marginLeft: 12,
+      marginLeft: spacing.sm + 4,
     },
     input: {
       flex: 1,
-      paddingHorizontal: 10,
-      paddingVertical: 12,
-      fontSize: 16,
+      paddingHorizontal: spacing.sm + 2,
+      paddingVertical: spacing.sm + 4,
+      fontSize: typography.base,
       color: colors.text,
       fontFamily: fonts.regular,
     },
     inputCompact: {
       flex: 1,
-      paddingHorizontal: 8,
+      paddingHorizontal: spacing.sm,
       paddingVertical: 0,
-      fontSize: 13,
+      fontSize: typography.sm - 1,
       color: colors.text,
       fontFamily: fonts.regular,
     },

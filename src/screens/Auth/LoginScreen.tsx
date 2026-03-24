@@ -1,10 +1,12 @@
 import React, { useState, useMemo } from 'react';
-import { View, StyleSheet, Text, TextInput, TouchableOpacity, Alert, Platform, Linking, Image } from 'react-native';
+import { View, StyleSheet, Text, TextInput, TouchableOpacity, Platform, Linking, Image, KeyboardAvoidingView, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { signIn, signInWithGoogle, signInWithApple } from '../../services/supabase/auth';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { fonts, spacing, typography, borderRadius, screenPadding, type ThemeColors } from '../../constants/theme';
+import { showError } from '../../utils/toast';
+import { PrimaryButton, SecondaryButton, TextButton } from '../../components/Button';
 
 interface LoginScreenProps {
   navigation: any;
@@ -22,7 +24,7 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
 
   const handleLogin = async () => {
     if (!email || !password) {
-      Alert.alert('Error', 'Please enter both email and password');
+      showError('Missing fields', 'Please enter both email and password');
       return;
     }
 
@@ -31,7 +33,7 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
       await signIn(email, password);
       await refreshUser();
     } catch (error: any) {
-      Alert.alert('Login Failed', error.message || 'An error occurred');
+      showError('Login Failed', error.message || 'An error occurred');
     } finally {
       setLoading(false);
     }
@@ -44,10 +46,10 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
       if (result?.url) {
         await Linking.openURL(result.url);
       } else {
-        Alert.alert('Google Login', 'Could not start Google login. Please try again.');
+        showError('Google Login', 'Could not start Google login. Please try again.');
       }
     } catch (error: any) {
-      Alert.alert('Google Login Failed', error.message || 'An error occurred');
+      showError('Google Login Failed', error.message || 'An error occurred');
     } finally {
       setSocialLoading(null);
     }
@@ -55,7 +57,7 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
 
   const handleAppleLogin = async () => {
     if (Platform.OS !== 'ios') {
-      Alert.alert('Apple Login', 'Apple login is only available on iOS devices.');
+      showError('Apple Login', 'Apple login is only available on iOS devices.');
       return;
     }
 
@@ -65,10 +67,10 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
       if (result?.url) {
         await Linking.openURL(result.url);
       } else {
-        Alert.alert('Apple Login', 'Could not start Apple login. Please try again.');
+        showError('Apple Login', 'Could not start Apple login. Please try again.');
       }
     } catch (error: any) {
-      Alert.alert('Apple Login Failed', error.message || 'An error occurred');
+      showError('Apple Login Failed', error.message || 'An error occurred');
     } finally {
       setSocialLoading(null);
     }
@@ -76,83 +78,97 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.logoContainer}>
-        <Image
-          source={isDark ? require('../../../assets/logo-wordmark-white.png') : require('../../../assets/logo-wordmark.png')}
-          style={styles.logo}
-          resizeMode="contain"
-        />
-      </View>
-
-      <Text style={styles.title}>Welcome back</Text>
-      
-      <TextInput
-        style={styles.input}
-        placeholder="Email"
-        placeholderTextColor={colors.textLight}
-        value={email}
-        onChangeText={setEmail}
-        autoCapitalize="none"
-        keyboardType="email-address"
-      />
-      
-      <TextInput
-        style={styles.input}
-        placeholder="Password"
-        placeholderTextColor={colors.textLight}
-        value={password}
-        onChangeText={setPassword}
-        secureTextEntry
-      />
-      
-      <TouchableOpacity
-        style={styles.checkboxContainer}
-        onPress={() => setStayLoggedIn(!stayLoggedIn)}
-        activeOpacity={0.7}
+      <KeyboardAvoidingView
+        style={styles.keyboardView}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <View style={[styles.checkbox, stayLoggedIn && styles.checkboxChecked]}>
-          {stayLoggedIn && <Text style={styles.checkmark}>✓</Text>}
-        </View>
-        <Text style={styles.checkboxLabel}>Stay logged in</Text>
-      </TouchableOpacity>
-      
-      <TouchableOpacity
-        style={[styles.button, (loading || socialLoading !== null) && styles.buttonDisabled]}
-        onPress={handleLogin}
-        disabled={loading || socialLoading !== null}
-      >
-        <Text style={styles.buttonText}>{loading ? 'Logging in...' : 'Login'}</Text>
-      </TouchableOpacity>
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.logoContainer}>
+            <Image
+              source={isDark ? require('../../../assets/logo-wordmark-white.png') : require('../../../assets/logo-wordmark.png')}
+              style={styles.logo}
+              resizeMode="contain"
+            />
+          </View>
 
-      <View style={styles.dividerContainer}>
-        <View style={styles.dividerLine} />
-        <Text style={styles.dividerText}>or continue with</Text>
-        <View style={styles.dividerLine} />
-      </View>
+          <Text style={styles.title}>Welcome back</Text>
+          
+          <TextInput
+            style={styles.input}
+            placeholder="Email"
+            placeholderTextColor={colors.textLight}
+            value={email}
+            onChangeText={setEmail}
+            autoCapitalize="none"
+            keyboardType="email-address"
+            accessibilityLabel="Email address"
+          />
+          
+          <TextInput
+            style={styles.input}
+            placeholder="Password"
+            placeholderTextColor={colors.textLight}
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry
+            accessibilityLabel="Password"
+          />
+          
+          <TouchableOpacity
+            style={styles.checkboxContainer}
+            onPress={() => setStayLoggedIn(!stayLoggedIn)}
+            activeOpacity={0.7}
+            accessibilityRole="checkbox"
+            accessibilityState={{ checked: stayLoggedIn }}
+            accessibilityLabel="Stay logged in"
+          >
+            <View style={[styles.checkbox, stayLoggedIn && styles.checkboxChecked]}>
+              {stayLoggedIn && <Text style={styles.checkmark}>✓</Text>}
+            </View>
+            <Text style={styles.checkboxLabel}>Stay logged in</Text>
+          </TouchableOpacity>
+          
+          <PrimaryButton
+            title={loading ? 'Logging in...' : 'Login'}
+            onPress={handleLogin}
+            loading={loading}
+            disabled={socialLoading !== null}
+            style={styles.button}
+          />
 
-      <TouchableOpacity
-        style={[styles.socialButton, socialLoading === 'google' && styles.buttonDisabled]}
-        onPress={handleGoogleLogin}
-        disabled={socialLoading !== null}
-      >
-        <Text style={styles.socialButtonText}>
-          {socialLoading === 'google' ? 'Opening Google...' : 'Continue with Google'}
-        </Text>
-      </TouchableOpacity>
+          <View style={styles.dividerContainer}>
+            <View style={styles.dividerLine} />
+            <Text style={styles.dividerText}>or continue with</Text>
+            <View style={styles.dividerLine} />
+          </View>
 
-      <TouchableOpacity
-        style={[styles.socialButton, socialLoading === 'apple' && styles.buttonDisabled]}
-        onPress={handleAppleLogin}
-        disabled={socialLoading !== null}
-      >
-        <Text style={styles.socialButtonText}>
-          {socialLoading === 'apple' ? 'Opening Apple...' : 'Continue with Apple'}
-        </Text>
-      </TouchableOpacity>
-      
-      <TouchableOpacity onPress={() => navigation.navigate('Signup')}>
-        <Text style={styles.linkText}>Don't have an account? Sign up</Text>
-      </TouchableOpacity>
+          <SecondaryButton
+            title={socialLoading === 'google' ? 'Opening Google...' : 'Continue with Google'}
+            onPress={handleGoogleLogin}
+            loading={socialLoading === 'google'}
+            disabled={socialLoading !== null}
+            style={styles.socialButton}
+          />
+
+          <SecondaryButton
+            title={socialLoading === 'apple' ? 'Opening Apple...' : 'Continue with Apple'}
+            onPress={handleAppleLogin}
+            loading={socialLoading === 'apple'}
+            disabled={socialLoading !== null}
+            style={styles.socialButton}
+          />
+          
+          <TextButton
+            title="Don't have an account? Sign up"
+            onPress={() => navigation.navigate('Signup')}
+            style={styles.linkButton}
+          />
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -161,9 +177,15 @@ const createStyles = (colors: ThemeColors) =>
   StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: colors.background,
+  },
+  keyboardView: {
+    flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
     justifyContent: 'center',
     padding: screenPadding,
-    backgroundColor: colors.background,
   },
   logoContainer: {
     alignItems: 'center',
@@ -192,19 +214,7 @@ const createStyles = (colors: ThemeColors) =>
     color: colors.text,
   },
   button: {
-    backgroundColor: colors.primary,
-    borderRadius: borderRadius.md,
-    padding: spacing.md,
-    alignItems: 'center',
     marginTop: spacing.sm,
-  },
-  buttonDisabled: {
-    opacity: 0.5,
-  },
-  buttonText: {
-    color: colors.onPrimary,
-    fontSize: typography.base,
-    fontFamily: fonts.semibold,
   },
   dividerContainer: {
     flexDirection: 'row',
@@ -223,25 +233,10 @@ const createStyles = (colors: ThemeColors) =>
     fontFamily: fonts.regular,
   },
   socialButton: {
-    backgroundColor: colors.background,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: borderRadius.md,
-    padding: spacing.md - 2,
-    alignItems: 'center',
     marginTop: spacing.sm,
   },
-  socialButtonText: {
-    color: colors.text,
-    fontSize: typography.base,
-    fontFamily: fonts.medium,
-  },
-  linkText: {
-    color: colors.primary,
-    textAlign: 'center',
+  linkButton: {
     marginTop: spacing.lg,
-    fontSize: typography.sm,
-    fontFamily: fonts.regular,
   },
   checkboxContainer: {
     flexDirection: 'row',

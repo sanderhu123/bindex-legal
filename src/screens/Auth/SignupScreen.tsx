@@ -1,9 +1,11 @@
 import React, { useState, useMemo } from 'react';
-import { View, StyleSheet, Text, TextInput, TouchableOpacity, Alert, Image } from 'react-native';
+import { View, StyleSheet, Text, TextInput, TouchableOpacity, Alert, Image, KeyboardAvoidingView, ScrollView, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { signUp } from '../../services/supabase/auth';
 import { useTheme } from '../../context/ThemeContext';
 import { fonts, spacing, typography, borderRadius, screenPadding, type ThemeColors } from '../../constants/theme';
+import { showError, showSuccess } from '../../utils/toast';
+import { PrimaryButton, TextButton } from '../../components/Button';
 
 interface SignupScreenProps {
   navigation: any;
@@ -19,12 +21,12 @@ export default function SignupScreen({ navigation }: SignupScreenProps) {
 
   const handleSignup = async () => {
     if (!email || !password) {
-      Alert.alert('Error', 'Please enter both email and password');
+      showError('Missing fields', 'Please enter both email and password');
       return;
     }
 
     if (password.length < 6) {
-      Alert.alert('Error', 'Password must be at least 6 characters');
+      showError('Too short', 'Password must be at least 6 characters');
       return;
     }
 
@@ -49,12 +51,10 @@ export default function SignupScreen({ navigation }: SignupScreenProps) {
           ]
         );
       } else if (result.session) {
-        // User is automatically signed in (if email confirmation is disabled)
-        // Navigation will be handled by AuthContext
-        Alert.alert('Success', 'Account created! You are now signed in.');
+        showSuccess('Welcome!', 'Account created. You are now signed in.');
       }
     } catch (error: any) {
-      Alert.alert('Signup Failed', error.message || 'An error occurred');
+      showError('Signup Failed', error.message || 'An error occurred');
     } finally {
       setLoading(false);
     }
@@ -62,63 +62,78 @@ export default function SignupScreen({ navigation }: SignupScreenProps) {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.logoContainer}>
-        <Image
-          source={isDark ? require('../../../assets/logo-wordmark-white.png') : require('../../../assets/logo-wordmark.png')}
-          style={styles.logo}
-          resizeMode="contain"
-        />
-      </View>
-
-      <Text style={styles.title}>Create account</Text>
-      
-      <View style={styles.inputContainer}>
-        <Text style={styles.label}>Display Name (optional)</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Enter your name"
-          placeholderTextColor={colors.textLight}
-          value={displayName}
-          onChangeText={setDisplayName}
-        />
-      </View>
-      
-      <View style={styles.inputContainer}>
-        <Text style={styles.label}>Email</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Enter your email"
-          placeholderTextColor={colors.textLight}
-          value={email}
-          onChangeText={setEmail}
-          autoCapitalize="none"
-          keyboardType="email-address"
-        />
-      </View>
-      
-      <View style={styles.inputContainer}>
-        <Text style={styles.label}>Password</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Enter your password (min 6 characters)"
-          placeholderTextColor={colors.textLight}
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry
-        />
-      </View>
-      
-      <TouchableOpacity
-        style={[styles.button, loading && styles.buttonDisabled]}
-        onPress={handleSignup}
-        disabled={loading}
+      <KeyboardAvoidingView
+        style={styles.keyboardView}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <Text style={styles.buttonText}>{loading ? 'Creating account...' : 'Sign Up'}</Text>
-      </TouchableOpacity>
-      
-      <TouchableOpacity onPress={() => navigation.navigate('Login')}>
-        <Text style={styles.linkText}>Already have an account? Login</Text>
-      </TouchableOpacity>
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.logoContainer}>
+            <Image
+              source={isDark ? require('../../../assets/logo-wordmark-white.png') : require('../../../assets/logo-wordmark.png')}
+              style={styles.logo}
+              resizeMode="contain"
+            />
+          </View>
+
+          <Text style={styles.title}>Create account</Text>
+          
+          <View style={styles.inputContainer}>
+            <Text style={styles.label}>Display Name (optional)</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Enter your name"
+              placeholderTextColor={colors.textLight}
+              value={displayName}
+              onChangeText={setDisplayName}
+              accessibilityLabel="Display name"
+            />
+          </View>
+          
+          <View style={styles.inputContainer}>
+            <Text style={styles.label}>Email</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Enter your email"
+              placeholderTextColor={colors.textLight}
+              value={email}
+              onChangeText={setEmail}
+              autoCapitalize="none"
+              keyboardType="email-address"
+              accessibilityLabel="Email address"
+            />
+          </View>
+          
+          <View style={styles.inputContainer}>
+            <Text style={styles.label}>Password</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Enter your password (min 6 characters)"
+              placeholderTextColor={colors.textLight}
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry
+              accessibilityLabel="Password"
+            />
+          </View>
+          
+          <PrimaryButton
+            title={loading ? 'Creating account...' : 'Sign Up'}
+            onPress={handleSignup}
+            loading={loading}
+            style={styles.button}
+          />
+          
+          <TextButton
+            title="Already have an account? Login"
+            onPress={() => navigation.navigate('Login')}
+            style={styles.linkButton}
+          />
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -127,9 +142,15 @@ const createStyles = (colors: ThemeColors) =>
   StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: colors.background,
+  },
+  keyboardView: {
+    flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
     justifyContent: 'center',
     padding: screenPadding,
-    backgroundColor: colors.background,
   },
   logoContainer: {
     alignItems: 'center',
@@ -166,26 +187,10 @@ const createStyles = (colors: ThemeColors) =>
     color: colors.text,
   },
   button: {
-    backgroundColor: colors.primary,
-    borderRadius: borderRadius.md,
-    padding: spacing.md,
-    alignItems: 'center',
     marginTop: spacing.sm,
   },
-  buttonDisabled: {
-    opacity: 0.5,
-  },
-  buttonText: {
-    color: colors.onPrimary,
-    fontSize: typography.base,
-    fontFamily: fonts.semibold,
-  },
-  linkText: {
-    color: colors.primary,
-    textAlign: 'center',
+  linkButton: {
     marginTop: spacing.lg,
-    fontSize: typography.sm,
-    fontFamily: fonts.regular,
   },
   });
 

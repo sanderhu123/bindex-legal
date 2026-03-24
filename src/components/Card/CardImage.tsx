@@ -53,6 +53,9 @@ function CustomCardPlaceholder({ style, cardName, backgroundColor, textColor }: 
   backgroundColor: string;
   textColor: string;
 }) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   return (
     <View style={[styles.customCardContainer, { backgroundColor }, style]}>
       <Text
@@ -310,7 +313,7 @@ export default function CardImage({
           {/* Only show loading spinner if we don't have a low-res to show */}
           {isLoading && !hasLowRes && (
             <View style={styles.loadingOverlay}>
-              <ActivityIndicator size="small" color="#999" />
+              <ActivityIndicator size="small" color={colors.textTertiary} />
               {retryCount > 0 && (
                 <Text style={styles.retryText}>Retry {retryCount}/{MAX_RETRIES}</Text>
               )}

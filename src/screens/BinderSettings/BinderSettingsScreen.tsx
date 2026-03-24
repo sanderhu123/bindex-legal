@@ -48,6 +48,7 @@ import {
   type ThemeColors,
 } from '../../constants/theme';
 import { showError, showSuccess } from '../../utils/toast';
+import { ScreenHeader } from '../../components/ScreenHeader';
 import { warningVibration } from '../../utils/haptics';
 
 type NavigationProp = StackNavigationProp<MainStackParamList, 'BinderSettings'>;
@@ -230,6 +231,8 @@ export default function BinderSettingsScreen() {
       if (shouldClearPositions) {
         await moveExtraCardsToPlaceholder(binder.id);
         await clearAllPositionsForBinder(binder.id);
+      } else if (hasVariantChanges()) {
+        await moveExtraCardsToPlaceholder(binder.id);
       }
 
       await updateBinder(binder.id, buildUpdates());
@@ -360,23 +363,14 @@ export default function BinderSettingsScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-          <Ionicons name="arrow-back" size={24} color={colors.text} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Binder Settings</Text>
-        <TouchableOpacity
-          style={[styles.saveButton, (!hasChanges || saving) && styles.saveButtonDisabled]}
-          onPress={handleSave}
-          disabled={!hasChanges || saving}
-        >
-          {saving ? (
-            <ActivityIndicator size="small" color={colors.onPrimary} />
-          ) : (
-            <Text style={styles.saveButtonText}>Save</Text>
-          )}
-        </TouchableOpacity>
-      </View>
+      <ScreenHeader
+        title="Binder Settings"
+        onBack={() => navigation.goBack()}
+        rightLabel="Save"
+        onRight={handleSave}
+        rightLoading={saving}
+        rightDisabled={!hasChanges}
+      />
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         <Text style={styles.sectionTitle}>Binder Info</Text>

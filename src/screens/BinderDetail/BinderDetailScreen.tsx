@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { View, StyleSheet, Text, ScrollView, TouchableOpacity, Dimensions, FlatList, SectionList, ActivityIndicator, Alert, PanResponder, Modal, Pressable, Animated, Image as RNImage } from 'react-native';
+import { View, StyleSheet, Text, ScrollView, TouchableOpacity, Dimensions, FlatList, SectionList, ActivityIndicator, Alert, PanResponder, Modal, Pressable, Animated, Image as RNImage, RefreshControl } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -56,7 +56,8 @@ import { spacing, typography, fonts, borderRadius, screenPadding, type ThemeColo
 import { showSuccess, showError } from '../../utils/toast';
 import { lightTap } from '../../utils/haptics';
 
-const LOGO_ICON = require('../../../assets/logo-icon-teal.png');
+const LOGO_OWNED = require('../../../assets/logo-icon-teal.png');
+const LOGO_UNOWNED = require('../../../assets/logo-icon-white.png');
 
 const CONTAINER_PADDING = screenPadding; // Padding from container style (24px)
 const CARD_MARGIN = 2; // Margin between cards (margin: 2 means 2px on all sides, 4px gap between cards)
@@ -132,6 +133,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [retryKey, setRetryKey] = useState(0);
+  const [refreshing, setRefreshing] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('binder');
   const [searchQuery, setSearchQuery] = useState('');
   
@@ -688,6 +690,15 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
       isRefreshingRef.current = false;
     }
   }, [binderId]);
+
+  const handlePullToRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await refreshOwnershipFromDb();
+    } finally {
+      setRefreshing(false);
+    }
+  }, [refreshOwnershipFromDb]);
 
   useFocusEffect(
     useCallback(() => {
@@ -2401,11 +2412,11 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
                 cardInfo={{ id: card.id, name: card.name, number: card.number, set: card.set }}
               />
               <TouchableOpacity
-                style={styles.checkboxOverlay}
+                style={[styles.checkboxOverlay, card.isOwned ? styles.checkboxOverlayOwned : styles.checkboxOverlayMissing]}
                 onPress={() => handleToggleCard(card)}
                 activeOpacity={0.7}
               >
-                <RNImage source={LOGO_ICON} style={[styles.checkboxLogo, !card.isOwned && { opacity: 0.2 }]} resizeMode="contain" />
+                <RNImage source={card.isOwned ? LOGO_OWNED : LOGO_UNOWNED} style={styles.checkboxLogo} resizeMode="contain" />
               </TouchableOpacity>
               {variantBadge && (
                 <View style={[styles.regionVariantBadge, { backgroundColor: variantBadge.color }]}>
@@ -2471,12 +2482,12 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
               cardInfo={{ id: item.id, name: item.name, number: item.number, set: item.set }}
             />
             {/* Checkbox for ownership toggle */}
-            <TouchableOpacity 
-              style={styles.checkboxOverlay}
+            <TouchableOpacity
+              style={[styles.checkboxOverlay, item.isOwned ? styles.checkboxOverlayOwned : styles.checkboxOverlayMissing]}
               onPress={() => handleToggleCard(item)}
               activeOpacity={0.7}
             >
-              <RNImage source={LOGO_ICON} style={[styles.checkboxLogo, !item.isOwned && { opacity: 0.2 }]} resizeMode="contain" />
+              <RNImage source={item.isOwned ? LOGO_OWNED : LOGO_UNOWNED} style={styles.checkboxLogo} resizeMode="contain" />
             </TouchableOpacity>
             {variantBadge && (
               <View style={[styles.regionVariantBadge, { backgroundColor: variantBadge.color }]}>
@@ -2989,6 +3000,9 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
           extraData={isCustomMode ? [positionCards, searchQuery, ownershipFilter] : cards}
           onScroll={onScrollEvent}
           scrollEventThrottle={16}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={handlePullToRefresh} tintColor={colors.primary} />
+          }
         />
         {!displayMode && stickyProgressFooter}
         <EnlargedCardOverlay />
@@ -3361,6 +3375,9 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
           ListEmptyComponent={ListEmptyComponent}
           onScroll={onScrollEvent}
           scrollEventThrottle={16}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={handlePullToRefresh} tintColor={colors.primary} />
+          }
         />
         {stickyProgressFooter}
         <EnlargedCardOverlay />
@@ -3427,6 +3444,9 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
           extraData={[displayCount, cards, extraCards]}
           onScroll={onScrollEvent}
           scrollEventThrottle={16}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={handlePullToRefresh} tintColor={colors.primary} />
+          }
         />
         
         {stickyProgressFooter}
@@ -3508,6 +3528,9 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
           extraData={[displayCount, cards]}
           onScroll={onScrollEvent}
           scrollEventThrottle={16}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={handlePullToRefresh} tintColor={colors.primary} />
+          }
         />
         
         {/* Card Picker Modal for selecting TCG card for Pokemon without custom selection */}
@@ -3878,21 +3901,27 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     position: 'absolute',
     top: 4,
     right: 4,
-    backgroundColor: 'rgba(255, 255, 255, 0.85)',
-    borderRadius: 4,
+    borderRadius: 2,
     padding: 2,
     width: 24,
     height: 24,
     alignItems: 'center',
     justifyContent: 'center',
   },
+  checkboxOverlayOwned: {
+    backgroundColor: 'rgba(255, 255, 255, 0.6)',
+  },
+  checkboxOverlayMissing: {
+    backgroundColor: 'rgba(0, 0, 0, 0.25)',
+  },
   checkboxLogo: {
     width: 22,
     height: 22,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.5,
-    shadowRadius: 3,
+    shadowOpacity: 0.6,
+    shadowRadius: 4,
+    elevation: 3,
   },
   // Section row for page breaks grid view
   sectionRow: {

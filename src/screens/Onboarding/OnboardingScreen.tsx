@@ -448,7 +448,12 @@ export default function OnboardingScreen() {
     <SafeAreaView style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={handleBack} style={styles.backButton}>
+        <TouchableOpacity
+          onPress={handleBack}
+          style={styles.backButton}
+          accessibilityLabel={currentStep === 1 ? 'Cancel' : 'Go back'}
+          accessibilityRole="button"
+        >
           {currentStep === 1 ? (
             <Text style={styles.cancelText}>Cancel</Text>
           ) : (
@@ -463,6 +468,9 @@ export default function OnboardingScreen() {
       <View style={styles.progressContainer}>
         <View style={[styles.progressBar, { width: `${progressPercent}%` }]} />
       </View>
+      <Text style={styles.stepCounter} accessibilityLabel={`Step ${actualStep} of ${totalSteps}`}>
+        Step {actualStep} of {totalSteps}
+      </Text>
 
       {/* Step content with slide animation */}
       <Animated.View
@@ -487,6 +495,9 @@ export default function OnboardingScreen() {
 
       {/* Footer */}
       <View style={styles.footer}>
+        {!canProceedToNextStep() && !isLastStep && (
+          <Text style={styles.footerHint}>Select an option to continue</Text>
+        )}
         <TouchableOpacity
           style={[
             styles.nextButton,
@@ -496,6 +507,8 @@ export default function OnboardingScreen() {
           onPress={handleNext}
           disabled={!canProceedToNextStep()}
           activeOpacity={0.8}
+          accessibilityRole="button"
+          accessibilityState={{ disabled: !canProceedToNextStep() }}
         >
           {isLastStep && (
             <Ionicons name="checkmark-circle" size={20} color={colors.onPrimary} style={styles.createIcon} />
@@ -562,11 +575,26 @@ const createStyles = (colors: ThemeColors) =>
     backgroundColor: colors.primary,
     borderRadius: 2,
   },
+  stepCounter: {
+    textAlign: 'center',
+    fontSize: typography.xs,
+    fontFamily: fonts.medium,
+    color: colors.textTertiary,
+    marginTop: spacing.xs,
+    marginBottom: spacing.xs,
+  },
   content: {
     flex: 1,
   },
   footer: {
     padding: screenPadding,
+  },
+  footerHint: {
+    textAlign: 'center',
+    fontSize: typography.sm,
+    fontFamily: fonts.regular,
+    color: colors.textTertiary,
+    marginBottom: spacing.sm,
   },
   nextButton: {
     backgroundColor: colors.primary,

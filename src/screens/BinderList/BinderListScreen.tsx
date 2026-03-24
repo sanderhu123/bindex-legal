@@ -293,14 +293,19 @@ export default function BinderListScreen() {
               <Ionicons
                 name={isPro ? 'star' : 'star-outline'}
                 size={12}
-                color={isPro ? '#FFFFFF' : '#DAA520'}
+                color={isPro ? colors.proAccentText : colors.proAccent}
                 style={{ marginRight: 4 }}
               />
               <Text style={[styles.proBadgeText, isPro && styles.proBadgeTextActive]}>
                 Pro
               </Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.settingsButton} onPress={() => navigation.navigate('Settings')}>
+            <TouchableOpacity
+              style={styles.settingsButton}
+              onPress={() => navigation.navigate('Settings')}
+              accessibilityLabel="Settings"
+              accessibilityRole="button"
+            >
               <Ionicons name="settings-outline" size={22} color={colors.textTertiary} />
             </TouchableOpacity>
           </View>
@@ -325,7 +330,13 @@ export default function BinderListScreen() {
         showsVerticalScrollIndicator={false}
       />
 
-      <TouchableOpacity style={styles.fab} onPress={handleCreateBinder} activeOpacity={0.85}>
+      <TouchableOpacity
+        style={styles.fab}
+        onPress={handleCreateBinder}
+        activeOpacity={0.85}
+        accessibilityLabel="Create new binder"
+        accessibilityRole="button"
+      >
         <Ionicons name="add" size={28} color={colors.onPrimary} />
       </TouchableOpacity>
     </SafeAreaView>
@@ -366,20 +377,20 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     paddingVertical: spacing.xs + 2,
     borderRadius: borderRadius.full,
     borderWidth: 1.5,
-    borderColor: '#DAA520',
-    backgroundColor: 'rgba(218, 165, 32, 0.08)',
+    borderColor: colors.proAccent,
+    backgroundColor: colors.proAccentTint,
   },
   proBadgeActive: {
-    backgroundColor: '#DAA520',
-    borderColor: '#DAA520',
+    backgroundColor: colors.proAccent,
+    borderColor: colors.proAccent,
   },
   proBadgeText: {
     fontSize: typography.xs,
     fontFamily: fonts.semibold,
-    color: '#DAA520',
+    color: colors.proAccent,
   },
   proBadgeTextActive: {
-    color: '#FFFFFF',
+    color: colors.proAccentText,
   },
   settingsButton: {
     padding: spacing.xs + 2,

@@ -142,6 +142,9 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
   const [screenWidth, setScreenWidth] = useState(Dimensions.get('window').width);
   const [screenHeight, setScreenHeight] = useState(Dimensions.get('window').height);
   
+  // Height of the binder locked area (for sizing cards to fit on screen)
+  const [binderAreaHeight, setBinderAreaHeight] = useState(0);
+
   // Display mode: clean binder view with just card images (no badges, names, checkboxes)
   const [displayMode, setDisplayMode] = useState(false);
   const [displaySpreadStart, setDisplaySpreadStart] = useState(0);
@@ -1828,7 +1831,20 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
 
   // Determine grid columns based on layout preference (default to 3)
   const gridColumns = binder?.layoutPreference === '4x3' ? 4 : 3;
-  const cardWidth = Math.max(50, calculateCardWidth(screenWidth, gridColumns)); // Ensure minimum width of 50
+  const widthBasedCardWidth = Math.max(50, calculateCardWidth(screenWidth, gridColumns));
+  
+  // In binder view, constrain card size so 3 rows + navigator fit the available height
+  const NAVIGATOR_HEIGHT = 70;
+  const ROW_MARGINS = spacing.sm * 3;
+  const binderCardWidth = useMemo(() => {
+    if (binderAreaHeight <= 0) return widthBasedCardWidth;
+    const availableGridHeight = binderAreaHeight - NAVIGATOR_HEIGHT - ROW_MARGINS;
+    const maxCardHeight = availableGridHeight / 3;
+    const heightBasedWidth = maxCardHeight * 0.716;
+    return Math.max(50, Math.min(widthBasedCardWidth, heightBasedWidth));
+  }, [binderAreaHeight, widthBasedCardWidth]);
+
+  const cardWidth = viewMode === 'binder' ? binderCardWidth : widthBasedCardWidth;
   
   // Binder view mode calculations
   const cardsPerPage = gridColumns === 4 ? 12 : 9; // 4×3 = 12, 3×3 = 9
@@ -3188,7 +3204,10 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
         <View style={styles.binderHeaderWrapper}>
           {listHeader}
         </View>
-        <View style={styles.binderLockedArea}>
+        <View
+          style={styles.binderLockedArea}
+          onLayout={(e) => setBinderAreaHeight(e.nativeEvent.layout.height)}
+        >
           {loading ? (
             <SkeletonCardGrid columns={gridColumns} rows={3} />
           ) : !binderHasCards ? (
@@ -3594,6 +3613,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   binderGridArea: {
     flex: 1,
+    overflow: 'hidden',
   },
   headerContainer: {
     marginBottom: spacing.xs,

@@ -114,6 +114,8 @@ const createStyles = (colors: ThemeColors, forceDarkMode: boolean) => {
     row: {
       flexDirection: 'row',
       alignItems: 'center',
+      justifyContent: 'space-between',
+      width: '100%',
     },
     arrowButton: {
       width: 40,

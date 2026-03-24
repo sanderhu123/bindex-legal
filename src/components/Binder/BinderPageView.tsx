@@ -255,7 +255,7 @@ function BinderPageViewComponent({
               {card.name}
             </Text>
             <Text style={styles.cardNumber} numberOfLines={1}>
-              {collectionMode === 'master-set' && card.setTotal
+              {card.setTotal
                 ? `${card.number}/${card.setTotal}`
                 : card.number}
             </Text>

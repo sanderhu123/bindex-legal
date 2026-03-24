@@ -66,7 +66,7 @@ export default function CardDetails({
             </View>
           )}
         </View>
-        <Text style={styles.compactNumber}>{card.number}</Text>
+        <Text style={styles.compactNumber}>{card.setTotal ? `${card.number}/${card.setTotal}` : card.number}</Text>
         {showSet && <Text style={styles.compactSet}>{card.set}</Text>}
       </View>
     );
@@ -183,7 +183,8 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   // Full variant styles (for detail screens)
   fullContainer: {
-    paddingVertical: spacing.sm,
+    paddingTop: spacing.xs,
+    paddingBottom: 2,
     paddingHorizontal: spacing.xs,
   },
   fullHeader: {
@@ -253,7 +254,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   fullRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: spacing.xs + 2,
+    paddingVertical: spacing.xs + 1,
   },
   fullRowIcon: {
     marginRight: spacing.sm,
@@ -275,17 +276,21 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
+    minHeight: 24,
   },
   fullValueInline: {
     fontSize: typography.sm,
+    lineHeight: typography.sm,
     color: colors.text,
     fontFamily: fonts.regular,
     flexShrink: 1,
+    includeFontPadding: false,
   },
   setSymbol: {
-    width: 16,
-    height: 16,
-    marginLeft: 4,
+    width: 24,
+    height: 24,
+    marginLeft: 6,
+    alignSelf: 'center',
   },
 });
 

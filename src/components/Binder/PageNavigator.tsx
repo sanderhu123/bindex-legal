@@ -128,8 +128,8 @@ const createStyles = (colors: ThemeColors, forceDarkMode: boolean) => {
       flex: 1,
       alignItems: 'center',
       justifyContent: 'center',
-      paddingVertical: spacing.xs,
-      marginHorizontal: spacing.md,
+      height: 40,
+      marginHorizontal: spacing.sm,
     },
     pageText: {
       fontSize: typography.base,

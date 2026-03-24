@@ -57,17 +57,9 @@ export default function PageNavigator({
         accessibilityLabel={`Page ${currentPage} of ${totalPages}. Tap to jump to a page.`}
         accessibilityRole="button"
       >
-        <View style={styles.pageRow}>
-          <Text style={styles.pageText}>
-            {currentPage} / {totalPages}
-          </Text>
-          <Ionicons
-            name="swap-horizontal"
-            size={14}
-            color={forceDarkMode ? '#9A9A9A' : colors.textTertiary}
-            style={styles.jumpIcon}
-          />
-        </View>
+        <Text style={styles.pageText}>
+          {currentPage} / {totalPages}
+        </Text>
         {subtitle ? (
           <Text style={styles.subtitleText}>{subtitle}</Text>
         ) : null}
@@ -133,19 +125,11 @@ const createStyles = (colors: ThemeColors, forceDarkMode: boolean) => {
       opacity: 0.35,
     },
     pageInfo: {
+      flex: 1,
       alignItems: 'center',
       justifyContent: 'center',
-      paddingVertical: spacing.sm,
-      paddingHorizontal: spacing.lg,
+      paddingVertical: spacing.xs,
       marginHorizontal: spacing.md,
-      backgroundColor: palette.containerBg,
-      borderRadius: borderRadius.lg,
-      borderWidth: 1,
-      borderColor: palette.border,
-    },
-    pageRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
     },
     pageText: {
       fontSize: typography.base,
@@ -153,14 +137,11 @@ const createStyles = (colors: ThemeColors, forceDarkMode: boolean) => {
       color: palette.text,
       letterSpacing: 1,
     },
-    jumpIcon: {
-      marginLeft: 6,
-    },
     subtitleText: {
       fontSize: typography.xs,
       fontFamily: fonts.regular,
       color: palette.subtitle,
-      marginTop: 2,
+      marginTop: 1,
     },
   });
 };

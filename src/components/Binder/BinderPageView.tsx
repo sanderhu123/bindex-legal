@@ -27,6 +27,8 @@ interface BinderPageViewProps {
   cards: CardWithOwnership[];
   /** Current page number (1-based) */
   currentPage: number;
+  /** Optional explicit page number to render (1-based) */
+  pageOverride?: number;
   /** Total number of pages */
   totalPages: number;
   /** Number of cards per page (9 for 3×3, 12 for 4×3) */
@@ -55,6 +57,8 @@ interface BinderPageViewProps {
   displayMode?: boolean;
   /** Optional override for the main card tap (used in region mode to open the card picker) */
   onCardTap?: (card: CardWithOwnership, index: number) => void;
+  /** Optional row alignment override (used by spread display mode) */
+  rowJustifyContent?: 'flex-start' | 'center' | 'flex-end';
 }
 
 /**
@@ -71,7 +75,7 @@ function getVariantBadge(variant?: string) {
   const badges: Record<string, { label: string; color: string }> = {
     'reverse-holo': { label: 'RH', color: '#FFD700' },
     'poke-ball': { label: 'PB', color: '#FF6B6B' },
-    'master-ball': { label: 'MB', color: '#4ECDC4' },
+    'master-ball': { label: 'MB', color: '#7B2D8E' },
   };
   return badges[variant] || null;
 }
@@ -84,6 +88,7 @@ function getVariantBadge(variant?: string) {
 function BinderPageViewComponent({
   cards,
   currentPage,
+  pageOverride,
   totalPages,
   cardsPerPage,
   columns,
@@ -98,12 +103,14 @@ function BinderPageViewComponent({
   onCardLongPressRelease,
   displayMode = false,
   onCardTap,
+  rowJustifyContent = 'center',
 }: BinderPageViewProps) {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const navigation = useNavigation<NavigationProp>();
   // Calculate which cards to show on the current page
-  const startIndex = (currentPage - 1) * cardsPerPage;
+  const pageToRender = pageOverride ?? currentPage;
+  const startIndex = (pageToRender - 1) * cardsPerPage;
   const pageCards = cards.slice(startIndex, startIndex + cardsPerPage);
   
   // Calculate card height based on aspect ratio (0.7)
@@ -205,9 +212,10 @@ function BinderPageViewComponent({
           styles.slot,
           { width: cardWidth },
         ]}
-        onPress={handleCardTap}
+        onPress={displayMode ? undefined : handleCardTap}
         onLongPress={onCardLongPress ? handleLongPress : undefined}
-        onPressOut={onCardLongPressRelease}
+        onResponderRelease={onCardLongPressRelease}
+        onResponderTerminate={onCardLongPressRelease}
         delayLongPress={300}
         activeOpacity={0.7}
       >
@@ -247,7 +255,9 @@ function BinderPageViewComponent({
               {card.name}
             </Text>
             <Text style={styles.cardNumber} numberOfLines={1}>
-              {card.number}
+              {collectionMode === 'master-set' && card.setTotal
+                ? `${card.number}/${card.setTotal}`
+                : card.number}
             </Text>
           </>
         )}
@@ -265,7 +275,7 @@ function BinderPageViewComponent({
       }
     }
     return (
-      <View key={`row-${rowIndex}`} style={styles.row}>
+      <View key={`row-${rowIndex}`} style={[styles.row, { justifyContent: rowJustifyContent }]}>
         {slots}
       </View>
     );

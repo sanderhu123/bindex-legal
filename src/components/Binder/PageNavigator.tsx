@@ -133,6 +133,11 @@ const createStyles = (colors: ThemeColors, forceDarkMode: boolean) => {
       height: 40,
       alignItems: 'center',
       justifyContent: 'center',
+      borderRadius: borderRadius.md,
+      borderWidth: 1,
+      borderColor: palette.border,
+      backgroundColor: palette.containerBg,
+      marginHorizontal: spacing.sm,
     },
     pageText: {
       fontSize: typography.base,

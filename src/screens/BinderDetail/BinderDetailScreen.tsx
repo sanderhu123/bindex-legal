@@ -3205,6 +3205,9 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
           contentContainerStyle={styles.container}
           onScroll={onScrollEvent}
           scrollEventThrottle={16}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={handlePullToRefresh} tintColor={colors.primary} />
+          }
         >
           {listHeader}
           
@@ -3909,7 +3912,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     justifyContent: 'center',
   },
   checkboxOverlayOwned: {
-    backgroundColor: 'rgba(255, 255, 255, 0.6)',
+    backgroundColor: 'rgba(255, 255, 255, 0.85)',
   },
   checkboxOverlayMissing: {
     backgroundColor: 'rgba(0, 0, 0, 0.25)',

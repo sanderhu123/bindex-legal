@@ -131,6 +131,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
   const [cards, setCards] = useState<CardWithOwnership[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [retryKey, setRetryKey] = useState(0);
   const [viewMode, setViewMode] = useState<ViewMode>('binder');
   const [searchQuery, setSearchQuery] = useState('');
   
@@ -343,7 +344,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
     }
 
     fetchBinder();
-  }, [binderId]);
+  }, [binderId, retryKey]);
 
   // Keep binder ownership in sync when returning from CardDetail
   const refreshOwnershipFromDb = useCallback(async () => {
@@ -1833,13 +1834,13 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
   const gridColumns = binder?.layoutPreference === '4x3' ? 4 : 3;
   const widthBasedCardWidth = Math.max(50, calculateCardWidth(screenWidth, gridColumns));
   
-  // In binder view, constrain card size so 3 rows + navigator fit the available height
-  const NAVIGATOR_HEIGHT = 70;
-  const ROW_MARGINS = spacing.sm * 3;
+  // In binder view, constrain card size so 3 rows fit the available grid height
+  const CARD_TEXT_HEIGHT = 22;
+  const ROW_MARGIN = spacing.sm;
   const binderCardWidth = useMemo(() => {
     if (binderAreaHeight <= 0) return widthBasedCardWidth;
-    const availableGridHeight = binderAreaHeight - NAVIGATOR_HEIGHT - ROW_MARGINS;
-    const maxCardHeight = availableGridHeight / 3;
+    const usableHeight = binderAreaHeight - (3 * ROW_MARGIN) - (3 * CARD_TEXT_HEIGHT);
+    const maxCardHeight = usableHeight / 3;
     const heightBasedWidth = maxCardHeight * 0.716;
     return Math.max(50, Math.min(widthBasedCardWidth, heightBasedWidth));
   }, [binderAreaHeight, widthBasedCardWidth]);
@@ -2689,7 +2690,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
         onRetry={() => {
           setError(null);
           setLoading(true);
-          // Trigger re-fetch by updating binderId dependency
+          setRetryKey(k => k + 1);
         }}
       />
     );
@@ -3205,45 +3206,44 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
           {listHeader}
         </View>
         <View
-          style={styles.binderLockedArea}
+          style={styles.binderGridArea}
           onLayout={(e) => setBinderAreaHeight(e.nativeEvent.layout.height)}
+          {...((!loading && binderHasCards) ? binderPanResponder.panHandlers : {})}
         >
           {loading ? (
             <SkeletonCardGrid columns={gridColumns} rows={3} />
           ) : !binderHasCards ? (
             <ListEmptyComponent />
           ) : (
-            <>
-              <View style={styles.binderGridArea} {...binderPanResponder.panHandlers}>
-                <BinderPageView
-                  cards={binderCards}
-                  currentPage={currentPage}
-                  totalPages={binderTotalPages}
-                  cardsPerPage={cardsPerPage}
-                  columns={gridColumns}
-                  cardWidth={cardWidth}
-                  binderId={binder.id}
-                  onPageChange={setCurrentPage}
-                  onCardPress={binderOnCardPress}
-                  isCustomMode={isCustomMode}
-                  onCardLongPress={handleLongPressCard}
-                  onCardLongPressRelease={handleLongPressRelease}
-                  collectionMode={binder.collectionMode}
-                  displayMode={displayMode}
-                  onCardTap={binder.collectionMode === 'region' ? handleRegionCardTap : undefined}
-                />
-              </View>
-              <PageNavigator
-                currentPage={currentPage}
-                totalPages={binderTotalPages}
-                onPreviousPage={() => setCurrentPage(p => Math.max(1, p - 1))}
-                onNextPage={() => setCurrentPage(p => Math.min(binderTotalPages, p + 1))}
-                onJumpToPage={() => setShowJumpModal(true)}
-                subtitle={`Cards ${((currentPage - 1) * cardsPerPage) + 1}–${Math.min(currentPage * cardsPerPage, binderCards.length)} of ${binderCards.length}`}
-              />
-            </>
+            <BinderPageView
+              cards={binderCards}
+              currentPage={currentPage}
+              totalPages={binderTotalPages}
+              cardsPerPage={cardsPerPage}
+              columns={gridColumns}
+              cardWidth={cardWidth}
+              binderId={binder.id}
+              onPageChange={setCurrentPage}
+              onCardPress={binderOnCardPress}
+              isCustomMode={isCustomMode}
+              onCardLongPress={handleLongPressCard}
+              onCardLongPressRelease={handleLongPressRelease}
+              collectionMode={binder.collectionMode}
+              displayMode={displayMode}
+              onCardTap={binder.collectionMode === 'region' ? handleRegionCardTap : undefined}
+            />
           )}
         </View>
+        {!loading && binderHasCards && (
+          <PageNavigator
+            currentPage={currentPage}
+            totalPages={binderTotalPages}
+            onPreviousPage={() => setCurrentPage(p => Math.max(1, p - 1))}
+            onNextPage={() => setCurrentPage(p => Math.min(binderTotalPages, p + 1))}
+            onJumpToPage={() => setShowJumpModal(true)}
+            subtitle={`Cards ${((currentPage - 1) * cardsPerPage) + 1}–${Math.min(currentPage * cardsPerPage, binderCards.length)} of ${binderCards.length}`}
+          />
+        )}
         <JumpToPageModal
           visible={showJumpModal}
           currentPage={currentPage}
@@ -3606,13 +3606,9 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     paddingHorizontal: screenPadding,
     paddingTop: screenPadding,
   },
-  binderLockedArea: {
-    flex: 1,
-    paddingHorizontal: screenPadding,
-    paddingBottom: spacing.sm,
-  },
   binderGridArea: {
     flex: 1,
+    paddingHorizontal: screenPadding,
     overflow: 'hidden',
   },
   headerContainer: {

@@ -32,56 +32,58 @@ export default function PageNavigator({
 
   return (
     <View style={styles.container}>
-      <TouchableOpacity
-        style={[styles.arrowButton, isPreviousDisabled && styles.arrowButtonDisabled]}
-        onPress={onPreviousPage}
-        disabled={isPreviousDisabled}
-        activeOpacity={0.6}
-        accessibilityLabel="Previous page"
-        accessibilityRole="button"
-        accessibilityState={{ disabled: isPreviousDisabled }}
-      >
-        <Ionicons
-          name="chevron-back"
-          size={22}
-          color={isPreviousDisabled
-            ? (forceDarkMode ? '#575757' : colors.textTertiary)
-            : (forceDarkMode ? '#FFFFFF' : colors.primary)}
-        />
-      </TouchableOpacity>
+      <View style={styles.row}>
+        <TouchableOpacity
+          style={[styles.arrowButton, isPreviousDisabled && styles.arrowButtonDisabled]}
+          onPress={onPreviousPage}
+          disabled={isPreviousDisabled}
+          activeOpacity={0.6}
+          accessibilityLabel="Previous page"
+          accessibilityRole="button"
+          accessibilityState={{ disabled: isPreviousDisabled }}
+        >
+          <Ionicons
+            name="chevron-back"
+            size={22}
+            color={isPreviousDisabled
+              ? (forceDarkMode ? '#575757' : colors.textTertiary)
+              : (forceDarkMode ? '#FFFFFF' : colors.primary)}
+          />
+        </TouchableOpacity>
 
-      <TouchableOpacity
-        style={styles.pageInfo}
-        onPress={onJumpToPage}
-        activeOpacity={0.6}
-        accessibilityLabel={`Page ${currentPage} of ${totalPages}. Tap to jump to a page.`}
-        accessibilityRole="button"
-      >
-        <Text style={styles.pageText}>
-          {currentPage} / {totalPages}
-        </Text>
-        {subtitle ? (
-          <Text style={styles.subtitleText}>{subtitle}</Text>
-        ) : null}
-      </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.pageInfo}
+          onPress={onJumpToPage}
+          activeOpacity={0.6}
+          accessibilityLabel={`Page ${currentPage} of ${totalPages}. Tap to jump to a page.`}
+          accessibilityRole="button"
+        >
+          <Text style={styles.pageText}>
+            {currentPage} / {totalPages}
+          </Text>
+        </TouchableOpacity>
 
-      <TouchableOpacity
-        style={[styles.arrowButton, isNextDisabled && styles.arrowButtonDisabled]}
-        onPress={onNextPage}
-        disabled={isNextDisabled}
-        activeOpacity={0.6}
-        accessibilityLabel="Next page"
-        accessibilityRole="button"
-        accessibilityState={{ disabled: isNextDisabled }}
-      >
-        <Ionicons
-          name="chevron-forward"
-          size={22}
-          color={isNextDisabled
-            ? (forceDarkMode ? '#575757' : colors.textTertiary)
-            : (forceDarkMode ? '#FFFFFF' : colors.primary)}
-        />
-      </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.arrowButton, isNextDisabled && styles.arrowButtonDisabled]}
+          onPress={onNextPage}
+          disabled={isNextDisabled}
+          activeOpacity={0.6}
+          accessibilityLabel="Next page"
+          accessibilityRole="button"
+          accessibilityState={{ disabled: isNextDisabled }}
+        >
+          <Ionicons
+            name="chevron-forward"
+            size={22}
+            color={isNextDisabled
+              ? (forceDarkMode ? '#575757' : colors.textTertiary)
+              : (forceDarkMode ? '#FFFFFF' : colors.primary)}
+          />
+        </TouchableOpacity>
+      </View>
+      {subtitle ? (
+        <Text style={styles.subtitleText}>{subtitle}</Text>
+      ) : null}
     </View>
   );
 }
@@ -103,13 +105,15 @@ const createStyles = (colors: ThemeColors, forceDarkMode: boolean) => {
 
   return StyleSheet.create({
     container: {
-      flexDirection: 'row',
       alignItems: 'center',
-      justifyContent: 'center',
       paddingVertical: spacing.xs,
       paddingHorizontal: spacing.sm,
       marginHorizontal: spacing.lg,
       marginVertical: spacing.sm,
+    },
+    row: {
+      flexDirection: 'row',
+      alignItems: 'center',
     },
     arrowButton: {
       width: 40,
@@ -125,11 +129,10 @@ const createStyles = (colors: ThemeColors, forceDarkMode: boolean) => {
       opacity: 0.35,
     },
     pageInfo: {
-      flex: 1,
+      paddingHorizontal: spacing.lg,
+      height: 40,
       alignItems: 'center',
       justifyContent: 'center',
-      height: 40,
-      marginHorizontal: spacing.sm,
     },
     pageText: {
       fontSize: typography.base,
@@ -141,7 +144,7 @@ const createStyles = (colors: ThemeColors, forceDarkMode: boolean) => {
       fontSize: typography.xs,
       fontFamily: fonts.regular,
       color: palette.subtitle,
-      marginTop: 1,
+      marginTop: 2,
     },
   });
 };

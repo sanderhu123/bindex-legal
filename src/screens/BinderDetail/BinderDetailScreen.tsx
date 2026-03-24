@@ -143,9 +143,6 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
   const [screenWidth, setScreenWidth] = useState(Dimensions.get('window').width);
   const [screenHeight, setScreenHeight] = useState(Dimensions.get('window').height);
   
-  // Height of the binder locked area (for sizing cards to fit on screen)
-  const [binderAreaHeight, setBinderAreaHeight] = useState(0);
-
   // Display mode: clean binder view with just card images (no badges, names, checkboxes)
   const [displayMode, setDisplayMode] = useState(false);
   const [displaySpreadStart, setDisplaySpreadStart] = useState(0);
@@ -1832,20 +1829,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
 
   // Determine grid columns based on layout preference (default to 3)
   const gridColumns = binder?.layoutPreference === '4x3' ? 4 : 3;
-  const widthBasedCardWidth = Math.max(50, calculateCardWidth(screenWidth, gridColumns));
-  
-  // In binder view, constrain card size so 3 rows fit the available grid height
-  const CARD_TEXT_HEIGHT = 22;
-  const ROW_MARGIN = spacing.sm;
-  const binderCardWidth = useMemo(() => {
-    if (binderAreaHeight <= 0) return widthBasedCardWidth;
-    const usableHeight = binderAreaHeight - (3 * ROW_MARGIN) - (3 * CARD_TEXT_HEIGHT);
-    const maxCardHeight = usableHeight / 3;
-    const heightBasedWidth = maxCardHeight * 0.716;
-    return Math.max(50, Math.min(widthBasedCardWidth, heightBasedWidth));
-  }, [binderAreaHeight, widthBasedCardWidth]);
-
-  const cardWidth = viewMode === 'binder' ? binderCardWidth : widthBasedCardWidth;
+  const cardWidth = Math.max(50, calculateCardWidth(screenWidth, gridColumns)); // Ensure minimum width of 50
   
   // Binder view mode calculations
   const cardsPerPage = gridColumns === 4 ? 12 : 9; // 4×3 = 12, 3×3 = 9
@@ -3202,48 +3186,50 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
 
     return (
       <SafeAreaView style={styles.safeArea}>
-        <View style={styles.binderHeaderWrapper}>
-          {listHeader}
-        </View>
-        <View
-          style={styles.binderGridArea}
-          onLayout={(e) => setBinderAreaHeight(e.nativeEvent.layout.height)}
-          {...((!loading && binderHasCards) ? binderPanResponder.panHandlers : {})}
+        <ScrollView
+          style={styles.scrollViewStyle}
+          contentContainerStyle={styles.container}
+          onScroll={onScrollEvent}
+          scrollEventThrottle={16}
         >
+          {listHeader}
+          
           {loading ? (
             <SkeletonCardGrid columns={gridColumns} rows={3} />
           ) : !binderHasCards ? (
             <ListEmptyComponent />
           ) : (
-            <BinderPageView
-              cards={binderCards}
-              currentPage={currentPage}
-              totalPages={binderTotalPages}
-              cardsPerPage={cardsPerPage}
-              columns={gridColumns}
-              cardWidth={cardWidth}
-              binderId={binder.id}
-              onPageChange={setCurrentPage}
-              onCardPress={binderOnCardPress}
-              isCustomMode={isCustomMode}
-              onCardLongPress={handleLongPressCard}
-              onCardLongPressRelease={handleLongPressRelease}
-              collectionMode={binder.collectionMode}
-              displayMode={displayMode}
-              onCardTap={binder.collectionMode === 'region' ? handleRegionCardTap : undefined}
-            />
+            <>
+              <View {...binderPanResponder.panHandlers}>
+                <BinderPageView
+                  cards={binderCards}
+                  currentPage={currentPage}
+                  totalPages={binderTotalPages}
+                  cardsPerPage={cardsPerPage}
+                  columns={gridColumns}
+                  cardWidth={cardWidth}
+                  binderId={binder.id}
+                  onPageChange={setCurrentPage}
+                  onCardPress={binderOnCardPress}
+                  isCustomMode={isCustomMode}
+                  onCardLongPress={handleLongPressCard}
+                  onCardLongPressRelease={handleLongPressRelease}
+                  collectionMode={binder.collectionMode}
+                  displayMode={displayMode}
+                  onCardTap={binder.collectionMode === 'region' ? handleRegionCardTap : undefined}
+                />
+              </View>
+              <PageNavigator
+                currentPage={currentPage}
+                totalPages={binderTotalPages}
+                onPreviousPage={() => setCurrentPage(p => Math.max(1, p - 1))}
+                onNextPage={() => setCurrentPage(p => Math.min(binderTotalPages, p + 1))}
+                onJumpToPage={() => setShowJumpModal(true)}
+                subtitle={`Cards ${((currentPage - 1) * cardsPerPage) + 1}–${Math.min(currentPage * cardsPerPage, binderCards.length)} of ${binderCards.length}`}
+              />
+            </>
           )}
-        </View>
-        {!loading && binderHasCards && (
-          <PageNavigator
-            currentPage={currentPage}
-            totalPages={binderTotalPages}
-            onPreviousPage={() => setCurrentPage(p => Math.max(1, p - 1))}
-            onNextPage={() => setCurrentPage(p => Math.min(binderTotalPages, p + 1))}
-            onJumpToPage={() => setShowJumpModal(true)}
-            subtitle={`Cards ${((currentPage - 1) * cardsPerPage) + 1}–${Math.min(currentPage * cardsPerPage, binderCards.length)} of ${binderCards.length}`}
-          />
-        )}
+        </ScrollView>
         <JumpToPageModal
           visible={showJumpModal}
           currentPage={currentPage}
@@ -3601,15 +3587,6 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   flatListContainer: {
     padding: screenPadding,
     paddingBottom: 80,
-  },
-  binderHeaderWrapper: {
-    paddingHorizontal: screenPadding,
-    paddingTop: screenPadding,
-  },
-  binderGridArea: {
-    flex: 1,
-    paddingHorizontal: screenPadding,
-    overflow: 'hidden',
   },
   headerContainer: {
     marginBottom: spacing.xs,

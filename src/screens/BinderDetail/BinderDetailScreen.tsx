@@ -2570,6 +2570,20 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
               <Text style={[styles.enlargedCardName, isDisplayPreview ? styles.enlargedTextLeft : styles.enlargedTextCenter]}>
                 {enlargedCard.name}
               </Text>
+              {enlargedCard.set ? (
+                <View style={[styles.enlargedSetRow, isDisplayPreview ? styles.enlargedSetRowLeft : styles.enlargedSetRowCenter]}>
+                  {getSetSymbolByName(enlargedCard.set) && (
+                    <Image
+                      source={{ uri: getSetSymbolByName(enlargedCard.set)! }}
+                      style={styles.enlargedSetIcon}
+                      contentFit="contain"
+                    />
+                  )}
+                  <Text style={[styles.enlargedSetName, isDisplayPreview ? styles.enlargedTextLeft : styles.enlargedTextCenter]}>
+                    {enlargedCard.set}
+                  </Text>
+                </View>
+              ) : null}
               {binderPage !== null && binderSlot !== null && (
                 <Text style={[styles.enlargedCardPosition, isDisplayPreview ? styles.enlargedTextLeft : styles.enlargedTextCenter]}>
                   Page {binderPage}, Slot {binderSlot}
@@ -3604,7 +3618,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   container: {
     padding: screenPadding,
-    paddingBottom: 60,
+    paddingBottom: spacing.md,
   },
   displayModeContainer: {
     paddingTop: spacing.sm,
@@ -3975,6 +3989,26 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     fontFamily: fonts.semibold,
     color: colors.onPrimary,
     marginTop: spacing.xs,
+  },
+  enlargedSetRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    marginTop: 2,
+  },
+  enlargedSetRowLeft: {
+    justifyContent: 'flex-start',
+  },
+  enlargedSetRowCenter: {
+    justifyContent: 'center',
+  },
+  enlargedSetIcon: {
+    width: 20,
+    height: 20,
+  },
+  enlargedSetName: {
+    fontSize: typography.sm,
+    color: 'rgba(255, 255, 255, 0.7)',
   },
   enlargedCardNumber: {
     fontSize: typography.base,

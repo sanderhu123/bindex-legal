@@ -18,6 +18,7 @@ import {
 import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { Card } from '../../types';
+import { getSetSymbolByName } from '../../data/pokemonEras';
 import { useCardPicker } from '../../hooks/useCardPicker';
 import { CardSearchResults } from './CardSearchResults';
 import { CardPickerFilters } from './CardPickerFilters';
@@ -454,8 +455,20 @@ export function CardPickerModal({
                 contentFit="contain"
               />
               <Text style={styles.enlargedCardName}>{enlargedCard.name}</Text>
+              {enlargedCard.set ? (
+                <View style={styles.enlargedSetRow}>
+                  {getSetSymbolByName(enlargedCard.set) && (
+                    <Image
+                      source={{ uri: getSetSymbolByName(enlargedCard.set)! }}
+                      style={styles.enlargedSetIcon}
+                      contentFit="contain"
+                    />
+                  )}
+                  <Text style={styles.enlargedSetName}>{enlargedCard.set}</Text>
+                </View>
+              ) : null}
               <Text style={styles.enlargedCardNumber}>
-                #{enlargedCard.number} • {enlargedCard.set || 'Unknown Set'}
+                #{enlargedCard.number}
               </Text>
               <Text style={styles.enlargedHint}>Tap anywhere to close</Text>
             </View>
@@ -675,6 +688,22 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     fontFamily: fonts.bold,
     color: colors.onPrimary,
     marginTop: spacing.md,
+    textAlign: 'center',
+  },
+  enlargedSetRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+    marginTop: 2,
+  },
+  enlargedSetIcon: {
+    width: 20,
+    height: 20,
+  },
+  enlargedSetName: {
+    fontSize: typography.sm,
+    color: 'rgba(255, 255, 255, 0.7)',
     textAlign: 'center',
   },
   enlargedCardNumber: {

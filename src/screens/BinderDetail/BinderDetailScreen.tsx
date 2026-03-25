@@ -2525,6 +2525,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
       : enlargedCard.setTotal
         ? `${enlargedCard.number}/${enlargedCard.setTotal}`
         : enlargedCard.number;
+    const displaySetName = enlargedCard.selectedCardSet || enlargedCard.set || '';
     const infoPanelWidth = Math.min(220, screenWidth * 0.28);
     const previewMaxWidth = isDisplayPreview
       ? Math.min(screenWidth - (screenPadding * 2) - infoPanelWidth - spacing.lg, 640)
@@ -2570,17 +2571,17 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
               <Text style={[styles.enlargedCardName, isDisplayPreview ? styles.enlargedTextLeft : styles.enlargedTextCenter]}>
                 {enlargedCard.name}
               </Text>
-              {enlargedCard.set ? (
+              {displaySetName ? (
                 <View style={[styles.enlargedSetRow, isDisplayPreview ? styles.enlargedSetRowLeft : styles.enlargedSetRowCenter]}>
-                  {getSetSymbolByName(enlargedCard.set) && (
+                  {getSetSymbolByName(displaySetName) && (
                     <Image
-                      source={{ uri: getSetSymbolByName(enlargedCard.set)! }}
+                      source={{ uri: getSetSymbolByName(displaySetName)! }}
                       style={styles.enlargedSetIcon}
                       contentFit="contain"
                     />
                   )}
                   <Text style={[styles.enlargedSetName, isDisplayPreview ? styles.enlargedTextLeft : styles.enlargedTextCenter]}>
-                    {enlargedCard.set}
+                    {displaySetName}
                   </Text>
                 </View>
               ) : null}

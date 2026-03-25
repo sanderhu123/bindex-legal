@@ -2828,14 +2828,6 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
 
         <TouchableOpacity
           style={styles.toolbarIconButton}
-          onPress={() => setShowStats(true)}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="stats-chart-outline" size={18} color={colors.primary} />
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.toolbarIconButton}
           onPress={() => {
             setViewMode('binder');
             setDisplaySpreadStart(0);
@@ -2911,7 +2903,11 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
 
   // Sticky progress footer (rendered outside scrollable content)
   const stickyProgressFooter = (
-    <View style={styles.stickyFooter}>
+    <TouchableOpacity
+      style={styles.stickyFooter}
+      activeOpacity={0.7}
+      onPress={() => setShowStats(true)}
+    >
       <View style={styles.stickyFooterContent}>
         <View style={styles.stickyFooterStats}>
           <Text style={styles.stickyFooterTotal}>{totalCount} total</Text>
@@ -2927,6 +2923,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
               <Text style={styles.stickyFooterSlots}>{positionCards.size}/{customMaxSlots} slots</Text>
             </>
           )}
+          <Ionicons name="stats-chart-outline" size={14} color={colors.textTertiary} style={{ marginLeft: 'auto' }} />
         </View>
         <View style={styles.stickyFooterBar}>
           <View style={[styles.stickyFooterBarFill, { width: `${progressPercentage}%`, backgroundColor: progressPercentage === 100 ? colors.success : colors.primary }]} />
@@ -2947,7 +2944,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
           })}
         </View>
       </View>
-    </View>
+    </TouchableOpacity>
   );
 
   const statsBottomSheet = (

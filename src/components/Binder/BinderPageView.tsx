@@ -306,7 +306,6 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   grid: {
     justifyContent: 'flex-start',
-    paddingHorizontal: spacing.md,
     paddingTop: spacing.xs,
   },
   row: {
@@ -362,7 +361,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     justifyContent: 'center',
   },
   checkboxOverlayOwned: {
-    backgroundColor: 'rgba(255, 255, 255, 0.85)',
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
   },
   checkboxOverlayMissing: {
     backgroundColor: 'rgba(0, 0, 0, 0.25)',

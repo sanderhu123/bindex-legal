@@ -61,6 +61,8 @@ const LOGO_UNOWNED = require('../../../assets/logo-icon-white.png');
 
 const CONTAINER_PADDING = screenPadding; // Padding from container style (24px)
 const CARD_MARGIN = 2; // Margin between cards (margin: 2 means 2px on all sides, 4px gap between cards)
+const BINDER_PANEL_PADDING = spacing.sm; // Horizontal padding inside the binder page panel (8px)
+const BINDER_SLOT_MARGIN = spacing.xs; // Slot margin in BinderPageView (4px per side)
 
 /** Number of cards to load per page (for infinite scroll) */
 const PAGE_SIZE = 36; // 12 rows of 3, or 9 rows of 4
@@ -90,6 +92,11 @@ const CUSTOM_MAX_SLOTS_4X3 = 480; // 40 pages × 12 cards
 function calculateCardWidth(screenWidth: number, columns: number): number {
   const gridWidth = screenWidth - ((CONTAINER_PADDING - CARD_MARGIN) * 2);
   return (gridWidth / columns) - (CARD_MARGIN * 2);
+}
+
+function calculateBinderCardWidth(screenWidth: number, columns: number): number {
+  const availableWidth = screenWidth - 2 * (CONTAINER_PADDING + BINDER_PANEL_PADDING);
+  return (availableWidth / columns) - (BINDER_SLOT_MARGIN * 2);
 }
 
 function getMaxSpreadStart(totalPages: number): number {
@@ -1841,6 +1848,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
   // Determine grid columns based on layout preference (default to 3)
   const gridColumns = binder?.layoutPreference === '4x3' ? 4 : 3;
   const cardWidth = Math.max(50, calculateCardWidth(screenWidth, gridColumns)); // Ensure minimum width of 50
+  const binderCardWidth = Math.max(50, calculateBinderCardWidth(screenWidth, gridColumns));
   
   // Binder view mode calculations
   const cardsPerPage = gridColumns === 4 ? 12 : 9; // 4×3 = 12, 3×3 = 9
@@ -3239,7 +3247,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
                   totalPages={binderTotalPages}
                   cardsPerPage={cardsPerPage}
                   columns={gridColumns}
-                  cardWidth={cardWidth}
+                  cardWidth={binderCardWidth}
                   binderId={binder.id}
                   onPageChange={setCurrentPage}
                   onCardPress={binderOnCardPress}
@@ -3626,7 +3634,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     borderRadius: borderRadius.lg,
     paddingTop: spacing.md,
     paddingBottom: spacing.sm,
-    paddingHorizontal: spacing.md,
+    paddingHorizontal: BINDER_PANEL_PADDING,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
@@ -3939,7 +3947,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     justifyContent: 'center',
   },
   checkboxOverlayOwned: {
-    backgroundColor: 'rgba(255, 255, 255, 0.85)',
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
   },
   checkboxOverlayMissing: {
     backgroundColor: 'rgba(0, 0, 0, 0.25)',

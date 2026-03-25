@@ -1805,7 +1805,8 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
         return cardSet === statsFilter.value;
       }
       if (statsFilter.type === 'variant') {
-        let cardVariant = card.variant || 'base';
+        if (!card.variant) return false;
+        let cardVariant = card.variant;
         if (cardVariant === 'base' && card.rarity && !STATS_REGULAR_RARITIES.has(card.rarity.toLowerCase())) {
           cardVariant = 'secret-rare';
         }
@@ -2752,7 +2753,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
       return cards.map(c => ({
         rarity: (c as any).selectedCardRarity || c.rarity || '',
         set: (c as any).selectedCardSet || 'No card selected',
-        variant: c.variant || 'base',
+        variant: (c as any).selectedCardId ? (c.variant || 'base') : '',
         isOwned: c.isOwned,
       }));
     }
@@ -2788,7 +2789,8 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
   const availableVariants = useMemo(() => {
     const seen = new Set<string>();
     for (const c of statsCardsData) {
-      let v = c.variant || 'base';
+      if (!c.variant) continue;
+      let v = c.variant;
       if (v === 'base' && c.rarity && !STATS_REGULAR_RARITIES.has(c.rarity.toLowerCase())) {
         v = 'secret-rare';
       }
@@ -3141,12 +3143,6 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
           <Text style={styles.stickyFooterTotal}>{totalCount} total</Text>
           <Text style={styles.stickyFooterDot}>·</Text>
           <Text style={styles.stickyFooterPercent}>{progressPercentage}%</Text>
-          {isCustomMode && (
-            <>
-              <Text style={styles.stickyFooterDot}>·</Text>
-              <Text style={styles.stickyFooterSlots}>{positionCards.size}/{customMaxSlots} slots</Text>
-            </>
-          )}
           <View style={styles.statsIconBadge}>
             <Text style={styles.statsIconLabel}>Details</Text>
             <Ionicons name="chevron-forward" size={12} color={colors.primary} />

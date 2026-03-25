@@ -203,7 +203,8 @@ export default function StatsBottomSheet({
     const map = new Map<string, { owned: number; total: number }>();
 
     for (const card of cards) {
-      let variant = card.variant || 'base';
+      if (!card.variant) continue;
+      let variant = card.variant;
       if (variant === 'base' && card.rarity && !REGULAR_RARITIES.has(card.rarity.toLowerCase())) {
         variant = 'secret-rare';
       }

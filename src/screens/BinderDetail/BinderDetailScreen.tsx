@@ -2701,7 +2701,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
     if (isCustomMode) {
       return Array.from(positionCards.values()).map(c => ({
         rarity: c.rarity || '',
-        set: 'Custom',
+        set: c.set || '',
         isOwned: c.isOwned,
       }));
     }
@@ -2712,8 +2712,10 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
         isOwned: c.isOwned,
       }));
     }
-    return cards.map(c => ({ rarity: c.rarity || '', set: c.set || '', isOwned: c.isOwned }));
-  }, [cards, positionCards, isCustomMode, binder]);
+    const mainCards = cards.map(c => ({ rarity: c.rarity || '', set: c.set || '', isOwned: c.isOwned }));
+    const extras = extraCards.map(c => ({ rarity: c.rarity || '', set: 'Custom', isOwned: c.isOwned }));
+    return [...mainCards, ...extras];
+  }, [cards, extraCards, positionCards, isCustomMode, binder]);
 
   if (loading && !binder) {
     return <LoadingScreen message="Loading binder..." />;

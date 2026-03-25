@@ -3231,7 +3231,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
           ) : !binderHasCards ? (
             <ListEmptyComponent />
           ) : (
-            <>
+            <View style={styles.binderPagePanel}>
               <View {...binderPanResponder.panHandlers}>
                 <BinderPageView
                   cards={binderCards}
@@ -3259,7 +3259,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
                 onJumpToPage={() => setShowJumpModal(true)}
                 subtitle={`Cards ${((currentPage - 1) * cardsPerPage) + 1}–${Math.min(currentPage * cardsPerPage, binderCards.length)} of ${binderCards.length}`}
               />
-            </>
+            </View>
           )}
         </ScrollView>
         <JumpToPageModal
@@ -3620,6 +3620,17 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     padding: screenPadding,
     paddingBottom: spacing.md,
+  },
+  binderPagePanel: {
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.lg,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.xs,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
   },
   displayModeContainer: {
     paddingTop: spacing.sm,

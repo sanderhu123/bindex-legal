@@ -8,7 +8,8 @@ import { spacing, typography, fonts, borderRadius, type ThemeColors } from '../.
 import type { Card } from '../../types';
 import type { MainStackParamList } from '../../navigation/AppNavigator';
 
-const LOGO_ICON = require('../../../assets/logo-icon-teal.png');
+const LOGO_OWNED = require('../../../assets/logo-icon-teal.png');
+const LOGO_UNOWNED = require('../../../assets/logo-icon-white.png');
 
 /**
  * Card with ownership status
@@ -231,12 +232,12 @@ function BinderPageViewComponent({
           
           {/* Ownership checkbox overlay - hidden in display mode */}
           {!displayMode && (
-            <TouchableOpacity 
-              style={styles.checkboxOverlay}
+            <TouchableOpacity
+              style={[styles.checkboxOverlay, card.isOwned ? styles.checkboxOverlayOwned : styles.checkboxOverlayMissing]}
               onPress={handleCheckboxTap}
               activeOpacity={0.7}
             >
-              <RNImage source={LOGO_ICON} style={[styles.checkboxLogo, !card.isOwned && { opacity: 0.2 }]} resizeMode="contain" />
+              <RNImage source={card.isOwned ? LOGO_OWNED : LOGO_UNOWNED} style={styles.checkboxLogo} resizeMode="contain" />
             </TouchableOpacity>
           )}
           
@@ -302,12 +303,11 @@ function BinderPageViewComponent({
 
 const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
-    flex: 1,
   },
   grid: {
-    flex: 1,
     justifyContent: 'flex-start',
     paddingHorizontal: spacing.sm,
+    paddingTop: spacing.xs,
   },
   row: {
     flexDirection: 'row',
@@ -354,21 +354,27 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     position: 'absolute',
     top: 4,
     right: 4,
-    backgroundColor: 'rgba(255, 255, 255, 0.85)',
-    borderRadius: 4,
+    borderRadius: 2,
     padding: 2,
     width: 24,
     height: 24,
     alignItems: 'center',
     justifyContent: 'center',
   },
+  checkboxOverlayOwned: {
+    backgroundColor: 'rgba(255, 255, 255, 0.85)',
+  },
+  checkboxOverlayMissing: {
+    backgroundColor: 'rgba(0, 0, 0, 0.25)',
+  },
   checkboxLogo: {
     width: 22,
     height: 22,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.5,
-    shadowRadius: 3,
+    shadowOpacity: 0.6,
+    shadowRadius: 4,
+    elevation: 3,
   },
   // Variant badge
   variantBadge: {
@@ -411,13 +417,14 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     fontSize: typography.xs,
     fontFamily: fonts.medium,
     color: colors.text,
-    marginTop: spacing.xs,
+    marginTop: 2,
     textAlign: 'center',
   },
   cardNumber: {
-    fontSize: typography.xs,
+    fontSize: 11,
     color: colors.textTertiary,
     textAlign: 'center',
+    marginTop: -6,
   },
   // Page info footer
   pageInfo: {

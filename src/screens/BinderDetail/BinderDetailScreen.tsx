@@ -2702,6 +2702,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
       return Array.from(positionCards.values()).map(c => ({
         rarity: c.rarity || '',
         set: c.set || '',
+        variant: c.variant || 'base',
         isOwned: c.isOwned,
       }));
     }
@@ -2709,11 +2710,12 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
       return cards.map(c => ({
         rarity: (c as any).selectedCardRarity || c.rarity || '',
         set: (c as any).selectedCardSet || 'No card selected',
+        variant: c.variant || 'base',
         isOwned: c.isOwned,
       }));
     }
-    const mainCards = cards.map(c => ({ rarity: c.rarity || '', set: c.set || '', isOwned: c.isOwned }));
-    const extras = extraCards.map(c => ({ rarity: c.rarity || '', set: 'Custom', isOwned: c.isOwned }));
+    const mainCards = cards.map(c => ({ rarity: c.rarity || '', set: c.set || '', variant: c.variant || 'base', isOwned: c.isOwned }));
+    const extras = extraCards.map(c => ({ rarity: c.rarity || '', set: 'Custom', variant: c.variant || 'base', isOwned: c.isOwned }));
     return [...mainCards, ...extras];
   }, [cards, extraCards, positionCards, isCustomMode, binder]);
 

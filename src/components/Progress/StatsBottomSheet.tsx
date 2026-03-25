@@ -15,7 +15,7 @@ import ProgressRing from './ProgressRing';
 
 const MILESTONES = [25, 50, 75, 100] as const;
 
-type StatsTab = 'rarity' | 'sets';
+type StatsTab = 'rarity' | 'sets' | 'variant';
 
 const RARITY_ORDER: string[] = [
   'common',
@@ -64,6 +64,30 @@ interface SetGroup {
   percentage: number;
 }
 
+interface VariantGroup {
+  variant: string;
+  label: string;
+  owned: number;
+  total: number;
+  percentage: number;
+}
+
+const VARIANT_ORDER: string[] = [
+  'base',
+  'holo',
+  'reverse-holo',
+  'poke-ball',
+  'master-ball',
+];
+
+const VARIANT_LABELS: Record<string, string> = {
+  'base': 'Regular',
+  'holo': 'Holo',
+  'reverse-holo': 'Reverse Holo',
+  'poke-ball': 'Poké Ball Holo',
+  'master-ball': 'Master Ball Holo',
+};
+
 interface StatsBottomSheetProps {
   visible: boolean;
   onClose: () => void;
@@ -71,7 +95,7 @@ interface StatsBottomSheetProps {
   totalCount: number;
   missingCount: number;
   progressPercentage: number;
-  cards: { rarity: string; set: string; isOwned: boolean }[];
+  cards: { rarity: string; set: string; variant?: string; isOwned: boolean }[];
   customSlotInfo?: { filled: number; max: number };
 }
 
@@ -155,11 +179,49 @@ export default function StatsBottomSheet({
       .sort((a, b) => b.total - a.total);
   }, [cards]);
 
+  const variantGroups = useMemo(() => {
+    const map = new Map<string, { owned: number; total: number }>();
+
+    for (const card of cards) {
+      const variant = card.variant || 'base';
+      const existing = map.get(variant);
+      if (existing) {
+        existing.total += 1;
+        if (card.isOwned) existing.owned += 1;
+      } else {
+        map.set(variant, { total: 1, owned: card.isOwned ? 1 : 0 });
+      }
+    }
+
+    const orderIndex = (v: string) => {
+      const idx = VARIANT_ORDER.indexOf(v);
+      return idx >= 0 ? idx : VARIANT_ORDER.length;
+    };
+
+    const sortedKeys = [...map.keys()].sort((a, b) => orderIndex(a) - orderIndex(b));
+    const result: VariantGroup[] = [];
+
+    for (const key of sortedKeys) {
+      const { owned, total } = map.get(key)!;
+      result.push({
+        variant: key,
+        label: VARIANT_LABELS[key] || key.charAt(0).toUpperCase() + key.slice(1),
+        owned,
+        total,
+        percentage: total > 0 ? Math.round((owned / total) * 100) : 0,
+      });
+    }
+
+    return result;
+  }, [cards]);
+
   const hasMultipleSets = setGroups.length > 1;
+  const hasMultipleVariants = variantGroups.length > 1;
 
   const tabs: { key: StatsTab; label: string }[] = [
     { key: 'rarity', label: 'Rarity' },
     ...(hasMultipleSets ? [{ key: 'sets' as StatsTab, label: 'Sets' }] : []),
+    ...(hasMultipleVariants ? [{ key: 'variant' as StatsTab, label: 'Variant' }] : []),
   ];
 
   const renderBreakdownRow = (key: string, label: string, owned: number, total: number, percentage: number) => (
@@ -289,6 +351,15 @@ export default function StatsBottomSheet({
               <View style={styles.breakdownSection}>
                 {setGroups.map((group) =>
                   renderBreakdownRow(group.name, group.name, group.owned, group.total, group.percentage)
+                )}
+              </View>
+            )}
+
+            {/* Variant Tab */}
+            {activeTab === 'variant' && variantGroups.length > 0 && (
+              <View style={styles.breakdownSection}>
+                {variantGroups.map((group) =>
+                  renderBreakdownRow(group.variant, group.label, group.owned, group.total, group.percentage)
                 )}
               </View>
             )}

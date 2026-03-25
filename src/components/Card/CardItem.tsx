@@ -376,7 +376,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     fontSize: 14,
     fontFamily: fonts.medium,
     color: colors.text,
-    flex: 1,
+    flexShrink: 1,
   },
   listCardNumber: {
     fontSize: 12,

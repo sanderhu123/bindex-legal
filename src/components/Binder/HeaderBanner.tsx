@@ -47,7 +47,7 @@ export default function HeaderBanner({
             source={{ uri: logoUrl }}
             style={styles.setLogo}
             contentFit="contain"
-            contentPosition="right"
+            contentPosition="left"
           />
         )}
         {ring}

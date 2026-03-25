@@ -1,36 +1,42 @@
 import React, { useMemo } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, Image as RNImage, StyleSheet } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../context/ThemeContext';
 import { spacing, typography, fonts, borderRadius, type ThemeColors } from '../../constants/theme';
 import { getSetLogoByName } from '../../data/pokemonEras';
-import { getPokemonImageUrl } from '../../services/api/pokemonApi';
-import type { PokemonArtStyle } from '../../types';
 import ProgressRing from '../Progress/ProgressRing';
+
+const LOGO_TEAL = require('../../../assets/logo-icon-teal.png');
 
 interface HeaderBannerProps {
   collectionMode: 'master-set' | 'region' | 'custom';
   setName?: string;
   regionName?: string;
-  pokemonArtStyle?: PokemonArtStyle;
-  /** First card image URL for custom binder */
-  cardThumbnail?: string;
   /** Completion percentage for progress ring */
   percentage: number;
 }
 
-const REGION_FIRST_DEX: Record<string, number> = {
-  Kanto: 1, Johto: 152, Hoenn: 252, Sinnoh: 387,
-  Unova: 494, Kalos: 650, Alola: 722, Galar: 810, Paldea: 906,
+const REGION_INFO: Record<string, { gen: string; startDex: number; endDex: number }> = {
+  Kanto:  { gen: 'Gen I',    startDex: 1,   endDex: 151 },
+  Johto:  { gen: 'Gen II',   startDex: 152, endDex: 251 },
+  Hoenn:  { gen: 'Gen III',  startDex: 252, endDex: 386 },
+  Sinnoh: { gen: 'Gen IV',   startDex: 387, endDex: 493 },
+  Unova:  { gen: 'Gen V',    startDex: 494, endDex: 649 },
+  Kalos:  { gen: 'Gen VI',   startDex: 650, endDex: 721 },
+  Alola:  { gen: 'Gen VII',  startDex: 722, endDex: 809 },
+  Galar:  { gen: 'Gen VIII', startDex: 810, endDex: 898 },
+  Paldea: { gen: 'Gen IX',   startDex: 906, endDex: 1025 },
 };
+
+function formatDex(n: number): string {
+  return `#${n.toString().padStart(3, '0')}`;
+}
 
 export default function HeaderBanner({
   collectionMode,
   setName,
   regionName,
-  pokemonArtStyle,
-  cardThumbnail,
   percentage,
 }: HeaderBannerProps) {
   const { colors } = useTheme();
@@ -56,18 +62,20 @@ export default function HeaderBanner({
   }
 
   if (collectionMode === 'region' && regionName) {
-    const dex = REGION_FIRST_DEX[regionName];
-    const artStyle = pokemonArtStyle || 'official-artwork';
-    const spriteUrl = dex ? getPokemonImageUrl(dex, artStyle) : null;
+    const info = REGION_INFO[regionName];
     return (
       <View style={styles.bannerRow}>
-        {spriteUrl && (
-          <Image
-            source={{ uri: spriteUrl }}
-            style={styles.regionSprite}
-            contentFit="contain"
-          />
-        )}
+        <View style={[styles.regionBadge, { backgroundColor: colors.primary + '10' }]}>
+          <Ionicons name="map-outline" size={18} color={colors.primary} />
+          <View>
+            <Text style={[styles.regionName, { color: colors.text }]}>{regionName}</Text>
+            {info && (
+              <Text style={[styles.regionMeta, { color: colors.textTertiary }]}>
+                {info.gen} · {formatDex(info.startDex)}–{formatDex(info.endDex)}
+              </Text>
+            )}
+          </View>
+        </View>
         {ring}
       </View>
     );
@@ -76,18 +84,7 @@ export default function HeaderBanner({
   if (collectionMode === 'custom') {
     return (
       <View style={styles.bannerRow}>
-        {cardThumbnail ? (
-          <Image
-            source={{ uri: cardThumbnail }}
-            style={styles.customThumb}
-            contentFit="contain"
-          />
-        ) : (
-          <View style={styles.customEmpty}>
-            <Ionicons name="grid-outline" size={22} color={colors.textTertiary} />
-            <Text style={styles.customEmptyText}>Custom Collection</Text>
-          </View>
-        )}
+        <RNImage source={LOGO_TEAL} style={styles.customLogo} resizeMode="contain" />
         {ring}
       </View>
     );
@@ -114,23 +111,25 @@ const createStyles = (colors: ThemeColors) =>
       width: '60%',
       height: 44,
     },
-    regionSprite: {
-      width: 56,
-      height: 56,
-    },
-    customThumb: {
-      width: 48,
-      height: 67,
-      borderRadius: borderRadius.sm,
-    },
-    customEmpty: {
+    regionBadge: {
       flexDirection: 'row',
       alignItems: 'center',
       gap: spacing.sm,
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.sm,
+      borderRadius: borderRadius.lg,
     },
-    customEmptyText: {
-      fontSize: typography.sm,
-      fontFamily: fonts.medium,
-      color: colors.textTertiary,
+    regionName: {
+      fontSize: typography.base,
+      fontFamily: fonts.semibold,
+    },
+    regionMeta: {
+      fontSize: typography.xs,
+      fontFamily: fonts.regular,
+    },
+    customLogo: {
+      width: 40,
+      height: 40,
+      opacity: 0.6,
     },
   });

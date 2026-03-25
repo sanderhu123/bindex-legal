@@ -2710,15 +2710,6 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
     return cards.map(c => ({ rarity: c.rarity || '', isOwned: c.isOwned }));
   }, [cards, positionCards, isCustomMode, binder]);
 
-  // Custom binder: get the first card thumbnail for the banner
-  const customThumbnail = useMemo(() => {
-    if (!isCustomMode) return undefined;
-    for (const card of positionCards.values()) {
-      if (card.imageUrl) return card.imageUrl;
-    }
-    return undefined;
-  }, [positionCards, isCustomMode]);
-
   if (loading && !binder) {
     return <LoadingScreen message="Loading binder..." />;
   }
@@ -2799,13 +2790,11 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
         </View>
       </Animated.View>
 
-      {/* Banner: Progress ring + Set logo / Region sprite / Custom card */}
+      {/* Banner: Progress ring + Set logo / Region badge / Custom logo */}
       <HeaderBanner
         collectionMode={binder.collectionMode}
         setName={binder.set}
         regionName={binder.region}
-        pokemonArtStyle={binder.pokemonArtStyle}
-        cardThumbnail={customThumbnail}
         percentage={progressPercentage}
       />
 

@@ -372,9 +372,9 @@ const createStyles = (colors: ThemeColors) =>
       borderRadius: borderRadius.full,
     },
     rarityPercent: {
-      fontSize: typography.xs,
+      fontSize: typography.sm,
       fontFamily: fonts.semibold,
-      color: colors.textSecondary,
+      color: colors.text,
       width: 32,
       textAlign: 'right',
     },

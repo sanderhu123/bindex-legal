@@ -2065,18 +2065,29 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
   // Key extractor for FlatList
   const keyExtractor = useCallback((item: CardWithOwnership) => item.id, []);
 
+  // Map card ID → true binder index (position in unfiltered cards array)
+  const cardBinderIndexMap = useMemo(() => {
+    const map = new Map<string, number>();
+    cards.forEach((c, i) => map.set(c.id, i));
+    return map;
+  }, [cards]);
+
   // Render a single card for list view FlatList
   const renderListCard = useCallback(
     ({ item }: { item: CardWithOwnership }) => (
       <CardItem
         card={item}
         onPress={handleToggleCard}
+        onLongPress={handleLongPressCard}
+        onLongPressRelease={handleLongPressRelease}
         binderId={binder?.id || ''}
         variant="list"
         listTapBehavior="toggle"
+        cardIndex={cardBinderIndexMap.get(item.id) ?? 0}
+        cardsPerPage={cardsPerPage}
       />
     ),
-    [handleToggleCard, binder?.id]
+    [handleToggleCard, handleLongPressCard, handleLongPressRelease, binder?.id, cardsPerPage, cardBinderIndexMap]
   );
 
   // Render a card for custom mode list view (toggles ownership by position)
@@ -2085,12 +2096,16 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
       <CardItem
         card={item}
         onPress={handleCustomCardToggleByCard}
+        onLongPress={handleLongPressCard}
+        onLongPressRelease={handleLongPressRelease}
         binderId={binder?.id || ''}
         variant="list"
         listTapBehavior="toggle"
+        cardIndex={cardBinderIndexMap.get(item.id) ?? 0}
+        cardsPerPage={cardsPerPage}
       />
     ),
-    [handleCustomCardToggleByCard, binder?.id]
+    [handleCustomCardToggleByCard, handleLongPressCard, handleLongPressRelease, binder?.id, cardsPerPage, cardBinderIndexMap]
   );
 
   // === MASTER SET MODE: Combined grid with regular cards, extra cards, and empty slots ===

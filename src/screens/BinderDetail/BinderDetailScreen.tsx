@@ -2950,6 +2950,11 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
       missingCount={missingCount}
       progressPercentage={progressPercentage}
       cards={statsCardsData}
+      fullCards={isCustomMode
+        ? Array.from(positionCards.values())
+        : [...cards.map(c => ({ ...c, isOwned: c.isOwned })), ...extraCards.map(c => ({ ...c, isOwned: c.isOwned }))]
+      }
+      binderId={binder.id}
       customSlotInfo={isCustomMode ? { filled: positionCards.size, max: customMaxSlots } : undefined}
     />
   );

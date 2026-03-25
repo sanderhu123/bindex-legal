@@ -198,11 +198,11 @@ export default function StatsBottomSheet({
                 <Text style={styles.sectionTitle}>Rarity Breakdown</Text>
                 {rarityGroups.map((group) => (
                   <View key={group.rarity} style={styles.rarityRow}>
-                    <Text style={styles.rarityLabel}>
-                      <Text style={styles.rarityCount}>{group.owned}/{group.total}</Text>
-                      {'  '}{group.label}
-                    </Text>
-                    <View style={styles.rarityBarRow}>
+                    <View style={styles.rarityContent}>
+                      <Text style={styles.rarityLabel}>
+                        <Text style={styles.rarityCount}>{group.owned}/{group.total}</Text>
+                        {'  '}{group.label}
+                      </Text>
                       <View style={styles.rarityBarTrack}>
                         <View
                           style={[
@@ -214,8 +214,8 @@ export default function StatsBottomSheet({
                           ]}
                         />
                       </View>
-                      <Text style={styles.rarityPercent}>{group.percentage}%</Text>
                     </View>
+                    <Text style={styles.rarityPercent}>{group.percentage}%</Text>
                   </View>
                 ))}
               </View>
@@ -341,10 +341,16 @@ const createStyles = (colors: ThemeColors) =>
       gap: spacing.sm,
     },
     rarityRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
       backgroundColor: colors.surface,
       borderRadius: borderRadius.md,
       padding: spacing.sm,
-      gap: 0,
+      gap: spacing.sm,
+    },
+    rarityContent: {
+      flex: 1,
+      gap: 2,
     },
     rarityLabel: {
       fontSize: typography.sm,
@@ -355,13 +361,7 @@ const createStyles = (colors: ThemeColors) =>
       fontFamily: fonts.semibold,
       color: colors.textSecondary,
     },
-    rarityBarRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: spacing.sm,
-    },
     rarityBarTrack: {
-      flex: 1,
       height: 6,
       backgroundColor: colors.backgroundDark,
       borderRadius: borderRadius.full,
@@ -372,10 +372,10 @@ const createStyles = (colors: ThemeColors) =>
       borderRadius: borderRadius.full,
     },
     rarityPercent: {
-      fontSize: typography.sm,
-      fontFamily: fonts.semibold,
+      fontSize: typography.xl,
+      fontFamily: fonts.bold,
       color: colors.text,
-      width: 32,
+      minWidth: 48,
       textAlign: 'right',
     },
   });

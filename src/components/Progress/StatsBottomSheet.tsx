@@ -44,11 +44,11 @@ const SHORT_LABELS: Record<string, string> = {
   'double rare': 'Double Rare',
   'ultra rare': 'Ultra Rare',
   'illustration rare': 'Illustration Rare',
-  'special illustration rare': 'Special IR',
+  'special illustration rare': 'Special Illustration Rare',
   'hyper rare': 'Hyper Rare',
   'shiny rare': 'Shiny Rare',
-  'shiny ultra rare': 'Shiny Ultra',
-  'ace spec rare': 'ACE Spec',
+  'shiny ultra rare': 'Shiny Ultra Rare',
+  'ace spec rare': 'ACE Spec Rare',
 };
 
 interface RarityGroup {

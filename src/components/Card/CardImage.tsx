@@ -217,7 +217,7 @@ export default function CardImage({
     const txtColor = getCustomCardTextColor({ id: cardInfo.id!, name: cardInfo.name || '', number: '', set: cardInfo.set || '', rarity: '', illustrator: '' });
     const containerStyle: any[] = [styles.container];
     const hasFixedDimensions = style && typeof style === 'object' &&
-      (typeof (style as any).width === 'number' || typeof (style as any).height === 'number');
+      typeof (style as any).width === 'number' && typeof (style as any).height === 'number';
     if (!hasFixedDimensions) {
       containerStyle.push({ aspectRatio });
     }
@@ -245,7 +245,7 @@ export default function CardImage({
   if (!hasImage) {
     const containerStyle: any[] = [styles.container];
     const hasFixedDimensions = style && typeof style === 'object' && 
-      (typeof (style as any).width === 'number' || typeof (style as any).height === 'number');
+      typeof (style as any).width === 'number' && typeof (style as any).height === 'number';
     if (!hasFixedDimensions) {
       containerStyle.push({ aspectRatio });
     }
@@ -268,7 +268,7 @@ export default function CardImage({
   // Build container style - only apply aspectRatio if no fixed pixel width/height in style
   // Check if width/height are numeric (pixel values), not percentages or '100%'
   const hasFixedDimensions = style && typeof style === 'object' && 
-    (typeof (style as any).width === 'number' || typeof (style as any).height === 'number');
+    typeof (style as any).width === 'number' && typeof (style as any).height === 'number';
   
   const containerStyle: any[] = [styles.container];
   if (!hasFixedDimensions) {

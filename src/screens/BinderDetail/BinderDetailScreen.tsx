@@ -2931,21 +2931,6 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
         <View style={styles.stickyFooterBar}>
           <View style={[styles.stickyFooterBarFill, { width: `${progressPercentage}%`, backgroundColor: progressPercentage === 100 ? colors.success : colors.primary }]} />
         </View>
-        <View style={styles.milestonesRow}>
-          {MILESTONES.map((milestone) => {
-            const reached = reachedMilestones.includes(milestone);
-            return (
-              <View
-                key={milestone}
-                style={[styles.milestoneBadge, reached && styles.milestoneBadgeReached]}
-              >
-                <Text style={[styles.milestoneBadgeText, reached && styles.milestoneBadgeTextReached]}>
-                  {milestone}%
-                </Text>
-              </View>
-            );
-          })}
-        </View>
       </View>
     </TouchableOpacity>
   );

@@ -3100,20 +3100,6 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
             </View>
           )}
 
-          {!isCustomMode && viewMode === 'grid' && (
-            <TouchableOpacity
-              style={styles.optionRow}
-              onPress={() => setShowPageBreaks(!showPageBreaks)}
-            >
-              <Text style={styles.optionLabel}>
-                Page breaks{' '}
-                <Text style={styles.optionHint}>(grid view only)</Text>
-              </Text>
-              <Text style={styles.checkboxIcon}>
-                {showPageBreaks ? '☑' : '☐'}
-              </Text>
-            </TouchableOpacity>
-          )}
         </View>
       )}
 

@@ -196,7 +196,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     fontSize: typography['2xl'],
     fontFamily: fonts.semibold,
     color: colors.text,
-    flex: 1,
+    flexShrink: 1,
     letterSpacing: -0.3,
   },
   fullBadge: {

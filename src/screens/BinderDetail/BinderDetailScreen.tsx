@@ -2923,7 +2923,9 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
               <Text style={styles.stickyFooterSlots}>{positionCards.size}/{customMaxSlots} slots</Text>
             </>
           )}
-          <Ionicons name="stats-chart-outline" size={14} color={colors.textTertiary} style={{ marginLeft: 'auto' }} />
+          <View style={styles.statsIconBadge}>
+            <Ionicons name="stats-chart" size={14} color={colors.primary} />
+          </View>
         </View>
         <View style={styles.stickyFooterBar}>
           <View style={[styles.stickyFooterBarFill, { width: `${progressPercentage}%`, backgroundColor: progressPercentage === 100 ? colors.success : colors.primary }]} />
@@ -3842,6 +3844,15 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: spacing.xs,
+  },
+  statsIconBadge: {
+    marginLeft: 'auto',
+    width: 26,
+    height: 26,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.primary + '15',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   stickyFooterTotal: {
     fontSize: typography.xs,

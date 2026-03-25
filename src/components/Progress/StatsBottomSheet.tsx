@@ -338,7 +338,7 @@ const createStyles = (colors: ThemeColors) =>
       fontFamily: fonts.semibold,
     },
     raritySection: {
-      gap: spacing.sm,
+      gap: spacing.md,
     },
     rarityRow: {
       flexDirection: 'row',

@@ -1,6 +1,7 @@
 import React, { useMemo, useRef } from 'react';
 import { View, StyleSheet, Text, ScrollView, TouchableOpacity } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import { Ionicons } from '@expo/vector-icons';
 import CardImage from '../Card/CardImage';
 import { useTheme } from '../../context/ThemeContext';
 import { spacing, typography, borderRadius, shadows, fonts, type ThemeColors } from '../../constants/theme';
@@ -167,7 +168,7 @@ function PlaceholderCardItem({
         />
         {isSelected && (
           <View style={styles.selectedOverlay}>
-            <Text style={styles.selectedCheck}>Ã¢Å“â€œ</Text>
+            <Ionicons name="checkmark-circle" size={20} color={colors.onPrimary} style={styles.selectedCheck} />
           </View>
         )}
       </View>
@@ -227,7 +228,7 @@ export function CardPlaceholder({
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
-          <Text style={styles.headerIcon}>Ã°Å¸â€œÂ¥</Text>
+          <Ionicons name="albums-outline" size={16} color={colors.textSecondary} style={styles.headerIcon} />
           <Text style={styles.headerTitle}>CARD PLACEHOLDER</Text>
         </View>
         <Text style={styles.headerCount}>
@@ -235,7 +236,7 @@ export function CardPlaceholder({
         </Text>
       </View>
 
-      {/* Cards row Ã¢â‚¬â€ always shows all 18 slots */}
+      {/* Cards row - always shows all 18 slots */}
       <View style={styles.contentRow}>
         <ScrollView
           horizontal
@@ -277,7 +278,7 @@ export function CardPlaceholder({
           })}
         </ScrollView>
 
-        {/* Trash Zone Ã¢â‚¬â€ always rendered so the ref/measurement is available,
+        {/* Trash Zone - always rendered so the ref/measurement is available,
             but visually hidden when no card is selected and no drag is active */}
         <TouchableOpacity
           ref={(ref) => trashZoneRef?.(ref as unknown as View | null)}
@@ -291,7 +292,7 @@ export function CardPlaceholder({
           activeOpacity={0.7}
           accessibilityLabel="Trash zone, tap to remove selected card"
         >
-          <Text style={styles.trashIcon}>Ã°Å¸â€”â€˜Ã¯Â¸Â</Text>
+          <Ionicons name="trash-outline" size={24} color={colors.error} style={styles.trashIcon} />
           <Text style={[styles.trashText, isDragOverTrash && styles.trashTextActive]}>
             {isDragOverTrash ? 'Drop to\nRemove' : 'Remove'}
           </Text>
@@ -309,9 +310,9 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     paddingBottom: spacing.sm,
   },
   containerDragOver: {
-    borderTopColor: '#4CAF50',
+    borderTopColor: colors.success,
     borderTopWidth: 3,
-    backgroundColor: 'rgba(76, 175, 80, 0.08)',
+    backgroundColor: colors.success + '14',
   },
   header: {
     flexDirection: 'row',
@@ -394,20 +395,19 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(0, 122, 255, 0.3)',
+    backgroundColor: colors.primary + '4D',
     justifyContent: 'center',
     alignItems: 'center',
   },
   selectedCheck: {
     fontSize: 20,
     color: colors.onPrimary,
-    fontFamily: fonts.bold,
   },
   trashZone: {
     width: 70,
     height: 78,
     marginRight: spacing.md,
-    backgroundColor: 'rgba(255, 59, 48, 0.15)',
+    backgroundColor: colors.error + '25',
     borderRadius: borderRadius.md,
     borderWidth: 2,
     borderColor: colors.error,
@@ -423,11 +423,11 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     opacity: 0,
   },
   trashZoneActive: {
-    backgroundColor: 'rgba(255, 59, 48, 0.35)',
+    backgroundColor: colors.error + '59',
     borderWidth: 3,
     borderStyle: 'solid',
-    borderColor: '#FF1744',
-    shadowColor: '#FF1744',
+    borderColor: colors.error,
+    shadowColor: colors.error,
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.6,
     shadowRadius: 10,
@@ -444,7 +444,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     textAlign: 'center',
   },
   trashTextActive: {
-    color: '#FF1744',
+    color: colors.error,
     fontFamily: fonts.bold,
   },
 });

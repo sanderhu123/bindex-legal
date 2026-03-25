@@ -1,7 +1,7 @@
-import React, { useMemo } from 'react';
-import { View, StyleSheet, Text, TouchableOpacity } from 'react-native';
+import React, { useMemo, useState } from 'react';
+import { View, StyleSheet, Text, TouchableOpacity, type LayoutChangeEvent } from 'react-native';
 import { useTheme } from '../../context/ThemeContext';
-import { spacing, typography, borderRadius, shadows, fonts, type ThemeColors } from '../../constants/theme';
+import { spacing, typography, borderRadius, fonts, type ThemeColors } from '../../constants/theme';
 
 /**
  * Props for SelectedCardBar component
@@ -41,20 +41,26 @@ export function SelectedCardBar({
   onRemove,
 }: SelectedCardBarProps) {
   const { colors } = useTheme();
+  const [replaceStartX, setReplaceStartX] = useState(0);
   const styles = useMemo(() => createStyles(colors), [colors]);
+
+  const handleReplaceLayout = (event: LayoutChangeEvent) => {
+    const nextX = Math.round(event.nativeEvent.layout.x);
+    if (nextX !== replaceStartX) {
+      setReplaceStartX(nextX);
+    }
+  };
+
   return (
     <View style={styles.container}>
       {/* Card info */}
-      <View style={styles.cardInfo}>
-        <Text style={styles.cardIcon}>Ã°Å¸Æ’Â</Text>
-        <View style={styles.textContainer}>
-          <Text style={styles.cardName} numberOfLines={1}>
-            {cardName}
-          </Text>
+      <View style={[styles.cardInfo, { paddingLeft: replaceStartX }]}>
+        <Text style={styles.cardName} numberOfLines={1}>
+          {cardName}
           {sourcePage !== undefined && (
-            <Text style={styles.sourcePage}>from Page {sourcePage}</Text>
+            <Text style={styles.sourcePage}> from Page {sourcePage}</Text>
           )}
-        </View>
+        </Text>
       </View>
 
       {/* Action buttons */}
@@ -64,6 +70,7 @@ export function SelectedCardBar({
           onPress={onReplace}
           activeOpacity={0.7}
           accessibilityLabel="Replace card with a different one"
+          onLayout={handleReplaceLayout}
         >
           <Text style={styles.replaceButtonText}>Replace</Text>
         </TouchableOpacity>
@@ -92,42 +99,43 @@ export function SelectedCardBar({
 
 const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: 'column',
+    alignItems: 'stretch',
+    justifyContent: 'flex-start',
     backgroundColor: colors.primary,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
     marginHorizontal: spacing.md,
-    marginVertical: spacing.xs,
+    marginTop: spacing.md,
     borderRadius: borderRadius.md,
-    ...shadows.md,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+    elevation: 3,
   },
   cardInfo: {
     flexDirection: 'row',
     alignItems: 'center',
-    flex: 1,
-  },
-  cardIcon: {
-    fontSize: 20,
-    marginRight: spacing.sm,
-  },
-  textContainer: {
-    flex: 1,
+    width: '100%',
+    marginBottom: spacing.xs,
   },
   cardName: {
     fontSize: typography.base,
     fontFamily: fonts.semibold,
     color: colors.onPrimary,
+    flex: 1,
   },
   sourcePage: {
-    fontSize: typography.xs,
-    color: 'rgba(255, 255, 255, 0.8)',
-    marginTop: 1,
+    fontSize: typography.base,
+    color: colors.onPrimary + 'D9',
+    fontFamily: fonts.regular,
   },
   actions: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
     gap: spacing.sm,
   },
   button: {
@@ -136,7 +144,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     borderRadius: borderRadius.sm,
   },
   replaceButton: {
-    backgroundColor: '#FF9800',
+    backgroundColor: colors.warning,
   },
   replaceButtonText: {
     fontSize: typography.sm,
@@ -152,7 +160,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     color: colors.onPrimary,
   },
   cancelButton: {
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    backgroundColor: colors.onPrimary + '33',
   },
   cancelButtonText: {
     fontSize: typography.sm,

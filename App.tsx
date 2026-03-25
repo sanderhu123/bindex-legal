@@ -8,7 +8,7 @@ import { AuthProvider, useAuth } from './src/context/AuthContext';
 import { ThemeProvider, useTheme } from './src/context/ThemeContext';
 import AuthNavigator from './src/navigation/AuthNavigator';
 import AppNavigator from './src/navigation/AppNavigator';
-import { View, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, ActivityIndicator, StyleSheet, useColorScheme } from 'react-native';
 import Toast from 'react-native-toast-message';
 import { initializePersistentCache } from './src/services/api/pokemonApi';
 import { performCacheCleanup } from './src/services/cacheManager';
@@ -20,7 +20,7 @@ import {
   Poppins_600SemiBold,
   Poppins_700Bold,
 } from '@expo-google-fonts/poppins';
-import { lightColors } from './src/constants/theme';
+import { lightColors, darkColors } from './src/constants/theme';
 
 // Create React Query client with caching configuration
 const queryClient = new QueryClient({
@@ -103,6 +103,7 @@ function AppContent() {
 }
 
 export default function App() {
+  const systemColorScheme = useColorScheme();
   const [fontsLoaded, fontError] = useFonts({
     Poppins_400Regular,
     Poppins_500Medium,
@@ -127,11 +128,13 @@ export default function App() {
     }
   }, [fontError]);
 
+  const splashColors = systemColorScheme === 'dark' ? darkColors : lightColors;
+
   if (!fontsLoaded && !fontTimeout && !fontError) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={lightColors.primary} />
-        <StatusBar style="auto" />
+      <View style={[styles.loadingContainer, { backgroundColor: splashColors.background }]}>
+        <ActivityIndicator size="large" color={splashColors.primary} />
+        <StatusBar style={systemColorScheme === 'dark' ? 'light' : 'dark'} />
       </View>
     );
   }
@@ -157,7 +160,6 @@ export default function App() {
 const styles = StyleSheet.create({
   loadingContainer: {
     flex: 1,
-    backgroundColor: '#fff',
     alignItems: 'center',
     justifyContent: 'center',
   },

@@ -2,6 +2,7 @@ import React, { useMemo, useRef } from 'react';
 import { View, StyleSheet, Text } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { Image } from 'expo-image';
+import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../context/ThemeContext';
 import { spacing, borderRadius, shadows, fonts, type ThemeColors } from '../../constants/theme';
 import { isCustomCard, CUSTOM_CARD_COLORS } from '../../services/supabase/customCards';
@@ -214,7 +215,7 @@ export function CardSlot({
         ) : (
           // Fallback placeholder when no image URL
           <View style={[styles.placeholderContent, isDragSource && { opacity: 0.3 }]}>
-            <Text style={styles.placeholderIcon}>Ã°Å¸Æ’Â</Text>
+            <Ionicons name="image-outline" size={24} color={colors.onPrimary} style={styles.placeholderIcon} />
             <Text style={styles.placeholderText} numberOfLines={2}>
               {cardName || 'Card'}
             </Text>
@@ -224,7 +225,7 @@ export function CardSlot({
         {/* Selection indicator - small corner badge */}
         {isSelected && (
           <View style={styles.selectionBadge}>
-            <Text style={styles.checkmarkText}>Ã¢Å“â€œ</Text>
+            <Ionicons name="checkmark" size={14} color={colors.onPrimary} style={styles.checkmarkText} />
           </View>
         )}
 
@@ -240,7 +241,7 @@ export function CardSlot({
 const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
-    aspectRatio: 0.716, // Card aspect ratio (245Ãƒâ€”342 pixels)
+    aspectRatio: 0.716, // Card aspect ratio (~245x342 pixels)
     margin: spacing.xs,
     borderRadius: borderRadius.md,
     overflow: 'hidden',
@@ -271,8 +272,8 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     elevation: 5,
   },
   dropTargetContainer: {
-    borderColor: '#4CAF50',
-    shadowColor: '#4CAF50',
+    borderColor: colors.success,
+    shadowColor: colors.success,
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.6,
     shadowRadius: 8,
@@ -312,7 +313,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#1a5fb4',
+    backgroundColor: colors.primary,
     padding: spacing.xs,
   },
   placeholderIcon: {
@@ -321,7 +322,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   placeholderText: {
     fontSize: 10,
-    color: 'white',
+    color: colors.onPrimary,
     textAlign: 'center',
     fontFamily: fonts.medium,
   },
@@ -345,7 +346,6 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   checkmarkText: {
     color: colors.onPrimary,
     fontSize: 14,
-    fontFamily: fonts.bold,
   },
   // Drop target highlight overlay (green glow when hovering)
   dropTargetOverlay: {
@@ -354,7 +354,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(76, 175, 80, 0.2)',
+    backgroundColor: colors.success + '33',
   },
   // Custom placeholder card styles
   customCardContent: {

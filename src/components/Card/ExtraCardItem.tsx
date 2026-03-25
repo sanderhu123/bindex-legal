@@ -198,7 +198,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     borderRadius: borderRadius.sm,
     borderWidth: 2,
     borderColor: colors.background,
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    backgroundColor: colors.overlayLight,
     alignItems: 'center',
     justifyContent: 'center',
     ...shadows.sm,

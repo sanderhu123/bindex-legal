@@ -1920,7 +1920,7 @@ export default function BinderEditScreen() {
           </View>
         </View>
 
-        {/* Selected Card Bar (tap-selected) */}
+        {/* Selected Card Bar — always reserves space so grid doesn't shift */}
         <View style={styles.selectedCardBarContainer}>
           {selectedCard && !draggedCard && (
             <SelectedCardBar
@@ -2089,7 +2089,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     padding: spacing.sm,
   },
   selectedCardBarContainer: {
-    height: 112,
+    height: 74,
     justifyContent: 'center',
     marginBottom: spacing.sm,
   },
@@ -2124,7 +2124,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   floatingCardPlaceholder: {
     flex: 1,
-    backgroundColor: '#1a5fb4',
+    backgroundColor: colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
     padding: spacing.xs,
@@ -2135,13 +2135,13 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   floatingCardText: {
     fontSize: 9,
-    color: 'white',
+    color: colors.onPrimary,
     textAlign: 'center',
     fontFamily: fonts.medium,
   },
   savingOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: colors.overlay,
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 10000,

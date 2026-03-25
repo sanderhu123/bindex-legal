@@ -13,7 +13,7 @@ import LoadingScreen from '../../components/Loading/LoadingScreen';
 import ErrorScreen from '../../components/Error/ErrorScreen';
 import { getAvailableVariantsForCard } from '../../data/cardVariants';
 import { useTheme } from '../../context/ThemeContext';
-import { lightColors, spacing, typography, fonts, borderRadius, screenPadding, shadows, type ThemeColors } from '../../constants/theme';
+import { spacing, typography, fonts, borderRadius, screenPadding, shadows, type ThemeColors } from '../../constants/theme';
 import { ScreenHeader } from '../../components/ScreenHeader';
 import { getUserFriendlyErrorMessage, isNotFoundError } from '../../utils/errorUtils';
 import { showSuccess, showError } from '../../utils/toast';
@@ -27,12 +27,14 @@ const VARIANT_LABELS: Record<string, string> = {
   'master-ball': 'MB',
 };
 
-const VARIANT_COLORS: Record<string, string> = {
-  'base': lightColors.primary,
-  'reverse-holo': lightColors.variantReverseHolo,
-  'poke-ball': lightColors.variantPokeBall,
-  'master-ball': lightColors.variantMasterBall,
-};
+function getVariantColors(colors: ThemeColors): Record<string, string> {
+  return {
+    'base': colors.primary,
+    'reverse-holo': colors.variantReverseHolo,
+    'poke-ball': colors.variantPokeBall,
+    'master-ball': colors.variantMasterBall,
+  };
+}
 
 interface CardDetailScreenProps {
   navigation: any;
@@ -70,6 +72,16 @@ export default function CardDetailScreen({ navigation, route }: CardDetailScreen
 
   // Button press animation
   const scaleAnim = useRef(new Animated.Value(1)).current;
+
+  // Owned label color animation
+  const ownedColorAnim = useRef(new Animated.Value(isOwned ? 1 : 0)).current;
+  useEffect(() => {
+    Animated.timing(ownedColorAnim, {
+      toValue: isOwned ? 1 : 0,
+      duration: 250,
+      useNativeDriver: false,
+    }).start();
+  }, [isOwned]);
 
   // Determine which variant options to show for this card
   const availableVariants = useMemo(() => {
@@ -631,7 +643,7 @@ export default function CardDetailScreen({ navigation, route }: CardDetailScreen
           <View style={styles.actionPanel}>
             {/* Ownership toggle */}
             <View style={styles.panelActionGroup}>
-              <Text style={styles.panelActionLabel}>Owned</Text>
+              <Animated.Text style={[styles.panelActionLabel, { color: ownedColorAnim.interpolate({ inputRange: [0, 1], outputRange: [colors.textTertiary, colors.primary] }) }]}>Owned</Animated.Text>
               <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
                 <TouchableOpacity
                   style={[
@@ -663,7 +675,7 @@ export default function CardDetailScreen({ navigation, route }: CardDetailScreen
                   onPress={() => setShowCardPicker(true)}
                   activeOpacity={0.7}
                 >
-                  <Ionicons name="swap-horizontal-outline" size={20} color="#FFFFFF" />
+                  <Ionicons name="swap-horizontal-outline" size={20} color={colors.onPrimary} />
                 </TouchableOpacity>
               </View>
             )}
@@ -689,7 +701,8 @@ export default function CardDetailScreen({ navigation, route }: CardDetailScreen
                 <View style={styles.panelVariantRow}>
                   {availableVariants.filter((v) => v !== 'base').map((v) => {
                     const isSelected = (card.variant || 'base') === v;
-                    const badgeColor = VARIANT_COLORS[v] || '#AAAAAA';
+                    const variantColors = getVariantColors(colors);
+                    const badgeColor = variantColors[v] || colors.textTertiary;
                     return (
                       <TouchableOpacity
                         key={v}
@@ -814,12 +827,12 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     minHeight: 40,
   },
   panelBtnOwned: {
-    backgroundColor: 'rgba(255, 255, 255, 0.6)',
+    backgroundColor: 'transparent',
     width: 48,
     height: 48,
   },
   panelBtnMissing: {
-    backgroundColor: 'rgba(0, 0, 0, 0.25)',
+    backgroundColor: colors.surfaceElevated,
     width: 48,
     height: 48,
   },
@@ -867,7 +880,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   panelVariantIconText: {
     fontSize: 12,
     fontFamily: fonts.bold,
-    color: '#FFFFFF',
+    color: colors.onPrimary,
     textShadowColor: 'rgba(0, 0, 0, 0.3)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 2,

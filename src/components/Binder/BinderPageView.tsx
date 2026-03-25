@@ -256,7 +256,7 @@ function BinderPageViewComponent({
               {card.name}
             </Text>
             <Text style={styles.cardNumber} numberOfLines={1}>
-              {card.setTotal
+              {card.setTotal && !card.pokedexNumber
                 ? `${card.number}/${card.setTotal}`
                 : card.number}
             </Text>
@@ -361,7 +361,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     justifyContent: 'center',
   },
   checkboxOverlayOwned: {
-    backgroundColor: 'rgba(100, 220, 200, 0.5)',
+    backgroundColor: 'rgba(170, 240, 230, 0.6)',
   },
   checkboxOverlayMissing: {
     backgroundColor: 'rgba(0, 0, 0, 0.25)',

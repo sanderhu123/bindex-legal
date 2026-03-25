@@ -66,7 +66,7 @@ export default function CardDetails({
             </View>
           )}
         </View>
-        <Text style={styles.compactNumber}>{card.setTotal ? `${card.number}/${card.setTotal}` : card.number}</Text>
+        <Text style={styles.compactNumber}>{card.setTotal && !card.pokedexNumber ? `${card.number}/${card.setTotal}` : card.number}</Text>
         {showSet && <Text style={styles.compactSet}>{card.set}</Text>}
       </View>
     );
@@ -142,7 +142,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     width: '100%',
-    marginBottom: 2,
+    marginTop: 2,
   },
   compactName: {
     fontSize: 12,
@@ -170,10 +170,10 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     includeFontPadding: false,
   },
   compactNumber: {
-    fontSize: 10,
-    color: colors.textSecondary,
+    fontSize: 11,
+    color: colors.textTertiary,
     textAlign: 'center',
-    marginTop: 2,
+    marginTop: -6,
   },
   compactSet: {
     fontSize: 9,

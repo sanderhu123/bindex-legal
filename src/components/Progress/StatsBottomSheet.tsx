@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -14,6 +14,8 @@ import { spacing, typography, fonts, borderRadius, type ThemeColors } from '../.
 import ProgressRing from './ProgressRing';
 
 const MILESTONES = [25, 50, 75, 100] as const;
+
+type StatsTab = 'overview' | 'rarity' | 'sets';
 
 const RARITY_ORDER: string[] = [
   'common',
@@ -55,6 +57,13 @@ interface RarityGroup {
   percentage: number;
 }
 
+interface SetGroup {
+  name: string;
+  owned: number;
+  total: number;
+  percentage: number;
+}
+
 interface StatsBottomSheetProps {
   visible: boolean;
   onClose: () => void;
@@ -78,6 +87,7 @@ export default function StatsBottomSheet({
 }: StatsBottomSheetProps) {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const [activeTab, setActiveTab] = useState<StatsTab>('overview');
 
   const reachedMilestones = MILESTONES.filter((m) => progressPercentage >= m);
 
@@ -144,6 +154,37 @@ export default function StatsBottomSheet({
       .sort((a, b) => b.total - a.total);
   }, [cards]);
 
+  const hasMultipleSets = setGroups.length > 1;
+
+  const tabs: { key: StatsTab; label: string }[] = [
+    { key: 'overview', label: 'Overview' },
+    { key: 'rarity', label: 'Rarity' },
+    ...(hasMultipleSets ? [{ key: 'sets' as StatsTab, label: 'Sets' }] : []),
+  ];
+
+  const renderBreakdownRow = (key: string, label: string, owned: number, total: number, percentage: number) => (
+    <View key={key} style={styles.breakdownRow}>
+      <View style={styles.breakdownContent}>
+        <Text style={styles.breakdownLabel}>
+          <Text style={styles.breakdownCount}>{owned}/{total}</Text>
+          {'  '}{label}
+        </Text>
+        <View style={styles.breakdownBarTrack}>
+          <View
+            style={[
+              styles.breakdownBarFill,
+              {
+                width: `${percentage}%`,
+                backgroundColor: percentage === 100 ? colors.success : colors.primary,
+              },
+            ]}
+          />
+        </View>
+      </View>
+      <Text style={styles.breakdownPercent}>{percentage}%</Text>
+    </View>
+  );
+
   return (
     <Modal
       visible={visible}
@@ -168,110 +209,89 @@ export default function StatsBottomSheet({
             </TouchableOpacity>
           </View>
 
+          {/* Tabs */}
+          <View style={styles.tabBar}>
+            {tabs.map((tab) => (
+              <TouchableOpacity
+                key={tab.key}
+                style={[styles.tab, activeTab === tab.key && styles.tabActive]}
+                onPress={() => setActiveTab(tab.key)}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.tabText, activeTab === tab.key && styles.tabTextActive]}>
+                  {tab.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
           <ScrollView showsVerticalScrollIndicator={false} style={styles.scrollContent}>
-            {/* Overall Progress */}
-            <View style={styles.overallSection}>
-              <ProgressRing percentage={progressPercentage} size={80} strokeWidth={6} />
-              <View style={styles.overallStats}>
-                <View style={styles.statRow}>
-                  <Text style={styles.statLabel}>Total</Text>
-                  <Text style={styles.statValue}>{totalCount}</Text>
-                </View>
-                <View style={styles.statRow}>
-                  <Text style={styles.statLabel}>Owned</Text>
-                  <Text style={[styles.statValue, { color: colors.primary }]}>{ownedCount}</Text>
-                </View>
-                <View style={styles.statRow}>
-                  <Text style={styles.statLabel}>Missing</Text>
-                  <Text style={[styles.statValue, { color: colors.textTertiary }]}>{missingCount}</Text>
-                </View>
-                {customSlotInfo && (
-                  <View style={styles.statRow}>
-                    <Text style={styles.statLabel}>Slots</Text>
-                    <Text style={styles.statValue}>{customSlotInfo.filled}/{customSlotInfo.max}</Text>
-                  </View>
-                )}
-              </View>
-            </View>
-
-            {/* Milestones */}
-            <View style={styles.milestonesSection}>
-              <Text style={styles.sectionTitle}>Milestones</Text>
-              <View style={styles.milestonesRow}>
-                {MILESTONES.map((milestone) => {
-                  const reached = reachedMilestones.includes(milestone);
-                  return (
-                    <View
-                      key={milestone}
-                      style={[styles.milestoneBadge, reached && styles.milestoneBadgeReached]}
-                    >
-                      {reached && (
-                        <Ionicons name="checkmark" size={12} color={colors.primary} style={{ marginRight: 2 }} />
-                      )}
-                      <Text style={[styles.milestoneBadgeText, reached && styles.milestoneBadgeTextReached]}>
-                        {milestone}%
-                      </Text>
+            {/* Overview Tab */}
+            {activeTab === 'overview' && (
+              <>
+                <View style={styles.overallSection}>
+                  <ProgressRing percentage={progressPercentage} size={80} strokeWidth={6} />
+                  <View style={styles.overallStats}>
+                    <View style={styles.statRow}>
+                      <Text style={styles.statLabel}>Total</Text>
+                      <Text style={styles.statValue}>{totalCount}</Text>
                     </View>
-                  );
-                })}
-              </View>
-            </View>
-
-            {/* Rarity Breakdown */}
-            {rarityGroups.length > 0 && (
-              <View style={styles.raritySection}>
-                <Text style={styles.sectionTitle}>Rarity Breakdown</Text>
-                {rarityGroups.map((group) => (
-                  <View key={group.rarity} style={styles.rarityRow}>
-                    <View style={styles.rarityContent}>
-                      <Text style={styles.rarityLabel}>
-                        <Text style={styles.rarityCount}>{group.owned}/{group.total}</Text>
-                        {'  '}{group.label}
-                      </Text>
-                      <View style={styles.rarityBarTrack}>
-                        <View
-                          style={[
-                            styles.rarityBarFill,
-                            {
-                              width: `${group.percentage}%`,
-                              backgroundColor: group.percentage === 100 ? colors.success : colors.primary,
-                            },
-                          ]}
-                        />
+                    <View style={styles.statRow}>
+                      <Text style={styles.statLabel}>Owned</Text>
+                      <Text style={[styles.statValue, { color: colors.primary }]}>{ownedCount}</Text>
+                    </View>
+                    <View style={styles.statRow}>
+                      <Text style={styles.statLabel}>Missing</Text>
+                      <Text style={[styles.statValue, { color: colors.textTertiary }]}>{missingCount}</Text>
+                    </View>
+                    {customSlotInfo && (
+                      <View style={styles.statRow}>
+                        <Text style={styles.statLabel}>Slots</Text>
+                        <Text style={styles.statValue}>{customSlotInfo.filled}/{customSlotInfo.max}</Text>
                       </View>
-                    </View>
-                    <Text style={styles.rarityPercent}>{group.percentage}%</Text>
+                    )}
                   </View>
-                ))}
+                </View>
+
+                <View style={styles.milestonesSection}>
+                  <Text style={styles.sectionTitle}>Milestones</Text>
+                  <View style={styles.milestonesRow}>
+                    {MILESTONES.map((milestone) => {
+                      const reached = reachedMilestones.includes(milestone);
+                      return (
+                        <View
+                          key={milestone}
+                          style={[styles.milestoneBadge, reached && styles.milestoneBadgeReached]}
+                        >
+                          {reached && (
+                            <Ionicons name="checkmark" size={12} color={colors.primary} style={{ marginRight: 2 }} />
+                          )}
+                          <Text style={[styles.milestoneBadgeText, reached && styles.milestoneBadgeTextReached]}>
+                            {milestone}%
+                          </Text>
+                        </View>
+                      );
+                    })}
+                  </View>
+                </View>
+              </>
+            )}
+
+            {/* Rarity Tab */}
+            {activeTab === 'rarity' && rarityGroups.length > 0 && (
+              <View style={styles.breakdownSection}>
+                {rarityGroups.map((group) =>
+                  renderBreakdownRow(group.rarity, group.label, group.owned, group.total, group.percentage)
+                )}
               </View>
             )}
 
-            {/* Set Breakdown */}
-            {setGroups.length > 1 && (
-              <View style={styles.raritySection}>
-                <Text style={styles.sectionTitle}>Set Breakdown</Text>
-                {setGroups.map((group) => (
-                  <View key={group.name} style={styles.rarityRow}>
-                    <View style={styles.rarityContent}>
-                      <Text style={styles.rarityLabel}>
-                        <Text style={styles.rarityCount}>{group.owned}/{group.total}</Text>
-                        {'  '}{group.name}
-                      </Text>
-                      <View style={styles.rarityBarTrack}>
-                        <View
-                          style={[
-                            styles.rarityBarFill,
-                            {
-                              width: `${group.percentage}%`,
-                              backgroundColor: group.percentage === 100 ? colors.success : colors.primary,
-                            },
-                          ]}
-                        />
-                      </View>
-                    </View>
-                    <Text style={styles.rarityPercent}>{group.percentage}%</Text>
-                  </View>
-                ))}
+            {/* Sets Tab */}
+            {activeTab === 'sets' && setGroups.length > 0 && (
+              <View style={styles.breakdownSection}>
+                {setGroups.map((group) =>
+                  renderBreakdownRow(group.name, group.name, group.owned, group.total, group.percentage)
+                )}
               </View>
             )}
 
@@ -315,12 +335,36 @@ const createStyles = (colors: ThemeColors) =>
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      marginBottom: spacing.md,
+      marginBottom: spacing.sm,
     },
     headerTitle: {
       fontSize: typography.lg,
       fontFamily: fonts.semibold,
       color: colors.text,
+    },
+    tabBar: {
+      flexDirection: 'row',
+      gap: spacing.xs,
+      marginBottom: spacing.md,
+    },
+    tab: {
+      flex: 1,
+      paddingVertical: spacing.sm,
+      borderRadius: borderRadius.md,
+      backgroundColor: colors.backgroundDark,
+      alignItems: 'center',
+    },
+    tabActive: {
+      backgroundColor: colors.primary,
+    },
+    tabText: {
+      fontSize: typography.sm,
+      fontFamily: fonts.medium,
+      color: colors.textSecondary,
+    },
+    tabTextActive: {
+      color: colors.onPrimary,
+      fontFamily: fonts.semibold,
     },
     scrollContent: {
       flexGrow: 0,
@@ -391,10 +435,10 @@ const createStyles = (colors: ThemeColors) =>
       color: colors.primary,
       fontFamily: fonts.semibold,
     },
-    raritySection: {
+    breakdownSection: {
       gap: spacing.sm,
     },
-    rarityRow: {
+    breakdownRow: {
       flexDirection: 'row',
       alignItems: 'center',
       backgroundColor: colors.surface,
@@ -404,30 +448,30 @@ const createStyles = (colors: ThemeColors) =>
       borderWidth: 1,
       borderColor: colors.border,
     },
-    rarityContent: {
+    breakdownContent: {
       flex: 1,
-      gap: 2,
+      gap: 0,
     },
-    rarityLabel: {
+    breakdownLabel: {
       fontSize: typography.sm,
       fontFamily: fonts.medium,
       color: colors.text,
     },
-    rarityCount: {
+    breakdownCount: {
       fontFamily: fonts.semibold,
       color: colors.textSecondary,
     },
-    rarityBarTrack: {
+    breakdownBarTrack: {
       height: 6,
       backgroundColor: colors.backgroundDark,
       borderRadius: borderRadius.full,
       overflow: 'hidden',
     },
-    rarityBarFill: {
+    breakdownBarFill: {
       height: '100%',
       borderRadius: borderRadius.full,
     },
-    rarityPercent: {
+    breakdownPercent: {
       fontSize: typography.xl,
       fontFamily: fonts.bold,
       color: colors.text,

@@ -2924,7 +2924,8 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
             </>
           )}
           <View style={styles.statsIconBadge}>
-            <Ionicons name="stats-chart" size={14} color={colors.primary} />
+            <Text style={styles.statsIconLabel}>Details</Text>
+            <Ionicons name="chevron-forward" size={12} color={colors.primary} />
           </View>
         </View>
         <View style={styles.stickyFooterBar}>
@@ -3847,12 +3848,20 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   statsIconBadge: {
     marginLeft: 'auto',
-    width: 26,
-    height: 26,
-    borderRadius: borderRadius.full,
-    backgroundColor: colors.primary + '15',
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    gap: 2,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 3,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.primary + '12',
+    borderWidth: 1,
+    borderColor: colors.primary + '30',
+  },
+  statsIconLabel: {
+    fontSize: 11,
+    fontFamily: fonts.medium,
+    color: colors.primary,
   },
   stickyFooterTotal: {
     fontSize: typography.xs,

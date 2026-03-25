@@ -21,7 +21,7 @@ import {
 import { getCardsBySet, getCardsByRegion, getCardById, getPokemonImageUrl, type Region } from '../../services/api/pokemonApi';
 import { getSetSymbolByName } from '../../data/pokemonEras';
 import HeaderBanner from '../../components/Binder/HeaderBanner';
-import RarityStats from '../../components/Progress/RarityStats';
+import StatsBottomSheet from '../../components/Progress/StatsBottomSheet';
 import { getAllSelectedCardsForBinder, setSelectedCardForPokemon } from '../../services/supabase/regionCards';
 import { getCardPositionsForBinder } from '../../services/supabase/binderPositions';
 import { startBackgroundPrefetch } from '../../services/imagePrefetch';
@@ -154,6 +154,9 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
   
   // Dropdown options panel
   const [showOptions, setShowOptions] = useState(false);
+
+  // Stats bottom sheet
+  const [showStats, setShowStats] = useState(false);
   
   // Scroll-based header animation
   const scrollY = useRef(new Animated.Value(0)).current;
@@ -2798,13 +2801,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
         percentage={progressPercentage}
       />
 
-      {/* Rarity breakdown chips */}
-      <RarityStats
-        cards={rarityCardsData}
-        isRegionMode={binder.collectionMode === 'region'}
-      />
-
-      {/* Row 3: Toolbar — Search | Edit | Display Mode | ▼ dropdown */}
+      {/* Row 3: Toolbar — Search | Edit | Stats | Display Mode | ▼ dropdown */}
       <View style={styles.toolbar}>
         <SearchBar
           value={searchQuery}
@@ -2827,6 +2824,14 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
           activeOpacity={0.7}
         >
           <Ionicons name="settings-outline" size={18} color={colors.primary} />
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.toolbarIconButton}
+          onPress={() => setShowStats(true)}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="stats-chart-outline" size={18} color={colors.primary} />
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -2945,6 +2950,19 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
     </View>
   );
 
+  const statsBottomSheet = (
+    <StatsBottomSheet
+      visible={showStats}
+      onClose={() => setShowStats(false)}
+      ownedCount={ownedCount}
+      totalCount={totalCount}
+      missingCount={missingCount}
+      progressPercentage={progressPercentage}
+      cards={rarityCardsData}
+      customSlotInfo={isCustomMode ? { filled: positionCards.size, max: customMaxSlots } : undefined}
+    />
+  );
+
   // Footer component (loading indicator for pagination)
   const ListFooterComponent = () => {
     if (loading) {
@@ -3056,6 +3074,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
         />
         {!displayMode && stickyProgressFooter}
         <EnlargedCardOverlay />
+        {statsBottomSheet}
       </SafeAreaView>
     );
   }
@@ -3244,6 +3263,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
             />
           )}
           <EnlargedCardOverlay />
+        {statsBottomSheet}
         </SafeAreaView>
       );
     }
@@ -3322,6 +3342,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
         )}
         {stickyProgressFooter}
         <EnlargedCardOverlay />
+        {statsBottomSheet}
       </SafeAreaView>
     );
   }
@@ -3362,6 +3383,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
         
         {stickyProgressFooter}
         <EnlargedCardOverlay />
+        {statsBottomSheet}
       </SafeAreaView>
     );
   }
@@ -3434,6 +3456,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
         />
         {stickyProgressFooter}
         <EnlargedCardOverlay />
+        {statsBottomSheet}
       </SafeAreaView>
     );
   }
@@ -3471,6 +3494,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
           />
           {stickyProgressFooter}
           <EnlargedCardOverlay />
+        {statsBottomSheet}
         </SafeAreaView>
       );
     }
@@ -3504,6 +3528,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
         
         {stickyProgressFooter}
         <EnlargedCardOverlay />
+        {statsBottomSheet}
       </SafeAreaView>
     );
   }
@@ -3555,6 +3580,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
           />
           {stickyProgressFooter}
           <EnlargedCardOverlay />
+        {statsBottomSheet}
         </SafeAreaView>
       );
     }
@@ -3600,6 +3626,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
         />
         {stickyProgressFooter}
         <EnlargedCardOverlay />
+        {statsBottomSheet}
       </SafeAreaView>
     );
   }
@@ -3633,6 +3660,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
       />
       {stickyProgressFooter}
       <EnlargedCardOverlay />
+        {statsBottomSheet}
     </SafeAreaView>
   );
 }

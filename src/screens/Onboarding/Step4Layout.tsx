@@ -68,6 +68,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   title: {
     fontSize: typography['2xl'],
     fontFamily: fonts.bold,
+    color: colors.text,
     marginBottom: spacing.sm,
   },
   description: {
@@ -98,6 +99,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   optionLabel: {
     fontSize: typography.base,
     fontFamily: fonts.semibold,
+    color: colors.text,
     marginBottom: spacing.xs,
   },
   optionDescription: {

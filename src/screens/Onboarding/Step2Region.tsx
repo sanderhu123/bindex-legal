@@ -35,6 +35,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   title: {
     fontSize: typography['2xl'],
     fontFamily: fonts.bold,
+    color: colors.text,
     marginBottom: spacing.sm,
   },
   description: {

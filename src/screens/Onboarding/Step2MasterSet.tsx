@@ -179,6 +179,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   title: {
     fontSize: typography['2xl'],
     fontFamily: fonts.bold,
+    color: colors.text,
     marginBottom: spacing.sm,
   },
   description: {
@@ -197,6 +198,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   sectionTitle: {
     fontSize: typography.lg,
     fontFamily: fonts.semibold,
+    color: colors.text,
     marginBottom: spacing.md,
     marginTop: spacing.sm,
   },
@@ -211,6 +213,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   eraLabel: {
     fontSize: typography.base,
     fontFamily: fonts.semibold,
+    color: colors.text,
     marginBottom: spacing.xs,
   },
   eraSubtext: {

@@ -89,7 +89,7 @@ export const VARIANT_LABELS: Record<string, string> = {
   'reverse-holo': 'Reverse Holo',
   'poke-ball': 'Poké Ball Holo',
   'master-ball': 'Master Ball Holo',
-  'secret-rare': 'Secret Rares',
+  'secret-rare': 'Hits',
 };
 
 const REGULAR_RARITIES = new Set([

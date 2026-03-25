@@ -2701,7 +2701,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
     if (isCustomMode) {
       return Array.from(positionCards.values()).map(c => ({
         rarity: c.rarity || '',
-        set: c.set || '',
+        set: 'Custom',
         isOwned: c.isOwned,
       }));
     }

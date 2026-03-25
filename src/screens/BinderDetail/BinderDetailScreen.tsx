@@ -20,6 +20,9 @@ import {
 } from '../../services/supabase/cards';
 import { getCardsBySet, getCardsByRegion, getCardById, getPokemonImageUrl, type Region } from '../../services/api/pokemonApi';
 import { getSetSymbolByName } from '../../data/pokemonEras';
+import ProgressRing from '../../components/Progress/ProgressRing';
+import HeaderBanner from '../../components/Binder/HeaderBanner';
+import RarityStats from '../../components/Progress/RarityStats';
 import { getAllSelectedCardsForBinder, setSelectedCardForPokemon } from '../../services/supabase/regionCards';
 import { getCardPositionsForBinder } from '../../services/supabase/binderPositions';
 import { startBackgroundPrefetch } from '../../services/imagePrefetch';
@@ -2737,9 +2740,37 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
 
   const setSymbolUrl = binder.set ? getSetSymbolByName(binder.set) : null;
 
+  // Rarity stats data: collect cards with rarity + ownership for the breakdown chips
+  const rarityCardsData = useMemo(() => {
+    if (isCustomMode) {
+      return Array.from(positionCards.values()).map(c => ({
+        rarity: c.rarity || '',
+        isOwned: c.isOwned,
+      }));
+    }
+    if (binder.collectionMode === 'region') {
+      return cards.map(c => ({
+        rarity: (c as any).selectedCardRarity || c.rarity || '',
+        isOwned: c.isOwned,
+      }));
+    }
+    return cards.map(c => ({ rarity: c.rarity || '', isOwned: c.isOwned }));
+  }, [cards, positionCards, isCustomMode, binder.collectionMode]);
+
+  // Custom binder: collect first few card thumbnails for the mosaic banner
+  const customThumbnails = useMemo(() => {
+    if (!isCustomMode) return undefined;
+    const thumbs: string[] = [];
+    for (const card of positionCards.values()) {
+      if (card.imageUrl && thumbs.length < 4) thumbs.push(card.imageUrl);
+      if (thumbs.length >= 4) break;
+    }
+    return thumbs;
+  }, [positionCards, isCustomMode]);
+
   const listHeader = (
     <View style={styles.headerContainer}>
-      {/* Row 1: Back arrow + binder name */}
+      {/* Row 1: Back arrow + binder name + progress ring */}
       <View style={styles.titleRow}>
         <TouchableOpacity
           style={styles.backButton}
@@ -2750,6 +2781,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
           <Ionicons name="chevron-back" size={24} color={colors.text} />
         </TouchableOpacity>
         <Text style={styles.title} numberOfLines={1}>{binder.name}</Text>
+        <ProgressRing percentage={progressPercentage} size={44} strokeWidth={4} />
       </View>
 
       {/* Row 2: Subtitle with set icon — collapses on scroll */}
@@ -2768,6 +2800,20 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
           )}
         </View>
       </Animated.View>
+
+      {/* Banner: Set logo / Region starters / Custom card mosaic */}
+      <HeaderBanner
+        collectionMode={binder.collectionMode}
+        setName={binder.set}
+        regionName={binder.region}
+        cardThumbnails={customThumbnails}
+      />
+
+      {/* Rarity breakdown chips */}
+      <RarityStats
+        cards={rarityCardsData}
+        isRegionMode={binder.collectionMode === 'region'}
+      />
 
       {/* Row 3: Toolbar — Search | Edit | Display Mode | ▼ dropdown */}
       <View style={styles.toolbar}>
@@ -3941,7 +3987,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     justifyContent: 'center',
   },
   checkboxOverlayOwned: {
-    backgroundColor: 'rgba(100, 220, 200, 0.5)',
+    backgroundColor: 'rgba(170, 240, 230, 0.6)',
   },
   checkboxOverlayMissing: {
     backgroundColor: 'rgba(0, 0, 0, 0.25)',

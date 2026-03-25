@@ -44,6 +44,14 @@ interface PokemonSlot {
   selectedTcgCardId?: string;
   /** The display number string (e.g. "#025") */
   displayNumber: string;
+  /** TCG card name when a custom card is selected (e.g. "Charizard EX") */
+  selectedCardName?: string;
+  /** TCG card number when a custom card is selected (e.g. "006") */
+  selectedCardNumber?: string;
+  /** Total cards in the TCG set (e.g. "197") */
+  selectedCardSetTotal?: string;
+  /** TCG set name when a custom card is selected */
+  selectedCardSet?: string;
 }
 
 interface RegionBinderEditViewProps {
@@ -146,16 +154,23 @@ export default function RegionBinderEditView({ binder }: RegionBinderEditViewPro
           const selectedCardId = selectedCards.get(pokedexNum);
           let imageUrl = pokemon.imageUrl;
 
-          // If user selected a custom TCG card, use its image instead
+          let selectedCardName: string | undefined;
+          let selectedCardNumber: string | undefined;
+          let selectedCardSetTotal: string | undefined;
+          let selectedCardSet: string | undefined;
+
+          // If user selected a custom TCG card, use its image and store details
           if (selectedCardId) {
             try {
               const tcgCard = await getCardById(selectedCardId);
               if (tcgCard) {
                 imageUrl = tcgCard.imageUrl || undefined;
+                selectedCardName = tcgCard.name;
+                selectedCardNumber = tcgCard.number;
+                selectedCardSetTotal = tcgCard.setTotal;
+                selectedCardSet = tcgCard.set;
               }
             } catch {
-              // API couldn't find the card — show slot without image
-              // but keep the selection (selectedTcgCardId is set below)
               imageUrl = undefined;
             }
           }
@@ -166,7 +181,11 @@ export default function RegionBinderEditView({ binder }: RegionBinderEditViewPro
             imageUrl,
             pokedexNumber: pokedexNum,
             selectedTcgCardId: selectedCardId || undefined,
-            displayNumber: pokemon.number, // e.g. "#025"
+            displayNumber: pokemon.number,
+            selectedCardName,
+            selectedCardNumber,
+            selectedCardSetTotal,
+            selectedCardSet,
           };
         }),
       );
@@ -219,7 +238,6 @@ export default function RegionBinderEditView({ binder }: RegionBinderEditViewPro
         card.id,
       );
 
-      // Update local state so the UI refreshes immediately
       setPokemonSlots((prev) =>
         prev.map((slot) =>
           slot.pokedexNumber === pickerPokemon.pokedexNumber
@@ -227,6 +245,10 @@ export default function RegionBinderEditView({ binder }: RegionBinderEditViewPro
                 ...slot,
                 imageUrl: card.imageUrl,
                 selectedTcgCardId: card.id,
+                selectedCardName: card.name,
+                selectedCardNumber: card.number,
+                selectedCardSetTotal: card.setTotal,
+                selectedCardSet: card.set,
               }
             : slot,
         ),
@@ -253,17 +275,23 @@ export default function RegionBinderEditView({ binder }: RegionBinderEditViewPro
    */
   const handlePokemonLongPress = (slot: PokemonSlot) => {
     if (!slot.selectedTcgCardId) {
-      // Nothing to clear — just inform the user
+      const dexId = `#${String(slot.pokedexNumber).padStart(3, '0')}`;
       Alert.alert(
-        slot.name,
+        `${slot.name} (${dexId})`,
         'This Pokémon is using its default image. Tap it to choose a TCG card version.',
       );
       return;
     }
 
+    const cardName = slot.selectedCardName || slot.name;
+    const cardNum = slot.selectedCardNumber || slot.displayNumber;
+    const cardNumberDisplay = slot.selectedCardSetTotal
+      ? `${cardNum}/${slot.selectedCardSetTotal}`
+      : cardNum;
+
     Alert.alert(
-      `${slot.name} (${slot.displayNumber})`,
-      'What would you like to do?',
+      `${cardName} (${cardNumberDisplay})`,
+      `Set: ${slot.selectedCardSet || 'Unknown'}\nPokémon: ${slot.name}`,
       [
         {
           text: 'Change Version',
@@ -302,6 +330,10 @@ export default function RegionBinderEditView({ binder }: RegionBinderEditViewPro
                 ...s,
                 imageUrl: originalCard?.imageUrl || s.imageUrl,
                 selectedTcgCardId: undefined,
+                selectedCardName: undefined,
+                selectedCardNumber: undefined,
+                selectedCardSetTotal: undefined,
+                selectedCardSet: undefined,
               }
             : s,
         ),

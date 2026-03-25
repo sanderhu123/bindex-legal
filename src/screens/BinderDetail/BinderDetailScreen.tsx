@@ -2568,11 +2568,34 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
     const binderSlot = enlargedCardSlotIndex !== null
       ? (enlargedCardSlotIndex % cardsPerPageForPosition) + 1
       : null;
-    const cardNumberText = enlargedCard.number.includes('/')
-      ? enlargedCard.number
-      : enlargedCard.setTotal
-        ? `${enlargedCard.number}/${enlargedCard.setTotal}`
-        : enlargedCard.number;
+    const isRegion = binder?.collectionMode === 'region';
+    const hasSelectedCard = !!enlargedCard.selectedCardId;
+
+    // For Region cards: show TCG card name when selected, otherwise Pokémon name
+    const displayName = (isRegion && hasSelectedCard && enlargedCard.selectedCardName)
+      ? enlargedCard.selectedCardName
+      : enlargedCard.name;
+
+    // For Region cards: show TCG card number/setTotal when selected, otherwise Pokédex ID
+    let cardNumberText: string;
+    if (isRegion && hasSelectedCard) {
+      const num = enlargedCard.selectedCardNumber || enlargedCard.number;
+      cardNumberText = num.includes('/')
+        ? num
+        : enlargedCard.setTotal
+          ? `${num}/${enlargedCard.setTotal}`
+          : num;
+    } else if (isRegion && !hasSelectedCard) {
+      const dexNum = enlargedCard.pokedexNumber;
+      cardNumberText = dexNum ? `#${String(dexNum).padStart(3, '0')}` : enlargedCard.number;
+    } else {
+      cardNumberText = enlargedCard.number.includes('/')
+        ? enlargedCard.number
+        : enlargedCard.setTotal
+          ? `${enlargedCard.number}/${enlargedCard.setTotal}`
+          : enlargedCard.number;
+    }
+
     const displaySetName = enlargedCard.selectedCardSet || enlargedCard.set || '';
     const infoPanelWidth = Math.min(220, screenWidth * 0.28);
     const previewMaxWidth = isDisplayPreview
@@ -2617,7 +2640,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
                 {cardNumberText}
               </Text>
               <Text style={[styles.enlargedCardName, isDisplayPreview ? styles.enlargedTextLeft : styles.enlargedTextCenter]}>
-                {enlargedCard.name}
+                {displayName}
               </Text>
               {displaySetName ? (
                 <View style={[styles.enlargedSetRow, isDisplayPreview ? styles.enlargedSetRowLeft : styles.enlargedSetRowCenter]}>

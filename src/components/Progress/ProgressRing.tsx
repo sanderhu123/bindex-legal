@@ -8,9 +8,11 @@ interface ProgressRingProps {
   percentage: number;
   size?: number;
   strokeWidth?: number;
+  /** Custom label to show inside the ring instead of percentage */
+  label?: string;
 }
 
-export default function ProgressRing({ percentage, size = 44, strokeWidth = 4 }: ProgressRingProps) {
+export default function ProgressRing({ percentage, size = 44, strokeWidth = 4, label }: ProgressRingProps) {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors, size), [colors, size]);
 
@@ -48,7 +50,7 @@ export default function ProgressRing({ percentage, size = 44, strokeWidth = 4 }:
         />
       </Svg>
       <View style={styles.labelContainer}>
-        <Text style={[styles.label, { color: fillColor }]}>{clamped}%</Text>
+        <Text style={[styles.label, { color: fillColor }]}>{label ?? `${clamped}%`}</Text>
       </View>
     </View>
   );
@@ -70,7 +72,7 @@ const createStyles = (colors: ThemeColors, size: number) =>
       justifyContent: 'center',
     },
     label: {
-      fontSize: size <= 44 ? 11 : typography.xs,
+      fontSize: size <= 36 ? 9 : size <= 44 ? 11 : typography.xs,
       fontFamily: fonts.semibold,
     },
   });

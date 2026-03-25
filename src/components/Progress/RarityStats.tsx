@@ -33,8 +33,8 @@ const SHORT_LABELS: Record<string, string> = {
   'Rare Holo': 'Holo',
   'Double Rare': 'Dbl Rare',
   'Ultra Rare': 'Ultra',
-  'Illustration Rare': 'Illust.',
-  'Special Illustration Rare': 'SAR',
+  'Illustration Rare': 'IR',
+  'Special Illustration Rare': 'SIR',
   'Hyper Rare': 'Hyper',
   'Shiny Rare': 'Shiny',
   'Shiny Ultra Rare': 'Shiny U',
@@ -104,8 +104,12 @@ export default function RarityStats({ cards }: RarityStatsProps) {
         const pct = group.total > 0 ? Math.round((group.owned / group.total) * 100) : 0;
         return (
           <View key={group.rarity} style={styles.ringItem}>
-            <ProgressRing percentage={pct} size={RING_SIZE} strokeWidth={3} />
-            <Text style={styles.ringCount}>{group.owned}/{group.total}</Text>
+            <ProgressRing
+              percentage={pct}
+              size={RING_SIZE}
+              strokeWidth={3}
+              label={`${group.owned}/${group.total}`}
+            />
             <Text style={styles.ringLabel} numberOfLines={1}>{group.label}</Text>
           </View>
         );
@@ -126,12 +130,6 @@ const createStyles = (colors: ThemeColors) =>
     ringItem: {
       alignItems: 'center',
       gap: 2,
-    },
-    ringCount: {
-      fontSize: 10,
-      fontFamily: fonts.semibold,
-      color: colors.text,
-      marginTop: 2,
     },
     ringLabel: {
       fontSize: 10,

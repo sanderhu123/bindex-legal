@@ -643,7 +643,7 @@ export default function CardDetailScreen({ navigation, route }: CardDetailScreen
           <View style={styles.actionPanel}>
             {/* Ownership toggle */}
             <View style={styles.panelActionGroup}>
-              <Animated.Text style={[styles.panelActionLabel, { color: ownedColorAnim.interpolate({ inputRange: [0, 1], outputRange: [colors.textTertiary, colors.primary] }) }]}>Owned</Animated.Text>
+              <Animated.Text style={[styles.panelActionLabel, { color: ownedColorAnim.interpolate({ inputRange: [0, 1], outputRange: [colors.textTertiary, colors.primary] }) }]}>{isOwned ? 'Owned' : 'Not Owned'}</Animated.Text>
               <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
                 <TouchableOpacity
                   style={[
@@ -659,7 +659,7 @@ export default function CardDetailScreen({ navigation, route }: CardDetailScreen
                 >
                   <Image
                     source={isOwned ? require('../../../assets/logo-icon-teal.png') : require('../../../assets/logo-icon-white.png')}
-                    style={styles.panelBtnLogo}
+                    style={[styles.panelBtnLogo, !isOwned && styles.panelBtnLogoSmall]}
                     resizeMode="contain"
                   />
                 </TouchableOpacity>
@@ -734,7 +734,7 @@ export default function CardDetailScreen({ navigation, route }: CardDetailScreen
             showSet={true}
             showRarity={true}
             showIllustrator={true}
-            showVariantBadge={false}
+            showVariantBadge={true}
             showPokedex={false}
             binderPosition={binderPosition}
           />
@@ -832,9 +832,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     height: 48,
   },
   panelBtnMissing: {
-    backgroundColor: colors.surfaceElevated,
-    width: 48,
-    height: 48,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
   panelBtnChange: {
     backgroundColor: colors.secondary,
@@ -854,6 +852,10 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.4,
     shadowRadius: 3,
+  },
+  panelBtnLogoSmall: {
+    width: 32,
+    height: 32,
   },
   // Variant selector in action panel
   panelVariantSection: {

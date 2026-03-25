@@ -2694,23 +2694,25 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
     previousProgressRef.current = progressPercentage;
   }, [progressPercentage, milestoneStorageKey, binder]);
 
-  // Rarity stats data: collect cards with rarity + ownership for the breakdown chips
+  // Stats data: collect cards with rarity, set + ownership for the breakdown sections
   // Must be above early returns to preserve hook call order
-  const rarityCardsData = useMemo(() => {
+  const statsCardsData = useMemo(() => {
     if (!binder) return [];
     if (isCustomMode) {
       return Array.from(positionCards.values()).map(c => ({
         rarity: c.rarity || '',
+        set: c.set || '',
         isOwned: c.isOwned,
       }));
     }
     if (binder.collectionMode === 'region') {
       return cards.map(c => ({
         rarity: (c as any).selectedCardRarity || c.rarity || '',
+        set: (c as any).selectedCardSet || c.set || '',
         isOwned: c.isOwned,
       }));
     }
-    return cards.map(c => ({ rarity: c.rarity || '', isOwned: c.isOwned }));
+    return cards.map(c => ({ rarity: c.rarity || '', set: c.set || '', isOwned: c.isOwned }));
   }, [cards, positionCards, isCustomMode, binder]);
 
   if (loading && !binder) {
@@ -2943,7 +2945,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
       totalCount={totalCount}
       missingCount={missingCount}
       progressPercentage={progressPercentage}
-      cards={rarityCardsData}
+      cards={statsCardsData}
       customSlotInfo={isCustomMode ? { filled: positionCards.size, max: customMaxSlots } : undefined}
     />
   );

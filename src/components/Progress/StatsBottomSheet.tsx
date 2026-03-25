@@ -62,7 +62,7 @@ interface StatsBottomSheetProps {
   totalCount: number;
   missingCount: number;
   progressPercentage: number;
-  cards: { rarity: string; isOwned: boolean }[];
+  cards: { rarity: string; set: string; isOwned: boolean }[];
   customSlotInfo?: { filled: number; max: number };
 }
 
@@ -117,6 +117,31 @@ export default function StatsBottomSheet({
     }
 
     return result;
+  }, [cards]);
+
+  const setGroups = useMemo(() => {
+    const map = new Map<string, { owned: number; total: number }>();
+
+    for (const card of cards) {
+      const set = card.set || '';
+      if (!set) continue;
+      const existing = map.get(set);
+      if (existing) {
+        existing.total += 1;
+        if (card.isOwned) existing.owned += 1;
+      } else {
+        map.set(set, { total: 1, owned: card.isOwned ? 1 : 0 });
+      }
+    }
+
+    return [...map.entries()]
+      .map(([name, { owned, total }]) => ({
+        name,
+        owned,
+        total,
+        percentage: total > 0 ? Math.round((owned / total) * 100) : 0,
+      }))
+      .sort((a, b) => b.total - a.total);
   }, [cards]);
 
   return (
@@ -202,6 +227,35 @@ export default function StatsBottomSheet({
                       <Text style={styles.rarityLabel}>
                         <Text style={styles.rarityCount}>{group.owned}/{group.total}</Text>
                         {'  '}{group.label}
+                      </Text>
+                      <View style={styles.rarityBarTrack}>
+                        <View
+                          style={[
+                            styles.rarityBarFill,
+                            {
+                              width: `${group.percentage}%`,
+                              backgroundColor: group.percentage === 100 ? colors.success : colors.primary,
+                            },
+                          ]}
+                        />
+                      </View>
+                    </View>
+                    <Text style={styles.rarityPercent}>{group.percentage}%</Text>
+                  </View>
+                ))}
+              </View>
+            )}
+
+            {/* Set Breakdown */}
+            {setGroups.length > 1 && (
+              <View style={styles.raritySection}>
+                <Text style={styles.sectionTitle}>Set Breakdown</Text>
+                {setGroups.map((group) => (
+                  <View key={group.name} style={styles.rarityRow}>
+                    <View style={styles.rarityContent}>
+                      <Text style={styles.rarityLabel}>
+                        <Text style={styles.rarityCount}>{group.owned}/{group.total}</Text>
+                        {'  '}{group.name}
                       </Text>
                       <View style={styles.rarityBarTrack}>
                         <View

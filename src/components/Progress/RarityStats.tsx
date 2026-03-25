@@ -9,36 +9,38 @@ interface RarityStatsProps {
   isRegionMode?: boolean;
 }
 
+/** Ordering uses lowercase keys so API casing differences don't matter */
 const RARITY_ORDER: string[] = [
-  'Common',
-  'Uncommon',
-  'Rare',
-  'Holo Rare',
-  'Rare Holo',
-  'Double Rare',
-  'Ultra Rare',
-  'Illustration Rare',
-  'Special Illustration Rare',
-  'Hyper Rare',
-  'Shiny Rare',
-  'Shiny Ultra Rare',
-  'ACE SPEC Rare',
+  'common',
+  'uncommon',
+  'rare',
+  'holo rare',
+  'rare holo',
+  'double rare',
+  'ultra rare',
+  'illustration rare',
+  'special illustration rare',
+  'hyper rare',
+  'shiny rare',
+  'shiny ultra rare',
+  'ace spec rare',
 ];
 
+/** Short display labels — lowercase keys for case-insensitive matching */
 const SHORT_LABELS: Record<string, string> = {
-  'Common': 'Common',
-  'Uncommon': 'Uncom.',
-  'Rare': 'Rare',
-  'Holo Rare': 'Holo',
-  'Rare Holo': 'Holo',
-  'Double Rare': 'Dbl Rare',
-  'Ultra Rare': 'Ultra',
-  'Illustration Rare': 'IR',
-  'Special Illustration Rare': 'SIR',
-  'Hyper Rare': 'Hyper',
-  'Shiny Rare': 'Shiny',
-  'Shiny Ultra Rare': 'Shiny U',
-  'ACE SPEC Rare': 'ACE',
+  'common': 'Common',
+  'uncommon': 'Uncom.',
+  'rare': 'Rare',
+  'holo rare': 'Holo',
+  'rare holo': 'Holo',
+  'double rare': 'Dbl Rare',
+  'ultra rare': 'Ultra',
+  'illustration rare': 'IR',
+  'special illustration rare': 'SIR',
+  'hyper rare': 'Hyper',
+  'shiny rare': 'Shiny',
+  'shiny ultra rare': 'Shiny U',
+  'ace spec rare': 'ACE',
 };
 
 interface RarityGroup {
@@ -61,12 +63,14 @@ export default function RarityStats({ cards }: RarityStatsProps) {
       const rarity = card.rarity || '';
       if (!rarity) continue;
 
-      const existing = map.get(rarity);
+      // Normalize to lowercase for grouping so "Double rare" and "Double Rare" merge
+      const key = rarity.toLowerCase();
+      const existing = map.get(key);
       if (existing) {
         existing.total += 1;
         if (card.isOwned) existing.owned += 1;
       } else {
-        map.set(rarity, { total: 1, owned: card.isOwned ? 1 : 0 });
+        map.set(key, { total: 1, owned: card.isOwned ? 1 : 0 });
       }
     }
 

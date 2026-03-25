@@ -21,7 +21,7 @@ import {
 import { getCardsBySet, getCardsByRegion, getCardById, getPokemonImageUrl, type Region } from '../../services/api/pokemonApi';
 import { getSetSymbolByName } from '../../data/pokemonEras';
 import HeaderBanner from '../../components/Binder/HeaderBanner';
-import StatsBottomSheet, { type StatsFilter } from '../../components/Progress/StatsBottomSheet';
+import StatsBottomSheet, { type StatsFilter, RARITY_ORDER, RARITY_LABELS, VARIANT_ORDER, VARIANT_LABELS } from '../../components/Progress/StatsBottomSheet';
 import { getAllSelectedCardsForBinder, setSelectedCardForPokemon } from '../../services/supabase/regionCards';
 import { getCardPositionsForBinder } from '../../services/supabase/binderPositions';
 import { startBackgroundPrefetch } from '../../services/imagePrefetch';
@@ -2745,6 +2745,49 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
     return [...mainCards, ...extras];
   }, [cards, extraCards, positionCards, isCustomMode, binder]);
 
+  const availableRarities = useMemo(() => {
+    const seen = new Set<string>();
+    for (const c of statsCardsData) {
+      if (c.rarity) seen.add(c.rarity.toLowerCase());
+    }
+    const orderIndex = (r: string) => {
+      const idx = RARITY_ORDER.indexOf(r);
+      return idx >= 0 ? idx : RARITY_ORDER.length;
+    };
+    return [...seen].sort((a, b) => orderIndex(a) - orderIndex(b)).map(r => ({
+      value: r,
+      label: RARITY_LABELS[r] || r.charAt(0).toUpperCase() + r.slice(1),
+    }));
+  }, [statsCardsData]);
+
+  const availableSets = useMemo(() => {
+    const seen = new Set<string>();
+    for (const c of statsCardsData) {
+      const set = (c.set || '').startsWith('Custom|') ? 'Custom Cards' : (c.set || '');
+      if (set) seen.add(set);
+    }
+    return [...seen].sort().map(s => ({ value: s, label: s }));
+  }, [statsCardsData]);
+
+  const availableVariants = useMemo(() => {
+    const seen = new Set<string>();
+    for (const c of statsCardsData) {
+      let v = c.variant || 'base';
+      if (v === 'base' && c.rarity && !STATS_REGULAR_RARITIES.has(c.rarity.toLowerCase())) {
+        v = 'secret-rare';
+      }
+      seen.add(v);
+    }
+    const orderIndex = (v: string) => {
+      const idx = VARIANT_ORDER.indexOf(v);
+      return idx >= 0 ? idx : VARIANT_ORDER.length;
+    };
+    return [...seen].sort((a, b) => orderIndex(a) - orderIndex(b)).map(v => ({
+      value: v,
+      label: VARIANT_LABELS[v] || v.charAt(0).toUpperCase() + v.slice(1),
+    }));
+  }, [statsCardsData, STATS_REGULAR_RARITIES]);
+
   if (loading && !binder) {
     return <LoadingScreen message="Loading binder..." />;
   }
@@ -2911,6 +2954,90 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
               ))}
             </View>
           </View>
+
+          {availableRarities.length > 1 && (
+            <View style={styles.optionRowVertical}>
+              <Text style={styles.optionLabel}>Rarity</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipScroll}>
+                <View style={styles.chipRow}>
+                  <TouchableOpacity
+                    style={[styles.filterChip, (!statsFilter || statsFilter.type !== 'rarity') && styles.filterChipActive]}
+                    onPress={() => { if (statsFilter?.type === 'rarity') setStatsFilter(null); }}
+                  >
+                    <Text style={[styles.filterChipText, (!statsFilter || statsFilter.type !== 'rarity') && styles.filterChipTextActive]}>All</Text>
+                  </TouchableOpacity>
+                  {availableRarities.map((r) => {
+                    const isActive = statsFilter?.type === 'rarity' && statsFilter.value === r.value;
+                    return (
+                      <TouchableOpacity
+                        key={r.value}
+                        style={[styles.filterChip, isActive && styles.filterChipActive]}
+                        onPress={() => setStatsFilter(isActive ? null : { type: 'rarity', value: r.value, label: r.label })}
+                      >
+                        <Text style={[styles.filterChipText, isActive && styles.filterChipTextActive]}>{r.label}</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </ScrollView>
+            </View>
+          )}
+
+          {availableSets.length > 1 && (
+            <View style={styles.optionRowVertical}>
+              <Text style={styles.optionLabel}>Set</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipScroll}>
+                <View style={styles.chipRow}>
+                  <TouchableOpacity
+                    style={[styles.filterChip, (!statsFilter || statsFilter.type !== 'set') && styles.filterChipActive]}
+                    onPress={() => { if (statsFilter?.type === 'set') setStatsFilter(null); }}
+                  >
+                    <Text style={[styles.filterChipText, (!statsFilter || statsFilter.type !== 'set') && styles.filterChipTextActive]}>All</Text>
+                  </TouchableOpacity>
+                  {availableSets.map((s) => {
+                    const isActive = statsFilter?.type === 'set' && statsFilter.value === s.value;
+                    return (
+                      <TouchableOpacity
+                        key={s.value}
+                        style={[styles.filterChip, isActive && styles.filterChipActive]}
+                        onPress={() => setStatsFilter(isActive ? null : { type: 'set', value: s.value, label: s.label })}
+                      >
+                        <Text style={[styles.filterChipText, isActive && styles.filterChipTextActive]}>{s.label}</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </ScrollView>
+            </View>
+          )}
+
+          {availableVariants.length > 1 && (
+            <View style={styles.optionRowVertical}>
+              <Text style={styles.optionLabel}>Variant</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipScroll}>
+                <View style={styles.chipRow}>
+                  <TouchableOpacity
+                    style={[styles.filterChip, (!statsFilter || statsFilter.type !== 'variant') && styles.filterChipActive]}
+                    onPress={() => { if (statsFilter?.type === 'variant') setStatsFilter(null); }}
+                  >
+                    <Text style={[styles.filterChipText, (!statsFilter || statsFilter.type !== 'variant') && styles.filterChipTextActive]}>All</Text>
+                  </TouchableOpacity>
+                  {availableVariants.map((v) => {
+                    const isActive = statsFilter?.type === 'variant' && statsFilter.value === v.value;
+                    return (
+                      <TouchableOpacity
+                        key={v.value}
+                        style={[styles.filterChip, isActive && styles.filterChipActive]}
+                        onPress={() => setStatsFilter(isActive ? null : { type: 'variant', value: v.value, label: v.label })}
+                      >
+                        <Text style={[styles.filterChipText, isActive && styles.filterChipTextActive]}>{v.label}</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </ScrollView>
+            </View>
+          )}
 
           {!isCustomMode && viewMode === 'grid' && (
             <TouchableOpacity
@@ -3828,6 +3955,17 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+  },
+  optionRowVertical: {
+    gap: spacing.xs,
+  },
+  chipScroll: {
+    marginHorizontal: -spacing.md,
+    paddingHorizontal: spacing.md,
+  },
+  chipRow: {
+    flexDirection: 'row' as const,
+    gap: spacing.xs,
   },
   optionLabel: {
     fontSize: typography.sm,

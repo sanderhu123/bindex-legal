@@ -19,7 +19,7 @@ const MILESTONES = [25, 50, 75, 100] as const;
 
 type StatsTab = 'rarity' | 'sets' | 'variant';
 
-const RARITY_ORDER: string[] = [
+export const RARITY_ORDER: string[] = [
   'common',
   'uncommon',
   'rare',
@@ -35,7 +35,7 @@ const RARITY_ORDER: string[] = [
   'ace spec rare',
 ];
 
-const SHORT_LABELS: Record<string, string> = {
+export const RARITY_LABELS: Record<string, string> = {
   'common': 'Common',
   'uncommon': 'Uncommon',
   'rare': 'Rare',
@@ -74,7 +74,7 @@ interface VariantGroup {
   percentage: number;
 }
 
-const VARIANT_ORDER: string[] = [
+export const VARIANT_ORDER: string[] = [
   'base',
   'holo',
   'reverse-holo',
@@ -83,7 +83,7 @@ const VARIANT_ORDER: string[] = [
   'secret-rare',
 ];
 
-const VARIANT_LABELS: Record<string, string> = {
+export const VARIANT_LABELS: Record<string, string> = {
   'base': 'Regular',
   'holo': 'Holo',
   'reverse-holo': 'Reverse Holo',
@@ -163,7 +163,7 @@ export default function StatsBottomSheet({
       const { owned, total } = map.get(key)!;
       result.push({
         rarity: key,
-        label: SHORT_LABELS[key] || key.charAt(0).toUpperCase() + key.slice(1),
+        label: RARITY_LABELS[key] || key.charAt(0).toUpperCase() + key.slice(1),
         owned,
         total,
         percentage: total > 0 ? Math.round((owned / total) * 100) : 0,

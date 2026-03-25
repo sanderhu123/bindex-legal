@@ -42,7 +42,6 @@ export default function HeaderBanner({
     const logoUrl = getSetLogoByName(setName);
     return (
       <View style={styles.bannerRow}>
-        {ring}
         {logoUrl && (
           <Image
             source={{ uri: logoUrl }}
@@ -50,6 +49,7 @@ export default function HeaderBanner({
             contentFit="contain"
           />
         )}
+        {ring}
       </View>
     );
   }
@@ -60,7 +60,6 @@ export default function HeaderBanner({
     const spriteUrl = dex ? getPokemonImageUrl(dex, artStyle) : null;
     return (
       <View style={styles.bannerRow}>
-        {ring}
         {spriteUrl && (
           <Image
             source={{ uri: spriteUrl }}
@@ -68,6 +67,7 @@ export default function HeaderBanner({
             contentFit="contain"
           />
         )}
+        {ring}
       </View>
     );
   }
@@ -75,7 +75,6 @@ export default function HeaderBanner({
   if (collectionMode === 'custom') {
     return (
       <View style={styles.bannerRow}>
-        {ring}
         {cardThumbnail ? (
           <Image
             source={{ uri: cardThumbnail }}
@@ -88,6 +87,7 @@ export default function HeaderBanner({
             <Text style={styles.customEmptyText}>Custom Collection</Text>
           </View>
         )}
+        {ring}
       </View>
     );
   }

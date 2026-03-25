@@ -198,29 +198,23 @@ export default function StatsBottomSheet({
                 <Text style={styles.sectionTitle}>Rarity Breakdown</Text>
                 {rarityGroups.map((group) => (
                   <View key={group.rarity} style={styles.rarityRow}>
-                    <ProgressRing
-                      percentage={group.percentage}
-                      size={40}
-                      strokeWidth={3}
-                      label={`${group.percentage}%`}
-                    />
-                    <View style={styles.rarityInfo}>
-                      <Text style={styles.rarityLabel}>{group.label}</Text>
-                      <Text style={styles.rarityCount}>
-                        {group.owned} / {group.total}
-                      </Text>
-                    </View>
-                    {/* Small bar */}
-                    <View style={styles.rarityBarTrack}>
-                      <View
-                        style={[
-                          styles.rarityBarFill,
-                          {
-                            width: `${group.percentage}%`,
-                            backgroundColor: group.percentage === 100 ? colors.success : colors.primary,
-                          },
-                        ]}
-                      />
+                    <Text style={styles.rarityLabel}>
+                      <Text style={styles.rarityCount}>{group.owned}/{group.total}</Text>
+                      {'  '}{group.label}
+                    </Text>
+                    <View style={styles.rarityBarRow}>
+                      <View style={styles.rarityBarTrack}>
+                        <View
+                          style={[
+                            styles.rarityBarFill,
+                            {
+                              width: `${group.percentage}%`,
+                              backgroundColor: group.percentage === 100 ? colors.success : colors.primary,
+                            },
+                          ]}
+                        />
+                      </View>
+                      <Text style={styles.rarityPercent}>{group.percentage}%</Text>
                     </View>
                   </View>
                 ))}
@@ -347,15 +341,10 @@ const createStyles = (colors: ThemeColors) =>
       gap: spacing.sm,
     },
     rarityRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: spacing.sm,
       backgroundColor: colors.surface,
       borderRadius: borderRadius.md,
       padding: spacing.sm,
-    },
-    rarityInfo: {
-      width: 100,
+      gap: 4,
     },
     rarityLabel: {
       fontSize: typography.sm,
@@ -363,9 +352,13 @@ const createStyles = (colors: ThemeColors) =>
       color: colors.text,
     },
     rarityCount: {
-      fontSize: typography.xs,
-      fontFamily: fonts.regular,
-      color: colors.textTertiary,
+      fontFamily: fonts.semibold,
+      color: colors.textSecondary,
+    },
+    rarityBarRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.sm,
     },
     rarityBarTrack: {
       flex: 1,
@@ -377,5 +370,12 @@ const createStyles = (colors: ThemeColors) =>
     rarityBarFill: {
       height: '100%',
       borderRadius: borderRadius.full,
+    },
+    rarityPercent: {
+      fontSize: typography.xs,
+      fontFamily: fonts.semibold,
+      color: colors.textSecondary,
+      width: 32,
+      textAlign: 'right',
     },
   });

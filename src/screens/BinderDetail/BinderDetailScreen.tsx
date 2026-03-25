@@ -2933,30 +2933,39 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
         <View style={styles.optionsPanel}>
           <View style={styles.optionRow}>
             <Text style={styles.optionLabel}>View</Text>
-            <ViewModeToggle 
-              viewMode={viewMode} 
-              onViewModeChange={setViewMode} 
+            <ViewModeToggle
+              viewMode={viewMode}
+              onViewModeChange={(mode) => {
+                setViewMode(mode);
+                if (mode === 'binder') {
+                  setOwnershipFilter('all');
+                  setStatsFilter(null);
+                  setExpandedFilter(null);
+                }
+              }}
             />
           </View>
 
-          <View style={styles.optionRow}>
-            <Text style={styles.optionLabel}>Show</Text>
-            <View style={styles.filterButtons}>
-              {(['all', 'owned', 'missing'] as const).map((filter) => (
-                <TouchableOpacity
-                  key={filter}
-                  style={[styles.filterChip, ownershipFilter === filter && styles.filterChipActive]}
-                  onPress={() => setOwnershipFilter(filter)}
-                >
-                  <Text style={[styles.filterChipText, ownershipFilter === filter && styles.filterChipTextActive]}>
-                    {filter.charAt(0).toUpperCase() + filter.slice(1)}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+          {viewMode !== 'binder' && (
+            <View style={styles.optionRow}>
+              <Text style={styles.optionLabel}>Show</Text>
+              <View style={styles.filterButtons}>
+                {(['all', 'owned', 'missing'] as const).map((filter) => (
+                  <TouchableOpacity
+                    key={filter}
+                    style={[styles.filterChip, ownershipFilter === filter && styles.filterChipActive]}
+                    onPress={() => setOwnershipFilter(filter)}
+                  >
+                    <Text style={[styles.filterChipText, ownershipFilter === filter && styles.filterChipTextActive]}>
+                      {filter.charAt(0).toUpperCase() + filter.slice(1)}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
             </View>
-          </View>
+          )}
 
-          {availableRarities.length > 1 && (
+          {viewMode !== 'binder' && availableRarities.length > 1 && (
             <View>
               <TouchableOpacity
                 style={styles.optionRow}
@@ -3001,7 +3010,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
             </View>
           )}
 
-          {availableSets.length > 1 && (
+          {viewMode !== 'binder' && availableSets.length > 1 && (
             <View>
               <TouchableOpacity
                 style={styles.optionRow}
@@ -3046,7 +3055,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
             </View>
           )}
 
-          {availableVariants.length > 1 && (
+          {viewMode !== 'binder' && availableVariants.length > 1 && (
             <View>
               <TouchableOpacity
                 style={styles.optionRow}
@@ -3108,7 +3117,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
         </View>
       )}
 
-      {statsFilter && (
+      {statsFilter && viewMode !== 'binder' && (
         <View style={styles.statsFilterBanner}>
           <View style={styles.statsFilterChip}>
             <Text style={styles.statsFilterLabel} numberOfLines={1}>

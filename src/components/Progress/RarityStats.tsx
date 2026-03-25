@@ -4,13 +4,10 @@ import { useTheme } from '../../context/ThemeContext';
 import { spacing, typography, fonts, borderRadius, type ThemeColors } from '../../constants/theme';
 
 interface RarityStatsProps {
-  /** All cards (or position cards) with rarity and ownership info */
   cards: { rarity: string; isOwned: boolean }[];
-  /** Whether this is a region binder (may have empty rarity fields) */
   isRegionMode?: boolean;
 }
 
-/** Display order and short labels for common rarities */
 const RARITY_ORDER: string[] = [
   'Common',
   'Uncommon',
@@ -33,14 +30,14 @@ const SHORT_LABELS: Record<string, string> = {
   'Rare': 'Rare',
   'Holo Rare': 'Holo',
   'Rare Holo': 'Holo',
-  'Double Rare': 'Double Rare',
-  'Ultra Rare': 'Ultra Rare',
-  'Illustration Rare': 'Illust. Rare',
-  'Special Illustration Rare': 'Special Art',
-  'Hyper Rare': 'Hyper Rare',
+  'Double Rare': 'Dbl Rare',
+  'Ultra Rare': 'Ultra',
+  'Illustration Rare': 'Illust.',
+  'Special Illustration Rare': 'SAR',
+  'Hyper Rare': 'Hyper',
   'Shiny Rare': 'Shiny',
-  'Shiny Ultra Rare': 'Shiny Ultra',
-  'ACE SPEC Rare': 'ACE SPEC',
+  'Shiny Ultra Rare': 'Shiny U',
+  'ACE SPEC Rare': 'ACE',
 };
 
 interface RarityGroup {
@@ -50,7 +47,7 @@ interface RarityGroup {
   total: number;
 }
 
-export default function RarityStats({ cards, isRegionMode }: RarityStatsProps) {
+export default function RarityStats({ cards }: RarityStatsProps) {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
@@ -101,8 +98,7 @@ export default function RarityStats({ cards, isRegionMode }: RarityStatsProps) {
       contentContainerStyle={styles.contentContainer}
     >
       {groups.map((group) => {
-        const pct = group.total > 0 ? group.owned / group.total : 0;
-        const isComplete = pct === 1;
+        const isComplete = group.total > 0 && group.owned === group.total;
         return (
           <View
             key={group.rarity}
@@ -127,22 +123,23 @@ const createStyles = (colors: ThemeColors) =>
       marginBottom: spacing.sm,
     },
     contentContainer: {
-      gap: spacing.xs,
+      gap: 4,
       paddingHorizontal: 1,
     },
     chip: {
-      backgroundColor: colors.backgroundDark,
-      borderRadius: borderRadius.md,
-      paddingHorizontal: spacing.sm + 2,
-      paddingVertical: spacing.xs + 1,
+      flexDirection: 'row',
       alignItems: 'center',
-      minWidth: 60,
+      gap: 4,
+      backgroundColor: colors.backgroundDark,
+      borderRadius: borderRadius.sm,
+      paddingHorizontal: 6,
+      paddingVertical: 3,
     },
     chipComplete: {
       backgroundColor: colors.success + '18',
     },
     chipCount: {
-      fontSize: typography.sm,
+      fontSize: typography.xs,
       fontFamily: fonts.semibold,
       color: colors.text,
     },
@@ -150,10 +147,9 @@ const createStyles = (colors: ThemeColors) =>
       color: colors.success,
     },
     chipLabel: {
-      fontSize: 10,
+      fontSize: typography.xs,
       fontFamily: fonts.regular,
       color: colors.textTertiary,
-      marginTop: 1,
     },
     chipLabelComplete: {
       color: colors.success,

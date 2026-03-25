@@ -5,151 +5,127 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../context/ThemeContext';
 import { spacing, typography, fonts, borderRadius, type ThemeColors } from '../../constants/theme';
 import { getSetLogoByName } from '../../data/pokemonEras';
+import { getPokemonImageUrl } from '../../services/api/pokemonApi';
+import type { PokemonArtStyle } from '../../types';
+import ProgressRing from '../Progress/ProgressRing';
 
 interface HeaderBannerProps {
   collectionMode: 'master-set' | 'region' | 'custom';
   setName?: string;
   regionName?: string;
-  /** First few card image URLs for custom binder mosaic */
-  cardThumbnails?: string[];
+  pokemonArtStyle?: PokemonArtStyle;
+  /** First card image URL for custom binder */
+  cardThumbnail?: string;
+  /** Completion percentage for progress ring */
+  percentage: number;
 }
 
-const REGION_STARTERS: Record<string, { name: string; dex: number }[]> = {
-  Kanto:  [{ name: 'Bulbasaur', dex: 1 },   { name: 'Charmander', dex: 4 }, { name: 'Squirtle', dex: 7 }],
-  Johto:  [{ name: 'Chikorita', dex: 152 },  { name: 'Cyndaquil', dex: 155 }, { name: 'Totodile', dex: 158 }],
-  Hoenn:  [{ name: 'Treecko', dex: 252 },    { name: 'Torchic', dex: 255 },  { name: 'Mudkip', dex: 258 }],
-  Sinnoh: [{ name: 'Turtwig', dex: 387 },    { name: 'Chimchar', dex: 390 }, { name: 'Piplup', dex: 393 }],
-  Unova:  [{ name: 'Snivy', dex: 495 },      { name: 'Tepig', dex: 498 },   { name: 'Oshawott', dex: 501 }],
-  Kalos:  [{ name: 'Chespin', dex: 650 },     { name: 'Fennekin', dex: 653 }, { name: 'Froakie', dex: 656 }],
-  Alola:  [{ name: 'Rowlet', dex: 722 },      { name: 'Litten', dex: 725 },  { name: 'Popplio', dex: 728 }],
-  Galar:  [{ name: 'Grookey', dex: 810 },     { name: 'Scorbunny', dex: 813 }, { name: 'Sobble', dex: 816 }],
-  Paldea: [{ name: 'Sprigatito', dex: 906 },  { name: 'Fuecoco', dex: 909 }, { name: 'Quaxly', dex: 912 }],
+const REGION_FIRST_DEX: Record<string, number> = {
+  Kanto: 1, Johto: 152, Hoenn: 252, Sinnoh: 387,
+  Unova: 494, Kalos: 650, Alola: 722, Galar: 810, Paldea: 906,
 };
-
-function getSpriteUrl(dex: number): string {
-  return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${dex}.png`;
-}
 
 export default function HeaderBanner({
   collectionMode,
   setName,
   regionName,
-  cardThumbnails,
+  pokemonArtStyle,
+  cardThumbnail,
+  percentage,
 }: HeaderBannerProps) {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
+  const ring = <ProgressRing percentage={percentage} size={44} strokeWidth={4} />;
+
   if (collectionMode === 'master-set' && setName) {
     const logoUrl = getSetLogoByName(setName);
-    if (!logoUrl) return null;
     return (
-      <View style={styles.bannerContainer}>
-        <Image
-          source={{ uri: logoUrl }}
-          style={styles.setLogo}
-          contentFit="contain"
-        />
+      <View style={styles.bannerRow}>
+        {ring}
+        {logoUrl && (
+          <Image
+            source={{ uri: logoUrl }}
+            style={styles.setLogo}
+            contentFit="contain"
+          />
+        )}
       </View>
     );
   }
 
   if (collectionMode === 'region' && regionName) {
-    const starters = REGION_STARTERS[regionName];
-    if (!starters) return null;
+    const dex = REGION_FIRST_DEX[regionName];
+    const artStyle = pokemonArtStyle || 'official-artwork';
+    const spriteUrl = dex ? getPokemonImageUrl(dex, artStyle) : null;
     return (
-      <View style={styles.bannerContainer}>
-        <View style={styles.startersRow}>
-          {starters.map((s) => (
-            <View key={s.dex} style={styles.starterItem}>
-              <Image
-                source={{ uri: getSpriteUrl(s.dex) }}
-                style={styles.starterSprite}
-                contentFit="contain"
-              />
-              <Text style={styles.starterName} numberOfLines={1}>{s.name}</Text>
-            </View>
-          ))}
-        </View>
+      <View style={styles.bannerRow}>
+        {ring}
+        {spriteUrl && (
+          <Image
+            source={{ uri: spriteUrl }}
+            style={styles.regionSprite}
+            contentFit="contain"
+          />
+        )}
       </View>
     );
   }
 
   if (collectionMode === 'custom') {
-    const thumbs = cardThumbnails?.filter(Boolean).slice(0, 4) ?? [];
-    if (thumbs.length === 0) {
-      return (
-        <View style={styles.bannerContainer}>
-          <View style={styles.customEmptyBanner}>
-            <Ionicons name="grid-outline" size={28} color={colors.textTertiary} />
+    return (
+      <View style={styles.bannerRow}>
+        {ring}
+        {cardThumbnail ? (
+          <Image
+            source={{ uri: cardThumbnail }}
+            style={styles.customThumb}
+            contentFit="contain"
+          />
+        ) : (
+          <View style={styles.customEmpty}>
+            <Ionicons name="grid-outline" size={22} color={colors.textTertiary} />
             <Text style={styles.customEmptyText}>Custom Collection</Text>
           </View>
-        </View>
-      );
-    }
-    return (
-      <View style={styles.bannerContainer}>
-        <View style={styles.mosaicRow}>
-          {thumbs.map((url, i) => (
-            <Image
-              key={i}
-              source={{ uri: url }}
-              style={styles.mosaicThumb}
-              contentFit="cover"
-            />
-          ))}
-        </View>
+        )}
       </View>
     );
   }
 
-  return null;
+  return (
+    <View style={styles.bannerRow}>
+      {ring}
+    </View>
+  );
 }
 
 const createStyles = (colors: ThemeColors) =>
   StyleSheet.create({
-    bannerContainer: {
+    bannerRow: {
+      flexDirection: 'row',
       alignItems: 'center',
+      gap: spacing.md,
       marginBottom: spacing.sm,
       marginTop: spacing.xs,
+      marginLeft: 40,
     },
     setLogo: {
-      width: '80%',
-      height: 48,
+      flex: 1,
+      height: 44,
     },
-    startersRow: {
-      flexDirection: 'row',
-      justifyContent: 'center',
-      gap: spacing.lg,
-    },
-    starterItem: {
-      alignItems: 'center',
-      gap: 2,
-    },
-    starterSprite: {
+    regionSprite: {
       width: 56,
       height: 56,
     },
-    starterName: {
-      fontSize: typography.xs,
-      fontFamily: fonts.medium,
-      color: colors.textTertiary,
-    },
-    mosaicRow: {
-      flexDirection: 'row',
-      justifyContent: 'center',
-      gap: spacing.xs,
-    },
-    mosaicThumb: {
-      width: 52,
-      height: 72,
+    customThumb: {
+      width: 48,
+      height: 67,
       borderRadius: borderRadius.sm,
-      backgroundColor: colors.backgroundDark,
     },
-    customEmptyBanner: {
+    customEmpty: {
       flexDirection: 'row',
       alignItems: 'center',
       gap: spacing.sm,
-      paddingVertical: spacing.sm,
     },
     customEmptyText: {
       fontSize: typography.sm,

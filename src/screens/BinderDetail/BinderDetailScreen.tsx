@@ -20,7 +20,6 @@ import {
 } from '../../services/supabase/cards';
 import { getCardsBySet, getCardsByRegion, getCardById, getPokemonImageUrl, type Region } from '../../services/api/pokemonApi';
 import { getSetSymbolByName } from '../../data/pokemonEras';
-import ProgressRing from '../../components/Progress/ProgressRing';
 import HeaderBanner from '../../components/Binder/HeaderBanner';
 import RarityStats from '../../components/Progress/RarityStats';
 import { getAllSelectedCardsForBinder, setSelectedCardForPokemon } from '../../services/supabase/regionCards';
@@ -2711,15 +2710,13 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
     return cards.map(c => ({ rarity: c.rarity || '', isOwned: c.isOwned }));
   }, [cards, positionCards, isCustomMode, binder]);
 
-  // Custom binder: collect first few card thumbnails for the mosaic banner
-  const customThumbnails = useMemo(() => {
+  // Custom binder: get the first card thumbnail for the banner
+  const customThumbnail = useMemo(() => {
     if (!isCustomMode) return undefined;
-    const thumbs: string[] = [];
     for (const card of positionCards.values()) {
-      if (card.imageUrl && thumbs.length < 4) thumbs.push(card.imageUrl);
-      if (thumbs.length >= 4) break;
+      if (card.imageUrl) return card.imageUrl;
     }
-    return thumbs;
+    return undefined;
   }, [positionCards, isCustomMode]);
 
   if (loading && !binder) {
@@ -2783,7 +2780,6 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
           <Ionicons name="chevron-back" size={24} color={colors.text} />
         </TouchableOpacity>
         <Text style={styles.title} numberOfLines={1}>{binder.name}</Text>
-        <ProgressRing percentage={progressPercentage} size={44} strokeWidth={4} />
       </View>
 
       {/* Row 2: Subtitle with set icon — collapses on scroll */}
@@ -2803,12 +2799,14 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
         </View>
       </Animated.View>
 
-      {/* Banner: Set logo / Region starters / Custom card mosaic */}
+      {/* Banner: Progress ring + Set logo / Region sprite / Custom card */}
       <HeaderBanner
         collectionMode={binder.collectionMode}
         setName={binder.set}
         regionName={binder.region}
-        cardThumbnails={customThumbnails}
+        pokemonArtStyle={binder.pokemonArtStyle}
+        cardThumbnail={customThumbnail}
+        percentage={progressPercentage}
       />
 
       {/* Rarity breakdown chips */}

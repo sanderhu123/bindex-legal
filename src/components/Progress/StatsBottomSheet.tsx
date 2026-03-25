@@ -201,80 +201,80 @@ export default function StatsBottomSheet({
             <View style={styles.handle} />
           </View>
 
-          {/* Header */}
-          <View style={styles.headerRow}>
-            <Text style={styles.headerTitle}>Binder Statistics</Text>
-            <TouchableOpacity onPress={onClose} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <Ionicons name="close" size={22} color={colors.textSecondary} />
-            </TouchableOpacity>
-          </View>
-
-          {/* Overview — always visible */}
-          <View style={styles.overallSection}>
-            <ProgressRing percentage={progressPercentage} size={80} strokeWidth={6} />
-            <View style={styles.overallStats}>
-              <View style={styles.statRow}>
-                <Text style={styles.statLabel}>Total</Text>
-                <Text style={styles.statValue}>{totalCount}</Text>
-              </View>
-              <View style={styles.statRow}>
-                <Text style={styles.statLabel}>Owned</Text>
-                <Text style={[styles.statValue, { color: colors.primary }]}>{ownedCount}</Text>
-              </View>
-              <View style={styles.statRow}>
-                <Text style={styles.statLabel}>Missing</Text>
-                <Text style={[styles.statValue, { color: colors.textTertiary }]}>{missingCount}</Text>
-              </View>
-              {customSlotInfo && (
-                <View style={styles.statRow}>
-                  <Text style={styles.statLabel}>Slots</Text>
-                  <Text style={styles.statValue}>{customSlotInfo.filled}/{customSlotInfo.max}</Text>
-                </View>
-              )}
-            </View>
-          </View>
-
-          <View style={styles.milestonesSection}>
-            <Text style={styles.sectionTitle}>Milestones</Text>
-            <View style={styles.milestonesRow}>
-              {MILESTONES.map((milestone) => {
-                const reached = reachedMilestones.includes(milestone);
-                return (
-                  <View
-                    key={milestone}
-                    style={[styles.milestoneBadge, reached && styles.milestoneBadgeReached]}
-                  >
-                    {reached && (
-                      <Ionicons name="checkmark" size={12} color={colors.primary} style={{ marginRight: 2 }} />
-                    )}
-                    <Text style={[styles.milestoneBadgeText, reached && styles.milestoneBadgeTextReached]}>
-                      {milestone}%
-                    </Text>
-                  </View>
-                );
-              })}
-            </View>
-          </View>
-
-          {/* Tabs — only show if there are multiple tabs */}
-          {tabs.length > 1 && (
-            <View style={styles.tabBar}>
-              {tabs.map((tab) => (
-                <TouchableOpacity
-                  key={tab.key}
-                  style={[styles.tab, activeTab === tab.key && styles.tabActive]}
-                  onPress={() => setActiveTab(tab.key)}
-                  activeOpacity={0.7}
-                >
-                  <Text style={[styles.tabText, activeTab === tab.key && styles.tabTextActive]}>
-                    {tab.label}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          )}
-
           <ScrollView showsVerticalScrollIndicator={false} style={styles.scrollContent}>
+            {/* Header */}
+            <View style={styles.headerRow}>
+              <Text style={styles.headerTitle}>Binder Statistics</Text>
+              <TouchableOpacity onPress={onClose} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <Ionicons name="close" size={22} color={colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+
+            {/* Overview */}
+            <View style={styles.overallSection}>
+              <ProgressRing percentage={progressPercentage} size={80} strokeWidth={6} />
+              <View style={styles.overallStats}>
+                <View style={styles.statRow}>
+                  <Text style={styles.statLabel}>Total</Text>
+                  <Text style={styles.statValue}>{totalCount}</Text>
+                </View>
+                <View style={styles.statRow}>
+                  <Text style={styles.statLabel}>Owned</Text>
+                  <Text style={[styles.statValue, { color: colors.primary }]}>{ownedCount}</Text>
+                </View>
+                <View style={styles.statRow}>
+                  <Text style={styles.statLabel}>Missing</Text>
+                  <Text style={[styles.statValue, { color: colors.textTertiary }]}>{missingCount}</Text>
+                </View>
+                {customSlotInfo && (
+                  <View style={styles.statRow}>
+                    <Text style={styles.statLabel}>Slots</Text>
+                    <Text style={styles.statValue}>{customSlotInfo.filled}/{customSlotInfo.max}</Text>
+                  </View>
+                )}
+              </View>
+            </View>
+
+            <View style={styles.milestonesSection}>
+              <Text style={styles.sectionTitle}>Milestones</Text>
+              <View style={styles.milestonesRow}>
+                {MILESTONES.map((milestone) => {
+                  const reached = reachedMilestones.includes(milestone);
+                  return (
+                    <View
+                      key={milestone}
+                      style={[styles.milestoneBadge, reached && styles.milestoneBadgeReached]}
+                    >
+                      {reached && (
+                        <Ionicons name="checkmark" size={12} color={colors.primary} style={{ marginRight: 2 }} />
+                      )}
+                      <Text style={[styles.milestoneBadgeText, reached && styles.milestoneBadgeTextReached]}>
+                        {milestone}%
+                      </Text>
+                    </View>
+                  );
+                })}
+              </View>
+            </View>
+
+            {/* Tabs — only show if there are multiple tabs */}
+            {tabs.length > 1 && (
+              <View style={styles.tabBar}>
+                {tabs.map((tab) => (
+                  <TouchableOpacity
+                    key={tab.key}
+                    style={[styles.tab, activeTab === tab.key && styles.tabActive]}
+                    onPress={() => setActiveTab(tab.key)}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[styles.tabText, activeTab === tab.key && styles.tabTextActive]}>
+                      {tab.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+
             {/* Rarity Tab */}
             {activeTab === 'rarity' && rarityGroups.length > 0 && (
               <View style={styles.breakdownSection}>

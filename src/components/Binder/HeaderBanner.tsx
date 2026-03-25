@@ -111,7 +111,7 @@ const createStyles = (colors: ThemeColors) =>
       marginLeft: 40,
     },
     setLogo: {
-      flex: 1,
+      width: '60%',
       height: 44,
     },
     regionSprite: {

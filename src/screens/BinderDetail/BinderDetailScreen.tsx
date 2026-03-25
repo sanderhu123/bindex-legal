@@ -3164,7 +3164,10 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
       missingCount={missingCount}
       progressPercentage={progressPercentage}
       cards={statsCardsData}
-      onDrillDown={(filter) => setStatsFilter(filter)}
+      onDrillDown={(filter) => {
+        setStatsFilter(filter);
+        setViewMode('grid');
+      }}
       customSlotInfo={isCustomMode ? { filled: positionCards.size, max: customMaxSlots } : undefined}
     />
   );

@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import {
   View,
   Text,
+  Image,
   Modal,
   TouchableOpacity,
   ScrollView,
@@ -12,6 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../context/ThemeContext';
 import { spacing, typography, fonts, borderRadius, type ThemeColors } from '../../constants/theme';
 import ProgressRing from './ProgressRing';
+import { getSetSymbolByName } from '../../data/pokemonEras';
 
 const MILESTONES = [25, 50, 75, 100] as const;
 
@@ -356,9 +358,40 @@ export default function StatsBottomSheet({
             {/* Sets Tab */}
             {activeTab === 'sets' && setGroups.length > 0 && (
               <View style={styles.breakdownSection}>
-                {setGroups.map((group) =>
-                  renderBreakdownRow(group.name, group.name, group.owned, group.total, group.percentage)
-                )}
+                {setGroups.map((group) => {
+                  const symbolUrl = getSetSymbolByName(group.name);
+                  return (
+                    <View key={group.name} style={styles.breakdownRow}>
+                      <View style={styles.breakdownContent}>
+                        <View style={styles.setLabelRow}>
+                          <Text style={styles.breakdownLabel}>
+                            <Text style={styles.breakdownCount}>{group.owned}/{group.total}</Text>
+                            {'  '}{group.name}
+                          </Text>
+                          {symbolUrl && (
+                            <Image
+                              source={{ uri: symbolUrl }}
+                              style={styles.setSymbol}
+                              resizeMode="contain"
+                            />
+                          )}
+                        </View>
+                        <View style={styles.breakdownBarTrack}>
+                          <View
+                            style={[
+                              styles.breakdownBarFill,
+                              {
+                                width: `${group.percentage}%`,
+                                backgroundColor: group.percentage === 100 ? colors.success : colors.primary,
+                              },
+                            ]}
+                          />
+                        </View>
+                      </View>
+                      <Text style={styles.breakdownPercent}>{group.percentage}%</Text>
+                    </View>
+                  );
+                })}
               </View>
             )}
 
@@ -528,10 +561,21 @@ const createStyles = (colors: ThemeColors) =>
       flex: 1,
       gap: 0,
     },
+    setLabelRow: {
+      flexDirection: 'row' as const,
+      alignItems: 'center' as const,
+      justifyContent: 'space-between' as const,
+    },
+    setSymbol: {
+      width: 20,
+      height: 20,
+      marginLeft: spacing.xs,
+    },
     breakdownLabel: {
       fontSize: typography.sm,
       fontFamily: fonts.medium,
       color: colors.text,
+      flexShrink: 1,
     },
     breakdownCount: {
       fontFamily: fonts.semibold,

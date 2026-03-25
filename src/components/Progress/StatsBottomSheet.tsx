@@ -344,7 +344,7 @@ const createStyles = (colors: ThemeColors) =>
       backgroundColor: colors.surface,
       borderRadius: borderRadius.md,
       padding: spacing.sm,
-      gap: 2,
+      gap: 0,
     },
     rarityLabel: {
       fontSize: typography.sm,

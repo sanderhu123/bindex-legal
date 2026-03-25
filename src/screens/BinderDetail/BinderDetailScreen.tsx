@@ -21,7 +21,7 @@ import {
 import { getCardsBySet, getCardsByRegion, getCardById, getPokemonImageUrl, type Region } from '../../services/api/pokemonApi';
 import { getSetSymbolByName } from '../../data/pokemonEras';
 import HeaderBanner from '../../components/Binder/HeaderBanner';
-import StatsBottomSheet from '../../components/Progress/StatsBottomSheet';
+import StatsBottomSheet, { type StatsFilter } from '../../components/Progress/StatsBottomSheet';
 import { getAllSelectedCardsForBinder, setSelectedCardForPokemon } from '../../services/supabase/regionCards';
 import { getCardPositionsForBinder } from '../../services/supabase/binderPositions';
 import { startBackgroundPrefetch } from '../../services/imagePrefetch';
@@ -143,6 +143,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
   const [currentPage, setCurrentPage] = useState(1);
   const [showJumpModal, setShowJumpModal] = useState(false);
   const [ownershipFilter, setOwnershipFilter] = useState<OwnershipFilter>('all');
+  const [statsFilter, setStatsFilter] = useState<StatsFilter | null>(null);
   const [showPageBreaks, setShowPageBreaks] = useState(false);
   const [screenWidth, setScreenWidth] = useState(Dimensions.get('window').width);
   const [screenHeight, setScreenHeight] = useState(Dimensions.get('window').height);
@@ -1783,15 +1784,40 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
   const searchedCards = useCardSearch(cards, searchQuery);
 
   // Apply filter (ownership only)
-  const filteredCards = useCardFilter(searchedCards, {
+  const ownershipFilteredCards = useCardFilter(searchedCards, {
     selectedRarities: new Set(),
     ownershipFilter,
   });
 
+  const STATS_REGULAR_RARITIES = useMemo(() => new Set([
+    'common', 'uncommon', 'rare', 'holo rare', 'rare holo',
+  ]), []);
+
+  const filteredCards = useMemo(() => {
+    if (!statsFilter) return ownershipFilteredCards;
+    return ownershipFilteredCards.filter((card) => {
+      if (statsFilter.type === 'rarity') {
+        return (card.rarity || '').toLowerCase() === statsFilter.value;
+      }
+      if (statsFilter.type === 'set') {
+        const cardSet = (card.set || '').startsWith('Custom|') ? 'Custom Cards' : (card.set || '');
+        return cardSet === statsFilter.value;
+      }
+      if (statsFilter.type === 'variant') {
+        let cardVariant = card.variant || 'base';
+        if (cardVariant === 'base' && card.rarity && !STATS_REGULAR_RARITIES.has(card.rarity.toLowerCase())) {
+          cardVariant = 'secret-rare';
+        }
+        return cardVariant === statsFilter.value;
+      }
+      return true;
+    });
+  }, [ownershipFilteredCards, statsFilter, STATS_REGULAR_RARITIES]);
+
   // Reset pagination when filters change (only affects Custom mode now)
   useEffect(() => {
     setDisplayCount(PAGE_SIZE);
-  }, [searchQuery, ownershipFilter]);
+  }, [searchQuery, ownershipFilter, statsFilter]);
 
   // Once cards are fully loaded, show ALL cards at once (for Master Set and Region modes)
   // This removes pagination for a better user experience - they can scroll freely
@@ -2902,6 +2928,22 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
           )}
         </View>
       )}
+
+      {statsFilter && (
+        <View style={styles.statsFilterBanner}>
+          <View style={styles.statsFilterChip}>
+            <Text style={styles.statsFilterLabel} numberOfLines={1}>
+              {statsFilter.label}
+            </Text>
+            <TouchableOpacity
+              onPress={() => setStatsFilter(null)}
+              hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+            >
+              <Ionicons name="close-circle" size={18} color={colors.primary} />
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
     </View>
   );
 
@@ -2950,11 +2992,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
       missingCount={missingCount}
       progressPercentage={progressPercentage}
       cards={statsCardsData}
-      fullCards={isCustomMode
-        ? Array.from(positionCards.values())
-        : [...cards.map(c => ({ ...c, isOwned: c.isOwned })), ...extraCards.map(c => ({ ...c, isOwned: c.isOwned }))]
-      }
-      binderId={binder.id}
+      onDrillDown={(filter) => setStatsFilter(filter)}
       customSlotInfo={isCustomMode ? { filled: positionCards.size, max: customMaxSlots } : undefined}
     />
   );
@@ -3821,6 +3859,28 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   filterChipTextActive: {
     color: colors.onPrimary,
+  },
+  statsFilterBanner: {
+    paddingTop: spacing.sm,
+  },
+  statsFilterChip: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    alignSelf: 'flex-start' as const,
+    gap: spacing.xs,
+    paddingLeft: spacing.sm + 2,
+    paddingRight: spacing.xs + 2,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.primary + '15',
+    borderWidth: 1,
+    borderColor: colors.primary + '40',
+  },
+  statsFilterLabel: {
+    fontSize: typography.xs,
+    fontFamily: fonts.semibold,
+    color: colors.primary,
+    maxWidth: 200,
   },
   checkboxIcon: {
     fontSize: 22,

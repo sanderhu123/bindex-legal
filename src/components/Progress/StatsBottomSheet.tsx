@@ -1,11 +1,10 @@
-import React, { useMemo, useState, useCallback } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   View,
   Text,
   Image,
   Modal,
   TouchableOpacity,
-  FlatList,
   ScrollView,
   StyleSheet,
   Dimensions,
@@ -15,8 +14,6 @@ import { useTheme } from '../../context/ThemeContext';
 import { spacing, typography, fonts, borderRadius, type ThemeColors } from '../../constants/theme';
 import ProgressRing from './ProgressRing';
 import { getSetSymbolByName } from '../../data/pokemonEras';
-import CardItem from '../Card/CardItem';
-import type { Card } from '../../types';
 
 const MILESTONES = [25, 50, 75, 100] as const;
 
@@ -103,11 +100,7 @@ const REGULAR_RARITIES = new Set([
   'rare holo',
 ]);
 
-interface CardWithOwnership extends Card {
-  isOwned: boolean;
-}
-
-interface DrillDown {
+export interface StatsFilter {
   type: 'rarity' | 'set' | 'variant';
   value: string;
   label: string;
@@ -121,8 +114,7 @@ interface StatsBottomSheetProps {
   missingCount: number;
   progressPercentage: number;
   cards: { rarity: string; set: string; variant?: string; isOwned: boolean }[];
-  fullCards?: CardWithOwnership[];
-  binderId?: string;
+  onDrillDown?: (filter: StatsFilter) => void;
   customSlotInfo?: { filled: number; max: number };
 }
 
@@ -134,53 +126,14 @@ export default function StatsBottomSheet({
   missingCount,
   progressPercentage,
   cards,
-  fullCards,
-  binderId,
+  onDrillDown,
   customSlotInfo,
 }: StatsBottomSheetProps) {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const [activeTab, setActiveTab] = useState<StatsTab>('rarity');
-  const [drillDown, setDrillDown] = useState<DrillDown | null>(null);
 
   const reachedMilestones = MILESTONES.filter((m) => progressPercentage >= m);
-
-  const drillDownCards = useMemo(() => {
-    if (!drillDown || !fullCards) return [];
-    return fullCards.filter((card) => {
-      if (drillDown.type === 'rarity') {
-        return (card.rarity || '').toLowerCase() === drillDown.value;
-      }
-      if (drillDown.type === 'set') {
-        const cardSet = (card.set || '').startsWith('Custom|') ? 'Custom Cards' : (card.set || '');
-        return cardSet === drillDown.value;
-      }
-      if (drillDown.type === 'variant') {
-        let cardVariant = card.variant || 'base';
-        if (cardVariant === 'base' && card.rarity && !REGULAR_RARITIES.has(card.rarity.toLowerCase())) {
-          cardVariant = 'secret-rare';
-        }
-        return cardVariant === drillDown.value;
-      }
-      return false;
-    });
-  }, [drillDown, fullCards]);
-
-  const screenWidth = Dimensions.get('window').width;
-  const gridPadding = spacing.lg * 2;
-  const numColumns = 3;
-  const cardWidth = Math.floor((screenWidth - gridPadding - (numColumns - 1) * 4) / numColumns);
-
-  const renderGridCard = useCallback(({ item }: { item: CardWithOwnership }) => (
-    <CardItem
-      card={item}
-      binderId={binderId || ''}
-      width={cardWidth}
-      variant="grid"
-    />
-  ), [binderId, cardWidth]);
-
-  const gridKeyExtractor = useCallback((item: CardWithOwnership) => item.id, []);
 
   const rarityGroups = useMemo(() => {
     const map = new Map<string, { owned: number; total: number }>();
@@ -291,6 +244,12 @@ export default function StatsBottomSheet({
     { key: 'variant', label: 'Variant' },
   ];
 
+  const handleRowTap = (filter: StatsFilter) => {
+    if (!onDrillDown) return;
+    onClose();
+    onDrillDown(filter);
+  };
+
   const renderBreakdownRow = (
     key: string,
     label: string,
@@ -331,89 +290,29 @@ export default function StatsBottomSheet({
     </TouchableOpacity>
   );
 
-  const hasDrillDown = !!fullCards && fullCards.length > 0;
-
-  const handleClose = () => {
-    setDrillDown(null);
-    onClose();
-  };
-
-  if (drillDown && hasDrillDown) {
-    return (
-      <Modal
-        visible={visible}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setDrillDown(null)}
-      >
-        <View style={styles.overlay}>
-          <TouchableOpacity style={styles.backdrop} activeOpacity={1} onPress={handleClose} />
-
-          <View style={styles.sheet}>
-            <View style={styles.handleRow}>
-              <View style={styles.handle} />
-            </View>
-
-            <View style={styles.headerRow}>
-              <TouchableOpacity
-                onPress={() => setDrillDown(null)}
-                style={styles.backButton}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              >
-                <Ionicons name="arrow-back" size={20} color={colors.text} />
-              </TouchableOpacity>
-              <View style={styles.drillDownTitleArea}>
-                <Text style={styles.headerTitle} numberOfLines={1}>{drillDown.label}</Text>
-                <Text style={styles.drillDownSubtitle}>
-                  {drillDownCards.filter(c => c.isOwned).length}/{drillDownCards.length} owned
-                </Text>
-              </View>
-              <TouchableOpacity onPress={handleClose} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                <Ionicons name="close" size={22} color={colors.textSecondary} />
-              </TouchableOpacity>
-            </View>
-
-            <FlatList
-              data={drillDownCards}
-              renderItem={renderGridCard}
-              keyExtractor={gridKeyExtractor}
-              numColumns={numColumns}
-              columnWrapperStyle={styles.gridRow}
-              contentContainerStyle={styles.gridContainer}
-              showsVerticalScrollIndicator={false}
-            />
-          </View>
-        </View>
-      </Modal>
-    );
-  }
-
   return (
     <Modal
       visible={visible}
       transparent
       animationType="slide"
-      onRequestClose={handleClose}
+      onRequestClose={onClose}
     >
       <View style={styles.overlay}>
-        <TouchableOpacity style={styles.backdrop} activeOpacity={1} onPress={handleClose} />
+        <TouchableOpacity style={styles.backdrop} activeOpacity={1} onPress={onClose} />
 
         <View style={styles.sheet}>
-          {/* Drag handle */}
           <View style={styles.handleRow}>
             <View style={styles.handle} />
           </View>
 
           <ScrollView showsVerticalScrollIndicator={false} style={styles.scrollContent}>
-            {/* Header */}
             <View style={styles.headerRow}>
               <Text style={styles.headerTitle}>Binder Statistics</Text>
-              <TouchableOpacity onPress={handleClose} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <TouchableOpacity onPress={onClose} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
                 <Ionicons name="close" size={22} color={colors.textSecondary} />
               </TouchableOpacity>
             </View>
 
-            {/* Overview */}
             <View style={styles.overallSection}>
               <ProgressRing percentage={progressPercentage} size={80} strokeWidth={6} />
               <View style={styles.overallStats}>
@@ -481,7 +380,7 @@ export default function StatsBottomSheet({
                 {rarityGroups.map((group) =>
                   renderBreakdownRow(
                     group.rarity, group.label, group.owned, group.total, group.percentage,
-                    hasDrillDown ? () => setDrillDown({ type: 'rarity', value: group.rarity, label: group.label }) : undefined,
+                    onDrillDown ? () => handleRowTap({ type: 'rarity', value: group.rarity, label: group.label }) : undefined,
                   )
                 )}
               </View>
@@ -492,8 +391,8 @@ export default function StatsBottomSheet({
               <View style={styles.breakdownSection}>
                 {setGroups.map((group) => {
                   const symbolUrl = getSetSymbolByName(group.name);
-                  const onTap = hasDrillDown
-                    ? () => setDrillDown({ type: 'set', value: group.name, label: group.name })
+                  const onTap = onDrillDown
+                    ? () => handleRowTap({ type: 'set', value: group.name, label: group.name })
                     : undefined;
                   return (
                     <TouchableOpacity
@@ -546,7 +445,7 @@ export default function StatsBottomSheet({
                 {variantGroups.map((group) =>
                   renderBreakdownRow(
                     group.variant, group.label, group.owned, group.total, group.percentage,
-                    hasDrillDown ? () => setDrillDown({ type: 'variant', value: group.variant, label: group.label }) : undefined,
+                    onDrillDown ? () => handleRowTap({ type: 'variant', value: group.variant, label: group.label }) : undefined,
                   )
                 )}
               </View>
@@ -708,25 +607,6 @@ const createStyles = (colors: ThemeColors) =>
     breakdownContent: {
       flex: 1,
       gap: 0,
-    },
-    backButton: {
-      marginRight: spacing.sm,
-    },
-    drillDownTitleArea: {
-      flex: 1,
-    },
-    drillDownSubtitle: {
-      fontSize: typography.xs,
-      fontFamily: fonts.regular,
-      color: colors.textSecondary,
-      marginTop: 1,
-    },
-    gridContainer: {
-      paddingBottom: spacing.lg,
-    },
-    gridRow: {
-      gap: 4,
-      marginBottom: 4,
     },
     breakdownLabelRow: {
       flexDirection: 'row' as const,

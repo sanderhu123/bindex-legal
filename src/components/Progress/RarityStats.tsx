@@ -127,9 +127,7 @@ const createStyles = (colors: ThemeColors) =>
       paddingHorizontal: 1,
     },
     chip: {
-      flexDirection: 'row',
       alignItems: 'center',
-      gap: 4,
       backgroundColor: colors.backgroundDark,
       borderRadius: borderRadius.sm,
       paddingHorizontal: 6,

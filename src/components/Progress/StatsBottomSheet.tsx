@@ -78,6 +78,7 @@ const VARIANT_ORDER: string[] = [
   'reverse-holo',
   'poke-ball',
   'master-ball',
+  'secret-rare',
 ];
 
 const VARIANT_LABELS: Record<string, string> = {
@@ -86,7 +87,16 @@ const VARIANT_LABELS: Record<string, string> = {
   'reverse-holo': 'Reverse Holo',
   'poke-ball': 'Poké Ball Holo',
   'master-ball': 'Master Ball Holo',
+  'secret-rare': 'Secret Rares',
 };
+
+const REGULAR_RARITIES = new Set([
+  'common',
+  'uncommon',
+  'rare',
+  'holo rare',
+  'rare holo',
+]);
 
 interface StatsBottomSheetProps {
   visible: boolean;
@@ -183,7 +193,10 @@ export default function StatsBottomSheet({
     const map = new Map<string, { owned: number; total: number }>();
 
     for (const card of cards) {
-      const variant = card.variant || 'base';
+      let variant = card.variant || 'base';
+      if (variant === 'base' && card.rarity && !REGULAR_RARITIES.has(card.rarity.toLowerCase())) {
+        variant = 'secret-rare';
+      }
       const existing = map.get(variant);
       if (existing) {
         existing.total += 1;

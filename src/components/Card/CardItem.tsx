@@ -10,7 +10,8 @@ import { lightTap } from '../../utils/haptics';
 import type { Card } from '../../types';
 import type { MainStackParamList } from '../../navigation/AppNavigator';
 
-const LOGO_ICON = require('../../../assets/logo-icon-teal.png');
+const LOGO_OWNED = require('../../../assets/logo-icon-teal.png');
+const LOGO_UNOWNED = require('../../../assets/logo-icon-white.png');
 
 interface CardWithOwnership extends Card {
   isOwned: boolean;
@@ -40,6 +41,7 @@ type NavigationProp = StackNavigationProp<MainStackParamList, 'CardDetail'>;
 function getVariantBadge(variant?: string) {
   if (!variant || variant === 'base') return null;
   const badges: Record<string, { label: string; color: string }> = {
+    'holo': { label: 'H', color: '#50C878' }, // Green
     'reverse-holo': { label: 'RH', color: '#FFD700' }, // Gold
     'poke-ball': { label: 'PB', color: '#FF6B6B' }, // Red
     'master-ball': { label: 'MB', color: '#7B2D8E' }, // Purple
@@ -149,8 +151,20 @@ function CardItemComponent({
       <TouchableOpacity
         style={[styles.listItem, !card.isOwned && styles.missingListItem]}
         onPress={handleListRowPress}
+        onLongPress={onLongPress ? handleLongPress : undefined}
+        onResponderRelease={onLongPressRelease}
+        onResponderTerminate={onLongPressRelease}
+        delayLongPress={300}
         activeOpacity={0.7}
       >
+        <View style={styles.listCardImageWrapper}>
+          <CardImage
+            source={card.imageUrl}
+            isMissing={!card.isOwned}
+            aspectRatio={0.716}
+            style={styles.listCardImage}
+          />
+        </View>
         <View style={styles.listInfo}>
           <View style={styles.listNameRow}>
             <Text style={styles.listCardName} numberOfLines={1}>{card.name}</Text>
@@ -160,16 +174,22 @@ function CardItemComponent({
               </View>
             )}
           </View>
-          <Text style={styles.listCardNumber}>{card.number}</Text>
-          {card.rarity && <Text style={styles.listCardRarity}>{card.rarity}</Text>}
+          <Text style={styles.listCardNumber}>
+            {card.number}{card.rarity ? ` - ${card.rarity}` : ''}
+          </Text>
+          {cardIndex != null && cardsPerPage && (
+            <Text style={styles.listCardSlot}>
+              Page {Math.floor(cardIndex / cardsPerPage) + 1}, Slot {(cardIndex % cardsPerPage) + 1}
+            </Text>
+          )}
         </View>
         <TouchableOpacity 
-          style={styles.listCheckbox}
+          style={[styles.listCheckbox, card.isOwned ? styles.listCheckboxOwned : styles.listCheckboxUnowned]}
           onPress={handleCheckboxPress}
           activeOpacity={0.7}
         >
           <Animated.View style={{ transform: [{ scale: checkScale }] }}>
-              <RNImage source={LOGO_ICON} style={[styles.checkboxLogo, !card.isOwned && { opacity: 0.2 }]} resizeMode="contain" />
+              <RNImage source={card.isOwned ? LOGO_OWNED : LOGO_UNOWNED} style={styles.checkboxLogo} resizeMode="contain" />
           </Animated.View>
         </TouchableOpacity>
       </TouchableOpacity>
@@ -186,7 +206,8 @@ function CardItemComponent({
       style={cardItemStyle}
       onPress={handleCardPress}
       onLongPress={onLongPress ? handleLongPress : undefined}
-      onPressOut={onLongPressRelease}
+      onResponderRelease={onLongPressRelease}
+      onResponderTerminate={onLongPressRelease}
       delayLongPress={300}
       activeOpacity={0.7}
     >
@@ -198,13 +219,13 @@ function CardItemComponent({
           style={styles.cardImageWrapper}
           cardInfo={{ id: card.id, name: card.name, number: card.number, set: card.set }}
         />
-        <TouchableOpacity 
-          style={styles.checkboxOverlay}
+        <TouchableOpacity
+          style={[styles.checkboxOverlay, card.isOwned ? styles.checkboxOverlayOwned : styles.checkboxOverlayMissing]}
           onPress={handleCheckboxPress}
           activeOpacity={0.7}
         >
           <Animated.View style={{ transform: [{ scale: checkScale }] }}>
-              <RNImage source={LOGO_ICON} style={[styles.checkboxLogo, !card.isOwned && { opacity: 0.2 }]} resizeMode="contain" />
+              <RNImage source={card.isOwned ? LOGO_OWNED : LOGO_UNOWNED} style={styles.checkboxLogo} resizeMode="contain" />
           </Animated.View>
         </TouchableOpacity>
         {badge && (
@@ -248,6 +269,9 @@ function arePropsEqual(prevProps: CardItemProps, nextProps: CardItemProps): bool
   // Re-render if width changes (for grid layout)
   if (prevProps.width !== nextProps.width) return false;
   
+  // Re-render if cardIndex changes (for slot position in list view)
+  if (prevProps.cardIndex !== nextProps.cardIndex) return false;
+  
   // All relevant props are the same, skip re-render
   return true;
 }
@@ -276,21 +300,27 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     position: 'absolute',
     top: 4,
     right: 4,
-    backgroundColor: 'rgba(255, 255, 255, 0.85)',
-    borderRadius: 4,
+    borderRadius: 2,
     padding: 2,
     width: 24,
     height: 24,
     alignItems: 'center',
     justifyContent: 'center',
   },
+  checkboxOverlayOwned: {
+    backgroundColor: 'rgba(170, 240, 230, 0.6)',
+  },
+  checkboxOverlayMissing: {
+    backgroundColor: 'rgba(0, 0, 0, 0.25)',
+  },
   checkboxLogo: {
     width: 22,
     height: 22,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.5,
-    shadowRadius: 3,
+    shadowOpacity: 0.6,
+    shadowRadius: 4,
+    elevation: 3,
   },
   variantBadge: {
     position: 'absolute',
@@ -325,7 +355,14 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     borderColor: colors.border,
   },
   missingListItem: {
-    opacity: 0.6,
+  },
+  listCardImageWrapper: {
+    width: 45,
+    marginRight: 10,
+  },
+  listCardImage: {
+    width: 45,
+    borderRadius: 4,
   },
   listInfo: {
     flex: 1,
@@ -346,9 +383,10 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     color: colors.textSecondary,
     marginBottom: 1,
   },
-  listCardRarity: {
+  listCardSlot: {
     fontSize: 11,
     color: colors.textTertiary,
+    marginTop: 1,
   },
   listVariantBadgeInline: {
     marginLeft: 8,
@@ -361,11 +399,18 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   listCheckbox: {
     marginLeft: 8,
-    padding: 8,
-    minWidth: 44,
-    minHeight: 44,
+    width: 24,
+    height: 24,
+    borderRadius: 2,
+    padding: 2,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  listCheckboxOwned: {
+    backgroundColor: 'rgba(170, 240, 230, 0.6)',
+  },
+  listCheckboxUnowned: {
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
   listVariantBadge: {
     position: 'absolute',

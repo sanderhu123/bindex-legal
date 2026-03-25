@@ -3626,7 +3626,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     borderRadius: borderRadius.lg,
     paddingTop: spacing.md,
     paddingBottom: spacing.sm,
-    paddingHorizontal: spacing.xs,
+    paddingHorizontal: spacing.md,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,

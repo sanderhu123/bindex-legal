@@ -20,7 +20,6 @@ import {
 } from '../../services/supabase/cards';
 import { getCardsBySet, getCardsByRegion, getCardById, getPokemonImageUrl, type Region } from '../../services/api/pokemonApi';
 import { getSetSymbolByName } from '../../data/pokemonEras';
-import HeaderBanner from '../../components/Binder/HeaderBanner';
 import StatsBottomSheet, { type StatsFilter, RARITY_ORDER, RARITY_LABELS, VARIANT_ORDER, VARIANT_LABELS } from '../../components/Progress/StatsBottomSheet';
 import { getAllSelectedCardsForBinder, setSelectedCardForPokemon } from '../../services/supabase/regionCards';
 import { getCardPositionsForBinder } from '../../services/supabase/binderPositions';
@@ -2909,13 +2908,6 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
         </View>
       </Animated.View>
 
-      {/* Banner: Progress ring + Set logo / Region badge / Custom logo */}
-      <HeaderBanner
-        collectionMode={binder.collectionMode}
-        setName={binder.set}
-        regionName={binder.region}
-        percentage={progressPercentage}
-      />
 
       {/* Row 3: Toolbar — Search | Edit | Settings | Display Mode */}
       <View style={styles.toolbar}>

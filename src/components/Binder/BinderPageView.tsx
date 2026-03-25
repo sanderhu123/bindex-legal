@@ -306,7 +306,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   grid: {
     justifyContent: 'flex-start',
-    paddingHorizontal: spacing.sm,
+    paddingHorizontal: spacing.md,
     paddingTop: spacing.xs,
   },
   row: {

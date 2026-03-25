@@ -3624,8 +3624,9 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   binderPagePanel: {
     backgroundColor: colors.surface,
     borderRadius: borderRadius.lg,
-    paddingTop: spacing.sm,
-    paddingBottom: spacing.xs,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.sm,
+    paddingHorizontal: spacing.xs,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,

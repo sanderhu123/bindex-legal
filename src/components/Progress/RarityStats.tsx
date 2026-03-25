@@ -1,7 +1,8 @@
 import React, { useMemo } from 'react';
 import { View, Text, ScrollView, StyleSheet } from 'react-native';
 import { useTheme } from '../../context/ThemeContext';
-import { spacing, typography, fonts, borderRadius, type ThemeColors } from '../../constants/theme';
+import { spacing, typography, fonts, type ThemeColors } from '../../constants/theme';
+import ProgressRing from './ProgressRing';
 
 interface RarityStatsProps {
   cards: { rarity: string; isOwned: boolean }[];
@@ -26,7 +27,7 @@ const RARITY_ORDER: string[] = [
 
 const SHORT_LABELS: Record<string, string> = {
   'Common': 'Common',
-  'Uncommon': 'Uncommon',
+  'Uncommon': 'Uncom.',
   'Rare': 'Rare',
   'Holo Rare': 'Holo',
   'Rare Holo': 'Holo',
@@ -46,6 +47,8 @@ interface RarityGroup {
   owned: number;
   total: number;
 }
+
+const RING_SIZE = 36;
 
 export default function RarityStats({ cards }: RarityStatsProps) {
   const { colors } = useTheme();
@@ -98,18 +101,12 @@ export default function RarityStats({ cards }: RarityStatsProps) {
       contentContainerStyle={styles.contentContainer}
     >
       {groups.map((group) => {
-        const isComplete = group.total > 0 && group.owned === group.total;
+        const pct = group.total > 0 ? Math.round((group.owned / group.total) * 100) : 0;
         return (
-          <View
-            key={group.rarity}
-            style={[styles.chip, isComplete && styles.chipComplete]}
-          >
-            <Text style={[styles.chipCount, isComplete && styles.chipCountComplete]}>
-              {group.owned}/{group.total}
-            </Text>
-            <Text style={[styles.chipLabel, isComplete && styles.chipLabelComplete]} numberOfLines={1}>
-              {group.label}
-            </Text>
+          <View key={group.rarity} style={styles.ringItem}>
+            <ProgressRing percentage={pct} size={RING_SIZE} strokeWidth={3} />
+            <Text style={styles.ringCount}>{group.owned}/{group.total}</Text>
+            <Text style={styles.ringLabel} numberOfLines={1}>{group.label}</Text>
           </View>
         );
       })}
@@ -123,33 +120,22 @@ const createStyles = (colors: ThemeColors) =>
       marginBottom: spacing.sm,
     },
     contentContainer: {
-      gap: 4,
+      gap: spacing.md,
       paddingHorizontal: 1,
     },
-    chip: {
+    ringItem: {
       alignItems: 'center',
-      backgroundColor: colors.backgroundDark,
-      borderRadius: borderRadius.sm,
-      paddingHorizontal: 6,
-      paddingVertical: 3,
+      gap: 2,
     },
-    chipComplete: {
-      backgroundColor: colors.success + '18',
-    },
-    chipCount: {
-      fontSize: typography.xs,
+    ringCount: {
+      fontSize: 10,
       fontFamily: fonts.semibold,
       color: colors.text,
+      marginTop: 2,
     },
-    chipCountComplete: {
-      color: colors.success,
-    },
-    chipLabel: {
-      fontSize: typography.xs,
+    ringLabel: {
+      fontSize: 10,
       fontFamily: fonts.regular,
       color: colors.textTertiary,
-    },
-    chipLabelComplete: {
-      color: colors.success,
     },
   });

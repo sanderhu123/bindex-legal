@@ -2692,6 +2692,36 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
     previousProgressRef.current = progressPercentage;
   }, [progressPercentage, milestoneStorageKey, binder]);
 
+  // Rarity stats data: collect cards with rarity + ownership for the breakdown chips
+  // Must be above early returns to preserve hook call order
+  const rarityCardsData = useMemo(() => {
+    if (!binder) return [];
+    if (isCustomMode) {
+      return Array.from(positionCards.values()).map(c => ({
+        rarity: c.rarity || '',
+        isOwned: c.isOwned,
+      }));
+    }
+    if (binder.collectionMode === 'region') {
+      return cards.map(c => ({
+        rarity: (c as any).selectedCardRarity || c.rarity || '',
+        isOwned: c.isOwned,
+      }));
+    }
+    return cards.map(c => ({ rarity: c.rarity || '', isOwned: c.isOwned }));
+  }, [cards, positionCards, isCustomMode, binder]);
+
+  // Custom binder: collect first few card thumbnails for the mosaic banner
+  const customThumbnails = useMemo(() => {
+    if (!isCustomMode) return undefined;
+    const thumbs: string[] = [];
+    for (const card of positionCards.values()) {
+      if (card.imageUrl && thumbs.length < 4) thumbs.push(card.imageUrl);
+      if (thumbs.length >= 4) break;
+    }
+    return thumbs;
+  }, [positionCards, isCustomMode]);
+
   if (loading && !binder) {
     return <LoadingScreen message="Loading binder..." />;
   }
@@ -2739,34 +2769,6 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
   if (binder.region) subtitleParts.push(binder.region);
 
   const setSymbolUrl = binder.set ? getSetSymbolByName(binder.set) : null;
-
-  // Rarity stats data: collect cards with rarity + ownership for the breakdown chips
-  const rarityCardsData = useMemo(() => {
-    if (isCustomMode) {
-      return Array.from(positionCards.values()).map(c => ({
-        rarity: c.rarity || '',
-        isOwned: c.isOwned,
-      }));
-    }
-    if (binder.collectionMode === 'region') {
-      return cards.map(c => ({
-        rarity: (c as any).selectedCardRarity || c.rarity || '',
-        isOwned: c.isOwned,
-      }));
-    }
-    return cards.map(c => ({ rarity: c.rarity || '', isOwned: c.isOwned }));
-  }, [cards, positionCards, isCustomMode, binder.collectionMode]);
-
-  // Custom binder: collect first few card thumbnails for the mosaic banner
-  const customThumbnails = useMemo(() => {
-    if (!isCustomMode) return undefined;
-    const thumbs: string[] = [];
-    for (const card of positionCards.values()) {
-      if (card.imageUrl && thumbs.length < 4) thumbs.push(card.imageUrl);
-      if (thumbs.length >= 4) break;
-    }
-    return thumbs;
-  }, [positionCards, isCustomMode]);
 
   const listHeader = (
     <View style={styles.headerContainer}>

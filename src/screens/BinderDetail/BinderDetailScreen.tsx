@@ -155,7 +155,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
   const [displayViewport, setDisplayViewport] = useState({ width: 0, height: 0 });
   
   // Dropdown options panel
-  const [showOptions, setShowOptions] = useState(false);
+  // showOptions state removed — view/filter controls are now always visible on the page
 
   // Stats bottom sheet
   const [showStats, setShowStats] = useState(false);
@@ -2892,7 +2892,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
         percentage={progressPercentage}
       />
 
-      {/* Row 3: Toolbar — Search | Edit | Stats | Display Mode | ▼ dropdown */}
+      {/* Row 3: Toolbar — Search | Edit | Settings | Display Mode */}
       <View style={styles.toolbar}>
         <SearchBar
           value={searchQuery}
@@ -2930,191 +2930,178 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
           <Ionicons name="eye-outline" size={20} color={colors.primary} />
         </TouchableOpacity>
 
-        <TouchableOpacity
-          style={[styles.dropdownToggle, showOptions && styles.dropdownToggleActive]}
-          onPress={() => setShowOptions(prev => !prev)}
-          activeOpacity={0.7}
-        >
-          <Ionicons
-            name={showOptions ? 'chevron-up' : 'chevron-down'}
-            size={18}
-            color={showOptions ? colors.primary : colors.textSecondary}
-          />
-        </TouchableOpacity>
       </View>
 
-      {/* Expandable options panel */}
-      {showOptions && (
-        <View style={styles.optionsPanel}>
-          <View style={styles.optionRow}>
-            <Text style={styles.optionLabel}>View</Text>
-            <ViewModeToggle
-              viewMode={viewMode}
-              onViewModeChange={(mode) => {
-                setViewMode(mode);
-                if (mode === 'binder') {
-                  setOwnershipFilter('all');
-                  setStatsFilter(null);
-                  setExpandedFilter(null);
-                }
-              }}
-            />
+      {/* View mode toggle — always visible */}
+      <View style={styles.viewModeRow}>
+        <ViewModeToggle
+          viewMode={viewMode}
+          onViewModeChange={(mode) => {
+            setViewMode(mode);
+            if (mode === 'binder') {
+              setOwnershipFilter('all');
+              setStatsFilter(null);
+              setExpandedFilter(null);
+            }
+          }}
+        />
+      </View>
+
+      {/* Filters — visible for grid/list modes */}
+      {viewMode !== 'binder' && (
+        <View style={styles.filtersSection}>
+          <View style={styles.ownershipRow}>
+            {(['all', 'owned', 'missing'] as const).map((filter) => (
+              <TouchableOpacity
+                key={filter}
+                style={[styles.filterChip, ownershipFilter === filter && styles.filterChipActive]}
+                onPress={() => setOwnershipFilter(filter)}
+              >
+                <Text style={[styles.filterChipText, ownershipFilter === filter && styles.filterChipTextActive]}>
+                  {filter.charAt(0).toUpperCase() + filter.slice(1)}
+                </Text>
+              </TouchableOpacity>
+            ))}
           </View>
 
-          {viewMode !== 'binder' && (
-            <View style={styles.optionRow}>
-              <Text style={styles.optionLabel}>Show</Text>
-              <View style={styles.filterButtons}>
-                {(['all', 'owned', 'missing'] as const).map((filter) => (
+          {(availableRarities.length > 1 || availableSets.length > 1 || availableVariants.length > 1) && (
+            <View style={styles.filterAccordions}>
+              {availableRarities.length > 1 && (
+                <View>
                   <TouchableOpacity
-                    key={filter}
-                    style={[styles.filterChip, ownershipFilter === filter && styles.filterChipActive]}
-                    onPress={() => setOwnershipFilter(filter)}
+                    style={styles.filterAccordionHeader}
+                    onPress={() => setExpandedFilter(expandedFilter === 'rarity' ? null : 'rarity')}
                   >
-                    <Text style={[styles.filterChipText, ownershipFilter === filter && styles.filterChipTextActive]}>
-                      {filter.charAt(0).toUpperCase() + filter.slice(1)}
+                    <Text style={styles.filterAccordionLabel}>
+                      Rarity
+                      {statsFilter?.type === 'rarity' && (
+                        <Text style={styles.filterSelectionHint}>{'  '}{statsFilter.label}</Text>
+                      )}
                     </Text>
+                    <Ionicons
+                      name={expandedFilter === 'rarity' ? 'chevron-up' : 'chevron-down'}
+                      size={16}
+                      color={colors.textSecondary}
+                    />
                   </TouchableOpacity>
-                ))}
-              </View>
-            </View>
-          )}
-
-          {viewMode !== 'binder' && availableRarities.length > 1 && (
-            <View>
-              <TouchableOpacity
-                style={styles.optionRow}
-                onPress={() => setExpandedFilter(expandedFilter === 'rarity' ? null : 'rarity')}
-              >
-                <Text style={styles.optionLabel}>
-                  Rarity
-                  {statsFilter?.type === 'rarity' && (
-                    <Text style={styles.filterSelectionHint}>{'  '}{statsFilter.label}</Text>
-                  )}
-                </Text>
-                <Ionicons
-                  name={expandedFilter === 'rarity' ? 'chevron-up' : 'chevron-down'}
-                  size={16}
-                  color={colors.textSecondary}
-                />
-              </TouchableOpacity>
-              {expandedFilter === 'rarity' && (
-                <View style={styles.accordionContent}>
-                  <TouchableOpacity
-                    style={[styles.accordionItem, (!statsFilter || statsFilter.type !== 'rarity') && styles.accordionItemActive]}
-                    onPress={() => { setStatsFilter(null); setExpandedFilter(null); }}
-                  >
-                    <Text style={[styles.accordionItemText, (!statsFilter || statsFilter.type !== 'rarity') && styles.accordionItemTextActive]}>All</Text>
-                    {(!statsFilter || statsFilter.type !== 'rarity') && <Ionicons name="checkmark" size={16} color={colors.primary} />}
-                  </TouchableOpacity>
-                  {availableRarities.map((r) => {
-                    const isActive = statsFilter?.type === 'rarity' && statsFilter.value === r.value;
-                    return (
+                  {expandedFilter === 'rarity' && (
+                    <View style={styles.accordionContent}>
                       <TouchableOpacity
-                        key={r.value}
-                        style={[styles.accordionItem, isActive && styles.accordionItemActive]}
-                        onPress={() => { setStatsFilter({ type: 'rarity', value: r.value, label: r.label }); setExpandedFilter(null); }}
+                        style={[styles.accordionItem, (!statsFilter || statsFilter.type !== 'rarity') && styles.accordionItemActive]}
+                        onPress={() => { setStatsFilter(null); setExpandedFilter(null); }}
                       >
-                        <Text style={[styles.accordionItemText, isActive && styles.accordionItemTextActive]}>{r.label}</Text>
-                        {isActive && <Ionicons name="checkmark" size={16} color={colors.primary} />}
+                        <Text style={[styles.accordionItemText, (!statsFilter || statsFilter.type !== 'rarity') && styles.accordionItemTextActive]}>All</Text>
+                        {(!statsFilter || statsFilter.type !== 'rarity') && <Ionicons name="checkmark" size={16} color={colors.primary} />}
                       </TouchableOpacity>
-                    );
-                  })}
+                      {availableRarities.map((r) => {
+                        const isActive = statsFilter?.type === 'rarity' && statsFilter.value === r.value;
+                        return (
+                          <TouchableOpacity
+                            key={r.value}
+                            style={[styles.accordionItem, isActive && styles.accordionItemActive]}
+                            onPress={() => { setStatsFilter({ type: 'rarity', value: r.value, label: r.label }); setExpandedFilter(null); }}
+                          >
+                            <Text style={[styles.accordionItemText, isActive && styles.accordionItemTextActive]}>{r.label}</Text>
+                            {isActive && <Ionicons name="checkmark" size={16} color={colors.primary} />}
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  )}
+                </View>
+              )}
+
+              {availableSets.length > 1 && (
+                <View>
+                  <TouchableOpacity
+                    style={styles.filterAccordionHeader}
+                    onPress={() => setExpandedFilter(expandedFilter === 'set' ? null : 'set')}
+                  >
+                    <Text style={[styles.filterAccordionLabel, { flex: 1 }]} numberOfLines={1}>
+                      Set
+                      {statsFilter?.type === 'set' && (
+                        <Text style={styles.filterSelectionHint}>{'  '}{statsFilter.label}</Text>
+                      )}
+                    </Text>
+                    <Ionicons
+                      name={expandedFilter === 'set' ? 'chevron-up' : 'chevron-down'}
+                      size={16}
+                      color={colors.textSecondary}
+                    />
+                  </TouchableOpacity>
+                  {expandedFilter === 'set' && (
+                    <View style={styles.accordionContent}>
+                      <TouchableOpacity
+                        style={[styles.accordionItem, (!statsFilter || statsFilter.type !== 'set') && styles.accordionItemActive]}
+                        onPress={() => { setStatsFilter(null); setExpandedFilter(null); }}
+                      >
+                        <Text style={[styles.accordionItemText, (!statsFilter || statsFilter.type !== 'set') && styles.accordionItemTextActive]}>All</Text>
+                        {(!statsFilter || statsFilter.type !== 'set') && <Ionicons name="checkmark" size={16} color={colors.primary} />}
+                      </TouchableOpacity>
+                      {availableSets.map((s) => {
+                        const isActive = statsFilter?.type === 'set' && statsFilter.value === s.value;
+                        return (
+                          <TouchableOpacity
+                            key={s.value}
+                            style={[styles.accordionItem, isActive && styles.accordionItemActive]}
+                            onPress={() => { setStatsFilter({ type: 'set', value: s.value, label: s.label }); setExpandedFilter(null); }}
+                          >
+                            <Text style={[styles.accordionItemText, isActive && styles.accordionItemTextActive]} numberOfLines={1}>{s.label}</Text>
+                            {isActive && <Ionicons name="checkmark" size={16} color={colors.primary} />}
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  )}
+                </View>
+              )}
+
+              {availableVariants.length > 1 && (
+                <View>
+                  <TouchableOpacity
+                    style={styles.filterAccordionHeader}
+                    onPress={() => setExpandedFilter(expandedFilter === 'variant' ? null : 'variant')}
+                  >
+                    <Text style={styles.filterAccordionLabel}>
+                      Variant
+                      {statsFilter?.type === 'variant' && (
+                        <Text style={styles.filterSelectionHint}>{'  '}{statsFilter.label}</Text>
+                      )}
+                    </Text>
+                    <Ionicons
+                      name={expandedFilter === 'variant' ? 'chevron-up' : 'chevron-down'}
+                      size={16}
+                      color={colors.textSecondary}
+                    />
+                  </TouchableOpacity>
+                  {expandedFilter === 'variant' && (
+                    <View style={styles.accordionContent}>
+                      <TouchableOpacity
+                        style={[styles.accordionItem, (!statsFilter || statsFilter.type !== 'variant') && styles.accordionItemActive]}
+                        onPress={() => { setStatsFilter(null); setExpandedFilter(null); }}
+                      >
+                        <Text style={[styles.accordionItemText, (!statsFilter || statsFilter.type !== 'variant') && styles.accordionItemTextActive]}>All</Text>
+                        {(!statsFilter || statsFilter.type !== 'variant') && <Ionicons name="checkmark" size={16} color={colors.primary} />}
+                      </TouchableOpacity>
+                      {availableVariants.map((v) => {
+                        const isActive = statsFilter?.type === 'variant' && statsFilter.value === v.value;
+                        return (
+                          <TouchableOpacity
+                            key={v.value}
+                            style={[styles.accordionItem, isActive && styles.accordionItemActive]}
+                            onPress={() => { setStatsFilter({ type: 'variant', value: v.value, label: v.label }); setExpandedFilter(null); }}
+                          >
+                            <Text style={[styles.accordionItemText, isActive && styles.accordionItemTextActive]}>{v.label}</Text>
+                            {isActive && <Ionicons name="checkmark" size={16} color={colors.primary} />}
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  )}
                 </View>
               )}
             </View>
           )}
-
-          {viewMode !== 'binder' && availableSets.length > 1 && (
-            <View>
-              <TouchableOpacity
-                style={styles.optionRow}
-                onPress={() => setExpandedFilter(expandedFilter === 'set' ? null : 'set')}
-              >
-                <Text style={[styles.optionLabel, { flex: 1 }]} numberOfLines={1}>
-                  Set
-                  {statsFilter?.type === 'set' && (
-                    <Text style={styles.filterSelectionHint}>{'  '}{statsFilter.label}</Text>
-                  )}
-                </Text>
-                <Ionicons
-                  name={expandedFilter === 'set' ? 'chevron-up' : 'chevron-down'}
-                  size={16}
-                  color={colors.textSecondary}
-                />
-              </TouchableOpacity>
-              {expandedFilter === 'set' && (
-                <View style={styles.accordionContent}>
-                  <TouchableOpacity
-                    style={[styles.accordionItem, (!statsFilter || statsFilter.type !== 'set') && styles.accordionItemActive]}
-                    onPress={() => { setStatsFilter(null); setExpandedFilter(null); }}
-                  >
-                    <Text style={[styles.accordionItemText, (!statsFilter || statsFilter.type !== 'set') && styles.accordionItemTextActive]}>All</Text>
-                    {(!statsFilter || statsFilter.type !== 'set') && <Ionicons name="checkmark" size={16} color={colors.primary} />}
-                  </TouchableOpacity>
-                  {availableSets.map((s) => {
-                    const isActive = statsFilter?.type === 'set' && statsFilter.value === s.value;
-                    return (
-                      <TouchableOpacity
-                        key={s.value}
-                        style={[styles.accordionItem, isActive && styles.accordionItemActive]}
-                        onPress={() => { setStatsFilter({ type: 'set', value: s.value, label: s.label }); setExpandedFilter(null); }}
-                      >
-                        <Text style={[styles.accordionItemText, isActive && styles.accordionItemTextActive]} numberOfLines={1}>{s.label}</Text>
-                        {isActive && <Ionicons name="checkmark" size={16} color={colors.primary} />}
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-              )}
-            </View>
-          )}
-
-          {viewMode !== 'binder' && availableVariants.length > 1 && (
-            <View>
-              <TouchableOpacity
-                style={styles.optionRow}
-                onPress={() => setExpandedFilter(expandedFilter === 'variant' ? null : 'variant')}
-              >
-                <Text style={styles.optionLabel}>
-                  Variant
-                  {statsFilter?.type === 'variant' && (
-                    <Text style={styles.filterSelectionHint}>{'  '}{statsFilter.label}</Text>
-                  )}
-                </Text>
-                <Ionicons
-                  name={expandedFilter === 'variant' ? 'chevron-up' : 'chevron-down'}
-                  size={16}
-                  color={colors.textSecondary}
-                />
-              </TouchableOpacity>
-              {expandedFilter === 'variant' && (
-                <View style={styles.accordionContent}>
-                  <TouchableOpacity
-                    style={[styles.accordionItem, (!statsFilter || statsFilter.type !== 'variant') && styles.accordionItemActive]}
-                    onPress={() => { setStatsFilter(null); setExpandedFilter(null); }}
-                  >
-                    <Text style={[styles.accordionItemText, (!statsFilter || statsFilter.type !== 'variant') && styles.accordionItemTextActive]}>All</Text>
-                    {(!statsFilter || statsFilter.type !== 'variant') && <Ionicons name="checkmark" size={16} color={colors.primary} />}
-                  </TouchableOpacity>
-                  {availableVariants.map((v) => {
-                    const isActive = statsFilter?.type === 'variant' && statsFilter.value === v.value;
-                    return (
-                      <TouchableOpacity
-                        key={v.value}
-                        style={[styles.accordionItem, isActive && styles.accordionItemActive]}
-                        onPress={() => { setStatsFilter({ type: 'variant', value: v.value, label: v.label }); setExpandedFilter(null); }}
-                      >
-                        <Text style={[styles.accordionItemText, isActive && styles.accordionItemTextActive]}>{v.label}</Text>
-                        {isActive && <Ionicons name="checkmark" size={16} color={colors.primary} />}
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-              )}
-            </View>
-          )}
-
         </View>
       )}
 
@@ -3985,38 +3972,36 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     borderRadius: borderRadius.md,
     backgroundColor: colors.backgroundDark,
   },
-  dropdownToggle: {
-    width: 36,
-    height: 36,
+  viewModeRow: {
     alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: borderRadius.full,
-    backgroundColor: colors.backgroundDark,
-    marginLeft: 'auto',
+    marginBottom: spacing.sm,
   },
-  dropdownToggleActive: {
-    backgroundColor: colors.primary + '20',
+  filtersSection: {
+    gap: spacing.sm,
+    marginBottom: spacing.sm,
   },
-  dropdownArrow: {
-    fontSize: typography.sm,
-    color: colors.textSecondary,
+  ownershipRow: {
+    flexDirection: 'row',
+    gap: spacing.xs,
   },
-  dropdownArrowActive: {
-    color: colors.primary,
-  },
-  optionsPanel: {
+  filterAccordions: {
     backgroundColor: colors.surface,
     borderRadius: borderRadius.md,
     borderWidth: 1,
     borderColor: colors.border,
-    padding: spacing.md,
-    marginBottom: spacing.sm,
-    gap: spacing.md,
+    overflow: 'hidden' as const,
   },
-  optionRow: {
+  filterAccordionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm + 2,
+  },
+  filterAccordionLabel: {
+    fontSize: typography.sm,
+    fontFamily: fonts.medium,
+    color: colors.text,
   },
   accordionContent: {
     marginTop: spacing.xs,
@@ -4051,20 +4036,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     fontFamily: fonts.regular,
     color: colors.primary,
   },
-  optionLabel: {
-    fontSize: typography.sm,
-    fontFamily: fonts.medium,
-    color: colors.text,
-  },
-  optionHint: {
-    fontSize: typography.xs,
-    fontFamily: fonts.regular,
-    color: colors.textTertiary,
-  },
-  filterButtons: {
-    flexDirection: 'row',
-    gap: spacing.xs,
-  },
+  
   filterChip: {
     paddingHorizontal: spacing.sm + 2,
     paddingVertical: spacing.xs,

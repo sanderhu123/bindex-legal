@@ -361,7 +361,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     justifyContent: 'center',
   },
   checkboxOverlayOwned: {
-    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    backgroundColor: 'rgba(100, 220, 200, 0.5)',
   },
   checkboxOverlayMissing: {
     backgroundColor: 'rgba(0, 0, 0, 0.25)',

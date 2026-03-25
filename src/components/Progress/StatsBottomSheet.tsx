@@ -215,13 +215,10 @@ export default function StatsBottomSheet({
     return result;
   }, [cards]);
 
-  const hasMultipleSets = setGroups.length > 1;
-  const hasMultipleVariants = variantGroups.length > 1;
-
   const tabs: { key: StatsTab; label: string }[] = [
     { key: 'rarity', label: 'Rarity' },
-    ...(hasMultipleSets ? [{ key: 'sets' as StatsTab, label: 'Sets' }] : []),
-    ...(hasMultipleVariants ? [{ key: 'variant' as StatsTab, label: 'Variant' }] : []),
+    { key: 'sets', label: 'Sets' },
+    { key: 'variant', label: 'Variant' },
   ];
 
   const renderBreakdownRow = (key: string, label: string, owned: number, total: number, percentage: number) => (
@@ -319,23 +316,20 @@ export default function StatsBottomSheet({
               </View>
             </View>
 
-            {/* Tabs — only show if there are multiple tabs */}
-            {tabs.length > 1 && (
-              <View style={styles.tabBar}>
-                {tabs.map((tab) => (
-                  <TouchableOpacity
-                    key={tab.key}
-                    style={[styles.tab, activeTab === tab.key && styles.tabActive]}
-                    onPress={() => setActiveTab(tab.key)}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={[styles.tabText, activeTab === tab.key && styles.tabTextActive]}>
-                      {tab.label}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            )}
+            <View style={styles.tabBar}>
+              {tabs.map((tab) => (
+                <TouchableOpacity
+                  key={tab.key}
+                  style={[styles.tab, activeTab === tab.key && styles.tabActive]}
+                  onPress={() => setActiveTab(tab.key)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.tabText, activeTab === tab.key && styles.tabTextActive]}>
+                    {tab.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
 
             {/* Rarity Tab */}
             {activeTab === 'rarity' && rarityGroups.length > 0 && (

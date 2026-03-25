@@ -133,8 +133,9 @@ export default function StatsBottomSheet({
     const map = new Map<string, { owned: number; total: number }>();
 
     for (const card of cards) {
-      const set = card.set || '';
-      if (!set) continue;
+      const rawSet = card.set || '';
+      if (!rawSet) continue;
+      const set = rawSet.startsWith('Custom|') ? 'Custom Cards' : rawSet;
       const existing = map.get(set);
       if (existing) {
         existing.total += 1;

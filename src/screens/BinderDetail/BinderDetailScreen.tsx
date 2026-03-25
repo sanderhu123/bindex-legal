@@ -2708,7 +2708,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
     if (binder.collectionMode === 'region') {
       return cards.map(c => ({
         rarity: (c as any).selectedCardRarity || c.rarity || '',
-        set: (c as any).selectedCardSet || c.set || '',
+        set: (c as any).selectedCardSet || 'No card selected',
         isOwned: c.isOwned,
       }));
     }

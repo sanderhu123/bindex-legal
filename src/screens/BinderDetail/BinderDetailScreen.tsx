@@ -2910,11 +2910,11 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
     >
       <View style={styles.stickyFooterContent}>
         <View style={styles.stickyFooterStats}>
-          <Text style={styles.stickyFooterTotal}>{totalCount} total</Text>
-          <Text style={styles.stickyFooterDot}>·</Text>
           <Text style={styles.stickyFooterOwned}>{ownedCount} owned</Text>
           <Text style={styles.stickyFooterDot}>·</Text>
           <Text style={styles.stickyFooterMissing}>{missingCount} missing</Text>
+          <Text style={styles.stickyFooterDot}>·</Text>
+          <Text style={styles.stickyFooterTotal}>{totalCount} total</Text>
           <Text style={styles.stickyFooterDot}>·</Text>
           <Text style={styles.stickyFooterPercent}>{progressPercentage}%</Text>
           {isCustomMode && (

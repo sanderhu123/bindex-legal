@@ -138,6 +138,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
   const [refreshing, setRefreshing] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('binder');
   const [searchQuery, setSearchQuery] = useState('');
+  const wasInBinderBeforeSearch = useRef(false);
   
   // Binder view mode state
   const [currentPage, setCurrentPage] = useState(1);
@@ -1821,6 +1822,17 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
     setDisplayCount(PAGE_SIZE);
   }, [searchQuery, ownershipFilter, statsFilter]);
 
+  const handleSearchChange = useCallback((text: string) => {
+    setSearchQuery(text);
+    if (text.length > 0 && viewMode === 'binder') {
+      wasInBinderBeforeSearch.current = true;
+      setViewMode('grid');
+    } else if (text.length === 0 && wasInBinderBeforeSearch.current) {
+      wasInBinderBeforeSearch.current = false;
+      setViewMode('binder');
+    }
+  }, [viewMode]);
+
   // Once cards are fully loaded, show ALL cards at once (for Master Set and Region modes)
   // This removes pagination for a better user experience - they can scroll freely
   useEffect(() => {
@@ -2914,7 +2926,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
       <View style={styles.toolbar}>
         <SearchBar
           value={searchQuery}
-          onChangeText={setSearchQuery}
+          onChangeText={handleSearchChange}
           placeholder="Search..."
           compact
         />

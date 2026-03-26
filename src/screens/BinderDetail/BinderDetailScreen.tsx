@@ -2966,15 +2966,6 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
 
       </View>
 
-      {/* Binder mode indicator — visible only in binder view */}
-      {viewMode === 'binder' && (
-        <View style={styles.binderModeIndicator}>
-          <Ionicons name="book" size={14} color={colors.primary} />
-          <Text style={styles.binderModeIndicatorText}>Binder View</Text>
-          <Text style={styles.binderModeIndicatorHint}>Swipe pages · tap cards to toggle</Text>
-        </View>
-      )}
-
       {/* Options panel — always visible, same layout as the old dropdown */}
       <View style={styles.optionsPanel}>
         <View style={styles.optionRow}>
@@ -3939,30 +3930,6 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   binderModeScrollView: {
     backgroundColor: colors.backgroundLight,
-  },
-  binderModeIndicator: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-    backgroundColor: colors.primaryTint,
-    borderRadius: borderRadius.full,
-    paddingHorizontal: spacing.sm + 4,
-    paddingVertical: spacing.xs,
-    marginBottom: spacing.sm,
-    gap: 6,
-    borderWidth: 1,
-    borderColor: colors.primary + '30',
-  },
-  binderModeIndicatorText: {
-    fontSize: typography.xs,
-    fontFamily: fonts.semibold,
-    color: colors.primary,
-  },
-  binderModeIndicatorHint: {
-    fontSize: typography.xs - 1,
-    fontFamily: fonts.regular,
-    color: colors.primary + '90',
-    marginLeft: 2,
   },
   binderPagePanel: {
     backgroundColor: colors.surface,

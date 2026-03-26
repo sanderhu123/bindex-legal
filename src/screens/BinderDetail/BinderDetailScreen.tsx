@@ -2929,6 +2929,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
           onChangeText={handleSearchChange}
           placeholder="Search..."
           compact
+          autoFocus={wasInBinderBeforeSearch.current && searchQuery.length > 0}
         />
 
         <TouchableOpacity

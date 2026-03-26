@@ -2097,7 +2097,9 @@ export async function searchCardsByName(
         const escapedQuery = escapeRegExp(sanitizedQuery);
         // Match the query as a complete word (case-insensitive)
         // "Pidgeot" matches "Pidgeot", "Pidgeot EX", "Pidgeot V" but NOT "Pidgeotto"
-        const wordBoundaryRegex = new RegExp(`\\b${escapedQuery}\\b`, 'i');
+        // Trailing \b is replaced with (?:\b|\s|$) so names ending in non-ASCII
+        // letters (e.g. Flabébé) still match — \b only understands ASCII word chars.
+        const wordBoundaryRegex = new RegExp(`\\b${escapedQuery}(?:\\b|\\s|$)`, 'i');
         
         filteredResults = filteredResults.filter((card: any) => {
           return wordBoundaryRegex.test(card.name || '');

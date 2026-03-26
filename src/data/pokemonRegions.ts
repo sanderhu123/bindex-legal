@@ -847,7 +847,6 @@ const SEARCH_NAME_OVERRIDES: Record<string, string> = {
   'Nidoran♀': 'Nidoran',
   'Nidoran♂': 'Nidoran',
   'Type: Null': 'Type Null',
-  'Flabébé': 'Flabebe',
 };
 
 /**

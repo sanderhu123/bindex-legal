@@ -1053,7 +1053,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
           effectiveOrder.forEach((key, idx) => groupPosition.set(key, idx));
 
           const getSetNumber = (numberStr: string): number => {
-            const match = numberStr.match(/^(\d+)\//);
+            const match = numberStr.match(/^(\d+)/);
             return match ? parseInt(match[1], 10) : 0;
           };
 

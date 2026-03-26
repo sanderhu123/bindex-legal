@@ -334,7 +334,7 @@ export default function BinderEditScreen() {
         effectiveOrder.forEach((key, idx) => groupPosition.set(key, idx));
 
         const getSetNumber = (numberStr: string): number => {
-          const match = numberStr.match(/^(\d+)\//);
+          const match = numberStr.match(/^(\d+)/);
           return match ? parseInt(match[1], 10) : 0;
         };
         const isSecretRare = (card: Card): boolean => {

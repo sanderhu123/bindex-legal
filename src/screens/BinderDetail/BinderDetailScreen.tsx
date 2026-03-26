@@ -2966,6 +2966,15 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
 
       </View>
 
+      {/* Binder mode indicator — visible only in binder view */}
+      {viewMode === 'binder' && (
+        <View style={styles.binderModeIndicator}>
+          <Ionicons name="book" size={14} color={colors.primary} />
+          <Text style={styles.binderModeIndicatorText}>Binder View</Text>
+          <Text style={styles.binderModeIndicatorHint}>Swipe pages · tap cards to toggle</Text>
+        </View>
+      )}
+
       {/* Options panel — always visible, same layout as the old dropdown */}
       <View style={styles.optionsPanel}>
         <View style={styles.optionRow}>
@@ -3510,9 +3519,9 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
     }
 
     return (
-      <SafeAreaView style={styles.safeArea}>
+      <SafeAreaView style={[styles.safeArea, styles.binderModeSafeArea]}>
         <ScrollView
-          style={styles.scrollViewStyle}
+          style={[styles.scrollViewStyle, styles.binderModeScrollView]}
           contentContainerStyle={styles.container}
           onScroll={onScrollEvent}
           scrollEventThrottle={16}
@@ -3925,6 +3934,36 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     padding: screenPadding,
     paddingBottom: spacing.md,
   },
+  binderModeSafeArea: {
+    backgroundColor: colors.backgroundLight,
+  },
+  binderModeScrollView: {
+    backgroundColor: colors.backgroundLight,
+  },
+  binderModeIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    backgroundColor: colors.primaryTint,
+    borderRadius: borderRadius.full,
+    paddingHorizontal: spacing.sm + 4,
+    paddingVertical: spacing.xs,
+    marginBottom: spacing.sm,
+    gap: 6,
+    borderWidth: 1,
+    borderColor: colors.primary + '30',
+  },
+  binderModeIndicatorText: {
+    fontSize: typography.xs,
+    fontFamily: fonts.semibold,
+    color: colors.primary,
+  },
+  binderModeIndicatorHint: {
+    fontSize: typography.xs - 1,
+    fontFamily: fonts.regular,
+    color: colors.primary + '90',
+    marginLeft: 2,
+  },
   binderPagePanel: {
     backgroundColor: colors.surface,
     borderRadius: borderRadius.lg,
@@ -3933,11 +3972,15 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     marginHorizontal: -spacing.md,
     paddingHorizontal: spacing.xs,
     overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 3,
+    borderWidth: 1.5,
+    borderColor: colors.primary + '25',
+    borderTopWidth: 3,
+    borderTopColor: colors.primary,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.12,
+    shadowRadius: 10,
+    elevation: 5,
   },
   displayModeContainer: {
     paddingTop: spacing.sm,

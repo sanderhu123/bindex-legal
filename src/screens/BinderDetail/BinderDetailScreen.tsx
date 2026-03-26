@@ -20,6 +20,7 @@ import {
 } from '../../services/supabase/cards';
 import { getCardsBySet, getCardsByRegion, getCardById, getPokemonImageUrl, type Region } from '../../services/api/pokemonApi';
 import { getSetSymbolByName } from '../../data/pokemonEras';
+import { getSearchName } from '../../data/pokemonRegions';
 import StatsBottomSheet, { type StatsFilter, RARITY_ORDER, RARITY_LABELS, VARIANT_ORDER, VARIANT_LABELS } from '../../components/Progress/StatsBottomSheet';
 import { getAllSelectedCardsForBinder, setSelectedCardForPokemon } from '../../services/supabase/regionCards';
 import { getCardPositionsForBinder } from '../../services/supabase/binderPositions';
@@ -3482,7 +3483,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
               }}
               onSelectCard={handleRegionCardSelected}
               title={selectedPokemonForPicker ? `Choose a ${selectedPokemonForPicker.name} Card` : 'Choose Card'}
-              initialQuery={selectedPokemonForPicker?.name || ''}
+              initialQuery={selectedPokemonForPicker ? getSearchName(selectedPokemonForPicker.name) : ''}
               pokemonOnly={true}
             />
           )}
@@ -3560,7 +3561,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
             }}
             onSelectCard={handleRegionCardSelected}
             title={selectedPokemonForPicker ? `Choose a ${selectedPokemonForPicker.name} Card` : 'Choose Card'}
-            initialQuery={selectedPokemonForPicker?.name || ''}
+            initialQuery={selectedPokemonForPicker ? getSearchName(selectedPokemonForPicker.name) : ''}
             pokemonOnly={true}
           />
         )}
@@ -3799,7 +3800,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
             }}
             onSelectCard={handleRegionCardSelected}
             title={selectedPokemonForPicker ? `Choose a ${selectedPokemonForPicker.name} Card` : 'Choose Card'}
-            initialQuery={selectedPokemonForPicker?.name || ''}
+            initialQuery={selectedPokemonForPicker ? getSearchName(selectedPokemonForPicker.name) : ''}
             pokemonOnly={true}
           />
           {stickyProgressFooter}
@@ -3845,7 +3846,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
           }}
           onSelectCard={handleRegionCardSelected}
           title={selectedPokemonForPicker ? `Choose a ${selectedPokemonForPicker.name} Card` : 'Choose Card'}
-          initialQuery={selectedPokemonForPicker?.name || ''}
+          initialQuery={selectedPokemonForPicker ? getSearchName(selectedPokemonForPicker.name) : ''}
           pokemonOnly={true}
         />
         {stickyProgressFooter}

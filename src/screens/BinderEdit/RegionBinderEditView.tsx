@@ -13,6 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { Image } from 'expo-image';
 import { getCardsByRegion, getCardById, type Region } from '../../services/api/pokemonApi';
+import { getSearchName } from '../../data/pokemonRegions';
 import {
   getAllSelectedCardsForBinder,
   setSelectedCardForPokemon,
@@ -507,7 +508,7 @@ export default function RegionBinderEditView({ binder }: RegionBinderEditViewPro
         onClose={closeCardPicker}
         onSelectCard={handleCardSelected}
         title={pickerPokemon ? `Pick card for ${pickerPokemon.name}` : 'Pick Card'}
-        initialQuery={pickerPokemon?.name || ''}
+        initialQuery={pickerPokemon ? getSearchName(pickerPokemon.name) : ''}
         pokemonOnly={true}
         exactMatch={true}
       />

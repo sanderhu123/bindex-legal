@@ -11,6 +11,7 @@ import CardImage from '../../components/Card/CardImage';
 import CardDetails from '../../components/Card/CardDetails';
 import LoadingScreen from '../../components/Loading/LoadingScreen';
 import ErrorScreen from '../../components/Error/ErrorScreen';
+import { getSearchName } from '../../data/pokemonRegions';
 import { getAvailableVariantsForCard } from '../../data/cardVariants';
 import { useTheme } from '../../context/ThemeContext';
 import { spacing, typography, fonts, borderRadius, screenPadding, shadows, type ThemeColors } from '../../constants/theme';
@@ -772,7 +773,7 @@ export default function CardDetailScreen({ navigation, route }: CardDetailScreen
           onClose={() => setShowCardPicker(false)}
           onSelectCard={handleRegionCardSelected}
           title={pokemonName ? `Choose a ${pokemonName} Card` : 'Choose Card'}
-          initialQuery={pokemonName || ''}
+          initialQuery={pokemonName ? getSearchName(pokemonName) : ''}
           pokemonOnly={true}
         />
       )}

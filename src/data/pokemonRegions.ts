@@ -838,6 +838,27 @@ export function getPokemonByRegion(region: Region): PokemonEntry[] {
   }
 }
 
+/**
+ * Pokémon whose display names contain special characters that
+ * don't work well with the TCGDEX search API or with exact-match regex.
+ * Maps display name → API-friendly search term.
+ */
+const SEARCH_NAME_OVERRIDES: Record<string, string> = {
+  'Nidoran♀': 'Nidoran',
+  'Nidoran♂': 'Nidoran',
+  'Type: Null': 'Type Null',
+  'Flabébé': 'Flabebe',
+};
+
+/**
+ * Returns an API-friendly search name for a Pokémon.
+ * Most names pass through unchanged; only the handful with
+ * problematic special characters get mapped to a safe alternative.
+ */
+export function getSearchName(displayName: string): string {
+  return SEARCH_NAME_OVERRIDES[displayName] ?? displayName;
+}
+
 
 
 

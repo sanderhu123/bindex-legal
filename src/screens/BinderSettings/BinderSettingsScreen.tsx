@@ -33,6 +33,7 @@ import {
   recordDeletionUsed,
 } from '../../services/pro/proService';
 import VariantSelector from '../../components/Binder/VariantSelector';
+import VariantOrderSelector from '../../components/Binder/VariantOrderSelector';
 import LoadingScreen from '../../components/Loading/LoadingScreen';
 import ErrorScreen from '../../components/Error/ErrorScreen';
 import { getAllSets } from '../../data/pokemonEras';
@@ -88,6 +89,7 @@ export default function BinderSettingsScreen() {
   const [layoutPreference, setLayoutPreference] = useState<LayoutPreference>('3x3');
   const [variantsToTrack, setVariantsToTrack] = useState<string[]>(['base']);
   const [variantPlacement, setVariantPlacement] = useState<VariantPlacement>('grouped');
+  const [variantOrder, setVariantOrder] = useState<string[]>(['base', 'secret-rare']);
   const [pokemonArtStyle, setPokemonArtStyle] = useState<PokemonArtStyle>('sprite');
 
   useEffect(() => {
@@ -111,6 +113,8 @@ export default function BinderSettingsScreen() {
       setLayoutPreference(data.layoutPreference || '3x3');
       setVariantsToTrack(data.variantsToTrack && data.variantsToTrack.length > 0 ? data.variantsToTrack : ['base']);
       setVariantPlacement(data.variantPlacement || 'grouped');
+      const defaultOrder = [...(data.variantsToTrack || ['base']), 'secret-rare'];
+      setVariantOrder(data.variantOrder && data.variantOrder.length > 0 ? data.variantOrder : defaultOrder);
       setPokemonArtStyle(data.pokemonArtStyle || 'sprite');
     } catch (err: any) {
       setError(err?.message || 'Failed to load binder settings');
@@ -125,14 +129,20 @@ export default function BinderSettingsScreen() {
     const variantsEqual = originalVariants.length === variantsToTrack.length &&
       originalVariants.every((variant) => variantsToTrack.includes(variant));
 
+    const defaultOrder = [...originalVariants, 'secret-rare'];
+    const originalOrder = binder.variantOrder && binder.variantOrder.length > 0 ? binder.variantOrder : defaultOrder;
+    const orderEqual = originalOrder.length === variantOrder.length &&
+      originalOrder.every((key, i) => variantOrder[i] === key);
+
     return (
       name.trim() !== binder.name ||
       layoutPreference !== (binder.layoutPreference || '3x3') ||
       variantPlacement !== (binder.variantPlacement || 'grouped') ||
       pokemonArtStyle !== (binder.pokemonArtStyle || 'sprite') ||
-      !variantsEqual
+      !variantsEqual ||
+      !orderEqual
     );
-  }, [binder, name, layoutPreference, variantsToTrack, variantPlacement, pokemonArtStyle]);
+  }, [binder, name, layoutPreference, variantsToTrack, variantPlacement, variantOrder, pokemonArtStyle]);
 
   const availableVariantKeys = useMemo(() => {
     if (!binder || binder.collectionMode !== 'master-set' || !binder.set) {
@@ -156,6 +166,16 @@ export default function BinderSettingsScreen() {
       return availableVariantKeys.includes('base') ? ['base'] : availableVariantKeys.slice(0, 1);
     });
   }, [binder, availableVariantKeys]);
+
+  useEffect(() => {
+    if (!binder || binder.collectionMode !== 'master-set') return;
+    const items = [...variantsToTrack, 'secret-rare'];
+    setVariantOrder(prev => {
+      const kept = prev.filter(k => items.includes(k));
+      const missing = items.filter(k => !kept.includes(k));
+      return [...kept, ...missing];
+    });
+  }, [binder, variantsToTrack]);
 
   const beginNameEdit = () => {
     setNameDraft(name);
@@ -185,6 +205,7 @@ export default function BinderSettingsScreen() {
       layoutPreference?: LayoutPreference;
       variantsToTrack?: string[];
       variantPlacement?: VariantPlacement;
+      variantOrder?: string[];
       pokemonArtStyle?: PokemonArtStyle;
     } = {};
 
@@ -200,13 +221,20 @@ export default function BinderSettingsScreen() {
 
       if (!variantsEqual) {
         updates.variantsToTrack = variantsToTrack;
-        // Always persist placement when variants change so the DB is never null
         if (!binder.variantPlacement) {
           updates.variantPlacement = variantPlacement;
         }
       }
       if (variantPlacement !== (binder.variantPlacement || 'grouped')) {
         updates.variantPlacement = variantPlacement;
+      }
+
+      const defaultOrder = [...originalVariants, 'secret-rare'];
+      const originalOrder = binder.variantOrder && binder.variantOrder.length > 0 ? binder.variantOrder : defaultOrder;
+      const orderEqual = originalOrder.length === variantOrder.length &&
+        originalOrder.every((key, i) => variantOrder[i] === key);
+      if (!orderEqual) {
+        updates.variantOrder = variantOrder;
       }
     }
 
@@ -221,7 +249,7 @@ export default function BinderSettingsScreen() {
     if (!binder || binder.collectionMode !== 'master-set') return false;
 
     const updates = buildUpdates();
-    return !!updates.variantsToTrack || !!updates.variantPlacement;
+    return !!updates.variantsToTrack || !!updates.variantPlacement || !!updates.variantOrder;
   };
 
   const performSave = async (shouldClearPositions: boolean) => {
@@ -501,6 +529,9 @@ export default function BinderSettingsScreen() {
                       );
                     })}
                   </View>
+
+                  <Text style={[styles.label, styles.subSectionTop]}>Display Order</Text>
+                  <VariantOrderSelector order={variantOrder} onChange={setVariantOrder} />
                 </>
               )}
             </>

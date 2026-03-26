@@ -30,6 +30,7 @@ export interface Binder {
   region?: string; // For region mode
   variantsToTrack?: string[]; // ['base', 'reverse-holo', 'poke-ball', 'master-ball']
   variantPlacement?: VariantPlacement; // How to display variants
+  variantOrder?: string[]; // Display order of variant groups including 'secret-rare'
   layoutPreference?: LayoutPreference; // Grid layout preference
   pokemonArtStyle?: PokemonArtStyle; // Pokemon art style for region mode
   cardIds: string[]; // IDs of owned cards (for backward compatibility)

@@ -1044,93 +1044,108 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
         // Apply variant placement logic (only for master-set mode with multiple variants)
         const effectivePlacement = binder.variantPlacement || 'grouped';
         if (binder.collectionMode === 'master-set' && binder.variantsToTrack && binder.variantsToTrack.length > 1) {
+          const defaultOrder = ['base', 'reverse-holo', 'poke-ball', 'master-ball', 'secret-rare'];
+          const effectiveOrder = binder.variantOrder && binder.variantOrder.length > 0
+            ? binder.variantOrder : defaultOrder;
+          const groupPosition = new Map<string, number>();
+          effectiveOrder.forEach((key, idx) => groupPosition.set(key, idx));
+
+          const getSetNumber = (numberStr: string): number => {
+            const match = numberStr.match(/^(\d+)\//);
+            return match ? parseInt(match[1], 10) : 0;
+          };
+
+          const isSecretRare = (card: CardWithOwnership): boolean => {
+            const cardNum = getSetNumber(card.number);
+            const total = parseInt(card.setTotal || '0', 10);
+            return total > 0 && cardNum > total;
+          };
+
+          const getCardGroupKey = (card: CardWithOwnership): string => {
+            if (isSecretRare(card)) return 'secret-rare';
+            return card.variant || 'base';
+          };
+
           const isBaseCard = (card: CardWithOwnership): boolean => {
             return !card.variant || card.variant === 'base';
           };
 
-          // Get base identifier (name + number) for grouping
           const getBaseIdentifier = (card: CardWithOwnership): string => {
             return `${card.name}-${card.number}`;
           };
 
           if (effectivePlacement === 'grouped') {
-            // Group variants with their base card
-            // Cards are already sorted by set number, so we just need to ensure
-            // variants appear immediately after their base card
+            const regularCards: CardWithOwnership[] = [];
+            const secretRareCards: CardWithOwnership[] = [];
+            cardsWithOwnership.forEach(card => {
+              if (isSecretRare(card)) {
+                secretRareCards.push(card);
+              } else {
+                regularCards.push(card);
+              }
+            });
+
             const grouped: CardWithOwnership[] = [];
             const variantMap = new Map<string, CardWithOwnership[]>();
-
-            // Separate base cards and variants
             const baseCards: CardWithOwnership[] = [];
-            cardsWithOwnership.forEach((card) => {
+            regularCards.forEach((card) => {
               if (isBaseCard(card)) {
                 baseCards.push(card);
               } else {
                 const baseId = getBaseIdentifier(card);
-                if (!variantMap.has(baseId)) {
-                  variantMap.set(baseId, []);
-                }
+                if (!variantMap.has(baseId)) variantMap.set(baseId, []);
                 variantMap.get(baseId)!.push(card);
               }
             });
 
-            // Build final array: base card followed by its variants
             baseCards.forEach((baseCard) => {
               grouped.push(baseCard);
               const baseId = getBaseIdentifier(baseCard);
               const variants = variantMap.get(baseId) || [];
-              // Sort variants by variant type order
               variants.sort((a, b) => {
-                const variantOrder: Record<string, number> = {
-                  'reverse-holo': 1,
-                  'poke-ball': 2,
-                  'master-ball': 3,
-                };
-                return (variantOrder[a.variant || 'base'] || 0) - (variantOrder[b.variant || 'base'] || 0);
+                return (groupPosition.get(a.variant || 'base') ?? 99)
+                     - (groupPosition.get(b.variant || 'base') ?? 99);
               });
               grouped.push(...variants);
             });
 
-            // Add any variants whose base card doesn't exist in the list
             variantMap.forEach((variants, baseId) => {
               const hasBase = baseCards.some((card) => getBaseIdentifier(card) === baseId);
-              if (!hasBase) {
-                grouped.push(...variants);
-              }
+              if (!hasBase) grouped.push(...variants);
             });
 
-            cardsWithOwnership = grouped;
-          } else if (effectivePlacement === 'end') {
-            // All base cards first, then all variants at the end
-            const baseCards: CardWithOwnership[] = [];
-            const variants: CardWithOwnership[] = [];
+            secretRareCards.sort((a, b) => getSetNumber(a.number) - getSetNumber(b.number));
 
-            cardsWithOwnership.forEach((card) => {
-              if (isBaseCard(card)) {
-                baseCards.push(card);
-              } else {
-                variants.push(card);
-              }
-            });
-
-            // Sort variants by set number (or Pokédex if region mode)
-            if (variants.length > 0) {
-              variants.sort((a, b) => {
-                if (binder.collectionMode === 'master-set') {
-                  const getSetNumber = (numberStr: string): number => {
-                    const match = numberStr.match(/^(\d+)\//);
-                    return match ? parseInt(match[1], 10) : 0;
-                  };
-                  return getSetNumber(a.number) - getSetNumber(b.number);
-                } else {
-                  const aNum = a.pokedexNumber ?? 0;
-                  const bNum = b.pokedexNumber ?? 0;
-                  return aNum - bNum;
-                }
-              });
+            const secretPos = groupPosition.get('secret-rare') ?? 99;
+            const firstNonSecret = Math.min(
+              ...effectiveOrder.filter(k => k !== 'secret-rare').map(k => groupPosition.get(k) ?? 99)
+            );
+            if (secretPos < firstNonSecret) {
+              cardsWithOwnership = [...secretRareCards, ...grouped];
+            } else {
+              cardsWithOwnership = [...grouped, ...secretRareCards];
             }
+          } else if (effectivePlacement === 'end') {
+            const groups = new Map<string, CardWithOwnership[]>();
+            cardsWithOwnership.forEach(card => {
+              const key = getCardGroupKey(card);
+              if (!groups.has(key)) groups.set(key, []);
+              groups.get(key)!.push(card);
+            });
 
-            cardsWithOwnership = [...baseCards, ...variants];
+            groups.forEach(cards => {
+              cards.sort((a, b) => getSetNumber(a.number) - getSetNumber(b.number));
+            });
+
+            const result: CardWithOwnership[] = [];
+            effectiveOrder.forEach(key => {
+              const groupCards = groups.get(key);
+              if (groupCards) result.push(...groupCards);
+            });
+            groups.forEach((cards, key) => {
+              if (!effectiveOrder.includes(key)) result.push(...cards);
+            });
+            cardsWithOwnership = result;
           }
         }
 

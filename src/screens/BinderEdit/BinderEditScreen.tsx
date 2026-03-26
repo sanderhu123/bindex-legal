@@ -327,13 +327,42 @@ export default function BinderEditScreen() {
         });
 
         const editPlacement = binderData.variantPlacement || 'grouped';
+        const defaultOrder = ['base', 'reverse-holo', 'poke-ball', 'master-ball', 'secret-rare'];
+        const effectiveOrder = binderData.variantOrder && binderData.variantOrder.length > 0
+          ? binderData.variantOrder : defaultOrder;
+        const groupPosition = new Map<string, number>();
+        effectiveOrder.forEach((key, idx) => groupPosition.set(key, idx));
+
+        const getSetNumber = (numberStr: string): number => {
+          const match = numberStr.match(/^(\d+)\//);
+          return match ? parseInt(match[1], 10) : 0;
+        };
+        const isSecretRare = (card: Card): boolean => {
+          const cardNum = getSetNumber(card.number);
+          const total = parseInt(card.setTotal || '0', 10);
+          return total > 0 && cardNum > total;
+        };
+        const getCardGroupKey = (card: Card): string => {
+          if (isSecretRare(card)) return 'secret-rare';
+          return card.variant || 'base';
+        };
+        const isBaseCard = (card: Card) => !card.variant || card.variant === 'base';
+        const getBaseId = (card: Card) => `${card.name}-${card.number}`;
+
         if (editPlacement === 'grouped') {
-          const isBaseCard = (card: Card) => !card.variant || card.variant === 'base';
-          const getBaseId = (card: Card) => `${card.name}-${card.number}`;
+          const regularCards: Card[] = [];
+          const secretRareCards: Card[] = [];
+          cardsToPlace.forEach(card => {
+            if (isSecretRare(card)) {
+              secretRareCards.push(card);
+            } else {
+              regularCards.push(card);
+            }
+          });
+
           const baseCards: Card[] = [];
           const variantMap = new Map<string, Card[]>();
-
-          cardsToPlace.forEach((card) => {
+          regularCards.forEach((card) => {
             if (isBaseCard(card)) {
               baseCards.push(card);
             } else {
@@ -348,24 +377,45 @@ export default function BinderEditScreen() {
             grouped.push(base);
             const variants = variantMap.get(getBaseId(base)) || [];
             variants.sort((a, b) => {
-              const order: Record<string, number> = { 'reverse-holo': 1, 'poke-ball': 2, 'master-ball': 3 };
-              return (order[a.variant || 'base'] || 0) - (order[b.variant || 'base'] || 0);
+              return (groupPosition.get(a.variant || 'base') ?? 99)
+                   - (groupPosition.get(b.variant || 'base') ?? 99);
             });
             grouped.push(...variants);
           });
           variantMap.forEach((variants, baseId) => {
             if (!baseCards.some((c) => getBaseId(c) === baseId)) grouped.push(...variants);
           });
-          cardsToPlace = grouped;
+
+          secretRareCards.sort((a, b) => getSetNumber(a.number) - getSetNumber(b.number));
+
+          const secretPos = groupPosition.get('secret-rare') ?? 99;
+          const firstNonSecret = Math.min(
+            ...effectiveOrder.filter(k => k !== 'secret-rare').map(k => groupPosition.get(k) ?? 99)
+          );
+          if (secretPos < firstNonSecret) {
+            cardsToPlace = [...secretRareCards, ...grouped];
+          } else {
+            cardsToPlace = [...grouped, ...secretRareCards];
+          }
         } else if (editPlacement === 'end') {
-          const isBaseCard = (card: Card) => !card.variant || card.variant === 'base';
-          const bases = cardsToPlace.filter(isBaseCard);
-          const variants = cardsToPlace.filter((c) => !isBaseCard(c));
-          variants.sort((a, b) => {
-            const getSetNumber = (n: string) => { const m = n.match(/^(\d+)\//); return m ? parseInt(m[1], 10) : 0; };
-            return getSetNumber(a.number) - getSetNumber(b.number);
+          const groups = new Map<string, Card[]>();
+          cardsToPlace.forEach(card => {
+            const key = getCardGroupKey(card);
+            if (!groups.has(key)) groups.set(key, []);
+            groups.get(key)!.push(card);
           });
-          cardsToPlace = [...bases, ...variants];
+          groups.forEach(cards => {
+            cards.sort((a, b) => getSetNumber(a.number) - getSetNumber(b.number));
+          });
+          const result: Card[] = [];
+          effectiveOrder.forEach(key => {
+            const groupCards = groups.get(key);
+            if (groupCards) result.push(...groupCards);
+          });
+          groups.forEach((cards, key) => {
+            if (!effectiveOrder.includes(key)) result.push(...cards);
+          });
+          cardsToPlace = result;
         }
 
         console.log('[BinderEdit] Master Set: placing', cardsToPlace.length, 'cards');

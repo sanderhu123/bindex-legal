@@ -15,6 +15,7 @@ interface BinderRow {
   region: string | null;
   variants_to_track: string[] | null;
   variant_placement: VariantPlacement | null;
+  variant_order: string[] | null;
   layout_preference: LayoutPreference | null;
   pokemon_art_style: PokemonArtStyle | null;
   total_cards: number;
@@ -36,6 +37,7 @@ function rowToBinder(row: BinderRow, cardIds: string[]): Binder {
     region: row.region || undefined,
     variantsToTrack: row.variants_to_track || undefined,
     variantPlacement: row.variant_placement || undefined,
+    variantOrder: row.variant_order || undefined,
     layoutPreference: row.layout_preference || undefined,
     pokemonArtStyle: row.pokemon_art_style || undefined,
     cardIds,
@@ -198,6 +200,7 @@ export async function createBinder(binder: {
   region?: string;
   variantsToTrack?: string[];
   variantPlacement?: VariantPlacement;
+  variantOrder?: string[];
   layoutPreference?: LayoutPreference;
   pokemonArtStyle?: PokemonArtStyle;
 }): Promise<Binder> {
@@ -226,6 +229,7 @@ export async function createBinder(binder: {
       region: binder.region || null,
       variants_to_track: binder.variantsToTrack || null,
       variant_placement: binder.variantPlacement || null,
+      variant_order: binder.variantOrder || null,
       layout_preference: binder.layoutPreference || null,
       pokemon_art_style: binder.pokemonArtStyle || null,
       total_cards: totalCards,
@@ -297,6 +301,7 @@ export async function updateBinder(
     name?: string;
     variantsToTrack?: string[];
     variantPlacement?: VariantPlacement;
+    variantOrder?: string[];
     layoutPreference?: LayoutPreference;
     pokemonArtStyle?: PokemonArtStyle;
   }
@@ -311,6 +316,7 @@ export async function updateBinder(
   if (updates.name !== undefined) updateData.name = updates.name;
   if (updates.variantsToTrack !== undefined) updateData.variants_to_track = updates.variantsToTrack;
   if (updates.variantPlacement !== undefined) updateData.variant_placement = updates.variantPlacement;
+  if (updates.variantOrder !== undefined) updateData.variant_order = updates.variantOrder;
   if (updates.layoutPreference !== undefined) updateData.layout_preference = updates.layoutPreference;
   if (updates.pokemonArtStyle !== undefined) updateData.pokemon_art_style = updates.pokemonArtStyle;
 

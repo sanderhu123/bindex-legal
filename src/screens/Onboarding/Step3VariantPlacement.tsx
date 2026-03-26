@@ -4,13 +4,16 @@ import { Ionicons } from '@expo/vector-icons';
 import { fonts, spacing, typography, borderRadius, shadows, screenPadding, type ThemeColors } from '../../constants/theme';
 import { useTheme } from '../../context/ThemeContext';
 import type { VariantPlacement } from '../../types';
+import VariantOrderSelector from '../../components/Binder/VariantOrderSelector';
 
 interface Step3VariantPlacementProps {
   value: VariantPlacement | null;
   onChange: (placement: VariantPlacement) => void;
+  variantOrder: string[];
+  onOrderChange: (order: string[]) => void;
 }
 
-export default function Step3VariantPlacement({ value, onChange }: Step3VariantPlacementProps) {
+export default function Step3VariantPlacement({ value, onChange, variantOrder, onOrderChange }: Step3VariantPlacementProps) {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
@@ -54,6 +57,12 @@ export default function Step3VariantPlacement({ value, onChange }: Step3VariantP
           </TouchableOpacity>
         );
       })}
+
+      <Text style={[styles.title, styles.orderTitle]}>Display Order</Text>
+      <Text style={styles.description}>
+        Set the order in which card groups appear in your binder. Use the arrows to rearrange.
+      </Text>
+      <VariantOrderSelector order={variantOrder} onChange={onOrderChange} />
     </ScrollView>
   );
 }
@@ -106,5 +115,8 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     fontSize: typography.sm,
     fontFamily: fonts.regular,
     color: colors.textTertiary,
+  },
+  orderTitle: {
+    marginTop: spacing.xl,
   },
 });

@@ -38,6 +38,7 @@ interface OnboardingState {
   // Step 3 (Region: Pokemon Art Style, Master Set: Variants)
   pokemonArtStyle: PokemonArtStyle | null;
   variantPlacement: VariantPlacement | null;
+  variantOrder: string[]; // Display order of variant groups
   // Step 4 (Region: Layout, Master Set: Variant Placement)
   layoutPreference: LayoutPreference | null;
   // Step 5 (Region: Binder Name, Master Set: Layout)
@@ -79,6 +80,7 @@ export default function OnboardingScreen() {
     selectedRegion: null,
     pokemonArtStyle: null,
     variantPlacement: null,
+    variantOrder: ['base', 'reverse-holo', 'poke-ball', 'master-ball', 'secret-rare'],
     layoutPreference: null,
     binderName: null,
   });
@@ -233,6 +235,14 @@ export default function OnboardingScreen() {
         } else if (nextStep === 4 && !needsVariantPlacement()) {
           nextStep = 5;
         }
+        if (nextStep === 4) {
+          setState(prev => {
+            const items = [...prev.selectedVariants, 'secret-rare'];
+            const kept = prev.variantOrder.filter(k => items.includes(k));
+            const missing = items.filter(k => !kept.includes(k));
+            return { ...prev, variantOrder: [...kept, ...missing] };
+          });
+        }
       }
       
       animateToStep(nextStep);
@@ -280,6 +290,7 @@ export default function OnboardingScreen() {
         region: state.collectionMode === 'region' ? state.selectedRegion || undefined : undefined,
         variantsToTrack: variantsToTrack.length > 0 ? variantsToTrack : undefined,
         variantPlacement: state.collectionMode === 'master-set' ? (state.variantPlacement || undefined) : undefined,
+        variantOrder: state.collectionMode === 'master-set' && state.variantOrder.length > 0 ? state.variantOrder : undefined,
         layoutPreference: state.layoutPreference || undefined,
         pokemonArtStyle: state.collectionMode === 'region' ? (state.pokemonArtStyle || undefined) : undefined,
       });
@@ -382,6 +393,8 @@ export default function OnboardingScreen() {
           <Step3VariantPlacement
             value={state.variantPlacement}
             onChange={(placement) => setState({ ...state, variantPlacement: placement })}
+            variantOrder={state.variantOrder}
+            onOrderChange={(order) => setState({ ...state, variantOrder: order })}
           />
         );
       case 5:
@@ -468,10 +481,6 @@ export default function OnboardingScreen() {
       <View style={styles.progressContainer}>
         <View style={[styles.progressBar, { width: `${progressPercent}%` }]} />
       </View>
-      <Text style={styles.stepCounter} accessibilityLabel={`Step ${actualStep} of ${totalSteps}`}>
-        Step {actualStep} of {totalSteps}
-      </Text>
-
       {/* Step content with slide animation */}
       <Animated.View
         style={[
@@ -574,14 +583,6 @@ const createStyles = (colors: ThemeColors) =>
     height: '100%',
     backgroundColor: colors.primary,
     borderRadius: 2,
-  },
-  stepCounter: {
-    textAlign: 'center',
-    fontSize: typography.xs,
-    fontFamily: fonts.medium,
-    color: colors.textTertiary,
-    marginTop: spacing.xs,
-    marginBottom: spacing.xs,
   },
   content: {
     flex: 1,

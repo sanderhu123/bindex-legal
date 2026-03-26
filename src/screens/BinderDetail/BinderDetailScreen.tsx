@@ -139,6 +139,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
   const [viewMode, setViewMode] = useState<ViewMode>('binder');
   const [searchQuery, setSearchQuery] = useState('');
   const wasInBinderBeforeSearch = useRef(false);
+  const viewSwitchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   
   // Binder view mode state
   const [currentPage, setCurrentPage] = useState(1);
@@ -1826,8 +1827,10 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
     setSearchQuery(text);
     if (text.length > 0 && viewMode === 'binder') {
       wasInBinderBeforeSearch.current = true;
-      setViewMode('grid');
+      if (viewSwitchTimeout.current) clearTimeout(viewSwitchTimeout.current);
+      viewSwitchTimeout.current = setTimeout(() => setViewMode('grid'), 300);
     } else if (text.length === 0 && wasInBinderBeforeSearch.current) {
+      if (viewSwitchTimeout.current) clearTimeout(viewSwitchTimeout.current);
       wasInBinderBeforeSearch.current = false;
       setViewMode('binder');
     }

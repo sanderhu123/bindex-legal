@@ -395,11 +395,11 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 2,
   },
-  // Empty slot
+  // Empty slot — always dark background since binder panel is #1A1A1A
   emptySlotInner: {
-    backgroundColor: colors.backgroundLight,
+    backgroundColor: '#222222',
     borderWidth: 2,
-    borderColor: colors.border,
+    borderColor: '#333333',
     borderStyle: 'dashed',
     borderRadius: borderRadius.md,
     alignItems: 'center',
@@ -408,20 +408,20 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   emptySlotText: {
     fontSize: typography.sm,
-    color: colors.textTertiary,
+    color: '#999999',
     marginTop: spacing.xs,
   },
-  // Card info below image
+  // Card info below image — light text for dark binder panel
   cardName: {
     fontSize: typography.xs,
     fontFamily: fonts.medium,
-    color: colors.text,
+    color: '#EEEEEE',
     marginTop: 2,
     textAlign: 'center',
   },
   cardNumber: {
     fontSize: 11,
-    color: colors.textTertiary,
+    color: '#999999',
     textAlign: 'center',
     marginTop: -6,
   },

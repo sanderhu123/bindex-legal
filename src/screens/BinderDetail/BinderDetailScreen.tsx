@@ -394,6 +394,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
           layoutPreference: latestBinder.layoutPreference,
           variantsToTrack: latestBinder.variantsToTrack,
           variantPlacement: latestBinder.variantPlacement,
+          variantOrder: latestBinder.variantOrder,
           pokemonArtStyle: latestBinder.pokemonArtStyle,
         };
       });
@@ -733,6 +734,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
   );
 
   const variantsKey = binder?.variantsToTrack?.join(',') ?? '';
+  const variantOrderKey = binder?.variantOrder?.join(',') ?? '';
 
   // Fetch cards when binder is loaded
   useEffect(() => {
@@ -1328,6 +1330,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
     binder?.set,
     binder?.region,
     variantsKey,
+    variantOrderKey,
     binder?.variantPlacement,
     binder?.pokemonArtStyle,
   ]);

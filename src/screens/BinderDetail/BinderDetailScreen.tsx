@@ -3553,7 +3553,6 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
                 onPreviousPage={() => setCurrentPage(p => Math.max(1, p - 1))}
                 onNextPage={() => setCurrentPage(p => Math.min(binderTotalPages, p + 1))}
                 onJumpToPage={() => setShowJumpModal(true)}
-                forceDarkMode
                 subtitle={`Cards ${((currentPage - 1) * cardsPerPage) + 1}–${Math.min(currentPage * cardsPerPage, binderCards.length)} of ${binderCards.length}`}
               />
             </View>
@@ -3927,7 +3926,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     paddingBottom: spacing.md,
   },
   binderPagePanel: {
-    backgroundColor: '#1A1A1A',
+    backgroundColor: colors.surface,
     borderRadius: borderRadius.lg,
     paddingTop: spacing.md,
     paddingBottom: spacing.sm,

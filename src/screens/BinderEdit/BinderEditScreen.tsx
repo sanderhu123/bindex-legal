@@ -887,15 +887,13 @@ export default function BinderEditScreen() {
           };
         }
       }
+      // Only place TCG card data — pokemon identity stays with the slot
       newPositions[targetSlotIndex] = {
         ...newPositions[targetSlotIndex],
         cardId: selectedCard.cardId,
         cardName: selectedCard.cardName,
         imageUrl: selectedCard.imageUrl,
         cardSet: selectedCard.cardSet,
-        pokemonName: selectedCard.pokemonName,
-        pokedexNumber: selectedCard.pokedexNumber,
-        spriteUrl: selectedCard.spriteUrl,
       };
       return newPositions;
     });
@@ -1548,6 +1546,9 @@ export default function BinderEditScreen() {
    * Measures all layouts and initializes the floating card.
    */
   const handleDragStart = useCallback((data: DragStartData, touchX: number, touchY: number) => {
+    // Don't allow dragging bare region sprites (only TCG cards can be dragged)
+    if (data.cardId?.startsWith('region-')) return;
+
     console.log('[BinderEdit] Drag start:', data.cardName, 'from slot', data.slotIndex);
 
     // Clear any tap-selected card
@@ -1826,16 +1827,13 @@ export default function BinderEditScreen() {
             pokemonName: undefined, pokedexNumber: undefined, spriteUrl: undefined,
           };
         }
-        // Place in target slot (including Pokémon metadata)
+        // Place in target slot (only TCG card data — pokemon identity stays with the slot)
         newPositions[targetSlotIndex] = {
           ...newPositions[targetSlotIndex],
           cardId: dragged.cardId,
           cardName: dragged.cardName,
           imageUrl: dragged.imageUrl,
           cardSet: dragged.cardSet,
-          pokemonName: dragged.pokemonName,
-          pokedexNumber: dragged.pokedexNumber,
-          spriteUrl: dragged.spriteUrl,
         };
         return newPositions;
       });

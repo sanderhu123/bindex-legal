@@ -5,19 +5,30 @@ import { fonts, spacing, typography, borderRadius, shadows, screenPadding, type 
 import { useTheme } from '../../context/ThemeContext';
 import type { VariantPlacement } from '../../types';
 import VariantOrderSelector from '../../components/Binder/VariantOrderSelector';
+import { getAvailableVariantsForSet } from '../../data/cardVariants';
 
 interface Step3VariantPlacementProps {
   value: VariantPlacement | null;
   onChange: (placement: VariantPlacement) => void;
   variantOrder: string[];
   onOrderChange: (order: string[]) => void;
+  selectedSetId?: string | null;
 }
 
-export default function Step3VariantPlacement({ value, onChange, variantOrder, onOrderChange }: Step3VariantPlacementProps) {
+export default function Step3VariantPlacement({ value, onChange, variantOrder, onOrderChange, selectedSetId }: Step3VariantPlacementProps) {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
-  const groupedOrder = variantOrder.length > 0 && variantOrder[0] === 'secret-rare'
+  // Only show variants that the selected set actually supports
+  const availableForSet = selectedSetId
+    ? new Set([...getAvailableVariantsForSet(selectedSetId), 'secret-rare', 'main-set'])
+    : null;
+
+  const filteredOrder = availableForSet
+    ? variantOrder.filter(k => availableForSet.has(k))
+    : variantOrder;
+
+  const groupedOrder = filteredOrder.length > 0 && filteredOrder[0] === 'secret-rare'
     ? ['secret-rare', 'main-set']
     : ['main-set', 'secret-rare'];
 
@@ -87,7 +98,7 @@ export default function Step3VariantPlacement({ value, onChange, variantOrder, o
           <Text style={styles.description}>
             Set the order in which card groups appear in your binder. Use the arrows to rearrange.
           </Text>
-          <VariantOrderSelector order={variantOrder} onChange={onOrderChange} />
+          <VariantOrderSelector order={filteredOrder} onChange={onOrderChange} />
         </>
       )}
     </ScrollView>

@@ -395,6 +395,7 @@ export default function OnboardingScreen() {
             onChange={(placement) => setState({ ...state, variantPlacement: placement })}
             variantOrder={state.variantOrder}
             onOrderChange={(order) => setState({ ...state, variantOrder: order })}
+            selectedSetId={state.selectedSetId}
           />
         );
       case 5:

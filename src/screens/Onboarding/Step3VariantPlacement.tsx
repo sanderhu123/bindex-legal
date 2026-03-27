@@ -4,42 +4,15 @@ import { Ionicons } from '@expo/vector-icons';
 import { fonts, spacing, typography, borderRadius, shadows, screenPadding, type ThemeColors } from '../../constants/theme';
 import { useTheme } from '../../context/ThemeContext';
 import type { VariantPlacement } from '../../types';
-import VariantOrderSelector from '../../components/Binder/VariantOrderSelector';
-import { getAvailableVariantsForSet } from '../../data/cardVariants';
 
 interface Step3VariantPlacementProps {
   value: VariantPlacement | null;
   onChange: (placement: VariantPlacement) => void;
-  variantOrder: string[];
-  onOrderChange: (order: string[]) => void;
-  selectedSetId?: string | null;
 }
 
-export default function Step3VariantPlacement({ value, onChange, variantOrder, onOrderChange, selectedSetId }: Step3VariantPlacementProps) {
+export default function Step3VariantPlacement({ value, onChange }: Step3VariantPlacementProps) {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
-
-  // Only show variants that the selected set actually supports
-  const availableForSet = selectedSetId
-    ? new Set([...getAvailableVariantsForSet(selectedSetId), 'secret-rare', 'main-set'])
-    : null;
-
-  const filteredOrder = availableForSet
-    ? variantOrder.filter(k => availableForSet.has(k))
-    : variantOrder;
-
-  const groupedOrder = filteredOrder.length > 0 && filteredOrder[0] === 'secret-rare'
-    ? ['secret-rare', 'main-set']
-    : ['main-set', 'secret-rare'];
-
-  const handleGroupedOrderChange = (newOrder: string[]) => {
-    const rest = variantOrder.filter(k => k !== 'secret-rare');
-    if (newOrder[0] === 'secret-rare') {
-      onOrderChange(['secret-rare', ...rest]);
-    } else {
-      onOrderChange([...rest, 'secret-rare']);
-    }
-  };
 
   const options: { key: VariantPlacement; label: string; description: string }[] = [
     {
@@ -81,26 +54,6 @@ export default function Step3VariantPlacement({ value, onChange, variantOrder, o
           </TouchableOpacity>
         );
       })}
-
-      {value === 'grouped' && (
-        <>
-          <Text style={[styles.title, styles.orderTitle]}>Display Order</Text>
-          <Text style={styles.description}>
-            Show secret rares before or after the main set cards.
-          </Text>
-          <VariantOrderSelector order={groupedOrder} onChange={handleGroupedOrderChange} />
-        </>
-      )}
-
-      {value === 'end' && (
-        <>
-          <Text style={[styles.title, styles.orderTitle]}>Display Order</Text>
-          <Text style={styles.description}>
-            Set the order in which card groups appear in your binder. Use the arrows to rearrange.
-          </Text>
-          <VariantOrderSelector order={filteredOrder} onChange={onOrderChange} />
-        </>
-      )}
     </ScrollView>
   );
 }
@@ -153,8 +106,5 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     fontSize: typography.sm,
     fontFamily: fonts.regular,
     color: colors.textTertiary,
-  },
-  orderTitle: {
-    marginTop: spacing.xl,
   },
 });

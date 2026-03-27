@@ -20,6 +20,7 @@ import Step2MasterSet from './Step2MasterSet';
 import Step2Region from './Step2Region';
 import Step3Variants from './Step3Variants';
 import Step3VariantPlacement from './Step3VariantPlacement';
+import StepDisplayOrder from './StepDisplayOrder';
 import Step3PokemonArtStyle from './Step3PokemonArtStyle';
 import Step4Layout from './Step4Layout';
 import Step5BinderName from './Step5BinderName';
@@ -124,18 +125,14 @@ export default function OnboardingScreen() {
   const handleBack = () => {
     if (currentStep > 1) {
       let prevStep = currentStep - 1;
-      if (state.collectionMode === 'custom') {
-        prevStep = currentStep - 1;
-      } else if (state.collectionMode === 'region' && currentStep === 5) {
-        prevStep = 4;
-      } else if (state.collectionMode === 'region' && currentStep === 4) {
-        prevStep = 3;
-      } else if (state.collectionMode === 'master-set' && currentStep === 6) {
-        prevStep = 5;
-      } else if (state.collectionMode === 'master-set' && currentStep === 5 && !needsVariantStep()) {
-        prevStep = 2;
-      } else if (state.collectionMode === 'master-set' && currentStep === 5 && !needsVariantPlacement()) {
-        prevStep = 3;
+      if (state.collectionMode === 'master-set') {
+        // Step 6 (layout) — go back to display order (5) or skip variant steps
+        if (currentStep === 6 && !needsVariantPlacement()) {
+          prevStep = !needsVariantStep() ? 2 : 3;
+        }
+        // Step 5 (display order) — go back to variant placement (4)
+        // Step 4 (variant placement) — go back to variants (3)
+        // Step 3 (variants) — go back to set (2)
       }
       animateToStep(prevStep);
     } else {
@@ -143,27 +140,29 @@ export default function OnboardingScreen() {
     }
   };
 
-  // Calculate total steps (3 for custom, 5 for region, 4-6 for master-set)
+  // Calculate total steps (3 for custom, 5 for region, 4-7 for master-set)
   const getTotalSteps = (): number => {
     if (state.collectionMode === 'custom') return 3;
     if (state.collectionMode === 'region') return 5;
-    // master-set: base is 6, minus 1 if no variant step, minus 1 if no variant placement
+    // master-set: base is 7, minus 1 if no variant step, minus 2 if no placement+order
     if (!needsVariantStep()) return 4; // old sets: mode → set → layout → name
-    return needsVariantPlacement() ? 6 : 5;
+    return needsVariantPlacement() ? 7 : 5;
   };
 
   // Get the actual step number for display
   const getActualStep = (): number => {
     if (state.collectionMode !== 'master-set') return currentStep;
     
-    // Count how many steps were skipped before the current internal step
     let skipped = 0;
     
     // Step 3 (variants) skipped when set has no reverse holos
     if (!needsVariantStep() && currentStep > 3) skipped++;
     
-    // Step 4 (variant placement) skipped when not needed
-    if (!needsVariantPlacement() && currentStep > 4) skipped++;
+    // Steps 4+5 (variant placement + display order) skipped together
+    if (!needsVariantPlacement()) {
+      if (currentStep > 4) skipped++;
+      if (currentStep > 5) skipped++;
+    }
     
     return currentStep - skipped;
   };
@@ -173,7 +172,6 @@ export default function OnboardingScreen() {
       case 1:
         return state.collectionMode !== null;
       case 2:
-        // Step 2: Set selection (Master Set), Region selection (Region), or Layout (Custom)
         if (state.collectionMode === 'master-set') {
           return state.selectedSetId !== null;
         } else if (state.collectionMode === 'region') {
@@ -183,28 +181,29 @@ export default function OnboardingScreen() {
         }
         return false;
       case 3:
-        // Step 3: Art Style (Region), Variants (Master Set), or Binder Name (Custom)
         if (state.collectionMode === 'custom') {
           return state.binderName !== null && state.binderName.trim() !== '';
         } else if (state.collectionMode === 'region') {
-          return state.pokemonArtStyle !== null; // User must select art style
+          return state.pokemonArtStyle !== null;
         }
-        // For Master Set, at least one variant must be selected
         return state.selectedVariants.length > 0;
       case 4:
-        // Step 4: Layout for Region, Variant placement for Master Set
         if (state.collectionMode === 'region') {
           return state.layoutPreference !== null;
         }
+        // Master Set: variant placement
         return state.variantPlacement !== null;
       case 5:
-        // Step 5: Binder name for Region, Layout for Master Set
         if (state.collectionMode === 'region') {
           return state.binderName !== null && state.binderName.trim() !== '';
         }
-        return state.layoutPreference !== null;
+        // Master Set: display order — always valid (has defaults)
+        return true;
       case 6:
-        // Step 6: Binder name for Master Set (last step)
+        // Master Set: layout
+        return state.layoutPreference !== null;
+      case 7:
+        // Master Set: binder name
         return state.binderName !== null && state.binderName.trim() !== '';
       default:
         return false;
@@ -217,10 +216,10 @@ export default function OnboardingScreen() {
       return;
     }
 
-    // The last internal step number (master-set always uses step 6 for binder name)
+    // The last internal step number
     const lastInternalStep = state.collectionMode === 'custom' ? 3
       : state.collectionMode === 'region' ? 5
-      : 6; // master-set
+      : 7; // master-set
     
     if (currentStep === lastInternalStep) {
       handleFinish();
@@ -229,13 +228,18 @@ export default function OnboardingScreen() {
       let nextStep = currentStep + 1;
       
       if (state.collectionMode === 'master-set') {
+        // Skip variant step for old sets without reverse holos
         if (nextStep === 3 && !needsVariantStep()) {
           setState(prev => ({ ...prev, selectedVariants: ['base'] }));
-          nextStep = 5;
-        } else if (nextStep === 4 && !needsVariantPlacement()) {
-          nextStep = 5;
+          nextStep = 6; // jump to layout
         }
-        if (nextStep === 4) {
+        // Skip placement + display order if only 1 variant selected
+        else if (nextStep === 4 && !needsVariantPlacement()) {
+          nextStep = 6; // jump to layout
+        }
+
+        // Build the variant order list when entering display order step
+        if (nextStep === 5) {
           setState(prev => {
             const items = [...prev.selectedVariants, 'secret-rare'];
             const kept = prev.variantOrder.filter(k => items.includes(k));
@@ -393,15 +397,11 @@ export default function OnboardingScreen() {
           <Step3VariantPlacement
             value={state.variantPlacement}
             onChange={(placement) => setState({ ...state, variantPlacement: placement })}
-            variantOrder={state.variantOrder}
-            onOrderChange={(order) => setState({ ...state, variantOrder: order })}
-            selectedSetId={state.selectedSetId}
           />
         );
       case 5:
-        // Step 5: Binder name for Region, Layout for Master Set
+        // Step 5: Binder name for Region, Display order for Master Set
         if (state.collectionMode === 'region') {
-          // Generate default name based on region
           let defaultName = 'My Binder';
           if (state.selectedRegion) {
             defaultName = `${state.selectedRegion} Region`;
@@ -415,14 +415,24 @@ export default function OnboardingScreen() {
           );
         }
         return (
+          <StepDisplayOrder
+            variantPlacement={state.variantPlacement}
+            variantOrder={state.variantOrder}
+            onOrderChange={(order) => setState({ ...state, variantOrder: order })}
+            selectedSetId={state.selectedSetId}
+          />
+        );
+      case 6: {
+        // Step 6: Layout for Master Set
+        return (
           <Step4Layout
             value={state.layoutPreference}
             onChange={(layout) => setState({ ...state, layoutPreference: layout })}
           />
         );
-      case 6:
-        // Step 6: Binder name for Master Set (last step)
-        // Generate default name based on set
+      }
+      case 7: {
+        // Step 7: Binder name for Master Set (last step)
         let defaultName = 'My Binder';
         if (state.selectedSetName) {
           defaultName = state.selectedSetName;
@@ -434,6 +444,7 @@ export default function OnboardingScreen() {
             defaultName={defaultName}
           />
         );
+      }
       default:
         return null;
     }
@@ -453,7 +464,7 @@ export default function OnboardingScreen() {
     );
   }
 
-  const isLastStep = currentStep === (state.collectionMode === 'custom' ? 3 : state.collectionMode === 'region' ? 5 : 6);
+  const isLastStep = currentStep === (state.collectionMode === 'custom' ? 3 : state.collectionMode === 'region' ? 5 : 7);
   const totalSteps = getTotalSteps();
   const actualStep = getActualStep();
   const progressPercent = (actualStep / totalSteps) * 100;

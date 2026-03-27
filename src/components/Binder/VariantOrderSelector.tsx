@@ -10,6 +10,7 @@ const GROUP_LABELS: Record<string, string> = {
   'poke-ball': 'Poké Ball Holo',
   'master-ball': 'Master Ball Holo',
   'secret-rare': 'Secret Rares',
+  'main-set': 'Main Set Cards',
 };
 
 interface VariantOrderSelectorProps {

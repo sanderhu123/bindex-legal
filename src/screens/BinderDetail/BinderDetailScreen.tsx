@@ -19,7 +19,7 @@ import {
   getBinderCardData,
 } from '../../services/supabase/cards';
 import { getCardsBySet, getCardsByRegion, getCardById, getPokemonImageUrl, type Region } from '../../services/api/pokemonApi';
-import { getSetSymbolByName } from '../../data/pokemonEras';
+import { getSetSymbolByName, getSetLogoByName } from '../../data/pokemonEras';
 import StatsBottomSheet, { type StatsFilter, RARITY_ORDER, RARITY_LABELS, VARIANT_ORDER, VARIANT_LABELS } from '../../components/Progress/StatsBottomSheet';
 import { getAllSelectedCardsForBinder } from '../../services/supabase/regionCards';
 import { getCardPositionsForBinder } from '../../services/supabase/binderPositions';
@@ -2826,6 +2826,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
   if (binder.region) subtitleParts.push(binder.region);
 
   const setSymbolUrl = binder.set ? getSetSymbolByName(binder.set) : null;
+  const setLogoUrl = binder.set ? getSetLogoByName(binder.set) : null;
 
   const listHeader = (
     <View style={styles.headerContainer}>
@@ -2840,6 +2841,13 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
           <Ionicons name="chevron-back" size={24} color={colors.text} />
         </TouchableOpacity>
         <Text style={styles.title} numberOfLines={1}>{binder.name}</Text>
+        {setLogoUrl && (
+          <Image
+            source={{ uri: setLogoUrl }}
+            style={styles.titleSetLogo}
+            contentFit="contain"
+          />
+        )}
       </View>
 
       {/* Row 2: Subtitle with set icon — collapses on scroll */}
@@ -3860,11 +3868,17 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     justifyContent: 'center',
   },
   title: {
-    fontSize: typography['2xl'],
+    fontSize: typography.xl,
     fontFamily: fonts.semibold,
     color: colors.text,
     letterSpacing: -0.3,
     flex: 1,
+  },
+  titleSetLogo: {
+    width: 48,
+    height: 24,
+    marginLeft: 8,
+    opacity: 0.8,
   },
   subtitleRow: {
     flexDirection: 'row',

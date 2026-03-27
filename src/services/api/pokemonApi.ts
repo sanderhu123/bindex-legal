@@ -1649,34 +1649,60 @@ function isAllowedSetId(setId: string): boolean {
 let setOfficialCountCache: Map<string, number> | null = null;
 
 /**
- * Fetch (and cache) the official card count for every set from TCGDEX.
- * The set list endpoint returns { id, name, logo, cardCount: { total, official } }
- * for each set. We only keep id → cardCount.official.
+ * Cached map of set ID → total card count (including secret rares).
+ * Populated from the same API call as official counts.
  */
-async function getSetOfficialCounts(): Promise<Map<string, number>> {
-  if (setOfficialCountCache) return setOfficialCountCache;
+let setTotalCountCache: Map<string, number> | null = null;
+
+/**
+ * Shared fetch for set card counts from TCGDex.
+ * Populates both official and total count caches in a single API call.
+ */
+async function fetchSetCardCounts(): Promise<void> {
+  if (setOfficialCountCache && setTotalCountCache) return;
 
   try {
-    console.log('[28A] Fetching set list for official card counts...');
+    console.log('[28A] Fetching set list for card counts...');
     const response = await fetch('https://api.tcgdex.net/v2/en/sets');
     if (!response.ok) {
       console.warn('[28A] Failed to fetch set list:', response.status);
-      return new Map();
+      return;
     }
     const sets: any[] = await response.json();
-    const map = new Map<string, number>();
+    const officialMap = new Map<string, number>();
+    const totalMap = new Map<string, number>();
     for (const s of sets) {
-      if (s.id && s.cardCount?.official != null) {
-        map.set(s.id, Number(s.cardCount.official));
+      if (s.id) {
+        if (s.cardCount?.official != null) {
+          officialMap.set(s.id, Number(s.cardCount.official));
+        }
+        if (s.cardCount?.total != null) {
+          totalMap.set(s.id, Number(s.cardCount.total));
+        }
       }
     }
-    setOfficialCountCache = map;
-    console.log('[28A] Set official counts cached:', { setCount: map.size });
-    return map;
+    setOfficialCountCache = officialMap;
+    setTotalCountCache = totalMap;
+    console.log('[28A] Set card counts cached:', { officialCount: officialMap.size, totalCount: totalMap.size });
   } catch (error) {
     console.warn('[28A] Error fetching set counts:', error);
-    return new Map();
   }
+}
+
+/**
+ * Fetch (and cache) the official card count for every set from TCGDEX.
+ */
+async function getSetOfficialCounts(): Promise<Map<string, number>> {
+  await fetchSetCardCounts();
+  return setOfficialCountCache || new Map();
+}
+
+/**
+ * Fetch (and cache) the total card count (including secret rares) for every set.
+ */
+export async function getSetTotalCounts(): Promise<Map<string, number>> {
+  await fetchSetCardCounts();
+  return setTotalCountCache || new Map();
 }
 
 /**

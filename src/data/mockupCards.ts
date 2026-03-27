@@ -8,6 +8,7 @@ export type MockSet = {
   releaseDate: string;
   logo?: string;
   symbol?: string;
+  totalCards?: number;
 };
 
 export const mockSets: MockSet[] = [

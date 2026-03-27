@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, ScrollView, ActivityIndicator, TouchableOpacity
 import { fonts, spacing, typography, borderRadius, shadows, screenPadding, type ThemeColors } from '../../constants/theme';
 import { useTheme } from '../../context/ThemeContext';
 import SetSelector from '../../components/Binder/SetSelector';
-import { getSetsBySerie, getErasList } from '../../services/api/pokemonApi';
+import { getSetsBySerie, getErasList, getSetTotalCounts } from '../../services/api/pokemonApi';
 import type { PokemonSet } from '../../services/api/pokemonApi';
 
 interface Step2MasterSetProps {
@@ -31,6 +31,7 @@ export default function Step2MasterSet({
   const [loadingEraSets, setLoadingEraSets] = useState(false);
   const [selectedEra, setSelectedEra] = useState<string | null>(null);
   const [series, setSeries] = useState<EraItem[]>([]);
+  const [totalCountsMap, setTotalCountsMap] = useState<Map<string, number>>(new Map());
 
   useEffect(() => {
     loadInitialData();
@@ -42,10 +43,14 @@ export default function Step2MasterSet({
       
       const fetchedSeries = getErasList();
       setSeries(fetchedSeries);
+
+      // Pre-fetch total card counts from TCGDex (single API call, cached)
+      const counts = await getSetTotalCounts();
+      setTotalCountsMap(counts);
       
-      console.log('[Step2MasterSet] Initial data loaded from hard-coded data:', {
+      console.log('[Step2MasterSet] Initial data loaded:', {
         seriesCount: fetchedSeries.length,
-        eras: fetchedSeries.map(s => s.name),
+        cardCountsLoaded: counts.size,
       });
     } catch (error) {
       console.error('Error loading initial data:', error);
@@ -68,14 +73,21 @@ export default function Step2MasterSet({
       console.log('[Step2MasterSet] Loading sets for era:', serieName);
       
       const fetchedSets = await getSetsBySerie(serieName);
-      setSetsInEra(fetchedSets);
+
+      // Enrich sets with totalCards from the pre-fetched counts
+      const enrichedSets = fetchedSets.map(set => ({
+        ...set,
+        totalCards: totalCountsMap.get(set.id) ?? undefined,
+      }));
+
+      setSetsInEra(enrichedSets);
       
       console.log('[Step2MasterSet] Sets loaded for era:', {
         serieName,
-        setCount: fetchedSets.length,
+        setCount: enrichedSets.length,
       });
       
-      preloadSetLogos(fetchedSets);
+      preloadSetLogos(enrichedSets);
     } catch (error) {
       console.error('Error loading sets for era:', error);
       setSetsInEra([]);

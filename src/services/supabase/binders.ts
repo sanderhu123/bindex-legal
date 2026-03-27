@@ -2,6 +2,7 @@ import { supabase } from './client';
 import type { Binder, CollectionMode, VariantPlacement, LayoutPreference, PokemonArtStyle } from '../../types';
 import { getCardsBySet, getCardsByRegion, type Region } from '../api/pokemonApi';
 import { startBackgroundPrefetch } from '../imagePrefetch';
+import { countCardsWithVariants } from '../../utils/cardCount';
 
 /**
  * Database representation of a binder (matches database schema)
@@ -149,38 +150,12 @@ async function calculateTotalCards(
 ): Promise<number> {
   try {
     if (collectionMode === 'master-set' && set) {
-      let cards = await getCardsBySet(set);
-      
-      if (variantsToTrack && variantsToTrack.length > 0) {
-        // Check which base cards have at least one tracked variant.
-        // Cards with no tracked variant (e.g. secret rares with only
-        // base+holo) keep their base version.
-        const baseCardHasTracked = new Map<string, boolean>();
-        cards.forEach(card => {
-          const baseId = card.id.replace(/-(base|holo|reverse|poke-ball|master-ball)$/, '');
-          const cardVariant = card.variant || 'base';
-          if (variantsToTrack.includes(cardVariant)) {
-            baseCardHasTracked.set(baseId, true);
-          }
-          if (!baseCardHasTracked.has(baseId)) {
-            baseCardHasTracked.set(baseId, false);
-          }
-        });
-
-        cards = cards.filter((card) => {
-          const cardVariant = card.variant || 'base';
-          const baseId = card.id.replace(/-(base|holo|reverse|poke-ball|master-ball)$/, '');
-          if (!baseCardHasTracked.get(baseId)) return cardVariant === 'base';
-          return variantsToTrack.includes(cardVariant);
-        });
-      }
-      
-      return cards.length;
+      const cards = await getCardsBySet(set);
+      return countCardsWithVariants(cards, variantsToTrack || []);
     } else if (collectionMode === 'region' && region) {
       const cards = await getCardsByRegion(region as Region, pokemonArtStyle);
       return cards.length;
     } else if (collectionMode === 'custom') {
-      // Custom binders don't have a fixed total
       return 0;
     }
     return 0;

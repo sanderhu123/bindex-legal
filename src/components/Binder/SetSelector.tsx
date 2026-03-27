@@ -62,7 +62,7 @@ function SetItem({ item, isSelected, onSelect }: { item: PokemonSet; isSelected:
         <View style={styles.itemText}>
           <Text style={styles.itemTitle}>{item.name}</Text>
           <Text style={styles.itemSubtitle}>
-            {item.series} • {item.releaseDate}
+            {item.series} • {item.releaseDate}{item.totalCards ? ` • ${item.totalCards} cards` : ''}
           </Text>
         </View>
         {isSelected && (

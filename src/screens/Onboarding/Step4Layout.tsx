@@ -62,7 +62,7 @@ export default function Step4Layout({ value, onChange, cardCount }: Step4LayoutP
                       styles.capacityText,
                       overCapacity && { color: colors.warning },
                     ]}>
-                      {cardCount} / {cap}
+                      {cardCount} / {cap} card slots
                     </Text>
                     {overCapacity && (
                       <View style={styles.warningRow}>

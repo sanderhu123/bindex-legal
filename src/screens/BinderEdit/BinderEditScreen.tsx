@@ -1704,22 +1704,6 @@ export default function BinderEditScreen() {
   const performDragAction = (dragged: DraggedCard, target: DropTarget) => {
     lightTap();
 
-    // Region Pokémon cards can't be moved — dropping just clears the TCG card selection
-    if (dragged.pokemonName && dragged.sourceSlot !== 'placeholder') {
-      const sourceIdx = dragged.sourceSlot as number;
-      const reverted = revertRegionSlot(sourceIdx);
-      if (reverted) {
-        saveUndoState();
-        setCardPositions(prev => {
-          const newPositions = [...prev];
-          newPositions[sourceIdx] = reverted;
-          return newPositions;
-        });
-        setHasChanges(true);
-      }
-      return;
-    }
-
     switch (target.type) {
       case 'card':
         if (target.slotIndex !== undefined) {

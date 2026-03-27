@@ -1614,11 +1614,12 @@ function looksLikeCardNumber(query: string): boolean {
  * Card IDs have the format "setId-localId", e.g.:
  *   "swsh1-25", "base1-4", "sv01-001", "swsh11-TG21", "sm3.5-1"
  *
- * We require at least one letter, then a dash, then at least one character after the dash.
- * This avoids matching plain numbers or names.
+ * We require at least one digit somewhere in the string so that
+ * hyphenated Pokémon names like "Ho-Oh" or "Porygon-Z" are not
+ * mistaken for card IDs.
  */
 function looksLikeCardId(query: string): boolean {
-  return /^[a-z0-9.]+[-][a-z0-9]+$/i.test(query);
+  return /^(?=.*\d)[a-z0-9.]+[-][a-z0-9]+$/i.test(query);
 }
 
 /**

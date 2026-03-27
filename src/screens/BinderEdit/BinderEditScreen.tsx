@@ -876,6 +876,29 @@ export default function BinderEditScreen() {
       const newPositions = [...prev];
       if (selectedCard.sourceSlot !== 'placeholder') {
         const srcIdx = selectedCard.sourceSlot as number;
+        const isBareSprite = selectedCard.cardId?.startsWith('region-');
+
+        if (isBareSprite) {
+          // Bare sprite: reposition entirely (clear source, move all data to target)
+          newPositions[srcIdx] = {
+            ...newPositions[srcIdx],
+            cardId: null, cardName: undefined, imageUrl: undefined, cardSet: undefined,
+            pokemonName: undefined, pokedexNumber: undefined, spriteUrl: undefined,
+          };
+          newPositions[targetSlotIndex] = {
+            ...newPositions[targetSlotIndex],
+            cardId: selectedCard.cardId,
+            cardName: selectedCard.cardName,
+            imageUrl: selectedCard.imageUrl,
+            cardSet: selectedCard.cardSet,
+            pokemonName: selectedCard.pokemonName,
+            pokedexNumber: selectedCard.pokedexNumber,
+            spriteUrl: selectedCard.spriteUrl,
+          };
+          return newPositions;
+        }
+
+        // TCG card on region slot: source reverts to sprite
         const reverted = revertRegionSlot(srcIdx);
         if (reverted) {
           newPositions[srcIdx] = reverted;
@@ -887,7 +910,7 @@ export default function BinderEditScreen() {
           };
         }
       }
-      // Only place TCG card data — pokemon identity stays with the slot
+      // Target gets only TCG card data — pokemon identity stays with the slot
       newPositions[targetSlotIndex] = {
         ...newPositions[targetSlotIndex],
         cardId: selectedCard.cardId,
@@ -1546,9 +1569,6 @@ export default function BinderEditScreen() {
    * Measures all layouts and initializes the floating card.
    */
   const handleDragStart = useCallback((data: DragStartData, touchX: number, touchY: number) => {
-    // Don't allow dragging bare region sprites (only TCG cards can be dragged)
-    if (data.cardId?.startsWith('region-')) return;
-
     console.log('[BinderEdit] Drag start:', data.cardName, 'from slot', data.slotIndex);
 
     // Clear any tap-selected card
@@ -1813,30 +1833,55 @@ export default function BinderEditScreen() {
       // Remove from placeholder
       setPlaceholderCards(p => p.filter((_, i) => i !== dragged.sourceIndex));
     } else {
-      // Clear source binder slot (revert to sprite for region slots)
       const sourceIdx = dragged.sourceSlot as number;
-      const reverted = revertRegionSlot(sourceIdx);
-      setCardPositions(prev => {
-        const newPositions = [...prev];
-        if (reverted) {
-          newPositions[sourceIdx] = reverted;
-        } else {
+      const isBareSprite = dragged.cardId?.startsWith('region-');
+
+      if (isBareSprite) {
+        // Bare sprite: reposition entirely (all data moves to target, source cleared)
+        setCardPositions(prev => {
+          const newPositions = [...prev];
           newPositions[sourceIdx] = {
             ...newPositions[sourceIdx],
             cardId: null, cardName: undefined, imageUrl: undefined, cardSet: undefined,
             pokemonName: undefined, pokedexNumber: undefined, spriteUrl: undefined,
           };
-        }
-        // Place in target slot (only TCG card data — pokemon identity stays with the slot)
-        newPositions[targetSlotIndex] = {
-          ...newPositions[targetSlotIndex],
-          cardId: dragged.cardId,
-          cardName: dragged.cardName,
-          imageUrl: dragged.imageUrl,
-          cardSet: dragged.cardSet,
-        };
-        return newPositions;
-      });
+          newPositions[targetSlotIndex] = {
+            ...newPositions[targetSlotIndex],
+            cardId: dragged.cardId,
+            cardName: dragged.cardName,
+            imageUrl: dragged.imageUrl,
+            cardSet: dragged.cardSet,
+            pokemonName: dragged.pokemonName,
+            pokedexNumber: dragged.pokedexNumber,
+            spriteUrl: dragged.spriteUrl,
+          };
+          return newPositions;
+        });
+      } else {
+        // TCG card on a region slot: source reverts to sprite, target gets only card data
+        const reverted = revertRegionSlot(sourceIdx);
+        setCardPositions(prev => {
+          const newPositions = [...prev];
+          if (reverted) {
+            newPositions[sourceIdx] = reverted;
+          } else {
+            newPositions[sourceIdx] = {
+              ...newPositions[sourceIdx],
+              cardId: null, cardName: undefined, imageUrl: undefined, cardSet: undefined,
+              pokemonName: undefined, pokedexNumber: undefined, spriteUrl: undefined,
+            };
+          }
+          newPositions[targetSlotIndex] = {
+            ...newPositions[targetSlotIndex],
+            cardId: dragged.cardId,
+            cardName: dragged.cardName,
+            imageUrl: dragged.imageUrl,
+            cardSet: dragged.cardSet,
+          };
+          return newPositions;
+        });
+      }
+
       setHasChanges(true);
       console.log('[BinderEdit] Drag move complete');
       return;

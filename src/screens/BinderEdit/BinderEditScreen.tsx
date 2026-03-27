@@ -323,6 +323,8 @@ export default function BinderEditScreen() {
 
       // We'll determine total pages after loading cards; start with a temporary array
       let cardsToPlace: Card[] = [];
+      // Region mode: stores pokedexNumber → TCG card ID for restoring metadata on reload
+      let regionSelectedCards = new Map<number, string>();
 
       if (binderData.collectionMode === 'master-set' && binderData.set) {
         console.log('[BinderEdit] Loading Master Set cards for:', binderData.set);
@@ -436,6 +438,7 @@ export default function BinderEditScreen() {
         const pokemonList = await getCardsByRegion(binderData.region as Region, binderData.pokemonArtStyle);
 
         const selectedCards = await getAllSelectedCardsForBinder(binderData.id);
+        regionSelectedCards = selectedCards;
         if (selectedCards.size > 0) {
           cardsToPlace = await Promise.all(
             pokemonList.map(async (pokemon) => {
@@ -546,6 +549,24 @@ export default function BinderEditScreen() {
           }
         });
 
+        // For region binders: build a reverse map (TCG card ID → region metadata)
+        // so we can restore pokemonName/pokedexNumber/spriteUrl for slots that
+        // have a real TCG card assigned instead of the default region card ID.
+        const tcgToRegionMeta = new Map<string, { pokemonName: string; pokedexNumber: number; spriteUrl: string }>();
+        if (binderData.collectionMode === 'region') {
+          regionSelectedCards.forEach((tcgCardId, pokedexNumber) => {
+            const regionCardId = `region-${binderData.region}-${pokedexNumber}`;
+            const regionInfo = cardLookup.get(regionCardId);
+            if (regionInfo?.pokemonName) {
+              tcgToRegionMeta.set(tcgCardId, {
+                pokemonName: regionInfo.pokemonName,
+                pokedexNumber,
+                spriteUrl: regionInfo.spriteUrl || '',
+              });
+            }
+          });
+        }
+
         // Reset all positions to empty
         for (let i = 0; i < totalSlotCount; i++) {
           positions[i] = { cardId: null, cardName: undefined, imageUrl: undefined, slotIndex: i };
@@ -567,6 +588,7 @@ export default function BinderEditScreen() {
                 spriteUrl: cardInfo.spriteUrl,
               };
             } else {
+              const regionMeta = tcgToRegionMeta.get(saved.cardId);
               try {
                 const card = await getCardById(saved.cardId);
                 if (card) {
@@ -576,6 +598,9 @@ export default function BinderEditScreen() {
                     cardName: card.name,
                     imageUrl: card.imageUrl,
                     cardSet: card.set,
+                    pokemonName: regionMeta?.pokemonName,
+                    pokedexNumber: regionMeta?.pokedexNumber,
+                    spriteUrl: regionMeta?.spriteUrl,
                   };
                 }
               } catch { /* skip this card */ }

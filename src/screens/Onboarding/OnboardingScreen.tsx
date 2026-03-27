@@ -40,6 +40,8 @@ interface OnboardingState {
   pokemonArtStyle: PokemonArtStyle | null;
   variantPlacement: VariantPlacement | null;
   variantOrder: string[]; // Display order of variant groups
+  // Variant-aware card count (computed in Step 3, used in Step 6 layout)
+  cardCount: number | null;
   // Step 4 (Region: Layout, Master Set: Variant Placement)
   layoutPreference: LayoutPreference | null;
   // Step 5 (Region: Binder Name, Master Set: Layout)
@@ -82,6 +84,7 @@ export default function OnboardingScreen() {
     pokemonArtStyle: null,
     variantPlacement: null,
     variantOrder: ['base', 'reverse-holo', 'poke-ball', 'master-ball', 'secret-rare'],
+    cardCount: null,
     layoutPreference: null,
     binderName: null,
   });
@@ -381,6 +384,7 @@ export default function OnboardingScreen() {
             selectedSetId={state.selectedSetId}
             selectedVariants={state.selectedVariants}
             onChange={(variants) => setState({ ...state, selectedVariants: variants })}
+            onCardCountChange={(count) => setState(prev => ({ ...prev, cardCount: count }))}
           />
         );
       case 4:
@@ -428,6 +432,7 @@ export default function OnboardingScreen() {
           <Step4Layout
             value={state.layoutPreference}
             onChange={(layout) => setState({ ...state, layoutPreference: layout })}
+            cardCount={state.cardCount}
           />
         );
       }

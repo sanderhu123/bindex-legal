@@ -5,12 +5,19 @@ import { fonts, spacing, typography, borderRadius, shadows, screenPadding, type 
 import { useTheme } from '../../context/ThemeContext';
 import type { LayoutPreference } from '../../types';
 
+const BINDER_PAGES = 40;
+const CAPACITY: Record<string, number> = {
+  '3x3': BINDER_PAGES * 9,   // 360
+  '4x3': BINDER_PAGES * 12,  // 480
+};
+
 interface Step4LayoutProps {
   value: LayoutPreference | null;
   onChange: (layout: LayoutPreference) => void;
+  cardCount?: number | null;
 }
 
-export default function Step4Layout({ value, onChange }: Step4LayoutProps) {
+export default function Step4Layout({ value, onChange, cardCount }: Step4LayoutProps) {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
@@ -18,12 +25,12 @@ export default function Step4Layout({ value, onChange }: Step4LayoutProps) {
     {
       key: '3x3',
       label: '3×3 Grid',
-      description: 'Show 3 cards per row (9 cards visible)',
+      description: 'Show 3 cards per row (9 cards per page)',
     },
     {
       key: '4x3',
       label: '4×3 Grid',
-      description: 'Show 4 cards per row (12 cards visible)',
+      description: 'Show 4 cards per row (12 cards per page)',
     },
   ];
 
@@ -36,6 +43,9 @@ export default function Step4Layout({ value, onChange }: Step4LayoutProps) {
       
       {options.map((option) => {
         const isSelected = value === option.key;
+        const cap = CAPACITY[option.key];
+        const overCapacity = cardCount != null && cap != null && cardCount > cap;
+
         return (
           <TouchableOpacity
             key={option.key}
@@ -46,6 +56,24 @@ export default function Step4Layout({ value, onChange }: Step4LayoutProps) {
               <View style={styles.optionTextWrapper}>
                 <Text style={styles.optionLabel}>{option.label}</Text>
                 <Text style={styles.optionDescription}>{option.description}</Text>
+                {cardCount != null && cap != null && (
+                  <View style={styles.capacityRow}>
+                    <Text style={[
+                      styles.capacityText,
+                      overCapacity && { color: colors.warning },
+                    ]}>
+                      {cardCount} / {cap}
+                    </Text>
+                    {overCapacity && (
+                      <View style={styles.warningRow}>
+                        <Ionicons name="warning" size={14} color={colors.warning} />
+                        <Text style={[styles.warningText, { color: colors.warning }]}>
+                          Won't fit in a {BINDER_PAGES}-page binder
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                )}
               </View>
               {isSelected && (
                 <Ionicons name="checkmark-circle" size={22} color={colors.primary} />
@@ -106,5 +134,23 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     fontSize: typography.sm,
     fontFamily: fonts.regular,
     color: colors.textTertiary,
+  },
+  capacityRow: {
+    marginTop: spacing.sm,
+  },
+  capacityText: {
+    fontSize: typography.sm,
+    fontFamily: fonts.semibold,
+    color: colors.text,
+  },
+  warningRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 2,
+  },
+  warningText: {
+    fontSize: typography.xs,
+    fontFamily: fonts.regular,
   },
 });

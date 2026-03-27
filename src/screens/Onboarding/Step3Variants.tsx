@@ -12,12 +12,14 @@ interface Step3VariantsProps {
   selectedSetId: string | null;
   selectedVariants: string[];
   onChange: (variants: string[]) => void;
+  onCardCountChange?: (count: number | null) => void;
 }
 
 export default function Step3Variants({
   selectedSetId,
   selectedVariants,
   onChange,
+  onCardCountChange,
 }: Step3VariantsProps) {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
@@ -55,6 +57,11 @@ export default function Step3Variants({
     if (setCards.length === 0) return null;
     return countCardsWithVariants(setCards, selectedVariants);
   }, [setCards, selectedVariants]);
+
+  // Push card count to parent so the layout step can use it
+  useEffect(() => {
+    onCardCountChange?.(dynamicCardCount);
+  }, [dynamicCardCount]);
 
   console.log('[Step3Variants] ===== VARIANT SELECTION =====');
   console.log('[Step3Variants] Selected Set ID:', selectedSetId);

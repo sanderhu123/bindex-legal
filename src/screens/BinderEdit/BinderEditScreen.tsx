@@ -16,8 +16,9 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { Image } from 'expo-image';
 import { getBinderById } from '../../services/supabase/binders';
 import { getBinderCardsWithPositions } from '../../services/supabase/cards';
-import { getCardsBySet, getCardsByRegion, getCardById, type Region } from '../../services/api/pokemonApi';
-import { getAllSelectedCardsForBinder } from '../../services/supabase/regionCards';
+import { getCardsBySet, getCardsByRegion, getCardById, getPokemonImageUrl, type Region } from '../../services/api/pokemonApi';
+import { getAllSelectedCardsForBinder, setSelectedCardForPokemon } from '../../services/supabase/regionCards';
+import { getSearchName } from '../../data/pokemonRegions';
 import { getCardPositionsForBinder, saveCardPositionsForBinder, getPlaceholderCardsForBinder, savePlaceholderCardsForBinder, syncBinderCardsFromPositions } from '../../services/supabase/binderPositions';
 import { CardSlot, CardPlaceholder, SelectedCardBar, InsertButton, type PlaceholderCard } from '../../components/BinderEdit';
 import type { DragStartData } from '../../components/BinderEdit/CardSlot';
@@ -26,7 +27,6 @@ import { JumpToPageModal } from '../../components/Binder/JumpToPageModal';
 import { CardPickerModal } from '../../components/CardPicker';
 import LoadingScreen from '../../components/Loading/LoadingScreen';
 import ErrorScreen from '../../components/Error/ErrorScreen';
-import RegionBinderEditView from './RegionBinderEditView';
 import type { Binder, Card } from '../../types';
 import { useTheme } from '../../context/ThemeContext';
 import { spacing, typography, fonts, borderRadius, type ThemeColors } from '../../constants/theme';
@@ -42,6 +42,9 @@ interface CardPosition {
   imageUrl?: string;
   cardSet?: string; // Set name (used to carry custom card color info)
   slotIndex: number; // Global index across all pages (0-based)
+  pokemonName?: string; // For region slots: the Pokémon name (used for card picker pre-fill)
+  pokedexNumber?: number; // For region slots: the Pokédex number
+  spriteUrl?: string; // For region slots: the default sprite URL (shown when no TCG card is selected)
 }
 
 /**
@@ -57,6 +60,9 @@ function shiftCardsLeft(positions: CardPosition[], removedIndex: number): CardPo
       cardName: newPositions[i + 1].cardName,
       imageUrl: newPositions[i + 1].imageUrl,
       cardSet: newPositions[i + 1].cardSet,
+      pokemonName: newPositions[i + 1].pokemonName,
+      pokedexNumber: newPositions[i + 1].pokedexNumber,
+      spriteUrl: newPositions[i + 1].spriteUrl,
     };
   }
   const lastIdx = newPositions.length - 1;
@@ -192,6 +198,11 @@ export default function BinderEditScreen() {
   const [insertMode, setInsertMode] = useState(false);
   const [replaceMode, setReplaceMode] = useState(false); // true = picker replaces selected card in-place
   const [placeholderPickerIndex, setPlaceholderPickerIndex] = useState<number | null>(null); // index in placeholder to add card to
+  const [cardPickerInitialQuery, setCardPickerInitialQuery] = useState(''); // Pre-fill search for region Pokémon
+  const [cardPickerPokemonOnly, setCardPickerPokemonOnly] = useState(false); // Filter to Pokémon cards only
+
+  // Region mode: number of region Pokémon slots (slots 0 to regionCardCount-1 are Pokémon)
+  const [regionCardCount, setRegionCardCount] = useState(0);
 
   // Screen dimensions
   const [screenWidth, setScreenWidth] = useState(Dimensions.get('window').width);
@@ -442,6 +453,7 @@ export default function BinderEditScreen() {
         }
 
         cardsToPlace.sort((a, b) => (a.pokedexNumber ?? 0) - (b.pokedexNumber ?? 0));
+        setRegionCardCount(cardsToPlace.length);
         console.log('[BinderEdit] Region: placing', cardsToPlace.length, 'cards');
       } else if (binderData.collectionMode === 'custom') {
         console.log('[BinderEdit] Loading Custom binder cards');
@@ -500,11 +512,17 @@ export default function BinderEditScreen() {
         // Master Set / Region: place API cards in default order first
         cardsToPlace.forEach((card, index) => {
           if (index < totalSlotCount) {
+            const isRegion = binderData.collectionMode === 'region';
             positions[index] = {
               ...positions[index],
               cardId: card.id,
               cardName: card.name,
               imageUrl: card.imageUrl,
+              pokemonName: isRegion ? card.name : undefined,
+              pokedexNumber: isRegion ? card.pokedexNumber : undefined,
+              spriteUrl: isRegion ? (card.pokedexNumber
+                ? getPokemonImageUrl(card.pokedexNumber, binderData.pokemonArtStyle || 'sprite')
+                : card.imageUrl) : undefined,
             };
           }
         });
@@ -515,10 +533,10 @@ export default function BinderEditScreen() {
         console.log('[BinderEdit] Found', dbPositions.length, 'saved positions in database');
 
         // Build a lookup map from all loaded cards (API cards for master-set/region)
-        const cardLookup = new Map<string, { name: string; imageUrl?: string }>();
+        const cardLookup = new Map<string, { name: string; imageUrl?: string; pokemonName?: string; pokedexNumber?: number; spriteUrl?: string }>();
         positions.forEach(p => {
           if (p.cardId) {
-            cardLookup.set(p.cardId, { name: p.cardName || '', imageUrl: p.imageUrl });
+            cardLookup.set(p.cardId, { name: p.cardName || '', imageUrl: p.imageUrl, pokemonName: p.pokemonName, pokedexNumber: p.pokedexNumber, spriteUrl: p.spriteUrl });
           }
         });
 
@@ -538,6 +556,9 @@ export default function BinderEditScreen() {
                 cardName: cardInfo.name,
                 imageUrl: cardInfo.imageUrl,
                 cardSet: cardInfo.set,
+                pokemonName: cardInfo.pokemonName,
+                pokedexNumber: cardInfo.pokedexNumber,
+                spriteUrl: cardInfo.spriteUrl,
               };
             } else {
               try {
@@ -716,6 +737,16 @@ export default function BinderEditScreen() {
 
     const { slotIndex, cardId, cardName, imageUrl } = slot;
 
+    // Region Pokémon slot: tapping opens card picker pre-filled with the Pokémon's name
+    if (slot.pokemonName && !selectedCard) {
+      setTargetSlotIndex(slotIndex);
+      setCardPickerInitialQuery(getSearchName(slot.pokemonName));
+      setCardPickerPokemonOnly(true);
+      setReplaceMode(!!cardId);
+      setShowCardPicker(true);
+      return;
+    }
+
     if (selectedCard) {
       if (selectedCard.sourceSlot === slotIndex) {
         setSelectedCard(null);
@@ -737,7 +768,10 @@ export default function BinderEditScreen() {
         sourcePage: pageNumber,
       });
     } else {
+      // Empty slot tapped — open card picker
       setTargetSlotIndex(slotIndex);
+      setCardPickerInitialQuery('');
+      setCardPickerPokemonOnly(false);
       setShowCardPicker(true);
     }
   };
@@ -1072,6 +1106,8 @@ export default function BinderEditScreen() {
     setReplaceMode(false);
     setPlaceholderPickerIndex(null);
     setSelectedCard(null);
+    setCardPickerInitialQuery('');
+    setCardPickerPokemonOnly(false);
   };
 
   /**
@@ -1081,6 +1117,16 @@ export default function BinderEditScreen() {
   const replaceCardInSlot = (card: Card) => {
     if (targetSlotIndex === null) return;
     saveUndoState();
+
+    const slot = cardPositions[targetSlotIndex];
+
+    // For region Pokémon slots: also save the TCG card selection to the database
+    if (slot?.pokedexNumber && binder?.id) {
+      setSelectedCardForPokemon(binder.id, slot.pokedexNumber, card.id).catch(err => {
+        console.error('[BinderEdit] Failed to save region card selection:', err);
+      });
+    }
+
     setCardPositions(prev => {
       const newPositions = [...prev];
       newPositions[targetSlotIndex] = {
@@ -1125,6 +1171,16 @@ export default function BinderEditScreen() {
   const placeCardInSlot = (card: Card) => {
     if (targetSlotIndex === null) return;
     saveUndoState();
+
+    const slot = cardPositions[targetSlotIndex];
+
+    // For region Pokémon slots: also save the TCG card selection to the database
+    if (slot?.pokedexNumber && binder?.id) {
+      setSelectedCardForPokemon(binder.id, slot.pokedexNumber, card.id).catch(err => {
+        console.error('[BinderEdit] Failed to save region card selection:', err);
+      });
+    }
+
     setCardPositions(prev => {
       const newPositions = [...prev];
       newPositions[targetSlotIndex] = {
@@ -1934,11 +1990,6 @@ export default function BinderEditScreen() {
     );
   }
 
-  // Step 34H: Region binders use a simplified edit view (version picker only)
-  if (binder.collectionMode === 'region') {
-    return <RegionBinderEditView binder={binder} />;
-  }
-
   const selectedPlaceholderIndex = selectedCard?.sourceSlot === 'placeholder'
     ? selectedCard.sourceIndex
     : -1;
@@ -2064,8 +2115,9 @@ export default function BinderEditScreen() {
         visible={showCardPicker}
         onClose={closeCardPicker}
         onSelectCard={handleCardPickerSelect}
-        title={replaceMode ? 'Replace Card' : 'Add Card'}
-        pokemonOnly={false}
+        title={cardPickerInitialQuery ? `Choose ${cardPickerInitialQuery} Card` : (replaceMode ? 'Replace Card' : 'Add Card')}
+        initialQuery={cardPickerInitialQuery}
+        pokemonOnly={cardPickerPokemonOnly}
       />
 
       {/* Saving Overlay */}

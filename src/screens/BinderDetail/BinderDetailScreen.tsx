@@ -20,9 +20,8 @@ import {
 } from '../../services/supabase/cards';
 import { getCardsBySet, getCardsByRegion, getCardById, getPokemonImageUrl, type Region } from '../../services/api/pokemonApi';
 import { getSetSymbolByName } from '../../data/pokemonEras';
-import { getSearchName } from '../../data/pokemonRegions';
 import StatsBottomSheet, { type StatsFilter, RARITY_ORDER, RARITY_LABELS, VARIANT_ORDER, VARIANT_LABELS } from '../../components/Progress/StatsBottomSheet';
-import { getAllSelectedCardsForBinder, setSelectedCardForPokemon } from '../../services/supabase/regionCards';
+import { getAllSelectedCardsForBinder } from '../../services/supabase/regionCards';
 import { getCardPositionsForBinder } from '../../services/supabase/binderPositions';
 import { startBackgroundPrefetch } from '../../services/imagePrefetch';
 import { recordBinderAccess } from '../../services/cacheManager';
@@ -39,7 +38,6 @@ import CardImage, { logFailedImageSummary } from '../../components/Card/CardImag
 import CardDetails from '../../components/Card/CardDetails';
 import CardList from '../../components/Card/CardList';
 import EmptyCardSlot from '../../components/Card/EmptyCardSlot';
-import { CardPickerModal } from '../../components/CardPicker';
 import PageNavigator from '../../components/Binder/PageNavigator';
 import BinderPageView from '../../components/Binder/BinderPageView';
 import { JumpToPageModal } from '../../components/Binder/JumpToPageModal';
@@ -1567,10 +1565,6 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
 
   // === REGION MODE: Navigation based on card selection state ===
   
-  // State for Region card picker (when no card selected yet)
-  const [showRegionCardPicker, setShowRegionCardPicker] = useState(false);
-  const [selectedPokemonForPicker, setSelectedPokemonForPicker] = useState<CardWithOwnership | null>(null);
-  
   // Step 34A: Enlarged card preview state (for long-press in Grid/Binder view)
   const [enlargedCard, setEnlargedCard] = useState<CardWithOwnership | null>(null);
   const [enlargedCardNote, setEnlargedCardNote] = useState<string | null>(null);
@@ -1613,16 +1607,18 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
   }, [binder?.collectionMode, positionCards, savedPositionMap, cards]);
   
   // Handle tapping a Region Pokemon slot
-  // - If no card selected: open card picker directly
+  // - If no card selected: show hint to use edit mode
   // - If card selected: navigate to card detail
   const handleRegionCardTap = useCallback((pokemon: CardWithOwnership, index?: number) => {
     const hasCustomCard = !!pokemon.selectedCardId;
     console.log('[BinderDetail] Region card tapped:', pokemon.name, 'hasCustomCard:', hasCustomCard);
     
     if (!hasCustomCard) {
-      // No custom card selected - open the card picker directly
-      setSelectedPokemonForPicker(pokemon);
-      setShowRegionCardPicker(true);
+      Alert.alert(
+        pokemon.name,
+        'Tap the edit button to choose a TCG card for this Pokémon.',
+      );
+      return;
     } else {
       // Calculate cards per page based on layout preference
       const gridCols = binder?.layoutPreference === '4x3' ? 4 : 3;
@@ -1658,80 +1654,6 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
       });
     }
   }, [binder?.id, binder?.region, binder?.layoutPreference, navigation]);
-
-  // Handle selecting a card from the Region card picker
-  const handleRegionCardSelected = useCallback(async (selectedCard: Card) => {
-    if (!binder || !selectedPokemonForPicker || !selectedPokemonForPicker.pokedexNumber) {
-      console.warn('[BinderDetail] Missing data for Region card selection');
-      return;
-    }
-    
-    console.log('[BinderDetail] Region card selected:', selectedCard.name, 'for', selectedPokemonForPicker.name);
-    
-    try {
-      // Save the selection to the database
-      await setSelectedCardForPokemon(binder.id, selectedPokemonForPicker.pokedexNumber, selectedCard.id);
-      console.log('[BinderDetail] Card selection saved');
-      
-      // Update the cards state immediately with search data (fast)
-      const pokedexNum = selectedPokemonForPicker.pokedexNumber;
-      setCards((prevCards) =>
-        prevCards.map((card) => {
-          if (card.pokedexNumber === pokedexNum) {
-            return {
-              ...card,
-              imageUrl: selectedCard.imageUrl,
-              imageUrlHiRes: selectedCard.imageUrlHiRes,
-              selectedCardId: selectedCard.id,
-              selectedCardName: selectedCard.name,
-              selectedCardNumber: selectedCard.number,
-              selectedCardRarity: selectedCard.rarity,
-              selectedCardIllustrator: selectedCard.illustrator,
-              selectedCardSet: selectedCard.set,
-              setTotal: selectedCard.setTotal,
-            };
-          }
-          return card;
-        })
-      );
-      
-      console.log('[BinderDetail] UI updated with new card image');
-
-      // Search results only have minimal data (no rarity, illustrator, or full set name).
-      // Fetch full details in the background and update the card state.
-      if (!selectedCard.rarity && !selectedCard.illustrator) {
-        try {
-          const fullCard = await getCardById(selectedCard.id);
-          if (fullCard && (fullCard.rarity || fullCard.illustrator || fullCard.set)) {
-            setCards((prevCards) =>
-              prevCards.map((card) => {
-                if (card.pokedexNumber === pokedexNum) {
-                  return {
-                    ...card,
-                    selectedCardName: fullCard.name || card.selectedCardName,
-                    selectedCardNumber: fullCard.number || card.selectedCardNumber,
-                    selectedCardRarity: fullCard.rarity || card.selectedCardRarity,
-                    selectedCardIllustrator: fullCard.illustrator || card.selectedCardIllustrator,
-                    selectedCardSet: fullCard.set || card.selectedCardSet,
-                    setTotal: fullCard.setTotal || card.setTotal,
-                  };
-                }
-                return card;
-              })
-            );
-            console.log('[BinderDetail] Region card enriched with full details');
-          }
-        } catch (enrichErr) {
-          console.warn('[BinderDetail] Could not fetch full card details for enrichment:', enrichErr);
-        }
-      }
-    } catch (err) {
-      console.error('[BinderDetail] Failed to save card selection:', err);
-      Alert.alert('Error', 'Failed to save card selection. Please try again.');
-    } finally {
-      setSelectedPokemonForPicker(null);
-    }
-  }, [binder, selectedPokemonForPicker]);
 
   // Step 34A: Long-press handlers for enlarged card preview
   const handleLongPressCard = useCallback((card: CardWithOwnership) => {
@@ -3500,19 +3422,6 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
               setShowJumpModal(false);
             }}
           />
-          {binder.collectionMode === 'region' && (
-            <CardPickerModal
-              visible={showRegionCardPicker}
-              onClose={() => {
-                setShowRegionCardPicker(false);
-                setSelectedPokemonForPicker(null);
-              }}
-              onSelectCard={handleRegionCardSelected}
-              title={selectedPokemonForPicker ? `Choose a ${selectedPokemonForPicker.name} Card` : 'Choose Card'}
-              initialQuery={selectedPokemonForPicker ? getSearchName(selectedPokemonForPicker.name) : ''}
-              pokemonOnly={true}
-            />
-          )}
           <EnlargedCardOverlay />
         {statsBottomSheet}
         </SafeAreaView>
@@ -3578,19 +3487,6 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
             setShowJumpModal(false);
           }}
         />
-        {binder.collectionMode === 'region' && (
-          <CardPickerModal
-            visible={showRegionCardPicker}
-            onClose={() => {
-              setShowRegionCardPicker(false);
-              setSelectedPokemonForPicker(null);
-            }}
-            onSelectCard={handleRegionCardSelected}
-            title={selectedPokemonForPicker ? `Choose a ${selectedPokemonForPicker.name} Card` : 'Choose Card'}
-            initialQuery={selectedPokemonForPicker ? getSearchName(selectedPokemonForPicker.name) : ''}
-            pokemonOnly={true}
-          />
-        )}
         {stickyProgressFooter}
         <EnlargedCardOverlay />
         {statsBottomSheet}
@@ -3818,17 +3714,6 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
             onScroll={onScrollEvent}
             scrollEventThrottle={16}
           />
-          <CardPickerModal
-            visible={showRegionCardPicker}
-            onClose={() => {
-              setShowRegionCardPicker(false);
-              setSelectedPokemonForPicker(null);
-            }}
-            onSelectCard={handleRegionCardSelected}
-            title={selectedPokemonForPicker ? `Choose a ${selectedPokemonForPicker.name} Card` : 'Choose Card'}
-            initialQuery={selectedPokemonForPicker ? getSearchName(selectedPokemonForPicker.name) : ''}
-            pokemonOnly={true}
-          />
           {stickyProgressFooter}
           <EnlargedCardOverlay />
         {statsBottomSheet}
@@ -3863,18 +3748,6 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
           }
         />
         
-        {/* Card Picker Modal for selecting TCG card for Pokemon without custom selection */}
-        <CardPickerModal
-          visible={showRegionCardPicker}
-          onClose={() => {
-            setShowRegionCardPicker(false);
-            setSelectedPokemonForPicker(null);
-          }}
-          onSelectCard={handleRegionCardSelected}
-          title={selectedPokemonForPicker ? `Choose a ${selectedPokemonForPicker.name} Card` : 'Choose Card'}
-          initialQuery={selectedPokemonForPicker ? getSearchName(selectedPokemonForPicker.name) : ''}
-          pokemonOnly={true}
-        />
         {stickyProgressFooter}
         <EnlargedCardOverlay />
         {statsBottomSheet}

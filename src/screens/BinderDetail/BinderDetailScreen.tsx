@@ -1087,33 +1087,25 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
               }
             });
 
-            const grouped: CardWithOwnership[] = [];
-            const variantMap = new Map<string, CardWithOwnership[]>();
-            const baseCards: CardWithOwnership[] = [];
+            const cardGroups = new Map<string, CardWithOwnership[]>();
+            const groupOrder: string[] = [];
             regularCards.forEach((card) => {
-              if (isBaseCard(card)) {
-                baseCards.push(card);
-              } else {
-                const baseId = getBaseIdentifier(card);
-                if (!variantMap.has(baseId)) variantMap.set(baseId, []);
-                variantMap.get(baseId)!.push(card);
+              const baseId = getBaseIdentifier(card);
+              if (!cardGroups.has(baseId)) {
+                cardGroups.set(baseId, []);
+                groupOrder.push(baseId);
               }
+              cardGroups.get(baseId)!.push(card);
             });
 
-            baseCards.forEach((baseCard) => {
-              grouped.push(baseCard);
-              const baseId = getBaseIdentifier(baseCard);
-              const variants = variantMap.get(baseId) || [];
-              variants.sort((a, b) => {
+            const grouped: CardWithOwnership[] = [];
+            groupOrder.forEach((baseId) => {
+              const cards = cardGroups.get(baseId)!;
+              cards.sort((a, b) => {
                 return (groupPosition.get(a.variant || 'base') ?? 99)
                      - (groupPosition.get(b.variant || 'base') ?? 99);
               });
-              grouped.push(...variants);
-            });
-
-            variantMap.forEach((variants, baseId) => {
-              const hasBase = baseCards.some((card) => getBaseIdentifier(card) === baseId);
-              if (!hasBase) grouped.push(...variants);
+              grouped.push(...cards);
             });
 
             secretRareCards.sort((a, b) => getSetNumber(a.number) - getSetNumber(b.number));

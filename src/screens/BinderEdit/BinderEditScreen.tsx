@@ -360,30 +360,25 @@ export default function BinderEditScreen() {
             }
           });
 
-          const baseCards: Card[] = [];
-          const variantMap = new Map<string, Card[]>();
+          const cardGroups = new Map<string, Card[]>();
+          const groupOrder: string[] = [];
           regularCards.forEach((card) => {
-            if (isBaseCard(card)) {
-              baseCards.push(card);
-            } else {
-              const baseId = getBaseId(card);
-              if (!variantMap.has(baseId)) variantMap.set(baseId, []);
-              variantMap.get(baseId)!.push(card);
+            const baseId = getBaseId(card);
+            if (!cardGroups.has(baseId)) {
+              cardGroups.set(baseId, []);
+              groupOrder.push(baseId);
             }
+            cardGroups.get(baseId)!.push(card);
           });
 
           const grouped: Card[] = [];
-          baseCards.forEach((base) => {
-            grouped.push(base);
-            const variants = variantMap.get(getBaseId(base)) || [];
-            variants.sort((a, b) => {
+          groupOrder.forEach((baseId) => {
+            const cards = cardGroups.get(baseId)!;
+            cards.sort((a, b) => {
               return (groupPosition.get(a.variant || 'base') ?? 99)
                    - (groupPosition.get(b.variant || 'base') ?? 99);
             });
-            grouped.push(...variants);
-          });
-          variantMap.forEach((variants, baseId) => {
-            if (!baseCards.some((c) => getBaseId(c) === baseId)) grouped.push(...variants);
+            grouped.push(...cards);
           });
 
           secretRareCards.sort((a, b) => getSetNumber(a.number) - getSetNumber(b.number));

@@ -105,6 +105,7 @@ export function CardPickerModal({
   const {
     query,
     setQuery,
+    setQueryImmediate,
     results,
     loading,
     isLoadingMore,
@@ -203,13 +204,12 @@ export function CardPickerModal({
     }
   }, [customCardName, customCardColor, creatingCustomCard, onSelectCard, onClose]);
 
-  // Reset custom card state when modal closes
-  // Reset when modal opens with initialQuery
+  // When modal opens with a pre-filled query, clear old results and search immediately
   useEffect(() => {
     if (visible && initialQuery) {
-      setQuery(initialQuery);
+      setQueryImmediate(initialQuery);
     }
-  }, [visible, initialQuery, setQuery]);
+  }, [visible, initialQuery, setQueryImmediate]);
 
   // Keep search/filter state when modal closes so user can
   // quickly continue adding more cards with the same filters.

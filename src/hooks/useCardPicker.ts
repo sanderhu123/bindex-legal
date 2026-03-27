@@ -30,6 +30,8 @@ export interface UseCardPickerReturn {
   query: string;
   /** Set the search query (triggers debounced search) */
   setQuery: (query: string) => void;
+  /** Set query, clear old results, and search immediately (no debounce) */
+  setQueryImmediate: (query: string) => void;
   /** Search results */
   results: Card[];
   /** Loading state */
@@ -244,6 +246,29 @@ export function useCardPicker(options?: UseCardPickerOptions): UseCardPickerRetu
     }, debounceMs);
   }, [debounceMs, executeSearch]);
 
+  /**
+   * Set query, clear stale results, and search immediately (no debounce).
+   * Used when the query is already final (e.g. opening the picker for a Pokémon).
+   */
+  const setQueryImmediate = useCallback((newQuery: string) => {
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+    }
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+
+    setQueryInternal(newQuery);
+    setResults([]);
+    setOffset(0);
+    setError(null);
+    setOriginalError(null);
+    setHasMore(false);
+    setTotalFound(0);
+
+    executeSearch(newQuery, 0);
+  }, [executeSearch]);
+
   const normalizeFilterArray = useCallback((items?: string[]): string[] => {
     if (!items || items.length === 0) return [];
     return [...items].sort((a, b) => a.localeCompare(b));
@@ -367,6 +392,7 @@ export function useCardPicker(options?: UseCardPickerOptions): UseCardPickerRetu
   return {
     query,
     setQuery,
+    setQueryImmediate,
     results,
     loading,
     isLoadingMore,

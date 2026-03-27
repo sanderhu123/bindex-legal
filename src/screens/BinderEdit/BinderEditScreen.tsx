@@ -899,10 +899,25 @@ export default function BinderEditScreen() {
           return newPositions;
         }
 
-        // TCG card on region slot: source reverts to sprite
-        const reverted = revertRegionSlot(srcIdx);
-        if (reverted) {
-          newPositions[srcIdx] = reverted;
+        // TCG card: source reverts to sprite (from latest state in prev)
+        const slot = newPositions[srcIdx];
+        if (slot?.pokemonName) {
+          const regionCardId = `region-${binder?.region || 'Unknown'}-${slot.pokedexNumber}`;
+          newPositions[srcIdx] = {
+            slotIndex: srcIdx,
+            cardId: regionCardId,
+            cardName: slot.pokemonName,
+            imageUrl: slot.spriteUrl,
+            pokemonName: slot.pokemonName,
+            pokedexNumber: slot.pokedexNumber,
+            spriteUrl: slot.spriteUrl,
+          };
+
+          if (slot.pokedexNumber && binder?.id) {
+            clearSelectedCardForPokemon(binder.id, slot.pokedexNumber).catch(err => {
+              console.error('[BinderEdit] Failed to clear region card selection:', err);
+            });
+          }
         } else {
           newPositions[srcIdx] = {
             ...newPositions[srcIdx],
@@ -1027,8 +1042,9 @@ export default function BinderEditScreen() {
   const handleRemoveCard = () => {
     if (!selectedCard) return;
 
-    const isRegionSlot = selectedCard.sourceSlot !== 'placeholder' &&
-      cardPositions[selectedCard.sourceSlot as number]?.pokemonName;
+    // Use ref for latest state (avoids stale closure in alert callback)
+    const currentSlot = cardPositionsRef.current[selectedCard.sourceSlot as number];
+    const isRegionSlot = selectedCard.sourceSlot !== 'placeholder' && currentSlot?.pokemonName;
 
     Alert.alert(
       isRegionSlot ? 'Clear Card Selection' : 'Remove Card',
@@ -1046,18 +1062,35 @@ export default function BinderEditScreen() {
               setPlaceholderCards(prev => prev.filter((_, i) => i !== selectedCard.sourceIndex));
             } else {
               const slotIdx = selectedCard.sourceSlot as number;
-              const reverted = revertRegionSlot(slotIdx);
-              if (reverted) {
-                setCardPositions(prev => {
-                  const newPositions = [...prev];
-                  newPositions[slotIdx] = reverted;
-                  return newPositions;
-                });
-              } else {
-                setCardPositions(prev =>
-                  shiftCardsLeft(prev, slotIdx)
-                );
-              }
+
+              setCardPositions(prev => {
+                const newPositions = [...prev];
+                const slot = newPositions[slotIdx];
+
+                if (slot?.pokemonName) {
+                  // Region slot: revert to sprite (compute from latest state)
+                  const regionCardId = `region-${binder?.region || 'Unknown'}-${slot.pokedexNumber}`;
+                  newPositions[slotIdx] = {
+                    slotIndex: slotIdx,
+                    cardId: regionCardId,
+                    cardName: slot.pokemonName,
+                    imageUrl: slot.spriteUrl,
+                    pokemonName: slot.pokemonName,
+                    pokedexNumber: slot.pokedexNumber,
+                    spriteUrl: slot.spriteUrl,
+                  };
+
+                  if (slot.pokedexNumber && binder?.id) {
+                    clearSelectedCardForPokemon(binder.id, slot.pokedexNumber).catch(err => {
+                      console.error('[BinderEdit] Failed to clear region card selection:', err);
+                    });
+                  }
+                } else {
+                  return shiftCardsLeft(newPositions, slotIdx);
+                }
+
+                return newPositions;
+              });
             }
             setHasChanges(true);
             setSelectedCard(null);
@@ -1860,12 +1893,28 @@ export default function BinderEditScreen() {
           return newPositions;
         });
       } else {
-        // TCG card on a region slot: source reverts to sprite, target gets only card data
-        const reverted = revertRegionSlot(sourceIdx);
+        // TCG card: source reverts to sprite (from latest state), target gets only card data
         setCardPositions(prev => {
           const newPositions = [...prev];
-          if (reverted) {
-            newPositions[sourceIdx] = reverted;
+          const slot = newPositions[sourceIdx];
+
+          if (slot?.pokemonName) {
+            const regionCardId = `region-${binder?.region || 'Unknown'}-${slot.pokedexNumber}`;
+            newPositions[sourceIdx] = {
+              slotIndex: sourceIdx,
+              cardId: regionCardId,
+              cardName: slot.pokemonName,
+              imageUrl: slot.spriteUrl,
+              pokemonName: slot.pokemonName,
+              pokedexNumber: slot.pokedexNumber,
+              spriteUrl: slot.spriteUrl,
+            };
+
+            if (slot.pokedexNumber && binder?.id) {
+              clearSelectedCardForPokemon(binder.id, slot.pokedexNumber).catch(err => {
+                console.error('[BinderEdit] Failed to clear region card selection:', err);
+              });
+            }
           } else {
             newPositions[sourceIdx] = {
               ...newPositions[sourceIdx],
@@ -1873,6 +1922,7 @@ export default function BinderEditScreen() {
               pokemonName: undefined, pokedexNumber: undefined, spriteUrl: undefined,
             };
           }
+
           newPositions[targetSlotIndex] = {
             ...newPositions[targetSlotIndex],
             cardId: dragged.cardId,
@@ -1975,13 +2025,28 @@ export default function BinderEditScreen() {
     saveUndoState();
 
     const sourceIdx = dragged.sourceSlot as number;
-    const reverted = revertRegionSlot(sourceIdx);
+    const currentSlot = cardPositionsRef.current[sourceIdx];
 
-    if (reverted) {
+    if (currentSlot?.pokemonName) {
       // Region slot: just revert to sprite, don't add to placeholder
       setCardPositions(prev => {
         const newPositions = [...prev];
-        newPositions[sourceIdx] = reverted;
+        const slot = newPositions[sourceIdx];
+        const regionCardId = `region-${binder?.region || 'Unknown'}-${slot?.pokedexNumber}`;
+        newPositions[sourceIdx] = {
+          slotIndex: sourceIdx,
+          cardId: regionCardId,
+          cardName: slot?.pokemonName || '',
+          imageUrl: slot?.spriteUrl,
+          pokemonName: slot?.pokemonName,
+          pokedexNumber: slot?.pokedexNumber,
+          spriteUrl: slot?.spriteUrl,
+        };
+        if (slot?.pokedexNumber && binder?.id) {
+          clearSelectedCardForPokemon(binder.id, slot.pokedexNumber).catch(err => {
+            console.error('[BinderEdit] Failed to clear region card selection:', err);
+          });
+        }
         return newPositions;
       });
     } else {
@@ -2018,8 +2083,9 @@ export default function BinderEditScreen() {
     // Bare region sprites can't be trashed — only TCG cards can
     if (dragged.cardId?.startsWith('region-') && dragged.imageUrl === dragged.spriteUrl) return;
 
-    const isRegionSlot = dragged.sourceSlot !== 'placeholder' &&
-      cardPositions[dragged.sourceSlot as number]?.pokemonName;
+    // Use ref for latest state (avoids stale closure in alert callback)
+    const currentSlot = cardPositionsRef.current[dragged.sourceSlot as number];
+    const isRegionSlot = dragged.sourceSlot !== 'placeholder' && currentSlot?.pokemonName;
 
     Alert.alert(
       isRegionSlot ? 'Clear Card Selection' : 'Remove Card',
@@ -2038,18 +2104,35 @@ export default function BinderEditScreen() {
               setPlaceholderCards(prev => prev.filter((_, i) => i !== dragged.sourceIndex));
             } else {
               const slotIdx = dragged.sourceSlot as number;
-              const reverted = revertRegionSlot(slotIdx);
-              if (reverted) {
-                setCardPositions(prev => {
-                  const newPositions = [...prev];
-                  newPositions[slotIdx] = reverted;
-                  return newPositions;
-                });
-              } else {
-                setCardPositions(prev =>
-                  shiftCardsLeft(prev, slotIdx)
-                );
-              }
+
+              setCardPositions(prev => {
+                const newPositions = [...prev];
+                const slot = newPositions[slotIdx];
+
+                if (slot?.pokemonName) {
+                  // Region slot: revert to sprite (compute from latest state)
+                  const regionCardId = `region-${binder?.region || 'Unknown'}-${slot.pokedexNumber}`;
+                  newPositions[slotIdx] = {
+                    slotIndex: slotIdx,
+                    cardId: regionCardId,
+                    cardName: slot.pokemonName,
+                    imageUrl: slot.spriteUrl,
+                    pokemonName: slot.pokemonName,
+                    pokedexNumber: slot.pokedexNumber,
+                    spriteUrl: slot.spriteUrl,
+                  };
+
+                  if (slot.pokedexNumber && binder?.id) {
+                    clearSelectedCardForPokemon(binder.id, slot.pokedexNumber).catch(err => {
+                      console.error('[BinderEdit] Failed to clear region card selection:', err);
+                    });
+                  }
+                } else {
+                  return shiftCardsLeft(newPositions, slotIdx);
+                }
+
+                return newPositions;
+              });
             }
 
             setHasChanges(true);

@@ -2102,15 +2102,19 @@ export async function searchCardsByName(
         });
       }
       
-      // "Starts with" filter: only keep cards whose name starts with the query.
-      // The API does a "contains" search, so "cha" would match "Machamp".
-      // This filter narrows results to names starting with the query (e.g. "Charizard").
+      // "Word starts with" filter: keep cards where any word in the name
+      // starts with the query. The API does a "contains" search, so "cha"
+      // would match "Machamp". This filter narrows results so "cha" matches
+      // "Charizard" but not "Machamp", while still allowing "Ethan's Ho-Oh"
+      // to appear when searching "ho-oh".
       if (sanitizedQuery && !isNumberSearch && !isCardIdSearch) {
         const beforeStartsWith = filteredResults.length;
         filteredResults = filteredResults.filter((card: any) => {
-          return (card.name || '').toLowerCase().startsWith(sanitizedQuery);
+          const name = (card.name || '').toLowerCase();
+          return name.startsWith(sanitizedQuery) ||
+            name.split(/\s+/).some((word: string) => word.startsWith(sanitizedQuery));
         });
-        console.log('[28A] Filtered to "starts with":', {
+        console.log('[28A] Filtered to "word starts with":', {
           query: sanitizedQuery,
           before: beforeStartsWith,
           after: filteredResults.length,

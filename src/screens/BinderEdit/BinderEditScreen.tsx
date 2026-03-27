@@ -17,7 +17,7 @@ import { Image } from 'expo-image';
 import { getBinderById } from '../../services/supabase/binders';
 import { getBinderCardsWithPositions } from '../../services/supabase/cards';
 import { getCardsBySet, getCardsByRegion, getCardById, getPokemonImageUrl, type Region } from '../../services/api/pokemonApi';
-import { getAllSelectedCardsForBinder, setSelectedCardForPokemon } from '../../services/supabase/regionCards';
+import { getAllSelectedCardsForBinder, setSelectedCardForPokemon, clearSelectedCardForPokemon } from '../../services/supabase/regionCards';
 import { getSearchName } from '../../data/pokemonRegions';
 import { getCardPositionsForBinder, saveCardPositionsForBinder, getPlaceholderCardsForBinder, savePlaceholderCardsForBinder, syncBinderCardsFromPositions } from '../../services/supabase/binderPositions';
 import { CardSlot, CardPlaceholder, SelectedCardBar, InsertButton, type PlaceholderCard } from '../../components/BinderEdit';
@@ -854,10 +854,16 @@ export default function BinderEditScreen() {
     setCardPositions(prev => {
       const newPositions = [...prev];
       if (selectedCard.sourceSlot !== 'placeholder') {
-        newPositions[selectedCard.sourceSlot] = {
-          ...newPositions[selectedCard.sourceSlot],
-          cardId: null, cardName: undefined, imageUrl: undefined, cardSet: undefined,
-        };
+        const srcIdx = selectedCard.sourceSlot as number;
+        const reverted = revertRegionSlot(srcIdx);
+        if (reverted) {
+          newPositions[srcIdx] = reverted;
+        } else {
+          newPositions[srcIdx] = {
+            ...newPositions[srcIdx],
+            cardId: null, cardName: undefined, imageUrl: undefined, cardSet: undefined,
+          };
+        }
       }
       newPositions[targetSlotIndex] = {
         ...newPositions[targetSlotIndex],
@@ -944,25 +950,67 @@ export default function BinderEditScreen() {
 
   const handleCancelSelection = () => { setSelectedCard(null); };
 
+  /**
+   * Reset a region Pokémon slot back to its default sprite.
+   * Returns the reverted position data, or null if the slot is not a region slot.
+   */
+  const revertRegionSlot = useCallback((slotIndex: number): CardPosition | null => {
+    const slot = cardPositions[slotIndex];
+    if (!slot?.pokemonName) return null;
+
+    // Clear the TCG card selection from the database
+    if (slot.pokedexNumber && binder?.id) {
+      clearSelectedCardForPokemon(binder.id, slot.pokedexNumber).catch(err => {
+        console.error('[BinderEdit] Failed to clear region card selection:', err);
+      });
+    }
+
+    const regionCardId = `region-${binder?.region || 'Unknown'}-${slot.pokedexNumber}`;
+    return {
+      slotIndex,
+      cardId: regionCardId,
+      cardName: slot.pokemonName,
+      imageUrl: slot.spriteUrl,
+      pokemonName: slot.pokemonName,
+      pokedexNumber: slot.pokedexNumber,
+      spriteUrl: slot.spriteUrl,
+    };
+  }, [cardPositions, binder?.id, binder?.region]);
+
   const handleRemoveCard = () => {
     if (!selectedCard) return;
 
+    const isRegionSlot = selectedCard.sourceSlot !== 'placeholder' &&
+      cardPositions[selectedCard.sourceSlot as number]?.pokemonName;
+
     Alert.alert(
-      'Remove Card',
-      `Remove ${selectedCard.cardName} from the binder?`,
+      isRegionSlot ? 'Clear Card Selection' : 'Remove Card',
+      isRegionSlot
+        ? `Revert ${selectedCard.cardName} back to its default sprite?`
+        : `Remove ${selectedCard.cardName} from the binder?`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
-          text: 'Remove',
+          text: isRegionSlot ? 'Clear' : 'Remove',
           style: 'destructive',
           onPress: () => {
             saveUndoState();
             if (selectedCard.sourceSlot === 'placeholder') {
               setPlaceholderCards(prev => prev.filter((_, i) => i !== selectedCard.sourceIndex));
             } else {
-              setCardPositions(prev =>
-                shiftCardsLeft(prev, selectedCard.sourceSlot as number)
-              );
+              const slotIdx = selectedCard.sourceSlot as number;
+              const reverted = revertRegionSlot(slotIdx);
+              if (reverted) {
+                setCardPositions(prev => {
+                  const newPositions = [...prev];
+                  newPositions[slotIdx] = reverted;
+                  return newPositions;
+                });
+              } else {
+                setCardPositions(prev =>
+                  shiftCardsLeft(prev, slotIdx)
+                );
+              }
             }
             setHasChanges(true);
             setSelectedCard(null);
@@ -1025,13 +1073,19 @@ export default function BinderEditScreen() {
           return [...updated, newPlaceholderCard];
         });
       } else {
-        // Moving from binder slot — clear the binder slot, add to placeholder
+        // Moving from binder slot — clear the binder slot (revert for region), add to placeholder
+        const srcIdx = selectedCard.sourceSlot as number;
+        const reverted = revertRegionSlot(srcIdx);
         setCardPositions(prev => {
           const newPositions = [...prev];
-          newPositions[selectedCard.sourceSlot as number] = {
-            ...newPositions[selectedCard.sourceSlot as number],
-            cardId: null, cardName: undefined, imageUrl: undefined,
-          };
+          if (reverted) {
+            newPositions[srcIdx] = reverted;
+          } else {
+            newPositions[srcIdx] = {
+              ...newPositions[srcIdx],
+              cardId: null, cardName: undefined, imageUrl: undefined,
+            };
+          }
           return newPositions;
         });
         setPlaceholderCards(prev => [...prev, newPlaceholderCard]);
@@ -1709,14 +1763,19 @@ export default function BinderEditScreen() {
       // Remove from placeholder
       setPlaceholderCards(p => p.filter((_, i) => i !== dragged.sourceIndex));
     } else {
-      // Clear source binder slot
+      // Clear source binder slot (revert to sprite for region slots)
+      const sourceIdx = dragged.sourceSlot as number;
+      const reverted = revertRegionSlot(sourceIdx);
       setCardPositions(prev => {
         const newPositions = [...prev];
-        const sourceIdx = dragged.sourceSlot as number;
-        newPositions[sourceIdx] = {
-          ...newPositions[sourceIdx],
-          cardId: null, cardName: undefined, imageUrl: undefined, cardSet: undefined,
-        };
+        if (reverted) {
+          newPositions[sourceIdx] = reverted;
+        } else {
+          newPositions[sourceIdx] = {
+            ...newPositions[sourceIdx],
+            cardId: null, cardName: undefined, imageUrl: undefined, cardSet: undefined,
+          };
+        }
         // Place in target slot
         newPositions[targetSlotIndex] = {
           ...newPositions[targetSlotIndex],
@@ -1826,16 +1885,25 @@ export default function BinderEditScreen() {
       imageUrl: dragged.imageUrl,
     }]);
 
-    // Clear source binder slot
+    // Clear source binder slot (revert to sprite for region slots)
     const sourceIdx = dragged.sourceSlot as number;
-    setCardPositions(prev => {
-      const newPositions = [...prev];
-      newPositions[sourceIdx] = {
-        ...newPositions[sourceIdx],
-        cardId: null, cardName: undefined, imageUrl: undefined,
-      };
-      return newPositions;
-    });
+    const reverted = revertRegionSlot(sourceIdx);
+    if (reverted) {
+      setCardPositions(prev => {
+        const newPositions = [...prev];
+        newPositions[sourceIdx] = reverted;
+        return newPositions;
+      });
+    } else {
+      setCardPositions(prev => {
+        const newPositions = [...prev];
+        newPositions[sourceIdx] = {
+          ...newPositions[sourceIdx],
+          cardId: null, cardName: undefined, imageUrl: undefined,
+        };
+        return newPositions;
+      });
+    }
 
     setHasChanges(true);
     console.log('[BinderEdit] Drag to placeholder complete');
@@ -1845,13 +1913,18 @@ export default function BinderEditScreen() {
    * TRASH: Drag a card to the trash zone → confirm removal.
    */
   const performDragToTrash = (dragged: DraggedCard) => {
+    const isRegionSlot = dragged.sourceSlot !== 'placeholder' &&
+      cardPositions[dragged.sourceSlot as number]?.pokemonName;
+
     Alert.alert(
-      'Remove Card',
-      `Remove ${dragged.cardName} from the binder?`,
+      isRegionSlot ? 'Clear Card Selection' : 'Remove Card',
+      isRegionSlot
+        ? `Revert ${dragged.cardName} back to its default sprite?`
+        : `Remove ${dragged.cardName} from the binder?`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
-          text: 'Remove',
+          text: isRegionSlot ? 'Clear' : 'Remove',
           style: 'destructive',
           onPress: () => {
             saveUndoState();
@@ -1859,9 +1932,19 @@ export default function BinderEditScreen() {
             if (dragged.sourceSlot === 'placeholder') {
               setPlaceholderCards(prev => prev.filter((_, i) => i !== dragged.sourceIndex));
             } else {
-              setCardPositions(prev =>
-                shiftCardsLeft(prev, dragged.sourceSlot as number)
-              );
+              const slotIdx = dragged.sourceSlot as number;
+              const reverted = revertRegionSlot(slotIdx);
+              if (reverted) {
+                setCardPositions(prev => {
+                  const newPositions = [...prev];
+                  newPositions[slotIdx] = reverted;
+                  return newPositions;
+                });
+              } else {
+                setCardPositions(prev =>
+                  shiftCardsLeft(prev, slotIdx)
+                );
+              }
             }
 
             setHasChanges(true);

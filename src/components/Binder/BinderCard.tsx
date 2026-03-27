@@ -108,7 +108,7 @@ export default function BinderCard({ binder, completionPercentage, totalCards, o
               {binder.name}
             </Text>
             <View style={styles.subtitleRow}>
-              <Ionicons name={modeIcon} size={13} color={colors.textTertiary} style={styles.modeIcon} />
+              <Ionicons name={modeIcon} size={11} color={colors.textTertiary} style={styles.modeIcon} />
               <Text style={styles.subtitle} numberOfLines={1}>
                 {getCollectionModeLabel(binder.collectionMode)}
                 {subtitle && ` · ${subtitle}`}
@@ -169,10 +169,10 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     marginRight: 4,
   },
   subtitle: {
-    fontSize: typography.sm,
+    fontSize: typography.xs,
     fontFamily: fonts.regular,
     color: colors.textTertiary,
-    flex: 1,
+    flexShrink: 1,
   },
   setLogo: {
     position: 'absolute',
@@ -183,9 +183,9 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     opacity: 0.7,
   },
   setSymbolInline: {
-    width: 14,
-    height: 14,
+    width: 12,
+    height: 12,
     opacity: 0.5,
-    marginLeft: 5,
+    marginLeft: 3,
   },
 });

@@ -72,9 +72,9 @@ export default function Step3VariantPlacement({ value, onChange, variantOrder, o
 
       {value === 'grouped' && (
         <>
-          <Text style={[styles.title, styles.orderTitle]}>Secret Rares</Text>
+          <Text style={[styles.title, styles.orderTitle]}>Display Order</Text>
           <Text style={styles.description}>
-            Show secret rares before or after the regular cards.
+            Show secret rares before or after the main set cards.
           </Text>
           <View style={styles.segmentedRow}>
             {SECRET_RARE_OPTIONS.map((opt, idx) => {

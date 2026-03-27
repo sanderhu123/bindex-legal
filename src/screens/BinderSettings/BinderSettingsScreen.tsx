@@ -532,7 +532,7 @@ export default function BinderSettingsScreen() {
 
                   {variantPlacement === 'grouped' && (
                     <>
-                      <Text style={[styles.label, styles.subSectionTop]}>Secret Rares</Text>
+                      <Text style={[styles.label, styles.subSectionTop]}>Display Order</Text>
                       <View style={styles.segmentedRow}>
                         {[
                           { value: true, label: 'Before' },

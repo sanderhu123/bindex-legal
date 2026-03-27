@@ -152,7 +152,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     marginBottom: spacing.sm,
   },
   titleAreaWithLogo: {
-    paddingRight: 48,
+    paddingRight: 56,
   },
   title: {
     fontSize: typography.lg,
@@ -178,8 +178,8 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     position: 'absolute',
     top: spacing.md,
     right: spacing.md,
-    width: 40,
-    height: 20,
+    width: 48,
+    height: 24,
     opacity: 0.7,
   },
   setSymbolInline: {

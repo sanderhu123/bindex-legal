@@ -1967,6 +1967,9 @@ export default function BinderEditScreen() {
     // If it's already in the placeholder, ignore
     if (dragged.sourceSlot === 'placeholder') return;
 
+    // Bare region sprites can't go to placeholder — only TCG cards can
+    if (dragged.cardId?.startsWith('region-')) return;
+
     saveUndoState();
 
     const sourceIdx = dragged.sourceSlot as number;
@@ -2010,6 +2013,9 @@ export default function BinderEditScreen() {
    * TRASH: Drag a card to the trash zone → confirm removal.
    */
   const performDragToTrash = (dragged: DraggedCard) => {
+    // Bare region sprites can't be trashed — only TCG cards can
+    if (dragged.cardId?.startsWith('region-')) return;
+
     const isRegionSlot = dragged.sourceSlot !== 'placeholder' &&
       cardPositions[dragged.sourceSlot as number]?.pokemonName;
 

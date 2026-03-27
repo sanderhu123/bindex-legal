@@ -746,20 +746,6 @@ export default function BinderEditScreen() {
     if (selectedCard) {
       if (selectedCard.sourceSlot === slotIndex) {
         setSelectedCard(null);
-      } else if (selectedCard.pokemonName && selectedCard.sourceSlot !== 'placeholder') {
-        // Region Pokémon cards can't be moved — tapping another slot just clears the selection
-        const srcIdx = selectedCard.sourceSlot as number;
-        const reverted = revertRegionSlot(srcIdx);
-        if (reverted) {
-          saveUndoState();
-          setCardPositions(prev => {
-            const newPositions = [...prev];
-            newPositions[srcIdx] = reverted;
-            return newPositions;
-          });
-          setHasChanges(true);
-        }
-        setSelectedCard(null);
       } else if (cardId) {
         handleSwapCards(slot);
       } else {

@@ -371,23 +371,23 @@ export default function BinderEditScreen() {
             cardGroups.get(baseId)!.push(card);
           });
 
+          const fixedOrder: Record<string, number> = {
+            'base': 0, 'reverse-holo': 1, 'poke-ball': 2, 'master-ball': 3,
+          };
           const grouped: Card[] = [];
           groupOrder.forEach((baseId) => {
             const cards = cardGroups.get(baseId)!;
             cards.sort((a, b) => {
-              return (groupPosition.get(a.variant || 'base') ?? 99)
-                   - (groupPosition.get(b.variant || 'base') ?? 99);
+              return (fixedOrder[a.variant || 'base'] ?? 99)
+                   - (fixedOrder[b.variant || 'base'] ?? 99);
             });
             grouped.push(...cards);
           });
 
           secretRareCards.sort((a, b) => getSetNumber(a.number) - getSetNumber(b.number));
 
-          const secretPos = groupPosition.get('secret-rare') ?? 99;
-          const firstNonSecret = Math.min(
-            ...effectiveOrder.filter(k => k !== 'secret-rare').map(k => groupPosition.get(k) ?? 99)
-          );
-          if (secretPos < firstNonSecret) {
+          const secretFirst = effectiveOrder.length > 0 && effectiveOrder[0] === 'secret-rare';
+          if (secretFirst) {
             cardsToPlace = [...secretRareCards, ...grouped];
           } else {
             cardsToPlace = [...grouped, ...secretRareCards];

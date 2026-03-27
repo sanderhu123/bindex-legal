@@ -17,6 +17,13 @@ export default function Step3VariantPlacement({ value, onChange, variantOrder, o
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
+  const secretRareFirst = variantOrder.length > 0 && variantOrder[0] === 'secret-rare';
+
+  const setSecretRarePosition = (before: boolean) => {
+    const rest = variantOrder.filter(k => k !== 'secret-rare');
+    onOrderChange(before ? ['secret-rare', ...rest] : [...rest, 'secret-rare']);
+  };
+
   const options: { key: VariantPlacement; label: string; description: string }[] = [
     {
       key: 'grouped',
@@ -28,6 +35,11 @@ export default function Step3VariantPlacement({ value, onChange, variantOrder, o
       label: 'At the End',
       description: 'Show all variants at the end of the collection',
     },
+  ];
+
+  const SECRET_RARE_OPTIONS = [
+    { value: true, label: 'Before' },
+    { value: false, label: 'After' },
   ];
 
   return (
@@ -58,11 +70,46 @@ export default function Step3VariantPlacement({ value, onChange, variantOrder, o
         );
       })}
 
-      <Text style={[styles.title, styles.orderTitle]}>Display Order</Text>
-      <Text style={styles.description}>
-        Set the order in which card groups appear in your binder. Use the arrows to rearrange.
-      </Text>
-      <VariantOrderSelector order={variantOrder} onChange={onOrderChange} />
+      {value === 'grouped' && (
+        <>
+          <Text style={[styles.title, styles.orderTitle]}>Secret Rares</Text>
+          <Text style={styles.description}>
+            Show secret rares before or after the regular cards.
+          </Text>
+          <View style={styles.segmentedRow}>
+            {SECRET_RARE_OPTIONS.map((opt, idx) => {
+              const selected = secretRareFirst === opt.value;
+              const isLast = idx === SECRET_RARE_OPTIONS.length - 1;
+              return (
+                <TouchableOpacity
+                  key={opt.label}
+                  style={[
+                    styles.segmentedButton,
+                    selected && styles.segmentedButtonActive,
+                    isLast && styles.segmentedButtonLast,
+                  ]}
+                  onPress={() => setSecretRarePosition(opt.value)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.segmentedText, selected && styles.segmentedTextActive]}>
+                    {opt.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </>
+      )}
+
+      {value === 'end' && (
+        <>
+          <Text style={[styles.title, styles.orderTitle]}>Display Order</Text>
+          <Text style={styles.description}>
+            Set the order in which card groups appear in your binder. Use the arrows to rearrange.
+          </Text>
+          <VariantOrderSelector order={variantOrder} onChange={onOrderChange} />
+        </>
+      )}
     </ScrollView>
   );
 }
@@ -118,5 +165,37 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   orderTitle: {
     marginTop: spacing.xl,
+  },
+  segmentedRow: {
+    flexDirection: 'row',
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: borderRadius.md,
+    overflow: 'hidden',
+    marginBottom: spacing.md,
+    backgroundColor: colors.background,
+  },
+  segmentedButton: {
+    flex: 1,
+    paddingVertical: spacing.sm + 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRightWidth: 1,
+    borderRightColor: colors.border,
+  },
+  segmentedButtonActive: {
+    backgroundColor: colors.primary,
+  },
+  segmentedButtonLast: {
+    borderRightWidth: 0,
+  },
+  segmentedText: {
+    fontSize: typography.sm,
+    fontFamily: fonts.medium,
+    color: colors.textSecondary,
+  },
+  segmentedTextActive: {
+    color: colors.onPrimary,
+    fontFamily: fonts.semibold,
   },
 });

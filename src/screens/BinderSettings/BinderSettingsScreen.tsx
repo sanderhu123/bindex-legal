@@ -530,8 +530,46 @@ export default function BinderSettingsScreen() {
                     })}
                   </View>
 
-                  <Text style={[styles.label, styles.subSectionTop]}>Display Order</Text>
-                  <VariantOrderSelector order={variantOrder} onChange={setVariantOrder} />
+                  {variantPlacement === 'grouped' && (
+                    <>
+                      <Text style={[styles.label, styles.subSectionTop]}>Secret Rares</Text>
+                      <View style={styles.segmentedRow}>
+                        {[
+                          { value: true, label: 'Before' },
+                          { value: false, label: 'After' },
+                        ].map((opt, idx) => {
+                          const srFirst = variantOrder.length > 0 && variantOrder[0] === 'secret-rare';
+                          const selected = srFirst === opt.value;
+                          return (
+                            <TouchableOpacity
+                              key={opt.label}
+                              style={[
+                                styles.segmentedButton,
+                                selected && styles.segmentedButtonActive,
+                                idx === 1 && styles.segmentedButtonLast,
+                              ]}
+                              onPress={() => {
+                                const rest = variantOrder.filter(k => k !== 'secret-rare');
+                                setVariantOrder(opt.value ? ['secret-rare', ...rest] : [...rest, 'secret-rare']);
+                              }}
+                              activeOpacity={0.7}
+                            >
+                              <Text style={[styles.segmentedText, selected && styles.segmentedTextActive]}>
+                                {opt.label}
+                              </Text>
+                            </TouchableOpacity>
+                          );
+                        })}
+                      </View>
+                    </>
+                  )}
+
+                  {variantPlacement === 'end' && (
+                    <>
+                      <Text style={[styles.label, styles.subSectionTop]}>Display Order</Text>
+                      <VariantOrderSelector order={variantOrder} onChange={setVariantOrder} />
+                    </>
+                  )}
                 </>
               )}
             </>

@@ -3878,7 +3878,6 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     width: 48,
     height: 24,
     marginLeft: 8,
-    opacity: 0.8,
   },
   subtitleRow: {
     flexDirection: 'row',

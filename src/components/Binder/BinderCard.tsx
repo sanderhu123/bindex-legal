@@ -180,12 +180,10 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     right: spacing.md,
     width: 48,
     height: 24,
-    opacity: 0.7,
   },
   setSymbolInline: {
     width: 12,
     height: 12,
-    opacity: 0.5,
     marginLeft: 3,
   },
 });

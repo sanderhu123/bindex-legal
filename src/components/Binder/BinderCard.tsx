@@ -3,7 +3,7 @@ import { View, StyleSheet, Text, TouchableOpacity, Image, Animated } from 'react
 import { Ionicons } from '@expo/vector-icons';
 import type { Binder } from '../../types';
 import ProgressBar from '../Progress/ProgressBar';
-import { getSetSymbolByName } from '../../data/pokemonEras';
+import { getSetSymbolByName, getSetLogoByName } from '../../data/pokemonEras';
 import { useTheme } from '../../context/ThemeContext';
 import { fonts, typography, spacing, borderRadius, shadows, type ThemeColors } from '../../constants/theme';
 
@@ -25,10 +25,15 @@ export default function BinderCard({ binder, completionPercentage, totalCards, o
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const [symbolError, setSymbolError] = useState(false);
+  const [logoError, setLogoError] = useState(false);
   const scaleAnim = useRef(new Animated.Value(1)).current;
 
   const setSymbolUrl = binder.collectionMode === 'master-set' && binder.set
     ? getSetSymbolByName(binder.set)
+    : null;
+
+  const setLogoUrl = binder.collectionMode === 'master-set' && binder.set
+    ? getSetLogoByName(binder.set)
     : null;
 
   const getCollectionModeLabel = (mode: string): string => {
@@ -75,6 +80,7 @@ export default function BinderCard({ binder, completionPercentage, totalCards, o
 
   const subtitle = getSubtitle();
   const showSetSymbol = binder.collectionMode === 'master-set' && setSymbolUrl && !symbolError;
+  const showSetLogo = binder.collectionMode === 'master-set' && setLogoUrl && !logoError;
   const modeIcon = MODE_ICONS[binder.collectionMode] || 'grid-outline';
 
   return (
@@ -89,15 +95,15 @@ export default function BinderCard({ binder, completionPercentage, totalCards, o
         delayLongPress={600}
       >
         <View style={styles.content}>
-          {showSetSymbol && (
+          {showSetLogo && (
             <Image
-              source={{ uri: setSymbolUrl }}
-              style={styles.setSymbol}
+              source={{ uri: setLogoUrl }}
+              style={styles.setLogo}
               resizeMode="contain"
-              onError={() => setSymbolError(true)}
+              onError={() => setLogoError(true)}
             />
           )}
-          <View style={styles.titleArea}>
+          <View style={[styles.titleArea, showSetLogo && styles.titleAreaWithLogo]}>
             <Text style={styles.title} numberOfLines={1}>
               {binder.name}
             </Text>
@@ -107,6 +113,14 @@ export default function BinderCard({ binder, completionPercentage, totalCards, o
                 {getCollectionModeLabel(binder.collectionMode)}
                 {subtitle && ` · ${subtitle}`}
               </Text>
+              {showSetSymbol && (
+                <Image
+                  source={{ uri: setSymbolUrl }}
+                  style={styles.setSymbolInline}
+                  resizeMode="contain"
+                  onError={() => setSymbolError(true)}
+                />
+              )}
             </View>
           </View>
 
@@ -136,7 +150,9 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   titleArea: {
     marginBottom: spacing.sm,
-    paddingRight: 28,
+  },
+  titleAreaWithLogo: {
+    paddingRight: 48,
   },
   title: {
     fontSize: typography.lg,
@@ -158,12 +174,18 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     color: colors.textTertiary,
     flex: 1,
   },
-  setSymbol: {
+  setLogo: {
     position: 'absolute',
     top: spacing.md,
     right: spacing.md,
-    width: 20,
+    width: 40,
     height: 20,
-    opacity: 0.6,
+    opacity: 0.7,
+  },
+  setSymbolInline: {
+    width: 14,
+    height: 14,
+    opacity: 0.5,
+    marginLeft: 5,
   },
 });

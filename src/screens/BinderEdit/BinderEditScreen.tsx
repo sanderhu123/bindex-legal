@@ -746,6 +746,20 @@ export default function BinderEditScreen() {
     if (selectedCard) {
       if (selectedCard.sourceSlot === slotIndex) {
         setSelectedCard(null);
+      } else if (selectedCard.pokemonName && selectedCard.sourceSlot !== 'placeholder') {
+        // Region Pokémon cards can't be moved — tapping another slot just clears the selection
+        const srcIdx = selectedCard.sourceSlot as number;
+        const reverted = revertRegionSlot(srcIdx);
+        if (reverted) {
+          saveUndoState();
+          setCardPositions(prev => {
+            const newPositions = [...prev];
+            newPositions[srcIdx] = reverted;
+            return newPositions;
+          });
+          setHasChanges(true);
+        }
+        setSelectedCard(null);
       } else if (cardId) {
         handleSwapCards(slot);
       } else {
@@ -1697,6 +1711,23 @@ export default function BinderEditScreen() {
    */
   const performDragAction = (dragged: DraggedCard, target: DropTarget) => {
     lightTap();
+
+    // Region Pokémon cards can't be moved — dropping just clears the TCG card selection
+    if (dragged.pokemonName && dragged.sourceSlot !== 'placeholder') {
+      const sourceIdx = dragged.sourceSlot as number;
+      const reverted = revertRegionSlot(sourceIdx);
+      if (reverted) {
+        saveUndoState();
+        setCardPositions(prev => {
+          const newPositions = [...prev];
+          newPositions[sourceIdx] = reverted;
+          return newPositions;
+        });
+        setHasChanges(true);
+      }
+      return;
+    }
+
     switch (target.type) {
       case 'card':
         if (target.slotIndex !== undefined) {

@@ -876,7 +876,8 @@ export default function BinderEditScreen() {
       const newPositions = [...prev];
       if (selectedCard.sourceSlot !== 'placeholder') {
         const srcIdx = selectedCard.sourceSlot as number;
-        const isBareSprite = selectedCard.cardId?.startsWith('region-');
+        const isBareSprite = selectedCard.cardId?.startsWith('region-') &&
+          selectedCard.imageUrl === selectedCard.spriteUrl;
 
         if (isBareSprite) {
           // Bare sprite: reposition entirely (clear source, move all data to target)
@@ -1834,7 +1835,8 @@ export default function BinderEditScreen() {
       setPlaceholderCards(p => p.filter((_, i) => i !== dragged.sourceIndex));
     } else {
       const sourceIdx = dragged.sourceSlot as number;
-      const isBareSprite = dragged.cardId?.startsWith('region-');
+      const isBareSprite = dragged.cardId?.startsWith('region-') &&
+        dragged.imageUrl === dragged.spriteUrl;
 
       if (isBareSprite) {
         // Bare sprite: reposition entirely (all data moves to target, source cleared)
@@ -1968,7 +1970,7 @@ export default function BinderEditScreen() {
     if (dragged.sourceSlot === 'placeholder') return;
 
     // Bare region sprites can't go to placeholder — only TCG cards can
-    if (dragged.cardId?.startsWith('region-')) return;
+    if (dragged.cardId?.startsWith('region-') && dragged.imageUrl === dragged.spriteUrl) return;
 
     saveUndoState();
 
@@ -2014,7 +2016,7 @@ export default function BinderEditScreen() {
    */
   const performDragToTrash = (dragged: DraggedCard) => {
     // Bare region sprites can't be trashed — only TCG cards can
-    if (dragged.cardId?.startsWith('region-')) return;
+    if (dragged.cardId?.startsWith('region-') && dragged.imageUrl === dragged.spriteUrl) return;
 
     const isRegionSlot = dragged.sourceSlot !== 'placeholder' &&
       cardPositions[dragged.sourceSlot as number]?.pokemonName;

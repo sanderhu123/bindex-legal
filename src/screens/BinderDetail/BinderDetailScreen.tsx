@@ -1610,7 +1610,10 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
   // - If no card selected: show hint to use edit mode
   // - If card selected: navigate to card detail
   const handleRegionCardTap = useCallback((pokemon: CardWithOwnership, index?: number) => {
-    const hasCustomCard = !!pokemon.selectedCardId;
+    // A region slot has a custom TCG card if:
+    // 1. selectedCardId is set (loaded from region_pokemon_cards table), OR
+    // 2. The card ID doesn't start with "region-" (replaced with a TCG card in edit mode)
+    const hasCustomCard = !!pokemon.selectedCardId || !pokemon.id.startsWith('region-');
     console.log('[BinderDetail] Region card tapped:', pokemon.name, 'hasCustomCard:', hasCustomCard);
     
     if (!hasCustomCard) {
@@ -1624,30 +1627,30 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
       const gridCols = binder?.layoutPreference === '4x3' ? 4 : 3;
       const perPage = gridCols === 4 ? 12 : 9;
       
+      // The actual TCG card ID (either from selectedCardId or the card's own ID)
+      const tcgCardId = pokemon.selectedCardId || pokemon.id;
+
       // Custom card selected - navigate to card detail
-      // Use the stored TCG card details (rarity, illustrator, set) from when the card was loaded
       navigation.navigate('CardDetail', {
-        cardId: pokemon.id,
+        cardId: tcgCardId,
         binderId: binder?.id || '',
         isOwned: pokemon.isOwned,
         collectionMode: 'region',
         pokedexNumber: pokemon.pokedexNumber,
         pokemonName: pokemon.name,
-        // Pass card index and cards per page for binder position display
         cardIndex: index,
         cardsPerPage: perPage,
-        // Pass full card data for Region mode with TCG card details
         regionCardData: {
-          id: pokemon.id,
+          id: tcgCardId,
           name: pokemon.selectedCardName || pokemon.name,
-          number: pokemon.selectedCardNumber || pokemon.pokedexNumber?.toString() || '',
-          set: pokemon.selectedCardSet || binder?.region || '',
-          rarity: pokemon.selectedCardRarity || '',
-          illustrator: pokemon.selectedCardIllustrator || '',
+          number: pokemon.selectedCardNumber || pokemon.number || '',
+          set: pokemon.selectedCardSet || pokemon.set || binder?.region || '',
+          rarity: pokemon.selectedCardRarity || pokemon.rarity || '',
+          illustrator: pokemon.selectedCardIllustrator || pokemon.illustrator || '',
           imageUrl: pokemon.imageUrl,
           imageUrlHiRes: pokemon.imageUrlHiRes || pokemon.imageUrl,
           pokedexNumber: pokemon.pokedexNumber,
-          selectedCardId: pokemon.selectedCardId,
+          selectedCardId: tcgCardId,
           setTotal: pokemon.setTotal,
           variant: pokemon.variant || 'base',
         },

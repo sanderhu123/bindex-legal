@@ -85,8 +85,11 @@ interface SelectedCard {
   imageUrl?: string;
   cardSet?: string;
   sourceSlot: number | 'placeholder';
-  sourceIndex: number; // Index within source (slot index or placeholder index)
-  sourcePage?: number; // Page number (1-based) for cross-page reference
+  sourceIndex: number;
+  sourcePage?: number;
+  pokemonName?: string;
+  pokedexNumber?: number;
+  spriteUrl?: string;
 }
 
 /**
@@ -99,6 +102,9 @@ interface DraggedCard {
   cardSet?: string;
   sourceSlot: number | 'placeholder';
   sourceIndex: number;
+  pokemonName?: string;
+  pokedexNumber?: number;
+  spriteUrl?: string;
 }
 
 /**
@@ -737,16 +743,6 @@ export default function BinderEditScreen() {
 
     const { slotIndex, cardId, cardName, imageUrl } = slot;
 
-    // Region Pokémon slot: tapping opens card picker pre-filled with the Pokémon's name
-    if (slot.pokemonName && !selectedCard) {
-      setTargetSlotIndex(slotIndex);
-      setCardPickerInitialQuery(getSearchName(slot.pokemonName));
-      setCardPickerPokemonOnly(true);
-      setReplaceMode(!!cardId);
-      setShowCardPicker(true);
-      return;
-    }
-
     if (selectedCard) {
       if (selectedCard.sourceSlot === slotIndex) {
         setSelectedCard(null);
@@ -766,12 +762,21 @@ export default function BinderEditScreen() {
         sourceSlot: slotIndex,
         sourceIndex: slotIndex,
         sourcePage: pageNumber,
+        pokemonName: slotPos?.pokemonName,
+        pokedexNumber: slotPos?.pokedexNumber,
+        spriteUrl: slotPos?.spriteUrl,
       });
     } else {
       // Empty slot tapped — open card picker
+      // For region Pokémon slots (sprite showing), pre-fill with the Pokémon's name
       setTargetSlotIndex(slotIndex);
-      setCardPickerInitialQuery('');
-      setCardPickerPokemonOnly(false);
+      if (slot.pokemonName) {
+        setCardPickerInitialQuery(getSearchName(slot.pokemonName));
+        setCardPickerPokemonOnly(true);
+      } else {
+        setCardPickerInitialQuery('');
+        setCardPickerPokemonOnly(false);
+      }
       setShowCardPicker(true);
     }
   };
@@ -809,30 +814,40 @@ export default function BinderEditScreen() {
         return newPositions;
       });
     } else {
-      // Binder card → binder card: swap them
+      // Binder card → binder card: swap them (including Pokémon metadata)
       const sourceSlotIndex = selectedCard.sourceSlot as number;
 
       setCardPositions(prev => {
         const newPositions = [...prev];
-        const targetData = {
-          cardId: targetSlot.cardId,
-          cardName: targetSlot.cardName,
-          imageUrl: targetSlot.imageUrl,
-          cardSet: targetSlot.cardSet,
+        const sourcePos = newPositions[sourceSlotIndex];
+        const targetPos = newPositions[targetSlot.slotIndex];
+
+        const sourceData = {
+          cardId: sourcePos.cardId,
+          cardName: sourcePos.cardName,
+          imageUrl: sourcePos.imageUrl,
+          cardSet: sourcePos.cardSet,
+          pokemonName: sourcePos.pokemonName,
+          pokedexNumber: sourcePos.pokedexNumber,
+          spriteUrl: sourcePos.spriteUrl,
         };
+        const targetData = {
+          cardId: targetPos.cardId,
+          cardName: targetPos.cardName,
+          imageUrl: targetPos.imageUrl,
+          cardSet: targetPos.cardSet,
+          pokemonName: targetPos.pokemonName,
+          pokedexNumber: targetPos.pokedexNumber,
+          spriteUrl: targetPos.spriteUrl,
+        };
+
         newPositions[sourceSlotIndex] = {
-          ...newPositions[sourceSlotIndex],
-          cardId: targetData.cardId,
-          cardName: targetData.cardName,
-          imageUrl: targetData.imageUrl,
-          cardSet: targetData.cardSet,
+          slotIndex: sourceSlotIndex,
+          ...targetData,
         };
         newPositions[targetSlot.slotIndex] = {
-          ...newPositions[targetSlot.slotIndex],
-          cardId: selectedCard.cardId,
-          cardName: selectedCard.cardName,
-          imageUrl: selectedCard.imageUrl,
-          cardSet: selectedCard.cardSet,
+          slotIndex: targetSlot.slotIndex,
+          ...sourceData,
         };
         return newPositions;
       });
@@ -862,6 +877,7 @@ export default function BinderEditScreen() {
           newPositions[srcIdx] = {
             ...newPositions[srcIdx],
             cardId: null, cardName: undefined, imageUrl: undefined, cardSet: undefined,
+            pokemonName: undefined, pokedexNumber: undefined, spriteUrl: undefined,
           };
         }
       }
@@ -871,6 +887,9 @@ export default function BinderEditScreen() {
         cardName: selectedCard.cardName,
         imageUrl: selectedCard.imageUrl,
         cardSet: selectedCard.cardSet,
+        pokemonName: selectedCard.pokemonName,
+        pokedexNumber: selectedCard.pokedexNumber,
+        spriteUrl: selectedCard.spriteUrl,
       };
       return newPositions;
     });
@@ -1035,8 +1054,16 @@ export default function BinderEditScreen() {
       setTargetSlotIndex(null);
     } else {
       // Replacing a binder card — target the same slot
-      setTargetSlotIndex(selectedCard.sourceSlot as number);
+      const slotIdx = selectedCard.sourceSlot as number;
+      setTargetSlotIndex(slotIdx);
       setPlaceholderPickerIndex(null);
+
+      // Pre-fill card picker with Pokémon name for region slots
+      const slot = cardPositions[slotIdx];
+      if (slot?.pokemonName) {
+        setCardPickerInitialQuery(getSearchName(slot.pokemonName));
+        setCardPickerPokemonOnly(true);
+      }
     }
 
     setReplaceMode(true);
@@ -1520,7 +1547,7 @@ export default function BinderEditScreen() {
     // Clear any tap-selected card
     setSelectedCard(null);
 
-    // Set dragged card state (look up cardSet from positions)
+    // Set dragged card state (look up cardSet and Pokémon metadata from positions)
     const slotData = cardPositionsRef.current[data.slotIndex];
     const dragged: DraggedCard = {
       cardId: data.cardId,
@@ -1529,6 +1556,9 @@ export default function BinderEditScreen() {
       cardSet: slotData?.cardSet,
       sourceSlot: data.slotIndex,
       sourceIndex: data.slotIndex,
+      pokemonName: slotData?.pokemonName,
+      pokedexNumber: slotData?.pokedexNumber,
+      spriteUrl: slotData?.spriteUrl,
     };
     setDraggedCard(dragged);
     draggedCardRef.current = dragged;
@@ -1721,28 +1751,40 @@ export default function BinderEditScreen() {
         return newPositions;
       });
     } else {
-      // Binder card ↔ binder card
+      // Binder card ↔ binder card (including Pokémon metadata)
       const sourceIdx = dragged.sourceSlot as number;
 
       setCardPositions(prev => {
         const newPositions = [...prev];
+        const sourcePos = newPositions[sourceIdx];
+        const targetPos = newPositions[targetSlotIndex];
 
-        // Put target card in source slot
-        newPositions[sourceIdx] = {
-          ...newPositions[sourceIdx],
-          cardId: targetSlot.cardId,
-          cardName: targetSlot.cardName,
-          imageUrl: targetSlot.imageUrl,
-          cardSet: targetSlot.cardSet,
+        const sourceData = {
+          cardId: sourcePos.cardId,
+          cardName: sourcePos.cardName,
+          imageUrl: sourcePos.imageUrl,
+          cardSet: sourcePos.cardSet,
+          pokemonName: sourcePos.pokemonName,
+          pokedexNumber: sourcePos.pokedexNumber,
+          spriteUrl: sourcePos.spriteUrl,
+        };
+        const targetData = {
+          cardId: targetPos.cardId,
+          cardName: targetPos.cardName,
+          imageUrl: targetPos.imageUrl,
+          cardSet: targetPos.cardSet,
+          pokemonName: targetPos.pokemonName,
+          pokedexNumber: targetPos.pokedexNumber,
+          spriteUrl: targetPos.spriteUrl,
         };
 
-        // Put dragged card in target slot
+        newPositions[sourceIdx] = {
+          slotIndex: sourceIdx,
+          ...targetData,
+        };
         newPositions[targetSlotIndex] = {
-          ...newPositions[targetSlotIndex],
-          cardId: dragged.cardId,
-          cardName: dragged.cardName,
-          imageUrl: dragged.imageUrl,
-          cardSet: dragged.cardSet,
+          slotIndex: targetSlotIndex,
+          ...sourceData,
         };
 
         return newPositions;
@@ -1774,15 +1816,19 @@ export default function BinderEditScreen() {
           newPositions[sourceIdx] = {
             ...newPositions[sourceIdx],
             cardId: null, cardName: undefined, imageUrl: undefined, cardSet: undefined,
+            pokemonName: undefined, pokedexNumber: undefined, spriteUrl: undefined,
           };
         }
-        // Place in target slot
+        // Place in target slot (including Pokémon metadata)
         newPositions[targetSlotIndex] = {
           ...newPositions[targetSlotIndex],
           cardId: dragged.cardId,
           cardName: dragged.cardName,
           imageUrl: dragged.imageUrl,
           cardSet: dragged.cardSet,
+          pokemonName: dragged.pokemonName,
+          pokedexNumber: dragged.pokedexNumber,
+          spriteUrl: dragged.spriteUrl,
         };
         return newPositions;
       });
@@ -1871,30 +1917,31 @@ export default function BinderEditScreen() {
     // If it's already in the placeholder, ignore
     if (dragged.sourceSlot === 'placeholder') return;
 
-    if (currentPlaceholder.length >= PLACEHOLDER_MAX) {
-      Alert.alert('Placeholder Full', 'The placeholder tray can hold a maximum of 18 cards.');
-      return;
-    }
-
     saveUndoState();
 
-    // Add to placeholder
-    setPlaceholderCards(prev => [...prev, {
-      cardId: dragged.cardId,
-      cardName: dragged.cardName,
-      imageUrl: dragged.imageUrl,
-    }]);
-
-    // Clear source binder slot (revert to sprite for region slots)
     const sourceIdx = dragged.sourceSlot as number;
     const reverted = revertRegionSlot(sourceIdx);
+
     if (reverted) {
+      // Region slot: just revert to sprite, don't add to placeholder
       setCardPositions(prev => {
         const newPositions = [...prev];
         newPositions[sourceIdx] = reverted;
         return newPositions;
       });
     } else {
+      // Non-region slot: add card to placeholder tray
+      if (currentPlaceholder.length >= PLACEHOLDER_MAX) {
+        Alert.alert('Placeholder Full', 'The placeholder tray can hold a maximum of 18 cards.');
+        return;
+      }
+
+      setPlaceholderCards(prev => [...prev, {
+        cardId: dragged.cardId,
+        cardName: dragged.cardName,
+        imageUrl: dragged.imageUrl,
+      }]);
+
       setCardPositions(prev => {
         const newPositions = [...prev];
         newPositions[sourceIdx] = {

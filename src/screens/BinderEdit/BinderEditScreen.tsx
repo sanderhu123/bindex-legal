@@ -765,6 +765,13 @@ export default function BinderEditScreen() {
       } else {
         handleMoveCardToSlot(slotIndex);
       }
+    } else if (slot.pokemonName && cardId?.startsWith('region-')) {
+      // Region sprite slot (no TCG card selected) — open card picker directly
+      setTargetSlotIndex(slotIndex);
+      setCardPickerInitialQuery(getSearchName(slot.pokemonName));
+      setCardPickerPokemonOnly(true);
+      setReplaceMode(true);
+      setShowCardPicker(true);
     } else if (cardId) {
       const pageNumber = Math.floor(slotIndex / cardsPerPage) + 1;
       const slotPos = cardPositions[slotIndex];
@@ -782,7 +789,6 @@ export default function BinderEditScreen() {
       });
     } else {
       // Empty slot tapped — open card picker
-      // For region Pokémon slots (sprite showing), pre-fill with the Pokémon's name
       setTargetSlotIndex(slotIndex);
       if (slot.pokemonName) {
         setCardPickerInitialQuery(getSearchName(slot.pokemonName));

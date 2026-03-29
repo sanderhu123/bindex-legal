@@ -10,11 +10,13 @@ import {
   type ViewToken,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 import type { Card } from '../../types';
 import CardImage from '../Card/CardImage';
 import { useTheme } from '../../context/ThemeContext';
 import { spacing, typography, borderRadius, fonts, type ThemeColors } from '../../constants/theme';
 import { canRetryError, classifyError, type AppErrorType } from '../../utils/errorUtils';
+import { getSetSymbolByName } from '../../data/pokemonEras';
 
 /**
  * Fixed height for each card item (used for getItemLayout optimization)
@@ -68,9 +70,19 @@ const CardResultItem = memo(function CardResultItem({ card, onSelect, isVisible 
         <Text style={styles.cardName} numberOfLines={1}>
           {card.name}
         </Text>
-        <Text style={styles.cardDetails} numberOfLines={1}>
-          #{card.number} - {card.set || 'Unknown Set'}
-        </Text>
+        <Text style={styles.cardNumber}>#{card.number}</Text>
+        <View style={styles.setRow}>
+          {getSetSymbolByName(card.set) && (
+            <Image
+              source={{ uri: getSetSymbolByName(card.set)! }}
+              style={styles.setIcon}
+              contentFit="contain"
+            />
+          )}
+          <Text style={styles.setName} numberOfLines={1}>
+            {card.set || 'Unknown Set'}
+          </Text>
+        </View>
       </View>
       <View style={styles.selectIndicator}>
         <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
@@ -396,10 +408,24 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     color: colors.text,
     marginBottom: 2,
   },
-  cardDetails: {
+  cardNumber: {
     fontSize: typography.sm,
     color: colors.textSecondary,
     marginBottom: 2,
+  },
+  setRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  setIcon: {
+    width: 16,
+    height: 16,
+    marginRight: 4,
+  },
+  setName: {
+    fontSize: typography.sm,
+    color: colors.textSecondary,
+    flex: 1,
   },
   cardRarity: {
     fontSize: typography.xs,

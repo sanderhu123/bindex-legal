@@ -70,7 +70,6 @@ const CardResultItem = memo(function CardResultItem({ card, onSelect, isVisible 
         <Text style={styles.cardName} numberOfLines={1}>
           {card.name}
         </Text>
-        <Text style={styles.cardNumber}>#{card.number}{card.setTotal ? `/${card.setTotal}` : ''}</Text>
         <View style={styles.setRow}>
           {getSetSymbolByName(card.set) && (
             <Image
@@ -79,8 +78,8 @@ const CardResultItem = memo(function CardResultItem({ card, onSelect, isVisible 
               contentFit="contain"
             />
           )}
-          <Text style={styles.setName} numberOfLines={1}>
-            {card.set || 'Unknown Set'}
+          <Text style={styles.setDetails} numberOfLines={1}>
+            {card.set || 'Unknown Set'} - {card.number}{card.setTotal ? `/${card.setTotal}` : ''}
           </Text>
         </View>
       </View>
@@ -408,11 +407,6 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     color: colors.text,
     marginBottom: 2,
   },
-  cardNumber: {
-    fontSize: typography.sm,
-    color: colors.textSecondary,
-    marginBottom: 2,
-  },
   setRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -422,7 +416,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     height: 16,
     marginRight: 4,
   },
-  setName: {
+  setDetails: {
     fontSize: typography.sm,
     color: colors.textSecondary,
     flex: 1,

@@ -2907,6 +2907,8 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
         <TouchableOpacity
           style={styles.toolbarIconButton}
           onPress={() => {
+            setSearchQuery('');
+            wasInBinderBeforeSearch.current = false;
             setViewMode('binder');
             setDisplaySpreadStart(0);
             setDisplayViewport({ width: 0, height: 0 });

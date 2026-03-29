@@ -23,7 +23,7 @@ import { useCardPicker } from '../../hooks/useCardPicker';
 import { CardSearchResults } from './CardSearchResults';
 import { CardPickerFilters } from './CardPickerFilters';
 import { useTheme } from '../../context/ThemeContext';
-import { spacing, typography, borderRadius, shadows, fonts, type ThemeColors } from '../../constants/theme';
+import { spacing, typography, borderRadius, shadows, fonts, screenPadding, type ThemeColors } from '../../constants/theme';
 import { createCustomCard, CUSTOM_CARD_COLORS } from '../../services/supabase/customCards';
 
 /** Modal height as percentage of screen (85%) */
@@ -92,7 +92,7 @@ export function CardPickerModal({
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   // Get dynamic screen dimensions for responsive layout
-  const { height: screenHeight } = useWindowDimensions();
+  const { width: screenWidth, height: screenHeight } = useWindowDimensions();
   
   // Ref to the search input for managing focus
   const searchInputRef = useRef<TextInput>(null);
@@ -436,53 +436,76 @@ export function CardPickerModal({
         </SafeAreaView>
       </KeyboardAvoidingView>
 
-      {/* Enlarged card preview overlay (long-press) */}
-      {enlargedCard && (
-        <Modal
-          visible={!!enlargedCard}
-          transparent={true}
-          animationType="fade"
-          onRequestClose={handleCardLongPressRelease}
-        >
-          <Pressable
-            style={styles.enlargeOverlay}
-            onPress={handleCardLongPressRelease}
+      {/* Enlarged card preview overlay (long-press) — matches binder view layout */}
+      {enlargedCard && (() => {
+        const cardNumberText = enlargedCard.number.includes('/')
+          ? enlargedCard.number
+          : enlargedCard.setTotal
+            ? `${enlargedCard.number}/${enlargedCard.setTotal}`
+            : enlargedCard.number;
+        const displaySetName = enlargedCard.set || '';
+        const previewMaxWidth = Math.min(screenWidth - (screenPadding * 2), 640);
+        const previewMaxHeight = Math.min(screenHeight * 0.78, screenHeight - 220);
+        const previewCardWidth = Math.min(previewMaxWidth, previewMaxHeight * 0.716);
+        const previewCardHeight = previewCardWidth / 0.716;
+
+        return (
+          <Modal
+            visible={!!enlargedCard}
+            transparent={true}
+            animationType="fade"
+            onRequestClose={handleCardLongPressRelease}
           >
-            <View style={styles.enlargedCardContainer}>
-              <Image
-                source={{ uri: enlargedCard.imageUrlHiRes || enlargedCard.imageUrl }}
-                style={styles.enlargedCard}
-                contentFit="contain"
-              />
-              <Text style={styles.enlargedCardNumber}>
-                {enlargedCard.setTotal
-                  ? `${enlargedCard.number}/${enlargedCard.setTotal}`
-                  : enlargedCard.number}
-              </Text>
-              <Text style={styles.enlargedCardName}>{enlargedCard.name}</Text>
-              {enlargedCard.set ? (
-                <View style={styles.enlargedSetRow}>
-                  {getSetSymbolByName(enlargedCard.set) && (
-                    <Image
-                      source={{ uri: getSetSymbolByName(enlargedCard.set)! }}
-                      style={styles.enlargedSetIcon}
-                      contentFit="contain"
-                    />
-                  )}
-                  <Text style={styles.enlargedSetName}>{enlargedCard.set}</Text>
+            <Pressable
+              style={styles.enlargeOverlay}
+              onPress={handleCardLongPressRelease}
+            >
+              <View style={[styles.enlargedCardContainer, styles.enlargedCardContainerColumn]}>
+                <Image
+                  source={{ uri: enlargedCard.imageUrlHiRes || enlargedCard.imageUrl }}
+                  style={[styles.enlargedCard, { width: previewCardWidth, height: previewCardHeight }]}
+                  contentFit="contain"
+                />
+                <View style={[styles.enlargedInfoPanel, styles.enlargedInfoPanelBelow, { maxWidth: Math.min(460, screenWidth - (screenPadding * 2)) }]}>
+                  <Text style={[styles.enlargedCardNumber, styles.enlargedTextCenter]}>
+                    {cardNumberText}
+                  </Text>
+                  <Text style={[styles.enlargedCardName, styles.enlargedTextCenter]}>
+                    {enlargedCard.name}
+                  </Text>
+                  {displaySetName ? (
+                    <View style={[styles.enlargedSetRow, styles.enlargedSetRowCenter]}>
+                      {getSetSymbolByName(displaySetName) && (
+                        <Image
+                          source={{ uri: getSetSymbolByName(displaySetName)! }}
+                          style={styles.enlargedSetIcon}
+                          contentFit="contain"
+                        />
+                      )}
+                      <Text style={[styles.enlargedSetName, styles.enlargedTextCenter]}>
+                        {displaySetName}
+                      </Text>
+                    </View>
+                  ) : null}
+                  {enlargedCard.rarity ? (
+                    <Text style={[styles.enlargedDetailText, styles.enlargedTextCenter]}>
+                      {enlargedCard.rarity}
+                    </Text>
+                  ) : null}
+                  {enlargedCard.illustrator ? (
+                    <Text style={[styles.enlargedDetailText, styles.enlargedTextCenter]}>
+                      Illustrated by {enlargedCard.illustrator}
+                    </Text>
+                  ) : null}
+                  <Text style={[styles.enlargedHint, styles.enlargedTextCenter]}>
+                    Tap anywhere to close
+                  </Text>
                 </View>
-              ) : null}
-              {enlargedCard.rarity ? (
-                <Text style={styles.enlargedDetailText}>{enlargedCard.rarity}</Text>
-              ) : null}
-              {enlargedCard.illustrator ? (
-                <Text style={styles.enlargedDetailText}>Illustrated by {enlargedCard.illustrator}</Text>
-              ) : null}
-              <Text style={styles.enlargedHint}>Tap anywhere to close</Text>
-            </View>
-          </Pressable>
-        </Modal>
-      )}
+              </View>
+            </Pressable>
+          </Modal>
+        );
+      })()}
     </Modal>
   );
 }
@@ -682,28 +705,40 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     zIndex: 1000,
   },
   enlargedCardContainer: {
-    width: '85%',
-    maxHeight: '80%',
+    width: '100%',
+    maxHeight: '90%',
+    paddingHorizontal: screenPadding,
+    justifyContent: 'center',
     alignItems: 'center',
+    gap: spacing.md,
+  },
+  enlargedCardContainerColumn: {
+    flexDirection: 'column',
+  },
+  enlargedInfoPanel: {
+    justifyContent: 'center',
+  },
+  enlargedInfoPanelBelow: {
+    alignItems: 'center',
+    marginTop: spacing.xs,
   },
   enlargedCard: {
-    width: '100%',
-    aspectRatio: 0.716,
     borderRadius: borderRadius.lg,
   },
   enlargedCardName: {
-    fontSize: typography.xl,
-    fontFamily: fonts.bold,
+    fontSize: typography.lg,
+    fontFamily: fonts.semibold,
     color: colors.onPrimary,
-    marginTop: spacing.md,
-    textAlign: 'center',
+    marginTop: spacing.xs,
   },
   enlargedSetRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
     gap: spacing.xs,
     marginTop: 2,
+  },
+  enlargedSetRowCenter: {
+    justifyContent: 'center',
   },
   enlargedSetIcon: {
     width: 20,
@@ -712,24 +747,25 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   enlargedSetName: {
     fontSize: typography.sm,
     color: 'rgba(255, 255, 255, 0.7)',
-    textAlign: 'center',
   },
   enlargedCardNumber: {
     fontSize: typography.base,
     color: colors.onPrimary,
-    marginTop: spacing.md,
-    textAlign: 'center',
   },
   enlargedDetailText: {
     fontSize: typography.sm,
     color: 'rgba(255, 255, 255, 0.7)',
     marginTop: spacing.xs,
-    textAlign: 'center',
   },
   enlargedHint: {
     fontSize: typography.sm,
-    color: 'rgba(255, 255, 255, 0.5)',
+    color: colors.textTertiary,
     marginTop: spacing.md,
+    fontStyle: 'italic',
+  },
+  enlargedTextCenter: {
+    textAlign: 'center',
+    alignSelf: 'center',
   },
 });
 

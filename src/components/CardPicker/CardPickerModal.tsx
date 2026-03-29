@@ -454,6 +454,11 @@ export function CardPickerModal({
                 style={styles.enlargedCard}
                 contentFit="contain"
               />
+              <Text style={styles.enlargedCardNumber}>
+                {enlargedCard.setTotal
+                  ? `${enlargedCard.number}/${enlargedCard.setTotal}`
+                  : enlargedCard.number}
+              </Text>
               <Text style={styles.enlargedCardName}>{enlargedCard.name}</Text>
               {enlargedCard.set ? (
                 <View style={styles.enlargedSetRow}>
@@ -467,9 +472,12 @@ export function CardPickerModal({
                   <Text style={styles.enlargedSetName}>{enlargedCard.set}</Text>
                 </View>
               ) : null}
-              <Text style={styles.enlargedCardNumber}>
-                #{enlargedCard.number}
-              </Text>
+              {enlargedCard.rarity ? (
+                <Text style={styles.enlargedDetailText}>{enlargedCard.rarity}</Text>
+              ) : null}
+              {enlargedCard.illustrator ? (
+                <Text style={styles.enlargedDetailText}>Illustrated by {enlargedCard.illustrator}</Text>
+              ) : null}
               <Text style={styles.enlargedHint}>Tap anywhere to close</Text>
             </View>
           </Pressable>
@@ -708,6 +716,12 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   enlargedCardNumber: {
     fontSize: typography.base,
+    color: colors.onPrimary,
+    marginTop: spacing.md,
+    textAlign: 'center',
+  },
+  enlargedDetailText: {
+    fontSize: typography.sm,
     color: 'rgba(255, 255, 255, 0.7)',
     marginTop: spacing.xs,
     textAlign: 'center',

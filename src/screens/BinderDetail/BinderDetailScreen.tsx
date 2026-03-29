@@ -2606,6 +2606,16 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
                   </Text>
                 </View>
               ) : null}
+              {enlargedCard.rarity ? (
+                <Text style={[styles.enlargedDetailText, isDisplayPreview ? styles.enlargedTextLeft : styles.enlargedTextCenter]}>
+                  {enlargedCard.rarity}
+                </Text>
+              ) : null}
+              {enlargedCard.illustrator ? (
+                <Text style={[styles.enlargedDetailText, isDisplayPreview ? styles.enlargedTextLeft : styles.enlargedTextCenter]}>
+                  Illustrated by {enlargedCard.illustrator}
+                </Text>
+              ) : null}
               {binderPage !== null && binderSlot !== null && (
                 <Text style={[styles.enlargedCardPosition, isDisplayPreview ? styles.enlargedTextLeft : styles.enlargedTextCenter]}>
                   Page {binderPage}, Slot {binderSlot}
@@ -4290,6 +4300,11 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   enlargedCardNumber: {
     fontSize: typography.base,
     color: colors.onPrimary,
+  },
+  enlargedDetailText: {
+    fontSize: typography.sm,
+    color: 'rgba(255, 255, 255, 0.7)',
+    marginTop: spacing.xs,
   },
   enlargedCardPosition: {
     fontSize: typography.sm,

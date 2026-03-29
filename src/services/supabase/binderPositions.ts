@@ -507,18 +507,22 @@ export async function syncBinderCardsFromPositions(
           .upsert(addRows, { onConflict: 'binder_id,card_id,variant' });
         if (addError) console.error('[EditSync] Error adding extra binder_cards:', addError);
 
-        // Increment total_cards for each new extra card
-        const { data: binderData } = await supabase
-          .from('binders')
-          .select('total_cards')
-          .eq('id', binderId)
-          .single();
-
-        if (binderData) {
-          await supabase
+        // Only increment total_cards for master-set binders.
+        // Region binders have a fixed total (number of Pokémon in the region),
+        // so filling a slot should never change the total.
+        if (collectionMode !== 'region') {
+          const { data: binderData } = await supabase
             .from('binders')
-            .update({ total_cards: (binderData.total_cards || 0) + toAdd.length })
-            .eq('id', binderId);
+            .select('total_cards')
+            .eq('id', binderId)
+            .single();
+
+          if (binderData) {
+            await supabase
+              .from('binders')
+              .update({ total_cards: (binderData.total_cards || 0) + toAdd.length })
+              .eq('id', binderId);
+          }
         }
       }
     }

@@ -2288,27 +2288,6 @@ export default function BinderEditScreen() {
     );
   };
 
-  // ─────────────────────────────────────────────────────────────────────────────
-  // RENDER: Main Screen
-  // ─────────────────────────────────────────────────────────────────────────────
-
-  if (loading) {
-    return <LoadingScreen message="Loading binder..." />;
-  }
-
-  if (error || !binder) {
-    return (
-      <ErrorScreen
-        message={error || 'Unable to load binder'}
-        onRetry={loadBinderData}
-      />
-    );
-  }
-
-  const selectedPlaceholderIndex = selectedCard?.sourceSlot === 'placeholder'
-    ? selectedCard.sourceIndex
-    : -1;
-
   // Long-press preview handler: look up full card data and show overlay
   const handleCardPreview = useCallback((slotIndex: number) => {
     const slot = cardPositionsRef.current[slotIndex];
@@ -2403,6 +2382,27 @@ export default function BinderEditScreen() {
       </Modal>
     );
   }, [enlargedCard, enlargedCardSlotIndex, cardsPerPage, handlePreviewClose, styles]);
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // RENDER: Main Screen
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  if (loading) {
+    return <LoadingScreen message="Loading binder..." />;
+  }
+
+  if (error || !binder) {
+    return (
+      <ErrorScreen
+        message={error || 'Unable to load binder'}
+        onRetry={loadBinderData}
+      />
+    );
+  }
+
+  const selectedPlaceholderIndex = selectedCard?.sourceSlot === 'placeholder'
+    ? selectedCard.sourceIndex
+    : -1;
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>

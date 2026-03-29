@@ -1732,7 +1732,10 @@ function isSearchCacheValid(timestamp: number): boolean {
  */
 async function enrichSearchCards(cards: Card[]): Promise<Card[]> {
   return Promise.all(cards.map(async (card) => {
-    const hasCoreDetails = !!(card.rarity && card.rarity.trim().length > 0);
+    const hasCoreDetails = !!(
+      card.rarity && card.rarity.trim().length > 0 &&
+      card.setTotal && card.setTotal.trim().length > 0
+    );
     if (hasCoreDetails) return card;
 
     const baseId = card.id.replace(/-(base|holo|reverse|poke-ball|master-ball)$/i, '');
@@ -1743,8 +1746,8 @@ async function enrichSearchCards(cards: Card[]): Promise<Card[]> {
         rarity: card.rarity || cached.rarity || '',
         illustrator: card.illustrator || cached.illustrator || '',
         supertype: card.supertype || cached.supertype || '',
-        set: card.set || cached.set || '',
-        setTotal: card.setTotal || cached.setTotal || '',
+        set: cached.set || card.set || '',
+        setTotal: cached.setTotal || card.setTotal || '',
       };
     }
 
@@ -1764,8 +1767,8 @@ async function enrichSearchCards(cards: Card[]): Promise<Card[]> {
           rarity: card.rarity || detailPatch.rarity || '',
           illustrator: card.illustrator || detailPatch.illustrator || '',
           supertype: card.supertype || detailPatch.supertype || '',
-          set: card.set || detailPatch.set || '',
-          setTotal: card.setTotal || detailPatch.setTotal || '',
+          set: detailPatch.set || card.set || '',
+          setTotal: detailPatch.setTotal || card.setTotal || '',
         };
       }
     } catch {

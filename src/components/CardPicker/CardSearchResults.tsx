@@ -70,7 +70,7 @@ const CardResultItem = memo(function CardResultItem({ card, onSelect, isVisible 
         <Text style={styles.cardName} numberOfLines={1}>
           {card.name}
         </Text>
-        <Text style={styles.cardNumber}>#{card.number}</Text>
+        <Text style={styles.cardNumber}>#{card.number}{card.setTotal ? `/${card.setTotal}` : ''}</Text>
         <View style={styles.setRow}>
           {getSetSymbolByName(card.set) && (
             <Image

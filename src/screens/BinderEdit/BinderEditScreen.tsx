@@ -10,8 +10,6 @@ import {
   Dimensions,
   Animated as RNAnimated,
   ActivityIndicator,
-  Modal,
-  Pressable,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -21,7 +19,6 @@ import { getBinderCardsWithPositions } from '../../services/supabase/cards';
 import { getCardsBySet, getCardsByRegion, getCardById, getPokemonImageUrl, type Region } from '../../services/api/pokemonApi';
 import { getAllSelectedCardsForBinder, setSelectedCardForPokemon, clearSelectedCardForPokemon } from '../../services/supabase/regionCards';
 import { getSearchName } from '../../data/pokemonRegions';
-import { getSetSymbolByName } from '../../data/pokemonEras';
 import { getCardPositionsForBinder, saveCardPositionsForBinder, getPlaceholderCardsForBinder, savePlaceholderCardsForBinder, syncBinderCardsFromPositions } from '../../services/supabase/binderPositions';
 import { CardSlot, CardPlaceholder, SelectedCardBar, InsertButton, type PlaceholderCard } from '../../components/BinderEdit';
 import type { DragStartData } from '../../components/BinderEdit/CardSlot';
@@ -212,13 +209,6 @@ export default function BinderEditScreen() {
 
   // Region mode: number of region Pokémon slots (slots 0 to regionCardCount-1 are Pokémon)
   const [regionCardCount, setRegionCardCount] = useState(0);
-
-  // Full card data lookup for enlarged preview (populated during card loading)
-  const cardDataMapRef = useRef<Map<string, Card>>(new Map());
-
-  // Enlarged card preview state (long-press without movement)
-  const [enlargedCard, setEnlargedCard] = useState<Card | null>(null);
-  const [enlargedCardSlotIndex, setEnlargedCardSlotIndex] = useState<number | null>(null);
 
   // Screen dimensions
   const [screenWidth, setScreenWidth] = useState(Dimensions.get('window').width);
@@ -459,7 +449,6 @@ export default function BinderEditScreen() {
                   try {
                     const tcgCard = await getCardById(selectedCardId);
                     if (tcgCard?.imageUrl) {
-                      cardDataMapRef.current.set(tcgCard.id, tcgCard);
                       return { ...pokemon, imageUrl: tcgCard.imageUrl, imageUrlHiRes: tcgCard.imageUrlHiRes };
                     }
                   } catch { /* fall back to default sprite */ }
@@ -478,11 +467,6 @@ export default function BinderEditScreen() {
       } else if (binderData.collectionMode === 'custom') {
         console.log('[BinderEdit] Loading Custom binder cards');
       }
-
-      // Store full card data for enlarged preview lookup
-      cardsToPlace.forEach(card => {
-        cardDataMapRef.current.set(card.id, card);
-      });
 
       // ── Calculate how many pages we need ──
       // For master-set / region: based on number of cards to place
@@ -608,7 +592,6 @@ export default function BinderEditScreen() {
               try {
                 const card = await getCardById(saved.cardId);
                 if (card) {
-                  cardDataMapRef.current.set(card.id, card);
                   positions[saved.slotIndex] = {
                     slotIndex: saved.slotIndex,
                     cardId: card.id,
@@ -632,7 +615,6 @@ export default function BinderEditScreen() {
           Array.from(customFallbackPositions.entries()).map(async ([position, data]) => {
             try {
               const card = await getCardById(data.cardId);
-              if (card) cardDataMapRef.current.set(card.id, card);
               return card ? { position, card } : null;
             } catch { return null; }
           })
@@ -2268,7 +2250,6 @@ export default function BinderEditScreen() {
                         onDragUpdate={handleDragUpdate}
                         onDragEnd={handleDragEnd}
                         onDragFinalize={handleDragFinalize}
-                        onLongPressPreview={handleCardPreview}
                       />
                     </View>
 
@@ -2287,101 +2268,6 @@ export default function BinderEditScreen() {
       </View>
     );
   };
-
-  // Long-press preview handler: look up full card data and show overlay
-  const handleCardPreview = useCallback((slotIndex: number) => {
-    const slot = cardPositionsRef.current[slotIndex];
-    if (!slot?.cardId) return;
-
-    const fullCard = cardDataMapRef.current.get(slot.cardId);
-    if (fullCard) {
-      setEnlargedCard(fullCard);
-      setEnlargedCardSlotIndex(slotIndex);
-    } else {
-      setEnlargedCard({
-        id: slot.cardId,
-        name: slot.cardName || 'Card',
-        number: '',
-        set: slot.cardSet || '',
-        imageUrl: slot.imageUrl || '',
-      } as Card);
-      setEnlargedCardSlotIndex(slotIndex);
-    }
-  }, []);
-
-  const handlePreviewClose = useCallback(() => {
-    setEnlargedCard(null);
-    setEnlargedCardSlotIndex(null);
-  }, []);
-
-  // Enlarged card overlay (long-press preview, matches binder view)
-  const enlargedCardOverlay = useMemo(() => {
-    if (!enlargedCard) return null;
-
-    const binderPage = enlargedCardSlotIndex !== null
-      ? Math.floor(enlargedCardSlotIndex / cardsPerPage) + 1
-      : null;
-    const binderSlot = enlargedCardSlotIndex !== null
-      ? (enlargedCardSlotIndex % cardsPerPage) + 1
-      : null;
-    const displaySetName = enlargedCard.set || '';
-    const setSymbolUrl = displaySetName ? getSetSymbolByName(displaySetName) : null;
-    const screenW = Dimensions.get('window').width;
-    const previewCardWidth = Math.min(screenW * 0.75, 320);
-    const previewCardHeight = previewCardWidth / 0.716;
-
-    return (
-      <Modal
-        visible={!!enlargedCard}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={handlePreviewClose}
-      >
-        <Pressable
-          style={styles.enlargeOverlay}
-          onPress={handlePreviewClose}
-        >
-          <View style={styles.enlargedCardContainer}>
-            <Image
-              source={{ uri: enlargedCard.imageUrlHiRes || enlargedCard.imageUrl }}
-              style={[styles.enlargedCard, { width: previewCardWidth, height: previewCardHeight }]}
-              contentFit="contain"
-            />
-            <Text style={styles.enlargedCardNumber}>
-              {enlargedCard.setTotal
-                ? `${enlargedCard.number}/${enlargedCard.setTotal}`
-                : enlargedCard.number}
-            </Text>
-            <Text style={styles.enlargedCardName}>{enlargedCard.name}</Text>
-            {displaySetName ? (
-              <View style={styles.enlargedSetRow}>
-                {setSymbolUrl && (
-                  <Image
-                    source={{ uri: setSymbolUrl }}
-                    style={styles.enlargedSetIcon}
-                    contentFit="contain"
-                  />
-                )}
-                <Text style={styles.enlargedSetName}>{displaySetName}</Text>
-              </View>
-            ) : null}
-            {enlargedCard.rarity ? (
-              <Text style={styles.enlargedDetailText}>{enlargedCard.rarity}</Text>
-            ) : null}
-            {enlargedCard.illustrator ? (
-              <Text style={styles.enlargedDetailText}>Illustrated by {enlargedCard.illustrator}</Text>
-            ) : null}
-            {binderPage !== null && binderSlot !== null && (
-              <Text style={styles.enlargedCardPosition}>
-                Page {binderPage}, Slot {binderSlot}
-              </Text>
-            )}
-            <Text style={styles.enlargedHint}>Tap anywhere to close</Text>
-          </View>
-        </Pressable>
-      </Modal>
-    );
-  }, [enlargedCard, enlargedCardSlotIndex, cardsPerPage, handlePreviewClose, styles]);
 
   // ─────────────────────────────────────────────────────────────────────────────
   // RENDER: Main Screen
@@ -2540,8 +2426,6 @@ export default function BinderEditScreen() {
         </View>
       )}
 
-      {/* Enlarged card preview overlay (long-press) */}
-      {enlargedCardOverlay}
     </SafeAreaView>
   );
 }
@@ -2668,76 +2552,5 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     fontSize: typography.md,
     color: colors.text,
     fontFamily: fonts.medium,
-  },
-  // ── Enlarged card preview overlay (long-press) ──
-  enlargeOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.85)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 10001,
-  },
-  enlargedCardContainer: {
-    width: '85%',
-    maxHeight: '80%',
-    alignItems: 'center',
-  },
-  enlargedCard: {
-    borderRadius: borderRadius.lg,
-  },
-  enlargedCardNumber: {
-    fontSize: typography.base,
-    color: colors.onPrimary,
-    marginTop: spacing.md,
-    textAlign: 'center',
-  },
-  enlargedCardName: {
-    fontSize: typography.xl,
-    fontFamily: fonts.bold,
-    color: colors.onPrimary,
-    marginTop: spacing.xs,
-    textAlign: 'center',
-  },
-  enlargedSetRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.xs,
-    marginTop: 2,
-  },
-  enlargedSetIcon: {
-    width: 20,
-    height: 20,
-  },
-  enlargedSetName: {
-    fontSize: typography.sm,
-    color: 'rgba(255, 255, 255, 0.7)',
-    textAlign: 'center',
-  },
-  enlargedDetailText: {
-    fontSize: typography.sm,
-    color: 'rgba(255, 255, 255, 0.7)',
-    marginTop: spacing.xs,
-    textAlign: 'center',
-  },
-  enlargedCardPosition: {
-    fontSize: typography.sm,
-    color: colors.onPrimary,
-    marginTop: spacing.xs,
-    backgroundColor: 'rgba(0, 0, 0, 0.4)',
-    borderRadius: borderRadius.sm,
-    paddingHorizontal: spacing.xs,
-    paddingVertical: 2,
-    textAlign: 'center',
-  },
-  enlargedHint: {
-    fontSize: typography.sm,
-    color: 'rgba(255, 255, 255, 0.5)',
-    marginTop: spacing.md,
-    textAlign: 'center',
   },
 });

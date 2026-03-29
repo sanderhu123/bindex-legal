@@ -1843,8 +1843,9 @@ export async function searchCardsByName(
   // Step 1: Check if we have a cached sorted list for this query
   const cachedSorted = sortedSearchCache.get(sortedCacheKey);
   if (cachedSorted && isSearchCacheValid(cachedSorted.timestamp)) {
-    // We have the full sorted list - return the requested page
-    const paginatedResults = cachedSorted.cards.slice(offset, offset + limit);
+    // We have the full sorted list - return the requested page, enriched
+    const paginatedRaw = cachedSorted.cards.slice(offset, offset + limit);
+    const paginatedResults = await enrichSearchCards(paginatedRaw);
     const duration = performance.now() - startTime;
     
     console.log('[28A] Returning from sorted cache:', {
@@ -1865,7 +1866,8 @@ export async function searchCardsByName(
     console.warn('[28A] Rate limited during search');
     // Try to return stale cache if available
     if (cachedSorted) {
-      const paginatedResults = cachedSorted.cards.slice(offset, offset + limit);
+      const paginatedRaw = cachedSorted.cards.slice(offset, offset + limit);
+      const paginatedResults = await enrichSearchCards(paginatedRaw);
       console.log('[28A] Returning stale cache due to rate limit');
       return { cards: paginatedResults, filterMeta: cachedSorted.filterMeta };
     }
@@ -2170,14 +2172,16 @@ export async function searchCardsByName(
           id: card.id || '',
           name: card.name || '',
           number: card.localId || '',
-          set: card.set?.name || setId, // Set name if available, otherwise set ID
+          set: card.set?.name || setId,
           rarity: card.rarity || '',
           illustrator: card.illustrator || '',
           imageUrl,
           imageUrlHiRes,
           variant: 'base' as const,
           supertype: card.category || '',
-          setTotal: '',
+          setTotal: card.set?.cardCount?.official
+            ? String(card.set.cardCount.official)
+            : '',
         };
       });
       
@@ -2341,8 +2345,9 @@ export async function searchCardsByName(
         timestamp: Date.now(),
       });
       
-      // Return only the requested page
-      const paginatedResults = allSortedCards.slice(offset, offset + limit);
+      // Return only the requested page, enriched with full card details
+      const paginatedRaw = allSortedCards.slice(offset, offset + limit);
+      const paginatedResults = await enrichSearchCards(paginatedRaw);
       
       const totalDuration = performance.now() - startTime;
       const performanceRating = totalDuration < 1000 ? 'excellent' : 

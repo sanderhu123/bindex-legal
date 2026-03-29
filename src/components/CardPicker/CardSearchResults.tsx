@@ -41,6 +41,7 @@ interface CardItemProps {
 const CardResultItem = memo(function CardResultItem({ card, onSelect, isVisible = true, onLongPress, onLongPressRelease }: CardItemProps) {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const setSymbolUri = getSetSymbolByName(card.set);
   return (
     <TouchableOpacity
       style={styles.cardItem}
@@ -71,15 +72,20 @@ const CardResultItem = memo(function CardResultItem({ card, onSelect, isVisible 
           {card.name}
         </Text>
         <View style={styles.setRow}>
-          {getSetSymbolByName(card.set) && (
+          <Text style={styles.setLineNumber} numberOfLines={1}>
+            {card.number}{card.setTotal ? `/${card.setTotal}` : ''}
+            {' - '}
+          </Text>
+          {setSymbolUri ? (
             <Image
-              source={{ uri: getSetSymbolByName(card.set)! }}
+              source={{ uri: setSymbolUri }}
               style={styles.setIcon}
               contentFit="contain"
             />
-          )}
-          <Text style={styles.setDetails} numberOfLines={1}>
-            {card.set || 'Unknown Set'} - {card.number}{card.setTotal ? `/${card.setTotal}` : ''}
+          ) : null}
+          <Text style={styles.setLineSetName} numberOfLines={1}>
+            {setSymbolUri ? ' - ' : ''}
+            {card.set || 'Unknown Set'}
           </Text>
         </View>
       </View>
@@ -414,12 +420,18 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   setIcon: {
     width: 16,
     height: 16,
-    marginRight: 4,
+    flexShrink: 0,
   },
-  setDetails: {
+  setLineNumber: {
+    fontSize: typography.sm,
+    color: colors.textSecondary,
+    flexShrink: 0,
+  },
+  setLineSetName: {
     fontSize: typography.sm,
     color: colors.textSecondary,
     flex: 1,
+    minWidth: 0,
   },
   cardRarity: {
     fontSize: typography.xs,

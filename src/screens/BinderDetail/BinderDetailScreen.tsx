@@ -2928,6 +2928,8 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
             onViewModeChange={(mode) => {
               setViewMode(mode);
               if (mode === 'binder') {
+                setSearchQuery('');
+                wasInBinderBeforeSearch.current = false;
                 setOwnershipFilter('all');
                 setStatsFilter(null);
                 setExpandedFilter(null);

@@ -487,16 +487,6 @@ export function CardPickerModal({
                       </Text>
                     </View>
                   ) : null}
-                  {enlargedCard.rarity ? (
-                    <Text style={[styles.enlargedDetailText, styles.enlargedTextCenter]}>
-                      {enlargedCard.rarity}
-                    </Text>
-                  ) : null}
-                  {enlargedCard.illustrator ? (
-                    <Text style={[styles.enlargedDetailText, styles.enlargedTextCenter]}>
-                      Illustrated by {enlargedCard.illustrator}
-                    </Text>
-                  ) : null}
                   <Text style={[styles.enlargedHint, styles.enlargedTextCenter]}>
                     Tap anywhere to close
                   </Text>
@@ -751,11 +741,6 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   enlargedCardNumber: {
     fontSize: typography.base,
     color: colors.onPrimary,
-  },
-  enlargedDetailText: {
-    fontSize: typography.sm,
-    color: 'rgba(255, 255, 255, 0.7)',
-    marginTop: spacing.xs,
   },
   enlargedHint: {
     fontSize: typography.sm,

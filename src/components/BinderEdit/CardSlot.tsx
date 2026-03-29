@@ -50,6 +50,8 @@ export interface CardSlotProps {
   onDragEnd?: (touchX: number, touchY: number) => void;
   /** Called when the gesture finalizes (end or cancel) */
   onDragFinalize?: () => void;
+  /** Called on long-press without movement (show enlarged preview) */
+  onLongPressPreview?: (slotIndex: number) => void;
 }
 
 /**
@@ -75,6 +77,7 @@ export function CardSlot({
   onDragUpdate,
   onDragEnd,
   onDragFinalize,
+  onLongPressPreview,
 }: CardSlotProps) {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
@@ -107,9 +110,16 @@ export function CardSlot({
   const onDragFinalizeRef = useRef(onDragFinalize);
   onDragFinalizeRef.current = onDragFinalize;
 
+  const onLongPressPreviewRef = useRef(onLongPressPreview);
+  onLongPressPreviewRef.current = onLongPressPreview;
+
   // Store current card data in a ref so gesture callbacks always have latest values
   const cardDataRef = useRef({ cardId, cardName, imageUrl, slotIndex });
   cardDataRef.current = { cardId, cardName, imageUrl, slotIndex };
+
+  // Track whether drag has started (movement threshold exceeded)
+  const dragStartedRef = useRef(false);
+  const startPosRef = useRef({ x: 0, y: 0 });
 
   // Tap gesture for normal press (select/swap/move/open picker)
   const tapGesture = useMemo(
@@ -121,43 +131,63 @@ export function CardSlot({
   );
 
   // Pan gesture for drag & drop (activates after 300ms long press)
-  // Only enabled on filled slots that have a drag handler
+  // Long-press without movement → preview; long-press with movement → drag
   const panGesture = useMemo(() => {
+    const DRAG_THRESHOLD = 10;
     const gesture = Gesture.Pan()
       .activateAfterLongPress(300)
       .onStart((e) => {
-        const data = cardDataRef.current;
-        if (data.cardId) {
-          mediumTap();
-          onDragStartRef.current?.(
-            {
-              cardId: data.cardId,
-              cardName: data.cardName,
-              imageUrl: data.imageUrl,
-              slotIndex: data.slotIndex,
-            },
-            e.absoluteX,
-            e.absoluteY,
-          );
-        }
+        dragStartedRef.current = false;
+        startPosRef.current = { x: e.absoluteX, y: e.absoluteY };
       })
       .onUpdate((e) => {
-        onDragUpdateRef.current?.(e.absoluteX, e.absoluteY);
+        if (!dragStartedRef.current) {
+          if (Math.abs(e.translationX) > DRAG_THRESHOLD || Math.abs(e.translationY) > DRAG_THRESHOLD) {
+            dragStartedRef.current = true;
+            const data = cardDataRef.current;
+            if (data.cardId) {
+              mediumTap();
+              onDragStartRef.current?.(
+                {
+                  cardId: data.cardId,
+                  cardName: data.cardName,
+                  imageUrl: data.imageUrl,
+                  slotIndex: data.slotIndex,
+                },
+                startPosRef.current.x,
+                startPosRef.current.y,
+              );
+            }
+          }
+        }
+        if (dragStartedRef.current) {
+          onDragUpdateRef.current?.(e.absoluteX, e.absoluteY);
+        }
       })
       .onEnd((e) => {
-        onDragEndRef.current?.(e.absoluteX, e.absoluteY);
+        if (dragStartedRef.current) {
+          onDragEndRef.current?.(e.absoluteX, e.absoluteY);
+        } else {
+          const data = cardDataRef.current;
+          if (data.cardId) {
+            onLongPressPreviewRef.current?.(data.slotIndex);
+          }
+        }
       })
       .onFinalize(() => {
-        onDragFinalizeRef.current?.();
+        if (dragStartedRef.current) {
+          onDragFinalizeRef.current?.();
+        }
+        dragStartedRef.current = false;
       });
 
-    // Disable pan on empty slots or when no drag handler is provided
-    if (!cardId || !onDragStart) {
+    const hasPanBehavior = !!onDragStart || !!onLongPressPreview;
+    if (!cardId || !hasPanBehavior) {
       gesture.enabled(false);
     }
 
     return gesture;
-  }, [!!cardId, !!onDragStart]);
+  }, [!!cardId, !!onDragStart, !!onLongPressPreview]);
 
   // Pan wins over tap when long press is detected
   const composedGesture = useMemo(

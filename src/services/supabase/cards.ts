@@ -1360,26 +1360,58 @@ export async function updateCardVariant(
   // Build the update — store 'base' as null to match existing convention
   const variantValue = (newVariant && newVariant !== 'base') ? newVariant : null;
 
-  let query = supabase
-    .from('binder_cards')
-    .update({ variant: variantValue })
-    .eq('user_id', user.id)
-    .eq('binder_id', binderId)
-    .eq('card_id', cardId);
+  const baseFilters = {
+    user_id: user.id,
+    binder_id: binderId,
+    card_id: cardId,
+  };
+
+  // Try to update the matching row. For base/null variants, the row may
+  // have been stored as NULL or the literal string 'base' depending on
+  // which code path created it. Try NULL first, then fall back to 'base'.
+  let data: any[] | null = null;
+  let error: any = null;
 
   if (isPositionBased) {
-    query = query.eq('position', position);
+    const result = await supabase
+      .from('binder_cards')
+      .update({ variant: variantValue })
+      .match({ ...baseFilters, position })
+      .select('id');
+    data = result.data;
+    error = result.error;
+  } else if (oldVariant && oldVariant !== 'base') {
+    const result = await supabase
+      .from('binder_cards')
+      .update({ variant: variantValue })
+      .match({ ...baseFilters, variant: oldVariant })
+      .select('id');
+    data = result.data;
+    error = result.error;
   } else {
-    if (oldVariant && oldVariant !== 'base') {
-      query = query.eq('variant', oldVariant);
+    // Try variant IS NULL first
+    const nullResult = await supabase
+      .from('binder_cards')
+      .update({ variant: variantValue })
+      .eq('user_id', user.id)
+      .eq('binder_id', binderId)
+      .eq('card_id', cardId)
+      .is('variant', null)
+      .select('id');
+
+    if (!nullResult.error && nullResult.data && nullResult.data.length > 0) {
+      data = nullResult.data;
     } else {
-      // Match both NULL and the literal string 'base' — some rows may
-      // have been stored either way depending on the code path.
-      query = query.or('variant.is.null,variant.eq.base');
+      // Fall back to variant = 'base' (legacy rows)
+      const baseResult = await supabase
+        .from('binder_cards')
+        .update({ variant: variantValue })
+        .match({ ...baseFilters, variant: 'base' })
+        .select('id');
+      data = baseResult.data;
+      error = baseResult.error;
     }
   }
-
-  const { data, error } = await query.select('id');
 
   if (error) {
     // Unique-constraint violation: another row with the target variant
@@ -1398,7 +1430,7 @@ export async function updateCardVariant(
       } else if (oldValue) {
         delQuery = delQuery.eq('variant', oldValue);
       } else {
-        delQuery = delQuery.or('variant.is.null,variant.eq.base');
+        delQuery = delQuery.is('variant', null);
       }
 
       await delQuery;

@@ -297,9 +297,12 @@ export default function CardDetailScreen({ navigation, route }: CardDetailScreen
     async function loadBinderData() {
       try {
         const isCustom = collectionMode === 'custom' && position !== undefined && position !== null;
+        const dbId = (isRegionMode && binder!.region && pokedexNumber)
+          ? `region-${binder!.region}-${pokedexNumber}`
+          : card!.id;
         const data = await getBinderCardData(
           binder!.id,
-          card!.id,
+          dbId,
           card!.variant,
           isCustom ? position : undefined,
           !!isExtraCard
@@ -344,9 +347,12 @@ export default function CardDetailScreen({ navigation, route }: CardDetailScreen
       setIsSavingNote(true);
       try {
         const isCustom = collectionMode === 'custom' && position !== undefined && position !== null;
+        const dbId = (isRegionMode && binder.region && pokedexNumber)
+          ? `region-${binder.region}-${pokedexNumber}`
+          : card.id;
         await saveCardNote(
           binder.id,
-          card.id,
+          dbId,
           text,
           card.variant,
           isCustom ? position : undefined
@@ -378,9 +384,12 @@ export default function CardDetailScreen({ navigation, route }: CardDetailScreen
       const lastSaved = savedNoteRef.current;
       if (unsavedNote.trim() !== lastSaved && cardRef.current && binderRef.current) {
         const isCustom = collectionMode === 'custom' && position !== undefined && position !== null;
+        const dbId = (isRegionMode && binderRef.current.region && pokedexNumber)
+          ? `region-${binderRef.current.region}-${pokedexNumber}`
+          : cardRef.current.id;
         saveCardNote(
           binderRef.current.id,
-          cardRef.current.id,
+          dbId,
           unsavedNote,
           cardRef.current.variant,
           isCustom ? position : undefined
@@ -479,9 +488,12 @@ export default function CardDetailScreen({ navigation, route }: CardDetailScreen
 
     try {
       const isCustom = collectionMode === 'custom' && position !== undefined && position !== null;
+      const dbId = (isRegionMode && binder.region && pokedexNumber)
+        ? `region-${binder.region}-${pokedexNumber}`
+        : card.id;
       await updateCardVariant(
         binder.id,
-        card.id,
+        dbId,
         currentVariant,
         newVariant,
         isCustom ? position : undefined
@@ -493,7 +505,7 @@ export default function CardDetailScreen({ navigation, route }: CardDetailScreen
     } finally {
       setIsUpdatingVariant(false);
     }
-  }, [card, binder, isUpdatingVariant, collectionMode, position]);
+  }, [card, binder, isUpdatingVariant, collectionMode, position, isRegionMode, pokedexNumber]);
 
   // Loading state - AFTER all hooks are defined
   if (loading) {

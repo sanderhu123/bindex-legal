@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { getCardById } from '../../services/api/pokemonApi';
 import { getBinderById } from '../../services/supabase/binders';
-import { addCardToBinder, removeCardFromBinder, toggleCardOwnershipAtPosition, toggleExtraCardOwnership, getBinderCardData, saveCardNote, updateCardVariant } from '../../services/supabase/cards';
+import { addCardToBinder, removeCardFromBinder, toggleCardOwnershipAtPosition, toggleExtraCardOwnership, getBinderCardData, saveCardNote, updateCardVariant, findRegionCardIdInBinder } from '../../services/supabase/cards';
 import { setSelectedCardForPokemon, clearSelectedCardForPokemon } from '../../services/supabase/regionCards';
 import { CardPickerModal } from '../../components/CardPicker';
 import CardImage from '../../components/Card/CardImage';
@@ -72,6 +72,11 @@ export default function CardDetailScreen({ navigation, route }: CardDetailScreen
   // Region mode: card picker state
   const [showCardPicker, setShowCardPicker] = useState(false);
   const isRegionMode = collectionMode === 'region';
+  
+  // Region mode: the actual card_id stored in binder_cards for this slot.
+  // Could be the region synthetic ID or the TCG card ID depending on how
+  // ownership was first toggled. Resolved once during initial data load.
+  const resolvedDbCardIdRef = useRef<string | null>(null);
 
   // Button press animation
   const scaleAnim = useRef(new Animated.Value(1)).current;
@@ -297,7 +302,15 @@ export default function CardDetailScreen({ navigation, route }: CardDetailScreen
     async function loadBinderData() {
       try {
         const isCustom = collectionMode === 'custom' && position !== undefined && position !== null;
-        const lookupId = (collectionMode === 'region' && regionSlotId) ? regionSlotId : card!.id;
+
+        // Region mode: find the actual card_id used in binder_cards.
+        // It could be the region synthetic ID or the TCG card ID.
+        let lookupId = card!.id;
+        if (isRegionMode && regionSlotId) {
+          lookupId = await findRegionCardIdInBinder(binder!.id, regionSlotId, card!.id);
+          resolvedDbCardIdRef.current = lookupId;
+        }
+
         const data = await getBinderCardData(
           binder!.id,
           lookupId,
@@ -345,9 +358,12 @@ export default function CardDetailScreen({ navigation, route }: CardDetailScreen
       setIsSavingNote(true);
       try {
         const isCustom = collectionMode === 'custom' && position !== undefined && position !== null;
+        const noteCardId = isRegionMode
+          ? (resolvedDbCardIdRef.current || regionSlotId || card.id)
+          : card.id;
         await saveCardNote(
           binder.id,
-          card.id,
+          noteCardId,
           text,
           card.variant,
           isCustom ? position : undefined
@@ -379,9 +395,12 @@ export default function CardDetailScreen({ navigation, route }: CardDetailScreen
       const lastSaved = savedNoteRef.current;
       if (unsavedNote.trim() !== lastSaved && cardRef.current && binderRef.current) {
         const isCustom = collectionMode === 'custom' && position !== undefined && position !== null;
+        const noteCardId = isRegionMode
+          ? (resolvedDbCardIdRef.current || regionSlotId || cardRef.current.id)
+          : cardRef.current.id;
         saveCardNote(
           binderRef.current.id,
-          cardRef.current.id,
+          noteCardId,
           unsavedNote,
           cardRef.current.variant,
           isCustom ? position : undefined
@@ -480,7 +499,10 @@ export default function CardDetailScreen({ navigation, route }: CardDetailScreen
 
     try {
       const isCustom = collectionMode === 'custom' && position !== undefined && position !== null;
-      const variantCardId = (collectionMode === 'region' && regionSlotId) ? regionSlotId : card.id;
+      // Use the resolved DB card ID for region mode (found during initial load)
+      const variantCardId = isRegionMode
+        ? (resolvedDbCardIdRef.current || regionSlotId || card.id)
+        : card.id;
       await updateCardVariant(
         binder.id,
         variantCardId,
@@ -495,7 +517,7 @@ export default function CardDetailScreen({ navigation, route }: CardDetailScreen
     } finally {
       setIsUpdatingVariant(false);
     }
-  }, [card, binder, isUpdatingVariant, collectionMode, position, regionSlotId]);
+  }, [card, binder, isUpdatingVariant, collectionMode, position, isRegionMode, regionSlotId]);
 
   // Loading state - AFTER all hooks are defined
   if (loading) {

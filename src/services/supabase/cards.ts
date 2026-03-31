@@ -1161,6 +1161,39 @@ export async function getCardVariantsForBinder(
 }
 
 /**
+ * Find the card_id stored in binder_cards for a Region card slot.
+ * A Region Pokemon slot might have its binder_cards row keyed by
+ * the synthetic region ID (region-xxx-NN) or the real TCG card ID,
+ * depending on whether ownership was toggled from the grid or the
+ * detail screen. This helper checks both and returns whichever exists.
+ */
+export async function findRegionCardIdInBinder(
+  binderId: string,
+  regionSlotId: string,
+  tcgCardId: string
+): Promise<string> {
+  const userId = await getCachedUserId();
+
+  const { data } = await supabase
+    .from('binder_cards')
+    .select('card_id, is_owned')
+    .eq('user_id', userId)
+    .eq('binder_id', binderId)
+    .or(`card_id.eq.${regionSlotId},card_id.eq.${tcgCardId}`)
+    .or('is_extra.is.null,is_extra.eq.false');
+
+  if (!data || data.length === 0) {
+    return regionSlotId;
+  }
+
+  // Prefer the owned row; within owned rows, prefer the region slot ID
+  const owned = data.filter(r => r.is_owned);
+  const pool = owned.length > 0 ? owned : data;
+  const regionRow = pool.find(r => r.card_id === regionSlotId);
+  return regionRow ? regionRow.card_id : pool[0].card_id;
+}
+
+/**
  * Load the saved variant and note for a card from binder_cards.
  * Queries without variant filter so it works even if the variant
  * was changed since the card data was last loaded.
@@ -1384,6 +1417,7 @@ export async function updateCardVariant(
         binder_id: binderId,
         card_id: cardId,
         variant: variantValue,
+        position: isPositionBased ? position : null,
         is_owned: false,
         is_extra: false,
       });
@@ -1391,6 +1425,34 @@ export async function updateCardVariant(
     if (insertError) {
       // Same constraint edge-case: target row was created concurrently
       if (insertError.code === '23505') {
+        // Custom binders use position-based rows. Older data may contain a
+        // matching variant row with position=null (created before position was
+        // persisted). Reattach that row to the current slot so future reads
+        // and updates work correctly.
+        if (isPositionBased) {
+          let fixQuery = supabase
+            .from('binder_cards')
+            .update({ position })
+            .eq('user_id', user.id)
+            .eq('binder_id', binderId)
+            .eq('card_id', cardId);
+
+          if (variantValue) {
+            fixQuery = fixQuery.eq('variant', variantValue);
+          } else {
+            fixQuery = fixQuery.is('variant', null);
+          }
+
+          const { error: fixError } = await fixQuery;
+          if (fixError) {
+            console.error('[CardVariant] Failed to reattach existing variant row to position:', fixError);
+            throw fixError;
+          }
+
+          console.log(`[CardVariant] Reattached existing ${newVariant} row to position ${position}`);
+          return;
+        }
+
         console.log(`[CardVariant] Target variant ${newVariant} row already exists, nothing to do`);
         return;
       }

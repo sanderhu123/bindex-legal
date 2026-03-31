@@ -9,12 +9,14 @@ import CardDetailScreen from '../screens/CardDetail/CardDetailScreen';
 import CardSearchTestScreen from '../screens/CardSearchTest/CardSearchTestScreen';
 import UpgradeScreen from '../screens/Upgrade/UpgradeScreen';
 import SettingsScreen from '../screens/Settings/SettingsScreen';
+import BinderSettingsScreen from '../screens/BinderSettings/BinderSettingsScreen';
 
 export type MainStackParamList = {
   Questionnaire: undefined;
   BinderList: undefined;
   BinderDetail: { binderId: string };
   BinderEdit: { binderId: string };
+  BinderSettings: { binderId: string };
   CardList: undefined;
   CardDetail: { 
     cardId: string; 
@@ -25,6 +27,7 @@ export type MainStackParamList = {
     isExtraCard?: boolean;
     cardIndex?: number;
     cardsPerPage?: number;
+    regionSlotId?: string;
     cardData?: {
       id: string;
       name: string;
@@ -71,6 +74,10 @@ export default function AppNavigator() {
       <Stack.Screen
         name="BinderEdit"
         component={BinderEditScreen}
+      />
+      <Stack.Screen
+        name="BinderSettings"
+        component={BinderSettingsScreen}
       />
       <Stack.Screen
         name="CardList"

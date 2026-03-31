@@ -51,7 +51,7 @@ interface CardDetailScreenProps {
 export default function CardDetailScreen({ navigation, route }: CardDetailScreenProps) {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
-  const { cardId, binderId, isOwned: initialOwnedParam, position, collectionMode, isExtraCard, pokedexNumber, pokemonName, regionCardData, cardIndex, cardsPerPage, cardData } = route.params || {};
+  const { cardId, binderId, isOwned: initialOwnedParam, position, collectionMode, isExtraCard, pokedexNumber, pokemonName, regionCardData, regionSlotId, cardIndex, cardsPerPage, cardData } = route.params || {};
   const [card, setCard] = useState<Card | null>(null);
   const [binder, setBinder] = useState<Binder | null>(null);
   const [loading, setLoading] = useState(true);
@@ -297,9 +297,10 @@ export default function CardDetailScreen({ navigation, route }: CardDetailScreen
     async function loadBinderData() {
       try {
         const isCustom = collectionMode === 'custom' && position !== undefined && position !== null;
+        const lookupId = (collectionMode === 'region' && regionSlotId) ? regionSlotId : card!.id;
         const data = await getBinderCardData(
           binder!.id,
-          card!.id,
+          lookupId,
           card!.variant,
           isCustom ? position : undefined,
           !!isExtraCard
@@ -479,9 +480,10 @@ export default function CardDetailScreen({ navigation, route }: CardDetailScreen
 
     try {
       const isCustom = collectionMode === 'custom' && position !== undefined && position !== null;
+      const variantCardId = (collectionMode === 'region' && regionSlotId) ? regionSlotId : card.id;
       await updateCardVariant(
         binder.id,
-        card.id,
+        variantCardId,
         currentVariant,
         newVariant,
         isCustom ? position : undefined
@@ -493,7 +495,7 @@ export default function CardDetailScreen({ navigation, route }: CardDetailScreen
     } finally {
       setIsUpdatingVariant(false);
     }
-  }, [card, binder, isUpdatingVariant, collectionMode, position]);
+  }, [card, binder, isUpdatingVariant, collectionMode, position, regionSlotId]);
 
   // Loading state - AFTER all hooks are defined
   if (loading) {

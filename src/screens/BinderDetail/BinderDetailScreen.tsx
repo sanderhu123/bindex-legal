@@ -562,7 +562,8 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
         // Apply variant changes from DB for region cards
         const regionVariantMap = await getCardVariantsForBinder(binderId);
         updatedCards = updatedCards.map((card) => {
-          const dbVariants = regionVariantMap.get(card.id);
+          const dbVariants = regionVariantMap.get(card.id)
+            || (card.selectedCardId ? regionVariantMap.get(card.selectedCardId) : undefined);
           if (dbVariants && dbVariants.length === 1) {
             return { ...card, variant: (dbVariants[0] || 'base') as any };
           }
@@ -1207,7 +1208,8 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
           const savedVariants = await getCardVariantsForBinder(binder.id);
           if (savedVariants.size > 0) {
             cardsWithOwnership = cardsWithOwnership.map((card) => {
-              const dbVariants = savedVariants.get(card.id);
+              const dbVariants = savedVariants.get(card.id)
+                || (card.selectedCardId ? savedVariants.get(card.selectedCardId) : undefined);
               if (dbVariants && dbVariants.length === 1) {
                 return { ...card, variant: (dbVariants[0] || 'base') as any };
               }
@@ -1640,6 +1642,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
         pokemonName: pokemon.name,
         cardIndex: index,
         cardsPerPage: perPage,
+        regionSlotId: pokemon.id,
         regionCardData: {
           id: tcgCardId,
           name: pokemon.selectedCardName || pokemon.name,

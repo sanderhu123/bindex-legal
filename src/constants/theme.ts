@@ -33,6 +33,7 @@ export const lightColors = {
   warning: '#FF9500',
   info: '#126D5F',
 
+  variantHolo: '#50C878',
   variantReverseHolo: '#FFD700',
   variantPokeBall: '#FF6B6B',
   variantMasterBall: '#7B2D8E',
@@ -77,6 +78,7 @@ export const darkColors: ThemeColors = {
   warning: '#FF9F0A',
   info: '#126D5F',
 
+  variantHolo: '#50C878',
   variantReverseHolo: '#FFD700',
   variantPokeBall: '#FF6B6B',
   variantMasterBall: '#7B2D8E',

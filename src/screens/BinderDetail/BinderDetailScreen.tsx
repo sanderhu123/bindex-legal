@@ -564,10 +564,17 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
         updatedCards = updatedCards.map((card) => {
           const dbVariants = regionVariantMap.get(card.id)
             || (card.selectedCardId ? regionVariantMap.get(card.selectedCardId) : undefined);
-          if (dbVariants && dbVariants.length === 1) {
-            return { ...card, variant: (dbVariants[0] || 'base') as any };
+          if (!dbVariants) return card;
+          let updatedVariant = card.variant;
+          if (dbVariants.length === 1) {
+            updatedVariant = (dbVariants[0] || 'base') as any;
+          } else if (dbVariants.length > 1) {
+            const currentDbVal = (!card.variant || card.variant === 'base') ? null : card.variant;
+            if (!dbVariants.includes(currentDbVal)) {
+              updatedVariant = (dbVariants[0] || 'base') as any;
+            }
           }
-          return card;
+          return { ...card, variant: updatedVariant };
         });
 
         setCards(updatedCards);
@@ -1210,10 +1217,17 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
             cardsWithOwnership = cardsWithOwnership.map((card) => {
               const dbVariants = savedVariants.get(card.id)
                 || (card.selectedCardId ? savedVariants.get(card.selectedCardId) : undefined);
-              if (dbVariants && dbVariants.length === 1) {
-                return { ...card, variant: (dbVariants[0] || 'base') as any };
+              if (!dbVariants) return card;
+              let updatedVariant = card.variant;
+              if (dbVariants.length === 1) {
+                updatedVariant = (dbVariants[0] || 'base') as any;
+              } else if (dbVariants.length > 1) {
+                const currentDbVal = (!card.variant || card.variant === 'base') ? null : card.variant;
+                if (!dbVariants.includes(currentDbVal)) {
+                  updatedVariant = (dbVariants[0] || 'base') as any;
+                }
               }
-              return card;
+              return { ...card, variant: updatedVariant };
             });
           }
         } catch (variantErr) {

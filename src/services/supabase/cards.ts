@@ -29,6 +29,7 @@ export async function addCardToBinderFast(
   variant?: string,
 ): Promise<void> {
   const userId = await getCachedUserId();
+  const variantValue = (variant && variant !== 'base') ? variant : null;
 
   const { error } = await supabase
     .from('binder_cards')
@@ -36,7 +37,7 @@ export async function addCardToBinderFast(
       user_id: userId,
       binder_id: binderId,
       card_id: cardId,
-      variant: variant || null,
+      variant: variantValue,
       position: null,
       is_owned: true,
     }, {
@@ -67,7 +68,7 @@ export async function removeCardFromBinderFast(
     .eq('binder_id', binderId)
     .eq('card_id', cardId);
 
-  if (variant) {
+  if (variant && variant !== 'base') {
     query = query.eq('variant', variant);
   } else {
     query = query.is('variant', null);
@@ -1372,7 +1373,9 @@ export async function updateCardVariant(
     if (oldVariant && oldVariant !== 'base') {
       query = query.eq('variant', oldVariant);
     } else {
-      query = query.is('variant', null);
+      // Match both NULL and the literal string 'base' — some rows may
+      // have been stored either way depending on the code path.
+      query = query.or('variant.is.null,variant.eq.base');
     }
   }
 
@@ -1395,7 +1398,7 @@ export async function updateCardVariant(
       } else if (oldValue) {
         delQuery = delQuery.eq('variant', oldValue);
       } else {
-        delQuery = delQuery.is('variant', null);
+        delQuery = delQuery.or('variant.is.null,variant.eq.base');
       }
 
       await delQuery;

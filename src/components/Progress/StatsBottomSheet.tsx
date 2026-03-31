@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -132,6 +132,23 @@ export default function StatsBottomSheet({
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const [activeTab, setActiveTab] = useState<StatsTab>('rarity');
+  const scrollRef = useRef<ScrollView>(null);
+  const tabBarY = useRef(0);
+
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTo({ y: tabBarY.current, animated: true });
+    }
+  }, [activeTab]);
+
+  useEffect(() => {
+    if (visible) {
+      setActiveTab('rarity');
+      setTimeout(() => {
+        scrollRef.current?.scrollTo({ y: 0, animated: false });
+      }, 50);
+    }
+  }, [visible]);
 
   const reachedMilestones = MILESTONES.filter((m) => progressPercentage >= m);
 
@@ -306,7 +323,7 @@ export default function StatsBottomSheet({
             <View style={styles.handle} />
           </View>
 
-          <ScrollView showsVerticalScrollIndicator={false} style={styles.scrollContent}>
+          <ScrollView ref={scrollRef} showsVerticalScrollIndicator={false} style={styles.scrollContent}>
             <View style={styles.headerRow}>
               <Text style={styles.headerTitle}>Binder Statistics</Text>
               <TouchableOpacity onPress={onClose} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
@@ -360,7 +377,10 @@ export default function StatsBottomSheet({
               </View>
             </View>
 
-            <View style={styles.tabBar}>
+            <View
+              style={styles.tabBar}
+              onLayout={(e) => { tabBarY.current = e.nativeEvent.layout.y; }}
+            >
               {tabs.map((tab) => (
                 <TouchableOpacity
                   key={tab.key}
@@ -376,80 +396,101 @@ export default function StatsBottomSheet({
             </View>
 
             {/* Rarity Tab */}
-            {activeTab === 'rarity' && rarityGroups.length > 0 && (
-              <View style={styles.breakdownSection}>
-                {rarityGroups.map((group) =>
-                  renderBreakdownRow(
-                    group.rarity, group.label, group.owned, group.total, group.percentage,
-                    onDrillDown ? () => handleRowTap({ type: 'rarity', value: group.rarity, label: group.label }) : undefined,
-                  )
-                )}
-              </View>
+            {activeTab === 'rarity' && (
+              rarityGroups.length > 0 ? (
+                <View style={styles.breakdownSection}>
+                  {rarityGroups.map((group) =>
+                    renderBreakdownRow(
+                      group.rarity, group.label, group.owned, group.total, group.percentage,
+                      onDrillDown ? () => handleRowTap({ type: 'rarity', value: group.rarity, label: group.label }) : undefined,
+                    )
+                  )}
+                </View>
+              ) : (
+                <View style={styles.emptyTab}>
+                  <Ionicons name="layers-outline" size={32} color={colors.textTertiary} />
+                  <Text style={styles.emptyTabText}>No rarity data available</Text>
+                </View>
+              )
             )}
 
             {/* Sets Tab */}
-            {activeTab === 'sets' && setGroups.length > 0 && (
-              <View style={styles.breakdownSection}>
-                {setGroups.map((group) => {
-                  const symbolUrl = getSetSymbolByName(group.name);
-                  const onTap = onDrillDown
-                    ? () => handleRowTap({ type: 'set', value: group.name, label: group.name })
-                    : undefined;
-                  return (
-                    <TouchableOpacity
-                      key={group.name}
-                      style={styles.breakdownRow}
-                      activeOpacity={onTap ? 0.7 : 1}
-                      onPress={onTap}
-                    >
-                      <View style={styles.breakdownContent}>
-                        <View style={styles.setLabelRow}>
-                          <Text style={styles.breakdownLabel}>
-                            <Text style={styles.breakdownCount}>{group.owned}/{group.total}</Text>
-                            {'  '}{group.name}
-                          </Text>
-                          <View style={styles.setLabelRight}>
-                            {symbolUrl && (
-                              <Image
-                                source={{ uri: symbolUrl }}
-                                style={styles.setSymbol}
-                                resizeMode="contain"
-                              />
-                            )}
-                            {onTap && (
-                              <Ionicons name="chevron-forward" size={14} color={colors.textTertiary} />
-                            )}
+            {activeTab === 'sets' && (
+              setGroups.length > 0 ? (
+                <View style={styles.breakdownSection}>
+                  {setGroups.map((group) => {
+                    const symbolUrl = getSetSymbolByName(group.name);
+                    const onTap = onDrillDown
+                      ? () => handleRowTap({ type: 'set', value: group.name, label: group.name })
+                      : undefined;
+                    return (
+                      <TouchableOpacity
+                        key={group.name}
+                        style={styles.breakdownRow}
+                        activeOpacity={onTap ? 0.7 : 1}
+                        onPress={onTap}
+                      >
+                        <View style={styles.breakdownContent}>
+                          <View style={styles.setLabelRow}>
+                            <Text style={styles.breakdownLabel}>
+                              <Text style={styles.breakdownCount}>{group.owned}/{group.total}</Text>
+                              {'  '}{group.name}
+                            </Text>
+                            <View style={styles.setLabelRight}>
+                              {symbolUrl && (
+                                <Image
+                                  source={{ uri: symbolUrl }}
+                                  style={styles.setSymbol}
+                                  resizeMode="contain"
+                                />
+                              )}
+                              {onTap && (
+                                <Ionicons name="chevron-forward" size={14} color={colors.textTertiary} />
+                              )}
+                            </View>
+                          </View>
+                          <View style={styles.breakdownBarTrack}>
+                            <View
+                              style={[
+                                styles.breakdownBarFill,
+                                {
+                                  width: `${group.percentage}%`,
+                                  backgroundColor: group.percentage === 100 ? colors.success : colors.primary,
+                                },
+                              ]}
+                            />
                           </View>
                         </View>
-                        <View style={styles.breakdownBarTrack}>
-                          <View
-                            style={[
-                              styles.breakdownBarFill,
-                              {
-                                width: `${group.percentage}%`,
-                                backgroundColor: group.percentage === 100 ? colors.success : colors.primary,
-                              },
-                            ]}
-                          />
-                        </View>
-                      </View>
-                      <Text style={styles.breakdownPercent}>{group.percentage}%</Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
+                        <Text style={styles.breakdownPercent}>{group.percentage}%</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              ) : (
+                <View style={styles.emptyTab}>
+                  <Ionicons name="albums-outline" size={32} color={colors.textTertiary} />
+                  <Text style={styles.emptyTabText}>No set data available</Text>
+                </View>
+              )
             )}
 
             {/* Variant Tab */}
-            {activeTab === 'variant' && variantGroups.length > 0 && (
-              <View style={styles.breakdownSection}>
-                {variantGroups.map((group) =>
-                  renderBreakdownRow(
-                    group.variant, group.label, group.owned, group.total, group.percentage,
-                    onDrillDown ? () => handleRowTap({ type: 'variant', value: group.variant, label: group.label }) : undefined,
-                  )
-                )}
-              </View>
+            {activeTab === 'variant' && (
+              variantGroups.length > 0 ? (
+                <View style={styles.breakdownSection}>
+                  {variantGroups.map((group) =>
+                    renderBreakdownRow(
+                      group.variant, group.label, group.owned, group.total, group.percentage,
+                      onDrillDown ? () => handleRowTap({ type: 'variant', value: group.variant, label: group.label }) : undefined,
+                    )
+                  )}
+                </View>
+              ) : (
+                <View style={styles.emptyTab}>
+                  <Ionicons name="copy-outline" size={32} color={colors.textTertiary} />
+                  <Text style={styles.emptyTabText}>No variant data available</Text>
+                </View>
+              )
             )}
 
             <View style={{ height: spacing.lg }} />
@@ -591,6 +632,17 @@ const createStyles = (colors: ThemeColors) =>
     milestoneBadgeTextReached: {
       color: colors.primary,
       fontFamily: fonts.semibold,
+    },
+    emptyTab: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: spacing.xl,
+      gap: spacing.sm,
+    },
+    emptyTabText: {
+      fontSize: typography.sm,
+      fontFamily: fonts.medium,
+      color: colors.textTertiary,
     },
     breakdownSection: {
       gap: spacing.sm,

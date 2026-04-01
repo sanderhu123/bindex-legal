@@ -724,11 +724,13 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
 
   useFocusEffect(
     useCallback(() => {
-      // Process any queued offline operations before refreshing
+      // Process any queued offline operations before refreshing.
+      // Small delay lets pending DB writes from CardDetail (e.g. variant
+      // changes) finish before we query for the latest data.
       processToggleQueue()
         .then(() => processPendingCountSyncs())
         .catch(() => {})
-        .finally(() => refreshOwnershipFromDb());
+        .finally(() => setTimeout(() => refreshOwnershipFromDb(), 300));
 
       return () => {
         if (countSyncTimerRef.current) {

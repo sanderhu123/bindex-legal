@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { getCardById } from '../../services/api/pokemonApi';
 import { getBinderById } from '../../services/supabase/binders';
-import { addCardToBinder, removeCardFromBinder, toggleCardOwnershipAtPosition, toggleExtraCardOwnership, getBinderCardData, saveCardNote, updateCardVariant } from '../../services/supabase/cards';
+import { addCardToBinder, removeCardFromBinder, toggleCardOwnershipAtPosition, toggleExtraCardOwnership, getBinderCardData, saveCardNote, updateCardVariant, findRegionCardIdInBinder } from '../../services/supabase/cards';
 import { setSelectedCardForPokemon, clearSelectedCardForPokemon } from '../../services/supabase/regionCards';
 import { CardPickerModal } from '../../components/CardPicker';
 import CardImage from '../../components/Card/CardImage';
@@ -72,6 +72,8 @@ export default function CardDetailScreen({ navigation, route }: CardDetailScreen
   // Region mode: card picker state
   const [showCardPicker, setShowCardPicker] = useState(false);
   const isRegionMode = collectionMode === 'region';
+  // Resolved DB card_id for region cards (may differ from regionSlotId)
+  const resolvedCardIdRef = useRef<string | null>(null);
   
   // Button press animation
   const scaleAnim = useRef(new Animated.Value(1)).current;
@@ -297,7 +299,16 @@ export default function CardDetailScreen({ navigation, route }: CardDetailScreen
     async function loadBinderData() {
       try {
         const isCustom = collectionMode === 'custom' && position !== undefined && position !== null;
-        const lookupId = (isRegionMode && regionSlotId) ? regionSlotId : card!.id;
+        // Region cards may have been saved under either the synthetic region
+        // ID or the real TCG card ID. Resolve to whichever actually exists.
+        let lookupId: string;
+        if (isRegionMode && regionSlotId) {
+          const tcgId = card!.selectedCardId || card!.id;
+          lookupId = await findRegionCardIdInBinder(binder!.id, regionSlotId, tcgId);
+          resolvedCardIdRef.current = lookupId;
+        } else {
+          lookupId = card!.id;
+        }
         const data = await getBinderCardData(
           binder!.id,
           lookupId,
@@ -345,7 +356,9 @@ export default function CardDetailScreen({ navigation, route }: CardDetailScreen
       setIsSavingNote(true);
       try {
         const isCustom = collectionMode === 'custom' && position !== undefined && position !== null;
-        const noteCardId = (isRegionMode && regionSlotId) ? regionSlotId : card.id;
+        const noteCardId = (isRegionMode && regionSlotId)
+          ? (resolvedCardIdRef.current || regionSlotId)
+          : card.id;
         await saveCardNote(
           binder.id,
           noteCardId,
@@ -380,7 +393,9 @@ export default function CardDetailScreen({ navigation, route }: CardDetailScreen
       const lastSaved = savedNoteRef.current;
       if (unsavedNote.trim() !== lastSaved && cardRef.current && binderRef.current) {
         const isCustom = collectionMode === 'custom' && position !== undefined && position !== null;
-        const noteCardId = (isRegionMode && regionSlotId) ? regionSlotId : cardRef.current.id;
+        const noteCardId = (isRegionMode && regionSlotId)
+          ? (resolvedCardIdRef.current || regionSlotId)
+          : cardRef.current.id;
         saveCardNote(
           binderRef.current.id,
           noteCardId,
@@ -482,7 +497,9 @@ export default function CardDetailScreen({ navigation, route }: CardDetailScreen
 
     try {
       const isCustom = collectionMode === 'custom' && position !== undefined && position !== null;
-      const variantCardId = (isRegionMode && regionSlotId) ? regionSlotId : card.id;
+      const variantCardId = (isRegionMode && regionSlotId)
+        ? (resolvedCardIdRef.current || regionSlotId)
+        : card.id;
       await updateCardVariant(
         binder.id,
         variantCardId,
@@ -553,7 +570,9 @@ export default function CardDetailScreen({ navigation, route }: CardDetailScreen
       });
     } else {
       // Master Set/Region binders: update cardIds and ownedCards
-      const ownershipCardId = (isRegionMode && regionSlotId) ? regionSlotId : card.id;
+      const ownershipCardId = (isRegionMode && regionSlotId)
+        ? (resolvedCardIdRef.current || regionSlotId)
+        : card.id;
       const updatedCardIds = newIsOwned
         ? [...binder.cardIds, ownershipCardId]
         : binder.cardIds.filter((id) => id !== ownershipCardId);
@@ -577,7 +596,9 @@ export default function CardDetailScreen({ navigation, route }: CardDetailScreen
         await toggleExtraCardOwnership(binder.id, card.id, card.variant);
       } else {
         // Master Set/Region binders: add or remove from binder
-        const dbCardId = (isRegionMode && regionSlotId) ? regionSlotId : card.id;
+        const dbCardId = (isRegionMode && regionSlotId)
+          ? (resolvedCardIdRef.current || regionSlotId)
+          : card.id;
         if (newIsOwned) {
           await addCardToBinder(binder.id, dbCardId, card.variant);
         } else {

@@ -517,7 +517,15 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
           const dbPositions = await getCardPositionsForBinder(binderId);
           if (dbPositions.length > 0) {
             const cardLookup = new Map<string, CardWithOwnership>();
-            updatedCards.forEach(card => cardLookup.set(card.id, card));
+            // Index by primary ID and also by selectedCardId so positions
+            // stored with TCG card IDs can still find region cards.
+            const selectedIdLookup = new Map<string, CardWithOwnership>();
+            updatedCards.forEach(card => {
+              cardLookup.set(card.id, card);
+              if (card.selectedCardId) {
+                selectedIdLookup.set(card.selectedCardId, card);
+              }
+            });
 
             const maxSlot = dbPositions.reduce((max, p) => Math.max(max, p.slotIndex), 0);
             const arraySize = Math.max(maxSlot + 1, updatedCards.length);
@@ -525,10 +533,12 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
 
             for (const pos of dbPositions) {
               if (pos.cardId) {
-                const card = cardLookup.get(pos.cardId);
+                const card = cardLookup.get(pos.cardId)
+                  || selectedIdLookup.get(pos.cardId);
                 if (card) {
                   reordered[pos.slotIndex] = card;
-                  cardLookup.delete(pos.cardId);
+                  cardLookup.delete(card.id);
+                  if (card.selectedCardId) selectedIdLookup.delete(card.selectedCardId);
                 } else {
                   try {
                     const fetchedCard = await getCardById(pos.cardId);
@@ -569,10 +579,9 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
           if (dbVariants.length === 1) {
             updatedVariant = (dbVariants[0] || 'base') as any;
           } else if (dbVariants.length > 1) {
-            const currentDbVal = (!card.variant || card.variant === 'base') ? null : card.variant;
-            if (!dbVariants.includes(currentDbVal)) {
-              updatedVariant = (dbVariants[0] || 'base') as any;
-            }
+            // Multiple rows: prefer the non-null (actual holo) variant
+            const nonNull = dbVariants.find(v => v !== null && v !== 'base');
+            updatedVariant = (nonNull || dbVariants[0] || 'base') as any;
           }
           return { ...card, variant: updatedVariant };
         });
@@ -593,14 +602,11 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
           const dbVariants = variantMap.get(card.id);
           let updatedVariant = card.variant;
           if (dbVariants && dbVariants.length === 1) {
-            // Single DB row for this card — use its variant
             updatedVariant = (dbVariants[0] || 'base') as any;
           } else if (dbVariants && dbVariants.length > 1) {
-            // Multiple rows — match by current variant, fallback to first
-            const currentDbVal = (!card.variant || card.variant === 'base') ? null : card.variant;
-            if (!dbVariants.includes(currentDbVal)) {
-              updatedVariant = (dbVariants[0] || 'base') as any;
-            }
+            // Multiple rows: prefer the non-null (actual holo) variant
+            const nonNull = dbVariants.find(v => v !== null && v !== 'base');
+            updatedVariant = (nonNull || dbVariants[0] || 'base') as any;
           }
           return {
             ...card,
@@ -1156,10 +1162,16 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
             if (dbPositions.length > 0) {
               console.log('[BinderDetail] Found', dbPositions.length, 'saved positions from edit view');
 
-              // Build a lookup map from card ID to card data
+              // Build a lookup map from card ID to card data.
+              // Also index by selectedCardId so positions stored with
+              // TCG card IDs can still find their region card.
               const cardLookup = new Map<string, CardWithOwnership>();
+              const selectedIdLookup = new Map<string, CardWithOwnership>();
               cardsWithOwnership.forEach(card => {
                 cardLookup.set(card.id, card);
+                if (card.selectedCardId) {
+                  selectedIdLookup.set(card.selectedCardId, card);
+                }
               });
 
               // Find the highest slot index to determine array size
@@ -1171,10 +1183,12 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
 
               for (const pos of dbPositions) {
                 if (pos.cardId) {
-                  const card = cardLookup.get(pos.cardId);
+                  const card = cardLookup.get(pos.cardId)
+                    || selectedIdLookup.get(pos.cardId);
                   if (card) {
                     reordered[pos.slotIndex] = card;
-                    cardLookup.delete(pos.cardId);
+                    cardLookup.delete(card.id);
+                    if (card.selectedCardId) selectedIdLookup.delete(card.selectedCardId);
                   } else {
                     // Card not in lookup (replaced via edit mode) — fetch from API
                     try {
@@ -1222,10 +1236,9 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
               if (dbVariants.length === 1) {
                 updatedVariant = (dbVariants[0] || 'base') as any;
               } else if (dbVariants.length > 1) {
-                const currentDbVal = (!card.variant || card.variant === 'base') ? null : card.variant;
-                if (!dbVariants.includes(currentDbVal)) {
-                  updatedVariant = (dbVariants[0] || 'base') as any;
-                }
+                // Multiple rows: prefer the non-null (actual holo) variant
+                const nonNull = dbVariants.find(v => v !== null && v !== 'base');
+                updatedVariant = (nonNull || dbVariants[0] || 'base') as any;
               }
               return { ...card, variant: updatedVariant };
             });

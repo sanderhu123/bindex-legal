@@ -211,6 +211,7 @@ export async function addCardToBinder(
   // For Custom binders (with position), cards start as "missing" (is_owned: false)
   // For Master Set/Region binders, cards are "owned" when added (is_owned: true)
   const isCustomBinder = position !== undefined && position !== null;
+  const variantValue = (variant && variant !== 'base') ? variant : null;
   
   const { error } = await supabase
     .from('binder_cards')
@@ -218,7 +219,7 @@ export async function addCardToBinder(
       user_id: user.id,
       binder_id: binderId,
       card_id: cardId,
-      variant: variant || null,
+      variant: variantValue,
       position: position ?? null,
       is_owned: !isCustomBinder, // false for Custom, true for others
     }, {
@@ -262,6 +263,7 @@ export async function removeCardFromBinder(
   // Delete the card
   // Note: We must use .is('variant', null) for null values, not .eq('variant', null)
   // because SQL requires IS NULL for null comparisons, not = NULL
+  const variantValue = (variant && variant !== 'base') ? variant : null;
   let query = supabase
     .from('binder_cards')
     .delete()
@@ -270,8 +272,8 @@ export async function removeCardFromBinder(
     .eq('card_id', cardId);
   
   // Handle variant matching correctly for null values
-  if (variant) {
-    query = query.eq('variant', variant);
+  if (variantValue) {
+    query = query.eq('variant', variantValue);
   } else {
     query = query.is('variant', null);
   }

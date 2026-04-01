@@ -469,7 +469,19 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
             // Check if this card already has the correct selection
             const currentSelectedId = (card as any).selectedCardId;
             if (selectedCardId === currentSelectedId) {
-              // No change needed, just update ownership
+              // Selection unchanged — but art style may have changed,
+              // so rebuild the default image URL for cards without a custom pick.
+              if (!selectedCardId && pokedexNumber) {
+                const artStyleUrl = latestBinder.pokemonArtStyle
+                  ? getPokemonImageUrl(pokedexNumber, latestBinder.pokemonArtStyle)
+                  : undefined;
+                return {
+                  ...card,
+                  imageUrl: artStyleUrl,
+                  imageUrlHiRes: artStyleUrl,
+                  isOwned: latestBinder.cardIds.includes(card.id),
+                };
+              }
               return { ...card, isOwned: latestBinder.cardIds.includes(card.id) };
             }
             

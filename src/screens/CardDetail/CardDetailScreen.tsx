@@ -6,12 +6,10 @@ import { getCardById } from '../../services/api/pokemonApi';
 import { getBinderById } from '../../services/supabase/binders';
 import { addCardToBinder, removeCardFromBinder, toggleCardOwnershipAtPosition, toggleExtraCardOwnership, getBinderCardData, saveCardNote, updateCardVariant, findRegionCardIdInBinder } from '../../services/supabase/cards';
 import { setSelectedCardForPokemon, clearSelectedCardForPokemon } from '../../services/supabase/regionCards';
-import { CardPickerModal } from '../../components/CardPicker';
 import CardImage from '../../components/Card/CardImage';
 import CardDetails from '../../components/Card/CardDetails';
 import LoadingScreen from '../../components/Loading/LoadingScreen';
 import ErrorScreen from '../../components/Error/ErrorScreen';
-import { getSearchName } from '../../data/pokemonRegions';
 import { getAvailableVariantsForCard } from '../../data/cardVariants';
 import { useTheme } from '../../context/ThemeContext';
 import { spacing, typography, fonts, borderRadius, screenPadding, shadows, type ThemeColors } from '../../constants/theme';
@@ -703,33 +701,7 @@ export default function CardDetailScreen({ navigation, route }: CardDetailScreen
               </Animated.View>
             </View>
 
-            {/* Region: Change */}
-            {isRegionMode && pokedexNumber && (
-              <View style={styles.panelActionGroup}>
-                <Text style={styles.panelActionLabel}>Switch</Text>
-                <TouchableOpacity
-                  style={[styles.panelBtn, styles.panelBtnChange]}
-                  onPress={() => setShowCardPicker(true)}
-                  activeOpacity={0.7}
-                >
-                  <Ionicons name="swap-horizontal-outline" size={20} color={colors.onPrimary} />
-                </TouchableOpacity>
-              </View>
-            )}
-
-            {/* Region: Delete */}
-            {isRegionMode && pokedexNumber && card?.selectedCardId && (
-              <View style={styles.panelActionGroup}>
-                <Text style={styles.panelActionLabel}>Delete</Text>
-                <TouchableOpacity
-                  style={[styles.panelBtn, styles.panelBtnDelete]}
-                  onPress={handleClearSelection}
-                  activeOpacity={0.7}
-                >
-                  <Ionicons name="trash-outline" size={20} color={colors.error} />
-                </TouchableOpacity>
-              </View>
-            )}
+            
 
             {/* Holo selector */}
             {showVariantSelector && (
@@ -802,17 +774,6 @@ export default function CardDetailScreen({ navigation, route }: CardDetailScreen
         </View>
       </ScrollView>
 
-      {/* Region Mode: Card Picker Modal */}
-      {isRegionMode && (
-        <CardPickerModal
-          visible={showCardPicker}
-          onClose={() => setShowCardPicker(false)}
-          onSelectCard={handleRegionCardSelected}
-          title={pokemonName ? `Choose a ${pokemonName} Card` : 'Choose Card'}
-          initialQuery={pokemonName ? getSearchName(pokemonName) : ''}
-          pokemonOnly={true}
-        />
-      )}
     </SafeAreaView>
   );
 }
@@ -871,14 +832,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   panelBtnMissing: {
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
-  panelBtnChange: {
-    backgroundColor: colors.secondary,
-  },
-  panelBtnDelete: {
-    backgroundColor: 'transparent',
-    borderWidth: 1,
-    borderColor: colors.error,
-  },
+  
   panelBtnDisabled: {
     opacity: 0.6,
   },

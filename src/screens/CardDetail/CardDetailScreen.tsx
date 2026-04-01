@@ -19,6 +19,7 @@ import { ScreenHeader } from '../../components/ScreenHeader';
 import { getUserFriendlyErrorMessage, isNotFoundError } from '../../utils/errorUtils';
 import { showSuccess, showError } from '../../utils/toast';
 import { lightTap } from '../../utils/haptics';
+import { pushVariantUpdate } from '../../services/variantMailbox';
 import type { Card, Binder, CardVariant } from '../../types';
 
 const VARIANT_LABELS: Record<string, string> = {
@@ -495,11 +496,19 @@ export default function CardDetailScreen({ navigation, route }: CardDetailScreen
     setCard({ ...card, variant: newVariant });
     setIsUpdatingVariant(true);
 
+    // Immediately notify the binder screen so it can apply the change
+    // without waiting for the DB roundtrip on the next focus event.
+    const variantCardId = (isRegionMode && regionSlotId)
+      ? (resolvedCardIdRef.current || regionSlotId)
+      : card.id;
+    pushVariantUpdate({
+      binderId: binder.id,
+      cardId: variantCardId,
+      variant: newVariant,
+    });
+
     try {
       const isCustom = collectionMode === 'custom' && position !== undefined && position !== null;
-      const variantCardId = (isRegionMode && regionSlotId)
-        ? (resolvedCardIdRef.current || regionSlotId)
-        : card.id;
       await updateCardVariant(
         binder.id,
         variantCardId,

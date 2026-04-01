@@ -32,6 +32,7 @@ import {
   processToggleQueue,
   processPendingCountSyncs,
 } from '../../services/offlineQueue';
+import { popVariantUpdates } from '../../services/variantMailbox';
 import type { Binder, Card } from '../../types';
 import CardItem from '../../components/Card/CardItem';
 import CardImage, { logFailedImageSummary } from '../../components/Card/CardImage';
@@ -558,33 +559,57 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
             for (let i = 0; i < reordered.length; i++) {
               if (reordered[i] !== null) posMap.set(i, reordered[i]!);
             }
-            setSavedPositionMap(posMap);
 
             updatedCards = reordered.filter(c => c !== null) as CardWithOwnership[];
             console.log('[BinderDetail] Applied saved positions on refresh:', dbPositions.length);
+
+            // Apply variant changes BEFORE setting savedPositionMap so
+            // the position-based rendering path shows the correct badges.
+            const regionVariantMap = await getCardVariantsForBinder(binderId);
+            const applyVariants = (card: CardWithOwnership) => {
+              const dbVariants = regionVariantMap.get(card.id)
+                || (card.selectedCardId ? regionVariantMap.get(card.selectedCardId) : undefined);
+              if (!dbVariants) return card;
+              let updatedVariant = card.variant;
+              if (dbVariants.length === 1) {
+                updatedVariant = (dbVariants[0] || 'base') as any;
+              } else if (dbVariants.length > 1) {
+                const nonNull = dbVariants.find((v: string | null) => v !== null && v !== 'base');
+                updatedVariant = (nonNull || dbVariants[0] || 'base') as any;
+              }
+              return { ...card, variant: updatedVariant };
+            };
+
+            updatedCards = updatedCards.map(applyVariants);
+
+            // Rebuild posMap with variant-merged cards
+            const updatedPosMap = new Map<number, CardWithOwnership>();
+            posMap.forEach((card, slot) => {
+              updatedPosMap.set(slot, applyVariants(card));
+            });
+            setSavedPositionMap(updatedPosMap);
           } else {
             setSavedPositionMap(null);
+
+            // Apply variant changes from DB for region cards (no positions path)
+            const regionVariantMap = await getCardVariantsForBinder(binderId);
+            updatedCards = updatedCards.map((card) => {
+              const dbVariants = regionVariantMap.get(card.id)
+                || (card.selectedCardId ? regionVariantMap.get(card.selectedCardId) : undefined);
+              if (!dbVariants) return card;
+              let updatedVariant = card.variant;
+              if (dbVariants.length === 1) {
+                updatedVariant = (dbVariants[0] || 'base') as any;
+              } else if (dbVariants.length > 1) {
+                const nonNull = dbVariants.find(v => v !== null && v !== 'base');
+                updatedVariant = (nonNull || dbVariants[0] || 'base') as any;
+              }
+              return { ...card, variant: updatedVariant };
+            });
           }
         } catch (dbErr) {
           console.warn('[BinderDetail] Could not load saved positions on refresh:', dbErr);
         }
-        
-        // Apply variant changes from DB for region cards
-        const regionVariantMap = await getCardVariantsForBinder(binderId);
-        updatedCards = updatedCards.map((card) => {
-          const dbVariants = regionVariantMap.get(card.id)
-            || (card.selectedCardId ? regionVariantMap.get(card.selectedCardId) : undefined);
-          if (!dbVariants) return card;
-          let updatedVariant = card.variant;
-          if (dbVariants.length === 1) {
-            updatedVariant = (dbVariants[0] || 'base') as any;
-          } else if (dbVariants.length > 1) {
-            // Multiple rows: prefer the non-null (actual holo) variant
-            const nonNull = dbVariants.find(v => v !== null && v !== 'base');
-            updatedVariant = (nonNull || dbVariants[0] || 'base') as any;
-          }
-          return { ...card, variant: updatedVariant };
-        });
 
         setCards(updatedCards);
         console.log('[BinderDetail] Region cards refreshed with latest selections');
@@ -724,13 +749,34 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
 
   useFocusEffect(
     useCallback(() => {
-      // Process any queued offline operations before refreshing.
-      // Small delay lets pending DB writes from CardDetail (e.g. variant
-      // changes) finish before we query for the latest data.
+      // Apply any variant changes from CardDetail immediately so
+      // the grid shows the correct badge without waiting for a DB query.
+      if (binderId) {
+        const variantUpdates = popVariantUpdates(binderId);
+        if (variantUpdates.length > 0) {
+          const applyUpdate = (card: CardWithOwnership) => {
+            const update = variantUpdates.find(
+              u => u.cardId === card.id || u.cardId === card.selectedCardId
+            );
+            if (!update) return card;
+            return { ...card, variant: update.variant as any };
+          };
+
+          setCards(prev => prev.map(applyUpdate));
+          setSavedPositionMap(prev => {
+            if (!prev || prev.size === 0) return prev;
+            const updated = new Map<number, CardWithOwnership>();
+            prev.forEach((card, slot) => updated.set(slot, applyUpdate(card)));
+            return updated;
+          });
+        }
+      }
+
+      // Process any queued offline operations before refreshing
       processToggleQueue()
         .then(() => processPendingCountSyncs())
         .catch(() => {})
-        .finally(() => setTimeout(() => refreshOwnershipFromDb(), 300));
+        .finally(() => refreshOwnershipFromDb());
 
       return () => {
         if (countSyncTimerRef.current) {
@@ -1230,7 +1276,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
         try {
           const savedVariants = await getCardVariantsForBinder(binder.id);
           if (savedVariants.size > 0) {
-            cardsWithOwnership = cardsWithOwnership.map((card) => {
+            const applyVariant = (card: CardWithOwnership) => {
               const dbVariants = savedVariants.get(card.id)
                 || (card.selectedCardId ? savedVariants.get(card.selectedCardId) : undefined);
               if (!dbVariants) return card;
@@ -1243,6 +1289,19 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
                 updatedVariant = (nonNull || dbVariants[0] || 'base') as any;
               }
               return { ...card, variant: updatedVariant };
+            };
+
+            cardsWithOwnership = cardsWithOwnership.map(applyVariant);
+
+            // Also update savedPositionMap so position-based rendering
+            // shows the correct holo badges.
+            setSavedPositionMap((prev) => {
+              if (!prev || prev.size === 0) return prev;
+              const updated = new Map<number, CardWithOwnership>();
+              prev.forEach((card, slot) => {
+                updated.set(slot, applyVariant(card));
+              });
+              return updated;
             });
           }
         } catch (variantErr) {

@@ -204,7 +204,7 @@ export function getAvailableVariantsForCard(
   cardId: string,
   rarity: string,
   supertype: string
-): ('base' | 'holo' | 'reverse-holo' | 'poke-ball' | 'master-ball')[] {
+): ('base' | 'reverse-holo' | 'poke-ball' | 'master-ball')[] {
   const setId = extractSetId(cardId);
   if (!setId) return ['base'];
 
@@ -216,17 +216,7 @@ export function getAvailableVariantsForCard(
     rarity === 'Rare Holo'
   );
 
-  const hasHoloVariant = (
-    rarity === 'Rare' ||
-    rarity === 'Holo Rare' ||
-    rarity === 'Rare Holo'
-  );
-
-  const variants: ('base' | 'holo' | 'reverse-holo' | 'poke-ball' | 'master-ball')[] = ['base'];
-
-  if (hasHoloVariant) {
-    variants.push('holo');
-  }
+  const variants: ('base' | 'reverse-holo' | 'poke-ball' | 'master-ball')[] = ['base'];
 
   if (allowsReverseHolo && setHasReverseHolos(setId)) {
     variants.push('reverse-holo');

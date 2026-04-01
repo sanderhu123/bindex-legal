@@ -24,7 +24,6 @@ import type { Card, Binder, CardVariant } from '../../types';
 
 const VARIANT_LABELS: Record<string, string> = {
   'base': 'No',
-  'holo': 'H',
   'reverse-holo': 'RH',
   'poke-ball': 'PB',
   'master-ball': 'MB',
@@ -33,7 +32,6 @@ const VARIANT_LABELS: Record<string, string> = {
 function getVariantColors(colors: ThemeColors): Record<string, string> {
   return {
     'base': colors.primary,
-    'holo': colors.variantHolo,
     'reverse-holo': colors.variantReverseHolo,
     'poke-ball': colors.variantPokeBall,
     'master-ball': colors.variantMasterBall,

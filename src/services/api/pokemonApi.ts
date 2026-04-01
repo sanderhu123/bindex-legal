@@ -935,7 +935,6 @@ async function transformTcgdexCardToCard(tcgdexCard: any): Promise<Card> {
  * 
  * Creates separate Card objects for each available variant:
  * - Base (always)
- * - Holo (if API says holo: true)
  * - Reverse holo (if API says reverse: true AND rarity is Common/Uncommon/Rare/Holo Rare)
  * - Pokeball holo (special sets only, follows EXACT same logic as reverse holo)
  * - Masterball holo (special sets only, follows same logic as reverse holo BUT only for Pokemon supertype)
@@ -954,7 +953,6 @@ function generateVariantCards(baseCard: Card, tcgdexCard: any): Card[] {
   const setId = tcgdexCard.set?.id || '';
   
   // Get variant availability from API
-  const hasHolo = tcgdexCard.variants?.holo === true;
   const hasReverse = tcgdexCard.variants?.reverse === true;
   const supertype = tcgdexCard.category || '';
   const rarity = tcgdexCard.rarity || '';
@@ -977,16 +975,7 @@ function generateVariantCards(baseCard: Card, tcgdexCard: any): Card[] {
     id: `${baseCard.id}-base`,
   });
   
-  // 2. Holo variant (if available)
-  if (hasHolo) {
-    variants.push({
-      ...baseCard,
-      variant: 'holo' as any, // Note: 'holo' not in CardVariant type yet, but included for completeness
-      id: `${baseCard.id}-holo`,
-    });
-  }
-  
-  // 3. Regular reverse holo (if available AND rarity allows it)
+  // 2. Regular reverse holo (if available AND rarity allows it)
   if (hasReverse && allowsReverseHolo) {
     variants.push({
       ...baseCard,
@@ -995,7 +984,7 @@ function generateVariantCards(baseCard: Card, tcgdexCard: any): Card[] {
     });
   }
   
-  // 4. Special variants (pokeball/masterball) - only for special sets
+  // 3. Special variants (pokeball/masterball) - only for special sets
   if (hasSpecialVariants(setId)) {
     const specialVariants = getSpecialVariantsForCard(setId, hasReverse, supertype, rarity);
     
@@ -1017,7 +1006,6 @@ function generateVariantCards(baseCard: Card, tcgdexCard: any): Card[] {
       setId,
       rarity,
       supertype,
-      hasHolo,
       hasReverse,
       allowsReverseHolo,
       variantCount: variants.length,
@@ -1201,7 +1189,6 @@ export async function getCardsBySet(setIdentifier: string): Promise<Card[]> {
       const variantStats = {
         totalCards: 0,
         withBase: 0,
-        withHolo: 0,
         withReverseHolo: 0,
         withPokeballHolo: 0,
         withMasterballHolo: 0,
@@ -1218,7 +1205,6 @@ export async function getCardsBySet(setIdentifier: string): Promise<Card[]> {
         // Track statistics
         variantStats.totalCards += variantCards.length;
         if (variantCards.some(c => c.variant === 'base')) variantStats.withBase++;
-        if (variantCards.some(c => c.variant === 'holo')) variantStats.withHolo++;
         if (variantCards.some(c => c.variant === 'reverse-holo')) variantStats.withReverseHolo++;
         if (variantCards.some(c => c.variant === 'poke-ball')) variantStats.withPokeballHolo++;
         if (variantCards.some(c => c.variant === 'master-ball')) variantStats.withMasterballHolo++;
@@ -1236,7 +1222,6 @@ export async function getCardsBySet(setIdentifier: string): Promise<Card[]> {
       console.log('[VARIANT-GEN] ========================================');
       console.log('[VARIANT-GEN] VARIANT BREAKDOWN:');
       console.log('[VARIANT-GEN]   Cards with base variant:', variantStats.withBase);
-      console.log('[VARIANT-GEN]   Cards with holo variant:', variantStats.withHolo);
       console.log('[VARIANT-GEN]   Cards with reverse-holo variant:', variantStats.withReverseHolo);
       console.log('[VARIANT-GEN]   Cards with poke-ball variant:', variantStats.withPokeballHolo);
       console.log('[VARIANT-GEN]   Cards with master-ball variant:', variantStats.withMasterballHolo);
@@ -1419,7 +1404,7 @@ export async function getCardById(id: string): Promise<Card | null> {
       // Map extracted suffix to proper variant name
       const variantMap: Record<string, string> = {
         'base': 'base',
-        'holo': 'holo',
+        'holo': 'base',
         'reverse': 'reverse-holo',
         'poke-ball': 'poke-ball',
         'master-ball': 'master-ball',

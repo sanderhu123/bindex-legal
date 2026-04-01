@@ -76,7 +76,6 @@ interface VariantGroup {
 
 export const VARIANT_ORDER: string[] = [
   'base',
-  'holo',
   'reverse-holo',
   'poke-ball',
   'master-ball',
@@ -85,7 +84,6 @@ export const VARIANT_ORDER: string[] = [
 
 export const VARIANT_LABELS: Record<string, string> = {
   'base': 'Regular',
-  'holo': 'Holo',
   'reverse-holo': 'Reverse Holo',
   'poke-ball': 'Poké Ball Holo',
   'master-ball': 'Master Ball Holo',

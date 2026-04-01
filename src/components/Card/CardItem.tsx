@@ -41,7 +41,6 @@ type NavigationProp = StackNavigationProp<MainStackParamList, 'CardDetail'>;
 function getVariantBadge(variant?: string) {
   if (!variant || variant === 'base') return null;
   const badges: Record<string, { label: string; color: string }> = {
-    'holo': { label: 'H', color: '#50C878' }, // Green
     'reverse-holo': { label: 'RH', color: '#FFD700' }, // Gold
     'poke-ball': { label: 'PB', color: '#FF6B6B' }, // Red
     'master-ball': { label: 'MB', color: '#7B2D8E' }, // Purple
@@ -407,7 +406,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     justifyContent: 'center',
   },
   listCheckboxOwned: {
-    backgroundColor: 'rgba(170, 240, 230, 0.6)',
+    backgroundColor: 'transparent',
   },
   listCheckboxUnowned: {
     backgroundColor: 'rgba(0, 0, 0, 0.5)',

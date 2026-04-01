@@ -1004,7 +1004,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
           
           // For each base card, check if any of its variants is in the
           // tracked list. Cards whose base ID has NO tracked variants
-          // (e.g. secret rares with only base+holo) keep their base version.
+          // (e.g. secret rares with only base) keep their base version.
           const baseCardHasTrackedVariant = new Map<string, boolean>();
           allCards.forEach(card => {
             const baseId = card.id.replace(/-(base|holo|reverse|poke-ball|master-ball)$/, '');
@@ -2479,7 +2479,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
 
       if (binder?.collectionMode === 'region') {
         const variantBadge = card.variant && card.variant !== 'base'
-          ? { 'holo': { label: 'H', color: '#50C878' }, 'reverse-holo': { label: 'RH', color: '#FFD700' }, 'poke-ball': { label: 'PB', color: '#FF6B6B' }, 'master-ball': { label: 'MB', color: '#7B2D8E' } }[card.variant] || null
+          ? { 'reverse-holo': { label: 'RH', color: '#FFD700' }, 'poke-ball': { label: 'PB', color: '#FF6B6B' }, 'master-ball': { label: 'MB', color: '#7B2D8E' } }[card.variant] || null
           : null;
 
         return (
@@ -2549,7 +2549,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
   const renderRegionCard = useCallback(
     ({ item, index }: { item: CardWithOwnership; index: number }) => {
       const variantBadge = item.variant && item.variant !== 'base'
-        ? { 'holo': { label: 'H', color: '#50C878' }, 'reverse-holo': { label: 'RH', color: '#FFD700' }, 'poke-ball': { label: 'PB', color: '#FF6B6B' }, 'master-ball': { label: 'MB', color: '#7B2D8E' } }[item.variant] || null
+        ? { 'reverse-holo': { label: 'RH', color: '#FFD700' }, 'poke-ball': { label: 'PB', color: '#FF6B6B' }, 'master-ball': { label: 'MB', color: '#7B2D8E' } }[item.variant] || null
         : null;
 
       return (

@@ -1382,17 +1382,17 @@ export default function BinderEditScreen() {
 
     for (let i = newPositions.length - 1; i > insertAtIndex; i--) {
       newPositions[i] = {
-        ...newPositions[i],
-        cardId: newPositions[i - 1].cardId,
-        cardName: newPositions[i - 1].cardName,
-        imageUrl: newPositions[i - 1].imageUrl,
-        cardSet: newPositions[i - 1].cardSet,
+        ...newPositions[i - 1],
+        slotIndex: i,
       };
     }
 
     newPositions[insertAtIndex] = {
-      ...newPositions[insertAtIndex],
-      cardId: card.id, cardName: card.name, imageUrl: card.imageUrl, cardSet: card.set,
+      slotIndex: insertAtIndex,
+      cardId: card.id,
+      cardName: card.name,
+      imageUrl: card.imageUrl,
+      cardSet: card.set,
     };
 
     setCardPositions(newPositions);
@@ -1424,15 +1424,13 @@ export default function BinderEditScreen() {
       const sourceIdx = selectedCard.sourceSlot as number;
       for (let i = sourceIdx; i < newPositions.length - 1; i++) {
         newPositions[i] = {
-          ...newPositions[i],
-          cardId: newPositions[i + 1].cardId,
-          cardName: newPositions[i + 1].cardName,
-          imageUrl: newPositions[i + 1].imageUrl,
-          cardSet: newPositions[i + 1].cardSet,
+          ...newPositions[i + 1],
+          slotIndex: i,
         };
       }
-      newPositions[newPositions.length - 1] = {
-        ...newPositions[newPositions.length - 1],
+      const lastIdx = newPositions.length - 1;
+      newPositions[lastIdx] = {
+        slotIndex: lastIdx,
         cardId: null, cardName: undefined, imageUrl: undefined, cardSet: undefined,
       };
       if (insertAtIndex > sourceIdx) insertAtIndex--;
@@ -1458,16 +1456,13 @@ export default function BinderEditScreen() {
 
     for (let i = newPositions.length - 1; i > insertAtIndex; i--) {
       newPositions[i] = {
-        ...newPositions[i],
-        cardId: newPositions[i - 1].cardId,
-        cardName: newPositions[i - 1].cardName,
-        imageUrl: newPositions[i - 1].imageUrl,
-        cardSet: newPositions[i - 1].cardSet,
+        ...newPositions[i - 1],
+        slotIndex: i,
       };
     }
 
     newPositions[insertAtIndex] = {
-      ...newPositions[insertAtIndex],
+      slotIndex: insertAtIndex,
       cardId: selectedCard.cardId,
       cardName: selectedCard.cardName,
       imageUrl: selectedCard.imageUrl,

@@ -137,8 +137,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
   const [refreshing, setRefreshing] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('binder');
   const [searchQuery, setSearchQuery] = useState('');
-  const wasInBinderBeforeSearch = useRef(false);
-  const viewSwitchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [viewBeforeSearch, setViewBeforeSearch] = useState<ViewMode | null>(null);
   
   // Binder view mode state
   const [currentPage, setCurrentPage] = useState(1);
@@ -1863,16 +1862,23 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
 
   const handleSearchChange = useCallback((text: string) => {
     setSearchQuery(text);
-    if (text.length > 0 && viewMode === 'binder') {
-      wasInBinderBeforeSearch.current = true;
-      if (viewSwitchTimeout.current) clearTimeout(viewSwitchTimeout.current);
-      viewSwitchTimeout.current = setTimeout(() => setViewMode('grid'), 300);
-    } else if (text.length === 0 && wasInBinderBeforeSearch.current) {
-      if (viewSwitchTimeout.current) clearTimeout(viewSwitchTimeout.current);
-      wasInBinderBeforeSearch.current = false;
-      setViewMode('binder');
+  }, []);
+
+  // Auto-switch away from binder view while searching, and restore when cleared
+  useEffect(() => {
+    if (searchQuery.length > 0 && viewMode === 'binder') {
+      setViewBeforeSearch('binder');
+      setViewMode('grid');
+    } else if (searchQuery.length === 0 && viewBeforeSearch !== null) {
+      setViewMode(viewBeforeSearch);
+      setViewBeforeSearch(null);
     }
-  }, [viewMode]);
+  }, [searchQuery]);
+
+  const clearSearch = useCallback(() => {
+    setSearchQuery('');
+    setViewBeforeSearch(null);
+  }, []);
 
   // Once cards are fully loaded, show ALL cards at once (for Master Set and Region modes)
   // This removes pagination for a better user experience - they can scroll freely
@@ -2978,7 +2984,6 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
           onChangeText={handleSearchChange}
           placeholder="Search..."
           compact
-          autoFocus={wasInBinderBeforeSearch.current && searchQuery.length > 0}
         />
 
         <TouchableOpacity
@@ -3000,8 +3005,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
         <TouchableOpacity
           style={styles.toolbarIconButton}
           onPress={() => {
-            setSearchQuery('');
-            wasInBinderBeforeSearch.current = false;
+            clearSearch();
             setViewMode('binder');
             setDisplaySpreadStart(0);
             setDisplayViewport({ width: 0, height: 0 });
@@ -3022,9 +3026,9 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
             viewMode={viewMode}
             onViewModeChange={(mode) => {
               setViewMode(mode);
+              setViewBeforeSearch(null);
               if (mode === 'binder') {
-                setSearchQuery('');
-                wasInBinderBeforeSearch.current = false;
+                clearSearch();
                 setOwnershipFilter('all');
                 setStatsFilter(null);
                 setExpandedFilter(null);

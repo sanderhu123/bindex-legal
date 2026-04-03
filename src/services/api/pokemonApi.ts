@@ -975,19 +975,10 @@ function generateVariantCards(baseCard: Card, tcgdexCard: any): Card[] {
     id: `${baseCard.id}-base`,
   });
   
-  // 2. Regular reverse holo (if available AND rarity allows it)
-  if (hasReverse && allowsReverseHolo) {
-    variants.push({
-      ...baseCard,
-      variant: 'reverse-holo',
-      id: `${baseCard.id}-reverse`,
-    });
-  }
-  
-  // 3. Special variants (pokeball/masterball) - only for special sets
+  // 2. Reverse holo vs special variants
+  // Special sets use Poké Ball / Master Ball holos instead of reverse holos.
   if (hasSpecialVariants(setId)) {
     const specialVariants = getSpecialVariantsForCard(setId, hasReverse, supertype, rarity);
-    
     for (const variantType of specialVariants) {
       variants.push({
         ...baseCard,
@@ -995,6 +986,12 @@ function generateVariantCards(baseCard: Card, tcgdexCard: any): Card[] {
         id: `${baseCard.id}-${variantType}`,
       });
     }
+  } else if (hasReverse && allowsReverseHolo) {
+    variants.push({
+      ...baseCard,
+      variant: 'reverse-holo',
+      id: `${baseCard.id}-reverse`,
+    });
   }
   
   // Log detailed info for debugging (only log occasionally to avoid spam)
@@ -1013,8 +1010,8 @@ function generateVariantCards(baseCard: Card, tcgdexCard: any): Card[] {
     });
   }
   
-  // Special logging for cards that should have reverse-holo but don't
-  if (allowsReverseHolo && hasReverse && !variants.some(v => v.variant === 'reverse-holo')) {
+  // Warn if a non-special-set card should have reverse-holo but doesn't
+  if (allowsReverseHolo && hasReverse && !hasSpecialVariants(setId) && !variants.some(v => v.variant === 'reverse-holo')) {
     console.warn('[VARIANT] ⚠️ MISSING REVERSE-HOLO:', {
       cardName: baseCard.name,
       cardNumber: baseCard.number,

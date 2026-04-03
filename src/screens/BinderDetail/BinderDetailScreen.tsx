@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { View, StyleSheet, Text, ScrollView, TouchableOpacity, Dimensions, FlatList, SectionList, ActivityIndicator, Alert, PanResponder, Modal, Pressable, Animated, Image as RNImage, RefreshControl } from 'react-native';
+import { View, StyleSheet, Text, ScrollView, TouchableOpacity, Dimensions, FlatList, SectionList, ActivityIndicator, Alert, PanResponder, Modal, Pressable, Animated, Image as RNImage, RefreshControl, TextInput } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -138,6 +138,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
   const [viewMode, setViewMode] = useState<ViewMode>('binder');
   const [searchQuery, setSearchQuery] = useState('');
   const [viewBeforeSearch, setViewBeforeSearch] = useState<ViewMode | null>(null);
+  const searchBarRef = useRef<TextInput>(null);
   
   // Binder view mode state
   const [currentPage, setCurrentPage] = useState(1);
@@ -1868,6 +1869,10 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
     if (viewMode === 'binder') {
       setViewBeforeSearch('binder');
       setViewMode('grid');
+      // Re-focus after React renders the new view (TextInput remounts in a new FlatList)
+      requestAnimationFrame(() => {
+        searchBarRef.current?.focus();
+      });
     }
   }, [viewMode]);
 
@@ -2984,6 +2989,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
       {/* Row 3: Toolbar — Search | Edit | Settings | Display Mode */}
       <View style={styles.toolbar}>
         <SearchBar
+          ref={searchBarRef}
           value={searchQuery}
           onChangeText={handleSearchChange}
           onFocus={handleSearchFocus}

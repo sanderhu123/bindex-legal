@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, forwardRef } from 'react';
 import { View, TextInput, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../context/ThemeContext';
@@ -13,20 +13,24 @@ interface SearchBarProps {
   onFocus?: () => void;
 }
 
-export default function SearchBar({ 
-  value, 
-  onChangeText, 
-  placeholder = 'Search by name or number...',
-  compact = false,
-  autoFocus = false,
-  onFocus,
-}: SearchBarProps) {
+const SearchBar = forwardRef<TextInput, SearchBarProps>(function SearchBar(
+  { 
+    value, 
+    onChangeText, 
+    placeholder = 'Search by name or number...',
+    compact = false,
+    autoFocus = false,
+    onFocus,
+  },
+  ref,
+) {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   return (
     <View style={compact ? styles.containerCompact : styles.container}>
       <Ionicons name="search" size={compact ? 16 : 18} color={colors.textTertiary} style={styles.icon} />
       <TextInput
+        ref={ref}
         style={compact ? styles.inputCompact : styles.input}
         placeholder={placeholder}
         placeholderTextColor={colors.textLight}
@@ -39,7 +43,9 @@ export default function SearchBar({
       />
     </View>
   );
-}
+});
+
+export default SearchBar;
 
 const createStyles = (colors: ThemeColors) =>
   StyleSheet.create({

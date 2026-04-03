@@ -1869,10 +1869,6 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
     if (viewMode === 'binder') {
       setViewBeforeSearch('binder');
       setViewMode('grid');
-      // Re-focus after React renders the new view (TextInput remounts in a new FlatList)
-      requestAnimationFrame(() => {
-        searchBarRef.current?.focus();
-      });
     }
   }, [viewMode]);
 
@@ -2995,6 +2991,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
           onFocus={handleSearchFocus}
           placeholder="Search..."
           compact
+          autoFocus={viewBeforeSearch !== null}
         />
 
         <TouchableOpacity

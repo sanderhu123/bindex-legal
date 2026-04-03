@@ -3,7 +3,7 @@ import type { PokemonArtStyle } from '../../types';
 import { mockCards, mockSets, type MockSet } from '../../data/mockupCards';
 import { getPokemonByRegion } from '../../data/pokemonRegions';
 import { getEras, getSetsByEra, getAllSets, convertSetToPokemonSet, sortCardsBySetDate, getSeriesSlugFromId, getTcgdexSetId, cleanCardNumberForTcgdex, convertSetIdForUrl } from '../../data/pokemonEras';
-import { getSpecialVariantsForCard, hasSpecialVariants } from '../../data/cardVariants';
+import { getSpecialVariantsForCard, hasSpecialVariants, setHasReverseHolos } from '../../data/cardVariants';
 import TCGdex from '@tcgdex/sdk';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { isStorageFullError, emergencyStorageCleanup } from '../cacheManager';
@@ -953,7 +953,7 @@ function generateVariantCards(baseCard: Card, tcgdexCard: any): Card[] {
   const setId = tcgdexCard.set?.id || '';
   
   // Get variant availability from API
-  const hasReverse = tcgdexCard.variants?.reverse === true;
+  let hasReverse = tcgdexCard.variants?.reverse === true;
   const supertype = tcgdexCard.category || '';
   const rarity = tcgdexCard.rarity || '';
   
@@ -968,6 +968,12 @@ function generateVariantCards(baseCard: Card, tcgdexCard: any): Card[] {
     rarity === 'Rare Holo'
   );
   
+  // TCGDEX may not have variant data for newer sets. For sets we know
+  // should have reverse/special holos, infer availability from rarity.
+  if (!hasReverse && allowsReverseHolo && setHasReverseHolos(setId)) {
+    hasReverse = true;
+  }
+  
   // 1. Base card (always available)
   variants.push({
     ...baseCard,
@@ -975,10 +981,19 @@ function generateVariantCards(baseCard: Card, tcgdexCard: any): Card[] {
     id: `${baseCard.id}-base`,
   });
   
-  // 2. Reverse holo vs special variants
-  // Special sets use Poké Ball / Master Ball holos instead of reverse holos.
+  // 2. Regular reverse holo (if available AND rarity allows it)
+  if (hasReverse && allowsReverseHolo) {
+    variants.push({
+      ...baseCard,
+      variant: 'reverse-holo',
+      id: `${baseCard.id}-reverse`,
+    });
+  }
+  
+  // 3. Special variants (pokeball/masterball) - only for special sets
   if (hasSpecialVariants(setId)) {
     const specialVariants = getSpecialVariantsForCard(setId, hasReverse, supertype, rarity);
+    
     for (const variantType of specialVariants) {
       variants.push({
         ...baseCard,
@@ -986,12 +1001,6 @@ function generateVariantCards(baseCard: Card, tcgdexCard: any): Card[] {
         id: `${baseCard.id}-${variantType}`,
       });
     }
-  } else if (hasReverse && allowsReverseHolo) {
-    variants.push({
-      ...baseCard,
-      variant: 'reverse-holo',
-      id: `${baseCard.id}-reverse`,
-    });
   }
   
   // Log detailed info for debugging (only log occasionally to avoid spam)
@@ -1010,8 +1019,8 @@ function generateVariantCards(baseCard: Card, tcgdexCard: any): Card[] {
     });
   }
   
-  // Warn if a non-special-set card should have reverse-holo but doesn't
-  if (allowsReverseHolo && hasReverse && !hasSpecialVariants(setId) && !variants.some(v => v.variant === 'reverse-holo')) {
+  // Special logging for cards that should have reverse-holo but don't
+  if (allowsReverseHolo && hasReverse && !variants.some(v => v.variant === 'reverse-holo')) {
     console.warn('[VARIANT] ⚠️ MISSING REVERSE-HOLO:', {
       cardName: baseCard.name,
       cardNumber: baseCard.number,
@@ -1035,7 +1044,10 @@ export async function getCardsBySet(setIdentifier: string): Promise<Card[]> {
   console.log('[24C] getCardsBySet() called:', { setIdentifier });
   const overallStartTime = performance.now();
   
-  const cacheKey = `cards-${setIdentifier}`;
+  // Bump this version when variant generation logic changes so stale
+  // cached data (missing variants) is automatically refreshed.
+  const CARD_CACHE_VERSION = 2;
+  const cacheKey = `cards-v${CARD_CACHE_VERSION}-${setIdentifier}`;
   
   // Step 1: Check cache first
   const cachedData = getCachedData<Card[]>(cacheKey);

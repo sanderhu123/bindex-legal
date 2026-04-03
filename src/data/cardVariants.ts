@@ -157,13 +157,14 @@ export function getAvailableVariantsForSet(setId: string): ('base' | 'reverse-ho
     'base',
   ];
 
+  // Only add reverse-holo if the set actually has reverse holos
+  // (old sets before Legendary Collection and promo/POP sets don't have them)
   if (setHasReverseHolos(setId)) {
+    variants.push('reverse-holo');
+
+    // Special sets also have pokeball and masterball variants
     if (hasSpecialVariants(setId)) {
-      // Special sets (Prismatic Evolutions, White Flare, Black Bolt) use
-      // Poké Ball / Master Ball holos instead of regular reverse holos.
       variants.push('poke-ball', 'master-ball');
-    } else {
-      variants.push('reverse-holo');
     }
   }
 
@@ -218,12 +219,10 @@ export function getAvailableVariantsForCard(
   const variants: ('base' | 'reverse-holo' | 'poke-ball' | 'master-ball')[] = ['base'];
 
   if (allowsReverseHolo && setHasReverseHolos(setId)) {
-    if (hasSpecialVariants(setId)) {
-      const specialVariants = getSpecialVariantsForCard(setId, true, supertype, rarity);
-      variants.push(...specialVariants);
-    } else {
-      variants.push('reverse-holo');
-    }
+    variants.push('reverse-holo');
+
+    const specialVariants = getSpecialVariantsForCard(setId, true, supertype, rarity);
+    variants.push(...specialVariants);
   }
 
   return variants;

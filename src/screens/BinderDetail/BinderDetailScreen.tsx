@@ -1864,12 +1864,16 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
     setSearchQuery(text);
   }, []);
 
-  // Auto-switch away from binder view while searching, and restore when cleared
-  useEffect(() => {
-    if (searchQuery.length > 0 && viewMode === 'binder') {
+  const handleSearchFocus = useCallback(() => {
+    if (viewMode === 'binder') {
       setViewBeforeSearch('binder');
       setViewMode('grid');
-    } else if (searchQuery.length === 0 && viewBeforeSearch !== null) {
+    }
+  }, [viewMode]);
+
+  // Restore original view when search is cleared
+  useEffect(() => {
+    if (searchQuery.length === 0 && viewBeforeSearch !== null) {
       setViewMode(viewBeforeSearch);
       setViewBeforeSearch(null);
     }
@@ -2982,6 +2986,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
         <SearchBar
           value={searchQuery}
           onChangeText={handleSearchChange}
+          onFocus={handleSearchFocus}
           placeholder="Search..."
           compact
         />

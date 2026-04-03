@@ -10,6 +10,7 @@ interface SearchBarProps {
   placeholder?: string;
   compact?: boolean;
   autoFocus?: boolean;
+  onFocus?: () => void;
 }
 
 export default function SearchBar({ 
@@ -18,6 +19,7 @@ export default function SearchBar({
   placeholder = 'Search by name or number...',
   compact = false,
   autoFocus = false,
+  onFocus,
 }: SearchBarProps) {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
@@ -33,6 +35,7 @@ export default function SearchBar({
         autoCapitalize="none"
         autoCorrect={false}
         autoFocus={autoFocus}
+        onFocus={onFocus}
       />
     </View>
   );

@@ -37,26 +37,35 @@ async function ptcgioFetch<T = any>(
   endpoint: string,
   params?: Record<string, string>
 ): Promise<T> {
-  const url = new URL(`${POKEMON_TCG_API_BASE}${endpoint}`);
+  let url = `${POKEMON_TCG_API_BASE}${endpoint}`;
   if (params) {
+    const queryParts: string[] = [];
     for (const [key, value] of Object.entries(params)) {
-      url.searchParams.append(key, value);
+      queryParts.push(`${encodeURIComponent(key)}=${encodeURIComponent(value)}`);
+    }
+    if (queryParts.length > 0) {
+      url += '?' + queryParts.join('&');
     }
   }
+
+  console.log('[API] Request URL:', url);
 
   const headers: Record<string, string> = {};
   if (POKEMON_TCG_API_KEY) {
     headers['X-Api-Key'] = POKEMON_TCG_API_KEY;
   }
 
-  const response = await fetch(url.toString(), { headers });
+  const response = await fetch(url, { headers });
 
   if (response.status === 429) {
     handleRateLimitError({ status: 429, response });
   }
 
   if (!response.ok) {
-    throw new Error(`pokemontcg.io API error: ${response.status} ${response.statusText}`);
+    let errorBody = '';
+    try { errorBody = await response.text(); } catch {}
+    console.error('[API] Error response:', { status: response.status, body: errorBody, url });
+    throw new Error(`pokemontcg.io API error: ${response.status} ${errorBody}`);
   }
 
   return response.json();
@@ -458,12 +467,100 @@ export async function getSets(): Promise<PokemonSet[]> {
   }
 }
 
+// ==================== ID CONVERSION ====================
+
+/**
+ * Build a map of set name (lowercase) → app set ID from hard-coded era data.
+ */
+const setNameToIdMap = new Map<string, string>();
+for (const set of getAllSets()) {
+  setNameToIdMap.set(set.name.toLowerCase(), set.id);
+}
+
+/**
+ * Convert a TCGdex-format card ID to pokemontcg.io format.
+ * Handles set ID conversion, gallery sub-set suffixes, and card number zero-stripping.
+ * 
+ * pokemontcg.io puts Trainer Gallery and Galarian Gallery cards in separate sub-sets:
+ *   "swsh9-TG01"   → "swsh9tg-TG01"   (Trainer Gallery)
+ *   "swsh12.5-GG01" → "swsh12pt5gg-GG01" (Galarian Gallery)
+ *   "sv01-025"     → "sv1-25"
+ *   "base1-4"      → "base1-4" (unchanged)
+ */
+function convertCardIdToPtcgio(cardId: string): string {
+  const lastDash = cardId.lastIndexOf('-');
+  if (lastDash <= 0) return cardId;
+  
+  const setIdPart = cardId.slice(0, lastDash);
+  const numberPart = cardId.slice(lastDash + 1);
+  
+  // Convert set ID
+  let ptcgioSetId = getPtcgioSetId(setIdPart);
+  
+  // pokemontcg.io uses separate sub-set IDs for gallery cards
+  if (/^GG\d/i.test(numberPart)) {
+    ptcgioSetId = ptcgioSetId + 'gg';
+  } else if (/^TG\d/i.test(numberPart)) {
+    ptcgioSetId = ptcgioSetId + 'tg';
+  }
+  
+  // Strip leading zeros from purely numeric card numbers ("001" → "1")
+  let ptcgioNumber = numberPart;
+  if (/^\d+$/.test(numberPart)) {
+    ptcgioNumber = String(Number(numberPart));
+  }
+  
+  return `${ptcgioSetId}-${ptcgioNumber}`;
+}
+
+/**
+ * Resolve a set identifier (could be a name or an ID) to a pokemontcg.io set ID.
+ * Tries: direct pokemontcg.io ID → app/TCGdex ID → set name lookup → API search.
+ */
+async function resolveSetId(setIdentifier: string): Promise<string> {
+  // 1. Check if it's a known app set ID (e.g., "sv01", "me02")
+  const directConvert = getPtcgioSetId(setIdentifier);
+  if (directConvert !== setIdentifier || ALLOWED_SET_IDS.has(setIdentifier.toLowerCase())) {
+    return directConvert;
+  }
+  
+  // 2. Check if it's a set name in our hard-coded data
+  const idFromName = setNameToIdMap.get(setIdentifier.toLowerCase());
+  if (idFromName) {
+    return getPtcgioSetId(idFromName);
+  }
+  
+  // 3. Last resort: search pokemontcg.io API by set name
+  try {
+    const response = await ptcgioFetch('/sets', {
+      q: `name:"${setIdentifier}"`,
+    });
+    if (response.data && response.data.length > 0) {
+      return response.data[0].id;
+    }
+  } catch {
+    // Fall through
+  }
+  
+  // If nothing works, return the original (will likely fail but gives a clear error)
+  return setIdentifier;
+}
+
 // ==================== CARD FUNCTIONS ====================
 
 /**
  * Fetch all cards for a set from pokemontcg.io, handling pagination.
  */
-async function fetchAllCardsForSet(ptcgioSetId: string): Promise<any[]> {
+// pokemontcg.io splits Trainer Gallery / Galarian Gallery into separate sub-sets
+const GALLERY_SUB_SETS: Record<string, string> = {
+  'swsh9': 'swsh9tg',
+  'swsh10': 'swsh10tg',
+  'swsh11': 'swsh11tg',
+  'swsh12': 'swsh12tg',
+  'swsh12pt5': 'swsh12pt5gg',
+};
+
+async function fetchCardsForOneSet(ptcgioSetId: string): Promise<any[]> {
   const allCards: any[] = [];
   let page = 1;
   let totalCount = Infinity;
@@ -481,6 +578,24 @@ async function fetchAllCardsForSet(ptcgioSetId: string): Promise<any[]> {
     page++;
     
     if (response.data.length === 0) break;
+  }
+  
+  return allCards;
+}
+
+async function fetchAllCardsForSet(ptcgioSetId: string): Promise<any[]> {
+  const allCards = await fetchCardsForOneSet(ptcgioSetId);
+  
+  // Also fetch gallery sub-set if one exists
+  const gallerySuffix = GALLERY_SUB_SETS[ptcgioSetId];
+  if (gallerySuffix) {
+    try {
+      const galleryCards = await fetchCardsForOneSet(gallerySuffix);
+      console.log('[API] Gallery sub-set fetched:', { subSet: gallerySuffix, count: galleryCards.length });
+      allCards.push(...galleryCards);
+    } catch (err) {
+      console.warn('[API] Failed to fetch gallery sub-set:', gallerySuffix, err);
+    }
   }
   
   return allCards;
@@ -511,8 +626,8 @@ export async function getCardsBySet(setIdentifier: string): Promise<Card[]> {
   
   return deduplicateRequest(cacheKey, async () => {
     try {
-      // Convert set ID to pokemontcg.io format
-      const ptcgioSetId = getPtcgioSetId(setIdentifier);
+      // Resolve set identifier (name or ID) to a pokemontcg.io set ID
+      const ptcgioSetId = await resolveSetId(setIdentifier);
       console.log('[API] Fetching cards for set:', { input: setIdentifier, ptcgioSetId });
       
       const ptcgioCards = await fetchAllCardsForSet(ptcgioSetId);
@@ -631,8 +746,12 @@ export async function getCardById(id: string): Promise<Card | null> {
       };
       const cardVariant = variant ? variantMap[variant] : undefined;
       
+      // Convert TCGdex card ID to pokemontcg.io format (e.g., "swsh12.5-001" → "swsh12pt5-1")
+      const ptcgioCardId = convertCardIdToPtcgio(baseId);
+      console.log('[API] getCardById() ID conversion:', { original: baseId, converted: ptcgioCardId });
+      
       // Fetch from pokemontcg.io
-      const response = await ptcgioFetch(`/cards/${encodeURIComponent(baseId)}`);
+      const response = await ptcgioFetch(`/cards/${encodeURIComponent(ptcgioCardId)}`);
       const ptcgioCard = response.data;
       
       if (!ptcgioCard) {

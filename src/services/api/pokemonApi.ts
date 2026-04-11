@@ -407,6 +407,39 @@ function generateVariantCards(baseCard: Card, ptcgioCard: any): Card[] {
 
 // ==================== SET FUNCTIONS ====================
 
+/**
+ * Sort cards by number: numeric cards first (1, 2, 3...), then
+ * prefixed cards (GG01, TG01, SV01...) in their own numeric order.
+ */
+function sortCardsByNumber(cards: any[]): any[] {
+  return [...cards].sort((a, b) => {
+    const numA = a.number || '';
+    const numB = b.number || '';
+    
+    const isNumericA = /^\d+$/.test(numA);
+    const isNumericB = /^\d+$/.test(numB);
+    
+    // Both numeric: sort as numbers
+    if (isNumericA && isNumericB) {
+      return parseInt(numA, 10) - parseInt(numB, 10);
+    }
+    // Numeric comes before non-numeric
+    if (isNumericA) return -1;
+    if (isNumericB) return 1;
+    
+    // Both non-numeric: extract prefix and number (e.g. "GG01" → "GG", 1)
+    const matchA = numA.match(/^([A-Za-z]+)(\d+)$/);
+    const matchB = numB.match(/^([A-Za-z]+)(\d+)$/);
+    
+    if (matchA && matchB) {
+      if (matchA[1] !== matchB[1]) return matchA[1].localeCompare(matchB[1]);
+      return parseInt(matchA[2], 10) - parseInt(matchB[2], 10);
+    }
+    
+    return numA.localeCompare(numB);
+  });
+}
+
 function sortSetsByDate(sets: PokemonSet[]): PokemonSet[] {
   return [...sets].sort((a, b) => {
     if (!a.releaseDate) return 1;
@@ -683,12 +716,13 @@ export async function getCardsBySet(setIdentifier: string): Promise<Card[]> {
       if (!error && dbCards && dbCards.length > 0) {
         console.log('[API] Cards from Supabase:', { count: dbCards.length, setIds });
         
-        const transformedCards = dbCards.map(transformDbRowToCard);
+        const sortedDbCards = sortCardsByNumber(dbCards);
+        const transformedCards = sortedDbCards.map(transformDbRowToCard);
         
         // Generate variants
         const allVariantCards: Card[] = [];
         for (let i = 0; i < transformedCards.length; i++) {
-          const fakeApiCard = dbRowToPtcgioShape(dbCards[i]);
+          const fakeApiCard = dbRowToPtcgioShape(sortedDbCards[i]);
           const variantCards = generateVariantCards(transformedCards[i], fakeApiCard);
           allVariantCards.push(...variantCards);
         }

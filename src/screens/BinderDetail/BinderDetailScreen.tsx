@@ -2767,14 +2767,20 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
     );
   };
 
-  // Progress counts:
-  // - Custom binders use visible slot data as source of truth (prevents stale DB count drift)
-  // - Other modes continue using binder cache (with cards fallback)
+  // Progress counts — always derived from actual card data so the bar
+  // never shows a stale cached value (e.g. after a variant-only change).
   const customOwnedCount = Array.from(positionCards.values()).filter(c => c.isOwned).length;
   const customTotalCount = positionCards.size;
+  const mainOwnedCount = cards.filter(c => c.isOwned).length;
+  const extraOwnedCount = extraCards.length > 0
+    ? (() => {
+        const mainIds = new Set(cards.map(c => c.id));
+        return extraCards.filter(c => c.isOwned && !mainIds.has(c.id)).length;
+      })()
+    : 0;
   const ownedCount = isCustomMode
     ? customOwnedCount
-    : (binder?.ownedCards ?? cards.filter(c => c.isOwned).length);
+    : mainOwnedCount + extraOwnedCount;
   const totalCount = isCustomMode
     ? customTotalCount
     : (binder?.totalCards ?? cards.length);

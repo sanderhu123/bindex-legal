@@ -497,11 +497,17 @@ function convertCardIdToPtcgio(cardId: string): string {
   // Convert set ID
   let ptcgioSetId = getPtcgioSetId(setIdPart);
   
-  // pokemontcg.io uses separate sub-set IDs for gallery cards
+  // pokemontcg.io uses separate sub-set IDs for gallery/vault cards
   if (/^GG\d/i.test(numberPart)) {
     ptcgioSetId = ptcgioSetId + 'gg';
   } else if (/^TG\d/i.test(numberPart)) {
     ptcgioSetId = ptcgioSetId + 'tg';
+  } else if (/^SV\d/i.test(numberPart)) {
+    // Shiny Vault cards: swsh45 → swsh45sv, sm115 → sma
+    const svSubSet = GALLERY_SUB_SETS[ptcgioSetId];
+    if (svSubSet) {
+      ptcgioSetId = svSubSet;
+    }
   }
   
   // Strip leading zeros from purely numeric card numbers ("001" → "1")
@@ -551,13 +557,16 @@ async function resolveSetId(setIdentifier: string): Promise<string> {
 /**
  * Fetch all cards for a set from pokemontcg.io, handling pagination.
  */
-// pokemontcg.io splits Trainer Gallery / Galarian Gallery into separate sub-sets
+// pokemontcg.io splits gallery/vault/classic sub-sets into separate set IDs
 const GALLERY_SUB_SETS: Record<string, string> = {
-  'swsh9': 'swsh9tg',
-  'swsh10': 'swsh10tg',
-  'swsh11': 'swsh11tg',
-  'swsh12': 'swsh12tg',
-  'swsh12pt5': 'swsh12pt5gg',
+  'swsh9': 'swsh9tg',       // Brilliant Stars → Trainer Gallery
+  'swsh10': 'swsh10tg',     // Astral Radiance → Trainer Gallery
+  'swsh11': 'swsh11tg',     // Lost Origin → Trainer Gallery
+  'swsh12': 'swsh12tg',     // Silver Tempest → Trainer Gallery
+  'swsh12pt5': 'swsh12pt5gg', // Crown Zenith → Galarian Gallery
+  'swsh45': 'swsh45sv',     // Shining Fates → Shiny Vault
+  'sm115': 'sma',           // Hidden Fates → Shiny Vault
+  'cel25': 'cel25c',        // Celebrations → Classic Collection
 };
 
 async function fetchCardsForOneSet(ptcgioSetId: string): Promise<any[]> {

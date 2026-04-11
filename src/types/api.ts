@@ -1,79 +1,84 @@
 /**
- * TCGDEX API Response Types
+ * pokemontcg.io API Response Types
  * 
- * These types match the TCGDEX API response structure.
- * Reference: https://tcgdex.dev/ (TCGDEX API documentation)
+ * These types match the pokemontcg.io API v2 response structure.
+ * Reference: https://docs.pokemontcg.io/
  */
 
 /**
- * Base API response structure
+ * Paginated API response wrapper from pokemontcg.io
  */
-export interface ApiResponse<T> {
+export interface PtcgioResponse<T> {
   data: T;
-  meta?: {
-    total?: number;
-    page?: number;
-    pageSize?: number;
+  page: number;
+  pageSize: number;
+  count: number;
+  totalCount: number;
+}
+
+/**
+ * pokemontcg.io Set response structure
+ */
+export interface PtcgioSet {
+  id: string;
+  name: string;
+  series: string;
+  printedTotal: number;
+  total: number;
+  legalities?: {
+    unlimited?: string;
+    standard?: string;
+    expanded?: string;
+  };
+  ptcgoCode?: string;
+  releaseDate: string;
+  updatedAt?: string;
+  images: {
+    symbol: string;
+    logo: string;
   };
 }
 
 /**
- * TCGDEX Set response structure
+ * pokemontcg.io Card response structure
  */
-export interface TcgdexSet {
+export interface PtcgioCard {
   id: string;
   name: string;
-  series?: string;
-  releaseDate?: string;
-  legal?: {
-    standard?: boolean;
-    expanded?: boolean;
-  };
-  images?: {
-    symbol?: string;
-    logo?: string;
-  };
-}
-
-/**
- * TCGDEX Card response structure
- */
-export interface TcgdexCard {
-  id: string;
-  name: string;
-  number?: string;
-  set?: {
+  supertype: string;
+  subtypes?: string[];
+  hp?: string;
+  types?: string[];
+  number: string;
+  artist?: string;
+  rarity?: string;
+  nationalPokedexNumbers?: number[];
+  set: {
     id: string;
     name: string;
+    series: string;
+    printedTotal: number;
+    total: number;
+    releaseDate: string;
+    images: {
+      symbol: string;
+      logo: string;
+    };
   };
-  rarity?: string;
-  illustrator?: string;
-  images?: {
-    small?: string;
-    large?: string;
+  images: {
+    small: string;
+    large: string;
   };
-  variants?: {
-    normal: boolean;      // Regular non-foil version
-    holo: boolean;        // Holofoil version
-    reverse: boolean;     // Reverse holofoil version
-    firstEdition: boolean; // First edition printing
-    wPromo: boolean;      // W Promo variant
-  }; // Note: API doesn't distinguish reverse holo patterns (pokeball vs masterball)
   tcgplayer?: {
     url?: string;
     updatedAt?: string;
-    prices?: {
-      normal?: {
-        low?: number;
-        mid?: number;
-        high?: number;
-      };
-      holofoil?: {
-        low?: number;
-        mid?: number;
-        high?: number;
-      };
-    };
+    prices?: Record<string, {
+      low?: number;
+      mid?: number;
+      high?: number;
+      market?: number;
+      directLow?: number | null;
+    }>;
   };
 }
 
@@ -95,4 +100,3 @@ export interface ApiRequestOptions {
   body?: unknown;
   params?: Record<string, string | number | boolean>;
 }
-

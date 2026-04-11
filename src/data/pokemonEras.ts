@@ -76,11 +76,33 @@ const TCGDEX_TO_POKEMONTCGIO: Record<string, string> = {
 };
 
 /**
+ * Reverse mapping: pokemontcg.io set ID → TCGdex/app set ID.
+ * Built automatically from the forward mapping.
+ */
+const POKEMONTCGIO_TO_TCGDEX: Record<string, string> = {};
+for (const [tcgdex, ptcgio] of Object.entries(TCGDEX_TO_POKEMONTCGIO)) {
+  POKEMONTCGIO_TO_TCGDEX[ptcgio] = tcgdex;
+}
+
+/**
+ * Convert an app/TCGdex set ID to the pokemontcg.io set ID.
+ */
+export function getPtcgioSetId(appSetId: string): string {
+  return TCGDEX_TO_POKEMONTCGIO[appSetId] || appSetId;
+}
+
+/**
+ * Convert a pokemontcg.io set ID back to the app/TCGdex set ID.
+ */
+export function getAppSetId(ptcgioSetId: string): string {
+  return POKEMONTCGIO_TO_TCGDEX[ptcgioSetId] || ptcgioSetId;
+}
+
+/**
  * Generate symbol URL for a set using pokemontcg.io
- * Falls back to this source because TCGDEX is missing symbols for many newer sets.
  */
 function getSetSymbolUrl(setId: string): string {
-  const pokemontcgioId = TCGDEX_TO_POKEMONTCGIO[setId] || setId;
+  const pokemontcgioId = getPtcgioSetId(setId);
   return `https://images.pokemontcg.io/${pokemontcgioId}/symbol.png`;
 }
 
@@ -669,11 +691,13 @@ export function getSetSymbolByName(setName: string): string | null {
 }
 
 /**
- * Find which era a set belongs to by set ID (returns era name)
+ * Find which era a set belongs to by set ID (returns era name).
+ * Accepts both TCGdex and pokemontcg.io set IDs.
  */
 export function getEraForSetId(setId: string): string | null {
+  const appId = getAppSetId(setId);
   for (const era of POKEMON_ERAS) {
-    const set = era.sets.find(s => s.id === setId);
+    const set = era.sets.find(s => s.id === setId || s.id === appId);
     if (set) {
       return era.name;
     }
@@ -682,11 +706,13 @@ export function getEraForSetId(setId: string): string | null {
 }
 
 /**
- * Find which era ID a set belongs to by set ID (returns era id, e.g. 'base', 'neo', 'ex')
+ * Find which era ID a set belongs to by set ID (returns era id, e.g. 'base', 'neo', 'ex').
+ * Accepts both TCGdex and pokemontcg.io set IDs.
  */
 export function getEraIdForSetId(setId: string): string | null {
+  const appId = getAppSetId(setId);
   for (const era of POKEMON_ERAS) {
-    const set = era.sets.find(s => s.id === setId);
+    const set = era.sets.find(s => s.id === setId || s.id === appId);
     if (set) {
       return era.id;
     }
@@ -722,8 +748,12 @@ const setReleaseDateMap: Map<string, string> = new Map();
 for (const era of POKEMON_ERAS) {
   for (const set of era.sets) {
     setReleaseDateMap.set(set.name.toLowerCase(), set.releaseDate);
-    // Also add by set ID for fallback
     setReleaseDateMap.set(set.id.toLowerCase(), set.releaseDate);
+    // Also add by pokemontcg.io set ID so cards with those IDs can be sorted
+    const ptcgioId = getPtcgioSetId(set.id);
+    if (ptcgioId !== set.id) {
+      setReleaseDateMap.set(ptcgioId.toLowerCase(), set.releaseDate);
+    }
   }
 }
 

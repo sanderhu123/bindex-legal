@@ -1,6 +1,6 @@
 import React from 'react';
 import { StyleSheet, TouchableOpacity, Text, View } from 'react-native';
-import { fonts } from '../../constants/theme';
+import { fonts, spacing } from '../../constants/theme';
 
 /**
  * Props for InsertButton component
@@ -40,9 +40,13 @@ export function InsertButton({ onPress }: InsertButtonProps) {
 const styles = StyleSheet.create({
   // Slim outer wrapper â€” only 8px wide in layout
   wrapper: {
-    width: 8,
+    width: 12,
     justifyContent: 'center',
     alignItems: 'center',
+    alignSelf: 'stretch',
+    marginHorizontal: 0,
+    marginVertical: spacing.xs,
+    transform: [{ translateX: -2 }],
     zIndex: 1,
   },
   // Thin vertical line above and below the "+" circle
@@ -67,7 +71,9 @@ const styles = StyleSheet.create({
     color: '#FFD700',
     fontSize: 13,
     fontFamily: fonts.bold,
-    lineHeight: 15,
+    lineHeight: 13,
+    includeFontPadding: false,
+    textAlignVertical: 'center',
     textAlign: 'center',
   },
 });

@@ -12,25 +12,28 @@ interface CardListProps {
   onCardPress?: (card: CardWithOwnership) => void; // Optional now, kept for backward compatibility
   binderId: string;
   listTapBehavior?: 'navigate' | 'toggle'; // Step 34A: what happens when list row is tapped
+  cardsPerPage?: number;
 }
 
 /**
  * CardList component - uses FlatList for virtualization
  * This is much faster than .map() when switching view modes
  */
-function CardListComponent({ cards, onCardPress, binderId, listTapBehavior = 'toggle' }: CardListProps) {
+function CardListComponent({ cards, onCardPress, binderId, listTapBehavior = 'toggle', cardsPerPage }: CardListProps) {
   // Memoized render function for better performance
   const renderCard = useCallback(
-    ({ item }: { item: CardWithOwnership }) => (
+    ({ item, index }: { item: CardWithOwnership; index: number }) => (
       <CardItem
         card={item}
         onPress={onCardPress}
         binderId={binderId}
         variant="list"
         listTapBehavior={listTapBehavior}
+        cardIndex={index}
+        cardsPerPage={cardsPerPage}
       />
     ),
-    [onCardPress, binderId, listTapBehavior]
+    [onCardPress, binderId, listTapBehavior, cardsPerPage]
   );
 
   // Key extractor for FlatList

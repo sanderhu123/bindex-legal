@@ -11,6 +11,7 @@ import {
   Platform,
   Keyboard,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../../context/ThemeContext';
 import { spacing, typography, borderRadius, shadows, fonts, type ThemeColors } from '../../constants/theme';
@@ -39,7 +40,7 @@ export interface SearchableListPickerProps {
   items: ListPickerItem[];
   /** Set of currently selected item IDs (supports multi-select) */
   selectedIds: Set<string>;
-  /** Called when the user taps Done Ã¢â‚¬â€ receives the final set of selected IDs */
+  /** Called when the user taps Done and confirms selections */
   onDone: (selectedIds: Set<string>) => void;
   /** Called when the picker is closed via Cancel or backdrop */
   onClose: () => void;
@@ -101,7 +102,7 @@ export function SearchableListPicker({
     onClose();
   }, [onClose]);
 
-  // Handle Done Ã¢â‚¬â€ save selections
+  // Handle Done and save selections
   const handleDone = useCallback(() => {
     setSearchText('');
     onDone(localSelected);
@@ -137,7 +138,7 @@ export function SearchableListPicker({
         >
           {/* Checkbox */}
           <View style={[styles.checkbox, isSelected && styles.checkboxSelected]}>
-            {isSelected && <Text style={styles.checkboxIcon}>Ã¢Å“â€œ</Text>}
+            {isSelected && <Ionicons name="checkmark" size={14} color={colors.onPrimary} style={styles.checkboxIcon} />}
           </View>
           <View style={styles.listItemContent}>
             <Text
@@ -214,7 +215,7 @@ export function SearchableListPicker({
           {/* Search input */}
           <View style={styles.searchContainer}>
             <View style={styles.searchInputContainer}>
-              <Text style={styles.searchIcon}>Ã°Å¸â€Â</Text>
+              <Ionicons name="search" size={14} color={colors.textTertiary} style={styles.searchIcon} />
               <TextInput
                 style={styles.searchInput}
                 placeholder={searchPlaceholder}
@@ -231,7 +232,7 @@ export function SearchableListPicker({
                   onPress={() => setSearchText('')}
                   hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                 >
-                  <Text style={styles.clearIcon}>Ã¢Å“â€¢</Text>
+                  <Ionicons name="close-circle" size={14} color={colors.textTertiary} style={styles.clearIcon} />
                 </TouchableOpacity>
               )}
             </View>
@@ -417,7 +418,6 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   checkboxIcon: {
     fontSize: 14,
     color: colors.onPrimary,
-    fontFamily: fonts.bold,
   },
   listItemContent: {
     flex: 1,

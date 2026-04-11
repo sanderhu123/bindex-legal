@@ -109,7 +109,8 @@ const createStyles = (colors: ThemeColors, forceDarkMode: boolean) => {
       paddingVertical: spacing.xs,
       paddingHorizontal: spacing.sm,
       marginHorizontal: spacing.lg,
-      marginVertical: spacing.sm,
+      marginTop: spacing.sm,
+      marginBottom: spacing.xs,
     },
     row: {
       flexDirection: 'row',

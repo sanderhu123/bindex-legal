@@ -5,8 +5,9 @@ import { supabase } from '../supabase/client';
 import type { BinderUsage, UserTier } from '../../types';
 
 // ── RevenueCat Configuration ──────────────────────────────────────────────
-// Test API key from RevenueCat dashboard
-// When you're ready for production, replace with your production Apple/Google keys
+// RevenueCat test keys only work in debug builds, not release APKs.
+// Set REVENUECAT_ENABLED to true and add your goog_ / appl_ key when ready to publish.
+const REVENUECAT_ENABLED = false;
 const REVENUECAT_API_KEY = 'test_lGmWpspQuKtclxqeQpOoPbXKrFy';
 
 const PRO_ENTITLEMENT_ID = 'Bindex Pro';
@@ -19,6 +20,10 @@ const FREE_MAX_DELETIONS = 1;        // 1 do-over
  * Initialize RevenueCat SDK. Call once at app startup.
  */
 export async function initializeRevenueCat(): Promise<void> {
+  if (!REVENUECAT_ENABLED) {
+    console.log('[Pro] RevenueCat disabled — no API key configured yet');
+    return;
+  }
   try {
     await Purchases.configure({ apiKey: REVENUECAT_API_KEY });
     console.log('[Pro] RevenueCat initialized');
@@ -32,6 +37,7 @@ export async function initializeRevenueCat(): Promise<void> {
  * Links the RevenueCat customer to your Supabase user ID.
  */
 export async function identifyUser(userId: string): Promise<void> {
+  if (!REVENUECAT_ENABLED) return;
   try {
     await Purchases.logIn(userId);
     console.log('[Pro] User identified with RevenueCat:', userId);
@@ -45,6 +51,9 @@ export async function identifyUser(userId: string): Promise<void> {
  * Checks RevenueCat first (source of truth), then syncs with Supabase.
  */
 export async function isUserPro(): Promise<boolean> {
+  if (!REVENUECAT_ENABLED) {
+    return await checkSupabaseTier();
+  }
   try {
     const customerInfo = await Purchases.getCustomerInfo();
     const hasPro = customerInfo.entitlements.active[PRO_ENTITLEMENT_ID] !== undefined;
@@ -66,6 +75,10 @@ export async function isUserPro(): Promise<boolean> {
  * Returns true if the user purchased or restored Pro.
  */
 export async function presentProPaywall(): Promise<boolean> {
+  if (!REVENUECAT_ENABLED) {
+    console.warn('[Pro] RevenueCat not configured — paywall unavailable');
+    return false;
+  }
   try {
     const result: PAYWALL_RESULT = await RevenueCatUI.presentPaywallIfNeeded({
       requiredEntitlementIdentifier: PRO_ENTITLEMENT_ID,
@@ -101,6 +114,10 @@ export async function presentProPaywall(): Promise<boolean> {
  * Useful for the Upgrade screen where user explicitly navigated there.
  */
 export async function presentPaywallAlways(): Promise<boolean> {
+  if (!REVENUECAT_ENABLED) {
+    console.warn('[Pro] RevenueCat not configured — paywall unavailable');
+    return false;
+  }
   try {
     const result: PAYWALL_RESULT = await RevenueCatUI.presentPaywall();
 
@@ -247,6 +264,10 @@ export async function recordDeletionUsed(): Promise<void> {
  * Returns true if Pro was restored.
  */
 export async function restorePurchases(): Promise<boolean> {
+  if (!REVENUECAT_ENABLED) {
+    console.warn('[Pro] RevenueCat not configured — restore unavailable');
+    return false;
+  }
   try {
     const customerInfo = await Purchases.restorePurchases();
     const hasPro = customerInfo.entitlements.active[PRO_ENTITLEMENT_ID] !== undefined;
@@ -268,6 +289,7 @@ export async function restorePurchases(): Promise<boolean> {
  * Returns null if unavailable.
  */
 export async function getProPrice(): Promise<string | null> {
+  if (!REVENUECAT_ENABLED) return null;
   try {
     const offerings = await Purchases.getOfferings();
     const currentOffering = offerings.current;

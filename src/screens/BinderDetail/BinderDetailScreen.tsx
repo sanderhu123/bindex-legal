@@ -624,6 +624,15 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
         }
 
         setCards(updatedCards);
+
+        // Reconcile binder.ownedCards with actual card data so the
+        // progress bar reflects the real ownership count immediately.
+        const regionOwnedCount = updatedCards.filter(c => c.isOwned).length;
+        setBinder(prev => {
+          if (!prev || prev.ownedCards === regionOwnedCount) return prev;
+          return { ...prev, ownedCards: regionOwnedCount };
+        });
+
         console.log('[BinderDetail] Region cards refreshed with latest selections');
       } else {
         // For Master Set binders: update ownership + variants from DB
@@ -741,6 +750,19 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
           }
 
           return updated;
+        });
+
+        // Reconcile binder.ownedCards with actual card data so the
+        // progress bar reflects the real ownership count immediately.
+        const mainOwnedCount = updatedMasterCards.filter(c => c.isOwned).length;
+        const mainCardIds = new Set(updatedMasterCards.map(c => c.id));
+        const extraOwnedCount = extraCardsData.filter(
+          ec => ec.isOwned && !mainCardIds.has(ec.cardId)
+        ).length;
+        const reconciledOwned = mainOwnedCount + extraOwnedCount;
+        setBinder(prev => {
+          if (!prev || prev.ownedCards === reconciledOwned) return prev;
+          return { ...prev, ownedCards: reconciledOwned };
         });
       }
     } catch (err) {

@@ -456,7 +456,7 @@ export async function getBinderCardsWithPositions(binderId: string): Promise<Map
       positionMap.set(row.position, {
         cardId: row.card_id,
         variant: row.variant,
-        isOwned: row.is_owned ?? true, // Default to true if column doesn't exist yet
+        isOwned: row.is_owned ?? false,
       });
     }
   });
@@ -840,7 +840,7 @@ export async function getExtraCardsWithVariants(binderId: string): Promise<Array
   const extraCards = data?.map((row) => ({
     cardId: row.card_id,
     variant: row.variant,
-    isOwned: row.is_owned ?? true,
+    isOwned: row.is_owned ?? false,
   })) || [];
   
   console.log('[30B] Found extra cards with variants:', { count: extraCards.length });

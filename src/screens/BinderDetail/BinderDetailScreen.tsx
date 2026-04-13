@@ -71,10 +71,14 @@ const MILESTONES = [25, 50, 75, 100] as const;
 /**
  * Binder-level cache for fully-resolved custom binder position cards.
  * Keyed by binder ID. Avoids re-fetching from DB + API on every open.
- * Master Set and Region modes don't need this because they use
- * a single cached API call (getCardsBySet) or hardcoded data.
  */
 const customBinderCache = new Map<string, Map<number, CardWithOwnership>>();
+
+/**
+ * Binder-level cache for region binders with resolved TCG card selections.
+ * Avoids re-fetching individual card details from Supabase on every open.
+ */
+const regionBinderCache = new Map<string, Card[]>();
 
 /** Maximum slots for Custom binders based on layout */
 const CUSTOM_MAX_SLOTS_3X3 = 360; // 40 pages × 9 cards
@@ -484,72 +488,75 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
         const selectedCards = await getAllSelectedCardsForBinder(binderId);
         console.log('[BinderDetail] Found', selectedCards.size, 'custom card selections on refresh');
         
-        // Update cards with latest selections and ownership
-        let updatedCards = await Promise.all(
-          currentCards.map(async (card) => {
-            const pokedexNumber = card.pokedexNumber;
-            if (!pokedexNumber) return { ...card, isOwned: latestBinder.cardIds.includes(card.id) };
-            
-            const selectedCardId = selectedCards.get(pokedexNumber);
-            
-            // Check if this card already has the correct selection
-            const currentSelectedId = (card as any).selectedCardId;
-            if (selectedCardId === currentSelectedId) {
-              // Selection unchanged — but art style may have changed,
-              // so rebuild the default image URL for cards without a custom pick.
-              if (!selectedCardId && pokedexNumber) {
-                const artStyleUrl = latestBinder.pokemonArtStyle
-                  ? getPokemonImageUrl(pokedexNumber, latestBinder.pokemonArtStyle)
-                  : undefined;
-                return {
-                  ...card,
-                  imageUrl: artStyleUrl,
-                  imageUrlHiRes: artStyleUrl,
-                  isOwned: latestBinder.cardIds.includes(card.id),
-                };
-              }
-              return { ...card, isOwned: latestBinder.cardIds.includes(card.id) };
-            }
-            
-            if (selectedCardId) {
-              try {
-                const tcgCard = await getCardById(selectedCardId);
-                if (tcgCard) {
-                  return {
-                    ...card,
-                    imageUrl: tcgCard.imageUrl || undefined,
-                    imageUrlHiRes: tcgCard.imageUrlHiRes || undefined,
-                    selectedCardId: selectedCardId,
-                    isOwned: latestBinder.cardIds.includes(card.id),
-                  };
-                }
-              } catch (err) {
-                console.warn('[BinderDetail] Failed to load selected card on refresh:', err);
-              }
-              // API failed or card not found — still preserve the selection
+        // Batch-fetch any changed card selections
+        const changedIds: string[] = [];
+        for (const card of currentCards) {
+          const pokedexNumber = card.pokedexNumber;
+          if (!pokedexNumber) continue;
+          const selectedCardId = selectedCards.get(pokedexNumber);
+          const currentSelectedId = (card as any).selectedCardId;
+          if (selectedCardId && selectedCardId !== currentSelectedId) {
+            changedIds.push(selectedCardId);
+          }
+        }
+        const batchedCards = changedIds.length > 0
+          ? await getCardsByIds(changedIds)
+          : new Map<string, any>();
+
+        let updatedCards = currentCards.map((card) => {
+          const pokedexNumber = card.pokedexNumber;
+          if (!pokedexNumber) return { ...card, isOwned: latestBinder.cardIds.includes(card.id) };
+
+          const selectedCardId = selectedCards.get(pokedexNumber);
+
+          const currentSelectedId = (card as any).selectedCardId;
+          if (selectedCardId === currentSelectedId) {
+            if (!selectedCardId && pokedexNumber) {
+              const artStyleUrl = latestBinder.pokemonArtStyle
+                ? getPokemonImageUrl(pokedexNumber, latestBinder.pokemonArtStyle)
+                : undefined;
               return {
                 ...card,
-                imageUrl: undefined,
-                imageUrlHiRes: undefined,
+                imageUrl: artStyleUrl,
+                imageUrlHiRes: artStyleUrl,
+                isOwned: latestBinder.cardIds.includes(card.id),
+              };
+            }
+            return { ...card, isOwned: latestBinder.cardIds.includes(card.id) };
+          }
+
+          if (selectedCardId) {
+            const tcgCard = batchedCards.get(selectedCardId);
+            if (tcgCard) {
+              return {
+                ...card,
+                imageUrl: tcgCard.imageUrl || undefined,
+                imageUrlHiRes: tcgCard.imageUrlHiRes || undefined,
                 selectedCardId: selectedCardId,
                 isOwned: latestBinder.cardIds.includes(card.id),
               };
             }
-            
-            // No selection - use default sprite
-            const defaultImageUrl = latestBinder.pokemonArtStyle 
-              ? getPokemonImageUrl(pokedexNumber, latestBinder.pokemonArtStyle)
-              : undefined;
-            
             return {
               ...card,
-              imageUrl: defaultImageUrl,
-              imageUrlHiRes: defaultImageUrl,
-              selectedCardId: undefined,
+              imageUrl: undefined,
+              imageUrlHiRes: undefined,
+              selectedCardId: selectedCardId,
               isOwned: latestBinder.cardIds.includes(card.id),
             };
-          })
-        );
+          }
+
+          const defaultImageUrl = latestBinder.pokemonArtStyle
+            ? getPokemonImageUrl(pokedexNumber, latestBinder.pokemonArtStyle)
+            : undefined;
+
+          return {
+            ...card,
+            imageUrl: defaultImageUrl,
+            imageUrlHiRes: defaultImageUrl,
+            selectedCardId: undefined,
+            isOwned: latestBinder.cardIds.includes(card.id),
+          };
+        });
         
         // Apply saved positions from edit view
         try {
@@ -650,9 +657,8 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
         }
 
         setCards(updatedCards);
+        regionBinderCache.set(binderId, updatedCards);
 
-        // Reconcile binder.ownedCards with actual card data so the
-        // progress bar reflects the real ownership count immediately.
         const regionOwnedCount = updatedCards.filter(c => c.isOwned).length;
         setBinder(prev => {
           if (!prev || prev.ownedCards === regionOwnedCount) return prev;
@@ -873,6 +879,18 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
         }
       }
 
+      // For region binders, check binder-level cache for instant display
+      if (binder.collectionMode === 'region') {
+        const cached = regionBinderCache.get(binder.id);
+        if (cached && cached.length > 0) {
+          console.log('[BinderDetail] Region mode - using cached data:', cached.length, 'cards');
+          setCards(cached);
+          setLoading(false);
+          setCardsFullyLoaded(true);
+          return;
+        }
+      }
+
       try {
         isFetchingCardsRef.current = true;
         setLoading(true);
@@ -975,6 +993,8 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
           } else {
             allCards = pokemonList;
           }
+          // Cache region binder for instant re-opening
+          regionBinderCache.set(binder.id, allCards);
         } else if (binder.collectionMode === 'custom') {
           // Custom binders: binder_card_positions is the single source of truth for positions,
           // binder_cards provides ownership data. Both tables are kept in sync by addCardAtPosition.
@@ -2725,7 +2745,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
             <CardImage
               source={enlargedCard.imageUrlHiRes || enlargedCard.imageUrl}
               lowResSource={enlargedCard.imageUrl}
-              isMissing={!enlargedCard.isOwned}
+              isMissing={false}
               style={[styles.enlargedCard, { width: previewCardWidth, height: previewCardHeight }]}
               priority="high"
               cardInfo={{ id: enlargedCard.id, name: enlargedCard.name, number: enlargedCard.number, set: enlargedCard.set }}

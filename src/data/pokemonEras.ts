@@ -13,6 +13,8 @@ import type { PokemonSet } from '../services/api/pokemonApi';
  */
 const APP_TO_POKEMONTCGIO: Record<string, string> = {
   // Mega Evolution era
+  'me03': 'me3',
+  'me02.5': 'me2pt5',
   'me02': 'me2',
   'me01': 'me1',
   // Scarlet & Violet era
@@ -140,6 +142,8 @@ export const POKEMON_ERAS: EraDefinition[] = [
     id: 'mega-evolution',
     name: 'Mega Evolution',
     sets: [
+      { id: 'me03', name: 'Perfect Order', releaseDate: '2026-03-27' },
+      { id: 'me02.5', name: 'Ascended Heroes', releaseDate: '2026-01-30' },
       { id: 'me02', name: 'Phantasmal Flames', releaseDate: '2025-11-14' },
       { id: 'me01', name: 'Mega Evolution', releaseDate: '2025-09-26' },
     ],

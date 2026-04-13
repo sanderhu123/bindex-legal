@@ -1051,8 +1051,11 @@ export async function searchCardsByName(
         const ptcgioId = convertCardIdToPtcgio(sanitizedQuery);
         supaQuery = supaQuery.eq('id', ptcgioId);
       } else if (isNumberSearch) {
-        const cleaned = sanitizedQuery.replace(/^#/, '').split('/')[0];
-        supaQuery = supaQuery.eq('number', cleaned);
+        const parts = sanitizedQuery.replace(/^#/, '').split('/');
+        supaQuery = supaQuery.eq('number', parts[0]);
+        if (parts.length > 1 && parts[1]) {
+          supaQuery = supaQuery.eq('set_printed_total', Number(parts[1]));
+        }
       } else if (sanitizedQuery) {
         supaQuery = supaQuery.ilike('name', `${sanitizedQuery}%`);
       }
@@ -1107,7 +1110,11 @@ export async function searchCardsByName(
         }
         
         if (isNumberSearch) {
-          queryParts.push(`number:${sanitizedQuery.replace(/^#/, '').split('/')[0]}`);
+          const numParts = sanitizedQuery.replace(/^#/, '').split('/');
+          queryParts.push(`number:${numParts[0]}`);
+          if (numParts.length > 1 && numParts[1]) {
+            queryParts.push(`set.printedTotal:${numParts[1]}`);
+          }
         } else if (sanitizedQuery) {
           queryParts.push(`name:"${sanitizedQuery}*"`);
         }

@@ -45,38 +45,36 @@ export function useCardSearch(cards: CardWithOwnership[], searchQuery: string): 
     const isNumberSearch = looksLikeNumberSearch(query);
 
     // For number searches, prepare a normalized version of the query
-    // "007" → "7", "#007" → "7", "001/159" → just check "1" against card number
+    // "007" → "7", "#007" → "7", "001/159" → number "1" + set total "159"
     let normalizedNumberQuery = '';
+    let normalizedTotalQuery = '';
     if (isNumberSearch) {
-      // Remove leading # if present
-      let cleaned = query.replace(/^#/, '');
+      const cleaned = query.replace(/^#/, '');
+      const parts = cleaned.split('/');
 
-      // If the query contains a slash (e.g., "001/159"), take only the part before the slash
-      if (cleaned.includes('/')) {
-        cleaned = cleaned.split('/')[0];
+      normalizedNumberQuery = stripLeadingZeros(parts[0]);
+
+      if (parts.length > 1 && parts[1]) {
+        normalizedTotalQuery = stripLeadingZeros(parts[1]);
       }
-
-      // Strip leading zeros so "007" and "7" match the same cards
-      normalizedNumberQuery = stripLeadingZeros(cleaned);
     }
     
     return cards.filter((card) => {
-      // Search by name using partial matching (case-insensitive)
-      // "Odd" matches "Oddish", "Char" matches "Charizard", etc.
       const nameMatch = card.name.toLowerCase().includes(query);
       
-      // Search by card number (e.g., "007", "7", "001/159", "TG21")
-      // Normalize the card's number the same way so "007" == "7"
       let numberMatch = false;
       if (isNumberSearch && normalizedNumberQuery) {
         const cardNum = stripLeadingZeros(card.number.toLowerCase());
-        // Exact match: the normalized card number equals the normalized query
-        // This ensures "7" matches card #007 but not card #17 or #70
-        numberMatch = cardNum === normalizedNumberQuery;
+        if (cardNum === normalizedNumberQuery) {
+          if (normalizedTotalQuery) {
+            const cardTotal = card.setTotal ? stripLeadingZeros(card.setTotal) : '';
+            numberMatch = cardTotal === normalizedTotalQuery;
+          } else {
+            numberMatch = true;
+          }
+        }
       }
       
-      // Search by Pokédex number (for Region mode)
-      // Also normalized so "007" matches Pokédex #7
       const pokedexMatch = card.pokedexNumber 
         ? card.pokedexNumber.toString() === normalizedNumberQuery
         : false;

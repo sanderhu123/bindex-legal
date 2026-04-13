@@ -106,18 +106,25 @@ function pageToSpreadStart(page: number, totalPages: number): number {
 
 /**
  * Check if a card matches a search query by name or number.
- * Handles slash notation (e.g. "125/94") by extracting just the number part.
+ * Handles slash notation (e.g. "125/94") by matching number AND set total.
  */
-function cardMatchesSearch(card: { name: string; number: string }, query: string): boolean {
+function cardMatchesSearch(card: { name: string; number: string; setTotal?: string }, query: string): boolean {
   if (card.name.toLowerCase().includes(query)) return true;
 
   const isNumQuery = /^#?\d/.test(query) || query.includes('/');
   if (isNumQuery) {
-    let searchNum = query.replace(/^#/, '');
-    if (searchNum.includes('/')) searchNum = searchNum.split('/')[0];
-    searchNum = searchNum.replace(/^0+/, '') || '0';
+    const cleaned = query.replace(/^#/, '');
+    const parts = cleaned.split('/');
+    const searchNum = (parts[0].replace(/^0+/, '') || '0');
     const cardNum = card.number ? card.number.replace(/^0+/, '') || '0' : '';
-    return cardNum === searchNum;
+    if (cardNum !== searchNum) return false;
+
+    if (parts.length > 1 && parts[1]) {
+      const searchTotal = parts[1].replace(/^0+/, '') || '0';
+      const cardTotal = card.setTotal ? card.setTotal.replace(/^0+/, '') || '0' : '';
+      return cardTotal === searchTotal;
+    }
+    return true;
   }
 
   return card.number?.toLowerCase().includes(query) ?? false;
@@ -2232,19 +2239,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
     // Apply search filter (same partial-match logic as useCardSearch)
     const query = searchQuery.toLowerCase().trim();
     if (query) {
-      result = result.filter((card) => {
-        // Partial name match
-        if (card.name.toLowerCase().includes(query)) return true;
-        // Number match (exact, normalized)
-        const cardNum = card.number ? card.number.replace(/^0+/, '') || '0' : '';
-        let searchNum = query.replace(/^#/, '');
-        if (searchNum.includes('/')) searchNum = searchNum.split('/')[0];
-        searchNum = searchNum.replace(/^0+/, '') || '0';
-        if (/^#?\d/.test(query) || query.includes('/')) {
-          if (cardNum === searchNum) return true;
-        }
-        return false;
-      });
+      result = result.filter((card) => cardMatchesSearch(card, query));
     }
     
     // Apply ownership filter

@@ -9,6 +9,8 @@ const GROUP_LABELS: Record<string, string> = {
   'reverse-holo': 'Reverse Holo',
   'poke-ball': 'Poké Ball Holo',
   'master-ball': 'Master Ball Holo',
+  'stamp': 'Stamp Holo',
+  'energy': 'Energy Holo',
   'secret-rare': 'Secret Rares',
   'main-set': 'Main Set Cards',
 };

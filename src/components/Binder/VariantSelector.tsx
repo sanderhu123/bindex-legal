@@ -15,6 +15,8 @@ const AVAILABLE_VARIANTS: { key: string; label: string }[] = [
   { key: 'reverse-holo', label: 'Reverse Holo' },
   { key: 'poke-ball', label: 'Poké Ball Holo' },
   { key: 'master-ball', label: 'Master Ball Holo' },
+  { key: 'stamp', label: 'Stamp Holo' },
+  { key: 'energy', label: 'Energy Holo' },
 ];
 
 export default function VariantSelector({

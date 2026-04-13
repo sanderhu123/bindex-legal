@@ -83,7 +83,7 @@ export default function OnboardingScreen() {
     selectedRegion: null,
     pokemonArtStyle: null,
     variantPlacement: null,
-    variantOrder: ['base', 'reverse-holo', 'poke-ball', 'master-ball', 'secret-rare'],
+    variantOrder: ['base', 'reverse-holo', 'poke-ball', 'master-ball', 'stamp', 'energy', 'secret-rare'],
     cardCount: null,
     layoutPreference: null,
     binderName: null,

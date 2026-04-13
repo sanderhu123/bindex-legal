@@ -77,6 +77,8 @@ function getVariantBadge(variant?: string) {
     'reverse-holo': { label: 'RH', color: '#FFD700' },
     'poke-ball': { label: 'PB', color: '#FF6B6B' },
     'master-ball': { label: 'MB', color: '#7B2D8E' },
+    'stamp': { label: 'SH', color: '#E05050' },
+    'energy': { label: 'EH', color: '#3DAA6D' },
   };
   return badges[variant] || null;
 }

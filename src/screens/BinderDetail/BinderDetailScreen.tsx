@@ -1856,27 +1856,30 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
     'common', 'uncommon', 'rare', 'holo rare', 'rare holo',
   ]), []);
 
+  const matchesStatsFilter = useCallback((card: CardWithOwnership): boolean => {
+    if (!statsFilter) return true;
+    if (statsFilter.type === 'rarity') {
+      return (card.rarity || '').toLowerCase() === statsFilter.value;
+    }
+    if (statsFilter.type === 'set') {
+      const cardSet = (card.set || '').startsWith('Custom|') ? 'Custom Cards' : (card.set || '');
+      return cardSet === statsFilter.value;
+    }
+    if (statsFilter.type === 'variant') {
+      if (!card.variant) return false;
+      let cardVariant = card.variant;
+      if (cardVariant === 'base' && card.rarity && !STATS_REGULAR_RARITIES.has(card.rarity.toLowerCase())) {
+        cardVariant = 'secret-rare';
+      }
+      return cardVariant === statsFilter.value;
+    }
+    return true;
+  }, [statsFilter, STATS_REGULAR_RARITIES]);
+
   const filteredCards = useMemo(() => {
     if (!statsFilter) return ownershipFilteredCards;
-    return ownershipFilteredCards.filter((card) => {
-      if (statsFilter.type === 'rarity') {
-        return (card.rarity || '').toLowerCase() === statsFilter.value;
-      }
-      if (statsFilter.type === 'set') {
-        const cardSet = (card.set || '').startsWith('Custom|') ? 'Custom Cards' : (card.set || '');
-        return cardSet === statsFilter.value;
-      }
-      if (statsFilter.type === 'variant') {
-        if (!card.variant) return false;
-        let cardVariant = card.variant;
-        if (cardVariant === 'base' && card.rarity && !STATS_REGULAR_RARITIES.has(card.rarity.toLowerCase())) {
-          cardVariant = 'secret-rare';
-        }
-        return cardVariant === statsFilter.value;
-      }
-      return true;
-    });
-  }, [ownershipFilteredCards, statsFilter, STATS_REGULAR_RARITIES]);
+    return ownershipFilteredCards.filter(matchesStatsFilter);
+  }, [ownershipFilteredCards, statsFilter, matchesStatsFilter]);
 
   // Reset pagination when filters change (only affects Custom mode now)
   useEffect(() => {
@@ -2231,9 +2234,14 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
     } else if (ownershipFilter === 'missing') {
       result = result.filter((card) => !card.isOwned);
     }
+
+    // Apply stats filter (rarity/set/variant)
+    if (statsFilter) {
+      result = result.filter(matchesStatsFilter);
+    }
     
     return result;
-  }, [extraCards, searchQuery, ownershipFilter, cards]);
+  }, [extraCards, searchQuery, ownershipFilter, cards, statsFilter, matchesStatsFilter]);
   
   // Create combined data for Master Set mode: regular cards + extra cards
   const masterSetGridItems = useMemo((): MasterSetGridItem[] => {
@@ -2320,15 +2328,16 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
     return Array.from({ length: Math.min(displayCount, customMaxSlots) }, (_, i) => i);
   }, [binder, displayCount, customMaxSlots]);
 
-  // Filtered custom slots: when search or ownership filter is active, only show matching slots
+  // Filtered custom slots: when search, ownership, or stats filter is active, only show matching slots
   const filteredCustomSlots = useMemo(() => {
     if (!binder || binder.collectionMode !== 'custom') return [];
     
     const hasSearch = searchQuery.trim().length > 0;
     const hasOwnershipFilter = ownershipFilter !== 'all';
+    const hasStatsFilter = statsFilter !== null;
     
     // No filters active - show all slots (including empty ones)
-    if (!hasSearch && !hasOwnershipFilter) {
+    if (!hasSearch && !hasOwnershipFilter && !hasStatsFilter) {
       return customSlots;
     }
     
@@ -2337,7 +2346,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
     return customSlots.filter((position) => {
       const card = positionCards.get(position);
       
-      // Empty slots: hide when searching or filtering
+      // Empty slots: hide when any filter is active
       if (!card) return false;
       
       // Apply search filter
@@ -2350,10 +2359,13 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
       // Apply ownership filter
       if (ownershipFilter === 'owned' && !card.isOwned) return false;
       if (ownershipFilter === 'missing' && card.isOwned) return false;
+
+      // Apply stats filter (rarity/set/variant)
+      if (hasStatsFilter && !matchesStatsFilter(card)) return false;
       
       return true;
     });
-  }, [binder, customSlots, positionCards, searchQuery, ownershipFilter]);
+  }, [binder, customSlots, positionCards, searchQuery, ownershipFilter, statsFilter, matchesStatsFilter]);
 
   // Custom mode cards for list/binder views: flat array of filled slots sorted by position
   const customCardsForView = useMemo(() => {
@@ -2369,10 +2381,11 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
         const numMatch = card.number?.toLowerCase().includes(query);
         if (!nameMatch && !numMatch) continue;
       }
+      if (statsFilter && !matchesStatsFilter(card)) continue;
       result.push(card);
     }
     return result;
-  }, [isCustomMode, positionCards, searchQuery, ownershipFilter]);
+  }, [isCustomMode, positionCards, searchQuery, ownershipFilter, statsFilter, matchesStatsFilter]);
 
   // Custom mode binder view: sparse array preserving slot positions
   const customBinderViewCards = useMemo(() => {
@@ -2390,10 +2403,11 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
         const numMatch = card.number?.toLowerCase().includes(query);
         if (!nameMatch && !numMatch) return;
       }
+      if (statsFilter && !matchesStatsFilter(card)) return;
       result[pos] = card;
     });
     return result as CardWithOwnership[];
-  }, [isCustomMode, positionCards, customMaxSlots, cardsPerPage, searchQuery, ownershipFilter]);
+  }, [isCustomMode, positionCards, customMaxSlots, cardsPerPage, searchQuery, ownershipFilter, statsFilter, matchesStatsFilter]);
 
   const customTotalPages = useMemo(() => {
     if (!isCustomMode) return 1;
@@ -2415,7 +2429,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
   }, [displayMode, displaySpreadStart, totalPagesForDisplay]);
 
   // Only allow loading more when no filter is active (filtered mode shows all matching at once)
-  const isCustomFiltering = isCustomMode && (searchQuery.trim().length > 0 || ownershipFilter !== 'all');
+  const isCustomFiltering = isCustomMode && (searchQuery.trim().length > 0 || ownershipFilter !== 'all' || statsFilter !== null);
   const hasMoreCustomSlots = !isCustomFiltering && displayCount < customMaxSlots;
 
   // Load more slots for Custom mode
@@ -2481,8 +2495,9 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
 
     const hasSearch = searchQuery.trim().length > 0;
     const hasOwnershipFilter = ownershipFilter !== 'all';
+    const hasStatsFilter = statsFilter !== null;
 
-    if (!hasSearch && !hasOwnershipFilter) return savedPositionSlots;
+    if (!hasSearch && !hasOwnershipFilter && !hasStatsFilter) return savedPositionSlots;
 
     const query = searchQuery.toLowerCase().trim();
 
@@ -2499,11 +2514,13 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
       if (ownershipFilter === 'owned' && !card.isOwned) return false;
       if (ownershipFilter === 'missing' && card.isOwned) return false;
 
+      if (hasStatsFilter && !matchesStatsFilter(card)) return false;
+
       return true;
     });
-  }, [hasSavedPositions, savedPositionMap, savedPositionSlots, searchQuery, ownershipFilter]);
+  }, [hasSavedPositions, savedPositionMap, savedPositionSlots, searchQuery, ownershipFilter, statsFilter, matchesStatsFilter]);
 
-  const isSavedFiltering = hasSavedPositions && (searchQuery.trim().length > 0 || ownershipFilter !== 'all');
+  const isSavedFiltering = hasSavedPositions && (searchQuery.trim().length > 0 || ownershipFilter !== 'all' || statsFilter !== null);
 
   const savedSlotKeyExtractor = useCallback((position: number) => `saved-slot-${position}`, []);
 

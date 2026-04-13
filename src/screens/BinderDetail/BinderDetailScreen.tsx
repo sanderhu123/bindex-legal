@@ -1137,9 +1137,9 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
         }
         // Custom mode: no specific sorting (keep as-is or could sort by name)
 
-        // Apply variant placement logic (only for master-set mode with multiple variants)
+        // Apply variant placement logic for master-set mode
         const effectivePlacement = binder.variantPlacement || 'grouped';
-        if (binder.collectionMode === 'master-set' && binder.variantsToTrack && binder.variantsToTrack.length > 1) {
+        if (binder.collectionMode === 'master-set') {
           const defaultOrder = ['base', 'reverse-holo', 'poke-ball', 'master-ball', 'secret-rare'];
           const effectiveOrder = binder.variantOrder && binder.variantOrder.length > 0
             ? binder.variantOrder : defaultOrder;

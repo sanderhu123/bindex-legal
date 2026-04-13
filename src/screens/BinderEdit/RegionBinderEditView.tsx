@@ -512,6 +512,7 @@ export default function RegionBinderEditView({ binder }: RegionBinderEditViewPro
         initialQuery={pickerPokemon ? getSearchName(pickerPokemon.name) : ''}
         pokemonOnly={true}
         exactMatch={true}
+        pokedexNumber={pickerPokemon?.pokedexNumber}
       />
     </SafeAreaView>
   );

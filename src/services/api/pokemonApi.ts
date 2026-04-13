@@ -1026,6 +1026,8 @@ export interface CardSearchOptions {
   offset?: number;
   pokemonOnly?: boolean;
   exactMatch?: boolean;
+  /** National Pokédex number — uses fast indexed query instead of name ILIKE */
+  pokedexNumber?: number;
   filters?: {
     eras?: string[];
     setIds?: string[];
@@ -1124,9 +1126,9 @@ export async function searchCardsByName(
   query: string,
   options?: CardSearchOptions
 ): Promise<CardSearchResult> {
-  const { limit = 50, offset = 0, pokemonOnly = false, exactMatch = false, filters } = options || {};
+  const { limit = 50, offset = 0, pokemonOnly = false, exactMatch = false, pokedexNumber, filters } = options || {};
   
-  console.log('[API] searchCardsByName() called:', { query, limit, offset, pokemonOnly, exactMatch });
+  console.log('[API] searchCardsByName() called:', { query, limit, offset, pokemonOnly, exactMatch, pokedexNumber });
   const startTime = performance.now();
   
   const hasFilters = filters && (
@@ -1138,7 +1140,7 @@ export async function searchCardsByName(
   
   const emptyResult: CardSearchResult = { cards: [], filterMeta: { setIds: [], eras: [], rarities: [] } };
 
-  if ((!query || query.trim().length === 0) && !hasFilters) {
+  if ((!query || query.trim().length === 0) && !hasFilters && !pokedexNumber) {
     return emptyResult;
   }
   
@@ -1148,7 +1150,8 @@ export async function searchCardsByName(
     ? `-era:${(filters.eras || []).sort().join(',')}-set:${(filters.setIds || []).sort().join(',')}-rar:${(filters.rarities || []).sort().join(',')}-ill:${(filters.illustrators || []).sort().join(',')}`
     : '';
   
-  const sortedCacheKey = `sorted-search-${sanitizedQuery.toLowerCase()}-${pokemonOnly}-${exactMatch}${filterKey}`;
+  const dexKey = pokedexNumber ? `-dex:${pokedexNumber}` : '';
+  const sortedCacheKey = `sorted-search-${sanitizedQuery.toLowerCase()}-${pokemonOnly}-${exactMatch}${dexKey}${filterKey}`;
   
   const cachedSorted = sortedSearchCache.get(sortedCacheKey);
   if (cachedSorted && isSearchCacheValid(cachedSorted.timestamp)) {
@@ -1156,17 +1159,20 @@ export async function searchCardsByName(
     return { cards: paginatedResults, filterMeta: cachedSorted.filterMeta };
   }
   
-  const fullFetchCacheKey = `full-fetch-${sanitizedQuery.toLowerCase()}-${pokemonOnly}${filterKey}`;
+  const fullFetchCacheKey = `full-fetch-${sanitizedQuery.toLowerCase()}-${pokemonOnly}${dexKey}${filterKey}`;
   
   return deduplicateRequest(fullFetchCacheKey, async () => {
     try {
-      const isNumberSearch = sanitizedQuery && /^#?\d/.test(sanitizedQuery);
-      const isCardIdSearch = sanitizedQuery && /^(?=.*\d)[a-z0-9.]+[-][a-z0-9]+$/i.test(sanitizedQuery);
+      const isNumberSearch = !pokedexNumber && sanitizedQuery && /^#?\d/.test(sanitizedQuery);
+      const isCardIdSearch = !pokedexNumber && sanitizedQuery && /^(?=.*\d)[a-z0-9.]+[-][a-z0-9]+$/i.test(sanitizedQuery);
       
       // Build Supabase query
       let supaQuery = supabase.from('pokemon_cards').select('*');
       
-      if (isCardIdSearch) {
+      if (pokedexNumber) {
+        // Fast path: integer equality on indexed column
+        supaQuery = supaQuery.eq('pokedex_number', pokedexNumber);
+      } else if (isCardIdSearch) {
         const ptcgioId = convertCardIdToPtcgio(sanitizedQuery);
         supaQuery = supaQuery.eq('id', ptcgioId);
       } else if (isNumberSearch) {
@@ -1228,7 +1234,10 @@ export async function searchCardsByName(
           return emptyResult;
         }
         
-        if (isNumberSearch) {
+        if (pokedexNumber) {
+          queryParts.push(`nationalPokedexNumbers:${pokedexNumber}`);
+          queryParts.push('supertype:Pokémon');
+        } else if (isNumberSearch) {
           const numParts = sanitizedQuery.replace(/^#/, '').split('/');
           queryParts.push(`number:${numParts[0]}`);
           if (numParts.length > 1 && numParts[1]) {
@@ -1237,7 +1246,7 @@ export async function searchCardsByName(
         } else if (sanitizedQuery) {
           queryParts.push(`name:"*${sanitizedQuery}*"`);
         }
-        if (pokemonOnly) queryParts.push('supertype:Pokémon');
+        if (!pokedexNumber && pokemonOnly) queryParts.push('supertype:Pokémon');
         
         const cardResults = await fetchAllSearchResults(queryParts.join(' '));
         transformedCards = cardResults
@@ -1245,8 +1254,8 @@ export async function searchCardsByName(
           .map(transformPtcgioCardToCard);
       }
       
-      // Client-side name filter
-      if (sanitizedQuery && !isNumberSearch && !isCardIdSearch) {
+      // Client-side name filter (skip when searching by dex number)
+      if (!pokedexNumber && sanitizedQuery && !isNumberSearch && !isCardIdSearch) {
         const lowerQuery = sanitizedQuery.toLowerCase();
         transformedCards = transformedCards.filter(card => {
           const name = card.name.toLowerCase();
@@ -1255,7 +1264,7 @@ export async function searchCardsByName(
         });
       }
 
-      if (exactMatch && sanitizedQuery) {
+      if (!pokedexNumber && exactMatch && sanitizedQuery) {
         const escapedQuery = escapeRegExp(sanitizedQuery.toLowerCase());
         const wordBoundaryRegex = new RegExp(`\\b${escapedQuery}(?:\\b|\\s|$)`, 'i');
         transformedCards = transformedCards.filter(card => wordBoundaryRegex.test(card.name));

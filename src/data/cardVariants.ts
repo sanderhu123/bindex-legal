@@ -79,6 +79,15 @@ export const SPECIAL_VARIANT_SETS = [
 export type SpecialVariantSetId = typeof SPECIAL_VARIANT_SETS[number];
 
 /**
+ * Sets that have stamp/energy holo variants instead of pokeball/masterball.
+ * Pokémon cards get: Stamp Holo + Energy Holo (no Reverse Holo)
+ * Trainer/Energy cards get: Reverse Holo only
+ */
+const STAMP_ENERGY_SETS = [
+  'me02.5',   // Ascended Heroes
+] as const;
+
+/**
  * Check if a set has special variant patterns (pokeball/masterball)
  * 
  * @param setId - The set ID to check (e.g., "sv08.5")
@@ -86,6 +95,13 @@ export type SpecialVariantSetId = typeof SPECIAL_VARIANT_SETS[number];
  */
 export function hasSpecialVariants(setId: string): boolean {
   return SPECIAL_VARIANT_SETS.includes(setId as SpecialVariantSetId);
+}
+
+/**
+ * Check if a set uses stamp/energy holo variants (Ascended Heroes style)
+ */
+export function hasStampEnergyVariants(setId: string): boolean {
+  return (STAMP_ENERGY_SETS as readonly string[]).includes(setId);
 }
 
 /**
@@ -152,10 +168,15 @@ export function getSpecialVariantsForCard(
  * @param setId - The set ID
  * @returns Array of all variant types that exist in this set
  */
-export function getAvailableVariantsForSet(setId: string): ('base' | 'reverse-holo' | 'poke-ball' | 'master-ball')[] {
-  const variants: ('base' | 'reverse-holo' | 'poke-ball' | 'master-ball')[] = [
+export function getAvailableVariantsForSet(setId: string): ('base' | 'reverse-holo' | 'poke-ball' | 'master-ball' | 'stamp' | 'energy')[] {
+  const variants: ('base' | 'reverse-holo' | 'poke-ball' | 'master-ball' | 'stamp' | 'energy')[] = [
     'base',
   ];
+
+  if (hasStampEnergyVariants(setId)) {
+    variants.push('reverse-holo', 'stamp', 'energy');
+    return variants;
+  }
 
   // Only add reverse-holo if the set actually has reverse holos
   // (old sets before Legendary Collection and promo/POP sets don't have them)
@@ -179,7 +200,7 @@ export function getAvailableVariantsForSet(setId: string): ('base' | 'reverse-ho
  */
 function extractSetId(cardId: string): string {
   let cleanId = cardId;
-  const suffixes = ['-master-ball', '-poke-ball', '-reverse-holo', '-reverse', '-holo', '-base'];
+  const suffixes = ['-master-ball', '-poke-ball', '-reverse-holo', '-stamp', '-energy', '-reverse', '-holo', '-base'];
   for (const s of suffixes) {
     if (cleanId.endsWith(s)) {
       cleanId = cleanId.substring(0, cleanId.length - s.length);
@@ -204,7 +225,7 @@ export function getAvailableVariantsForCard(
   cardId: string,
   rarity: string,
   supertype: string
-): ('base' | 'reverse-holo' | 'poke-ball' | 'master-ball')[] {
+): ('base' | 'reverse-holo' | 'poke-ball' | 'master-ball' | 'stamp' | 'energy')[] {
   const setId = extractSetId(cardId);
   if (!setId) return ['base'];
 
@@ -216,7 +237,17 @@ export function getAvailableVariantsForCard(
     rarity === 'Rare Holo'
   );
 
-  const variants: ('base' | 'reverse-holo' | 'poke-ball' | 'master-ball')[] = ['base'];
+  const variants: ('base' | 'reverse-holo' | 'poke-ball' | 'master-ball' | 'stamp' | 'energy')[] = ['base'];
+
+  if (allowsReverseHolo && hasStampEnergyVariants(setId)) {
+    const isPokemon = supertype === 'Pokémon' || supertype === 'Pokemon';
+    if (isPokemon) {
+      variants.push('stamp', 'energy');
+    } else {
+      variants.push('reverse-holo');
+    }
+    return variants;
+  }
 
   if (allowsReverseHolo && setHasReverseHolos(setId)) {
     variants.push('reverse-holo');

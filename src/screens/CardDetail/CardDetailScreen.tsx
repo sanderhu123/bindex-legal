@@ -25,6 +25,8 @@ const VARIANT_LABELS: Record<string, string> = {
   'reverse-holo': 'RH',
   'poke-ball': 'PB',
   'master-ball': 'MB',
+  'stamp': 'SH',
+  'energy': 'EH',
 };
 
 function getVariantColors(colors: ThemeColors): Record<string, string> {
@@ -33,6 +35,8 @@ function getVariantColors(colors: ThemeColors): Record<string, string> {
     'reverse-holo': colors.variantReverseHolo,
     'poke-ball': colors.variantPokeBall,
     'master-ball': colors.variantMasterBall,
+    'stamp': colors.variantStamp,
+    'energy': colors.variantEnergy,
   };
 }
 

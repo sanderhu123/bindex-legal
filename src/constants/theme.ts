@@ -36,6 +36,8 @@ export const lightColors = {
   variantReverseHolo: '#FFD700',
   variantPokeBall: '#FF6B6B',
   variantMasterBall: '#7B2D8E',
+  variantStamp: '#E05050',
+  variantEnergy: '#3DAA6D',
 
   proAccent: '#DAA520',
   proAccentText: '#FFFFFF',
@@ -80,6 +82,8 @@ export const darkColors: ThemeColors = {
   variantReverseHolo: '#FFD700',
   variantPokeBall: '#FF6B6B',
   variantMasterBall: '#7B2D8E',
+  variantStamp: '#E05050',
+  variantEnergy: '#3DAA6D',
 
   proAccent: '#DAA520',
   proAccentText: '#FFFFFF',

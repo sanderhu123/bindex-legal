@@ -3,7 +3,7 @@ import type { PokemonArtStyle } from '../../types';
 import { mockCards, mockSets, type MockSet } from '../../data/mockupCards';
 import { getPokemonByRegion } from '../../data/pokemonRegions';
 import { getEras, getSetsByEra, getAllSets, convertSetToPokemonSet, sortCardsBySetDate, getPtcgioSetId, getAppSetId, registerSetImageUrls } from '../../data/pokemonEras';
-import { getSpecialVariantsForCard, hasSpecialVariants, setHasReverseHolos } from '../../data/cardVariants';
+import { getSpecialVariantsForCard, hasSpecialVariants, hasStampEnergyVariants, setHasReverseHolos } from '../../data/cardVariants';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { isStorageFullError, emergencyStorageCleanup } from '../cacheManager';
 import { supabase } from '../supabase/client';
@@ -381,24 +381,48 @@ function generateVariantCards(baseCard: Card, ptcgioCard: any): Card[] {
     id: `${baseCard.id}-base`,
   });
   
-  // Reverse holo
-  if (hasReverse && allowsReverseHolo) {
-    variants.push({
-      ...baseCard,
-      variant: 'reverse-holo',
-      id: `${baseCard.id}-reverse`,
-    });
-  }
-  
-  // Special variants (pokeball/masterball) for special sets
-  if (hasSpecialVariants(appSetId)) {
-    const specialVariants = getSpecialVariantsForCard(appSetId, hasReverse, supertype, rarity);
-    for (const variantType of specialVariants) {
+  // Stamp/Energy variants (Ascended Heroes style):
+  // Pokémon get stamp + energy (no reverse holo), Trainers/Energy get reverse holo
+  if (hasStampEnergyVariants(appSetId) && allowsReverseHolo) {
+    const isPokemon = supertype === 'Pokémon' || supertype === 'Pokemon';
+    if (isPokemon) {
       variants.push({
         ...baseCard,
-        variant: variantType,
-        id: `${baseCard.id}-${variantType}`,
+        variant: 'stamp',
+        id: `${baseCard.id}-stamp`,
       });
+      variants.push({
+        ...baseCard,
+        variant: 'energy',
+        id: `${baseCard.id}-energy`,
+      });
+    } else if (hasReverse) {
+      variants.push({
+        ...baseCard,
+        variant: 'reverse-holo',
+        id: `${baseCard.id}-reverse`,
+      });
+    }
+  } else {
+    // Reverse holo
+    if (hasReverse && allowsReverseHolo) {
+      variants.push({
+        ...baseCard,
+        variant: 'reverse-holo',
+        id: `${baseCard.id}-reverse`,
+      });
+    }
+
+    // Special variants (pokeball/masterball) for special sets
+    if (hasSpecialVariants(appSetId)) {
+      const specialVariants = getSpecialVariantsForCard(appSetId, hasReverse, supertype, rarity);
+      for (const variantType of specialVariants) {
+        variants.push({
+          ...baseCard,
+          variant: variantType,
+          id: `${baseCard.id}-${variantType}`,
+        });
+      }
     }
   }
   
@@ -832,16 +856,18 @@ export async function getCardById(id: string): Promise<Card | null> {
   
   return deduplicateRequest(cacheKey, async () => {
     try {
-      const variantMatch = id.match(/-(base|holo|reverse|poke-ball|master-ball)$/);
+      const variantMatch = id.match(/-(base|holo|reverse|poke-ball|master-ball|stamp|energy)$/);
       const variant = variantMatch ? variantMatch[1] : undefined;
-      const baseId = id.replace(/-(base|holo|reverse|poke-ball|master-ball)$/, '');
-      
+      const baseId = id.replace(/-(base|holo|reverse|poke-ball|master-ball|stamp|energy)$/, '');
+
       const variantMap: Record<string, string> = {
         'base': 'base',
         'holo': 'base',
         'reverse': 'reverse-holo',
         'poke-ball': 'poke-ball',
         'master-ball': 'master-ball',
+        'stamp': 'stamp',
+        'energy': 'energy',
       };
       const cardVariant = variant ? variantMap[variant] : undefined;
       

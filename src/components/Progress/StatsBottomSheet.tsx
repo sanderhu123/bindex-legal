@@ -79,6 +79,8 @@ export const VARIANT_ORDER: string[] = [
   'reverse-holo',
   'poke-ball',
   'master-ball',
+  'stamp',
+  'energy',
   'secret-rare',
 ];
 
@@ -87,6 +89,8 @@ export const VARIANT_LABELS: Record<string, string> = {
   'reverse-holo': 'Reverse Holo',
   'poke-ball': 'Poké Ball Holo',
   'master-ball': 'Master Ball Holo',
+  'stamp': 'Stamp Holo',
+  'energy': 'Energy Holo',
   'secret-rare': 'Hits',
 };
 

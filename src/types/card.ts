@@ -1,7 +1,7 @@
 /**
  * Card variant types
  */
-export type CardVariant = 'base' | 'reverse-holo' | 'poke-ball' | 'master-ball';
+export type CardVariant = 'base' | 'reverse-holo' | 'poke-ball' | 'master-ball' | 'stamp' | 'energy';
 
 /**
  * Filters for card search in the CardPicker (add card module).

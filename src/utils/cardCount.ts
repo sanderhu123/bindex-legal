@@ -3,7 +3,7 @@ import type { Card } from '../types';
 /**
  * The user-selectable variant types.
  */
-const USER_VARIANTS = new Set(['base', 'reverse-holo', 'poke-ball', 'master-ball']);
+const USER_VARIANTS = new Set(['base', 'reverse-holo', 'poke-ball', 'master-ball', 'stamp', 'energy']);
 
 /**
  * Count how many cards remain after filtering by selected variants.
@@ -27,7 +27,7 @@ export function countCardsWithVariants(
 
   const baseCardHasTracked = new Map<string, boolean>();
   filtered.forEach(card => {
-    const baseId = card.id.replace(/-(base|holo|reverse|poke-ball|master-ball)$/, '');
+    const baseId = card.id.replace(/-(base|holo|reverse|poke-ball|master-ball|stamp|energy)$/, '');
     const cardVariant = card.variant || 'base';
     if (variantsToTrack.includes(cardVariant)) {
       baseCardHasTracked.set(baseId, true);
@@ -40,7 +40,7 @@ export function countCardsWithVariants(
   let count = 0;
   filtered.forEach(card => {
     const cardVariant = card.variant || 'base';
-    const baseId = card.id.replace(/-(base|holo|reverse|poke-ball|master-ball)$/, '');
+    const baseId = card.id.replace(/-(base|holo|reverse|poke-ball|master-ball|stamp|energy)$/, '');
     if (!baseCardHasTracked.get(baseId)) {
       if (cardVariant === 'base') count++;
     } else if (variantsToTrack.includes(cardVariant)) {

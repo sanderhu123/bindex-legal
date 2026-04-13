@@ -849,6 +849,25 @@ export async function getCardById(id: string): Promise<Card | null> {
     return getCustomCard(id);
   }
 
+  if (id.startsWith('region-')) {
+    const parts = id.split('-');
+    const regionName = parts[1] as Region;
+    const dexNumber = parseInt(parts[2], 10);
+    const pokemonList = getPokemonByRegion(regionName);
+    const pokemon = pokemonList.find(p => p.number === dexNumber);
+    return {
+      id,
+      name: pokemon?.name ?? `Pokémon #${dexNumber}`,
+      number: `#${dexNumber.toString().padStart(3, '0')}`,
+      set: `${regionName} Region`,
+      rarity: '',
+      illustrator: '',
+      imageUrl: undefined,
+      pokedexNumber: dexNumber,
+      variant: 'base' as const,
+    };
+  }
+
   const cacheKey = `card-${id}`;
   
   const cachedData = getCachedData<Card | null>(cacheKey);

@@ -142,8 +142,8 @@ export const POKEMON_ERAS: EraDefinition[] = [
     id: 'mega-evolution',
     name: 'Mega Evolution',
     sets: [
-      { id: 'me03', name: 'Perfect Order', releaseDate: '2026-03-27' },
-      { id: 'me02.5', name: 'Ascended Heroes', releaseDate: '2026-01-30' },
+      { id: 'me03', name: 'Perfect Order', releaseDate: '2026-03-27', logo: 'https://images.scrydex.com/pokemon/me3-logo/logo', symbol: 'https://images.scrydex.com/pokemon/me3-symbol/symbol' },
+      { id: 'me02.5', name: 'Ascended Heroes', releaseDate: '2026-01-30', logo: 'https://images.scrydex.com/pokemon/me2pt5-logo/logo', symbol: 'https://images.scrydex.com/pokemon/me2pt5-symbol/symbol' },
       { id: 'me02', name: 'Phantasmal Flames', releaseDate: '2025-11-14' },
       { id: 'me01', name: 'Mega Evolution', releaseDate: '2025-09-26' },
     ],

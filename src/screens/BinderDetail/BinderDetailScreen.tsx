@@ -1877,14 +1877,18 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
 
   const matchesStatsFilter = useCallback((card: CardWithOwnership): boolean => {
     if (!statsFilter) return true;
+    const isRegion = binder?.collectionMode === 'region';
     if (statsFilter.type === 'rarity') {
-      return (card.rarity || '').toLowerCase() === statsFilter.value;
+      const rarity = (isRegion ? ((card as any).selectedCardRarity || card.rarity) : card.rarity) || '';
+      return rarity.toLowerCase() === statsFilter.value;
     }
     if (statsFilter.type === 'set') {
-      const cardSet = (card.set || '').startsWith('Custom|') ? 'Custom Cards' : (card.set || '');
+      const rawSet = (isRegion ? ((card as any).selectedCardSet || 'No card selected') : card.set) || '';
+      const cardSet = rawSet.startsWith('Custom|') ? 'Custom Cards' : rawSet;
       return cardSet === statsFilter.value;
     }
     if (statsFilter.type === 'variant') {
+      if (isRegion && !(card as any).selectedCardId) return false;
       if (!card.variant) return false;
       let cardVariant = card.variant;
       if (cardVariant === 'base' && card.rarity && !STATS_REGULAR_RARITIES.has(card.rarity.toLowerCase())) {
@@ -1893,7 +1897,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
       return cardVariant === statsFilter.value;
     }
     return true;
-  }, [statsFilter, STATS_REGULAR_RARITIES]);
+  }, [statsFilter, STATS_REGULAR_RARITIES, binder?.collectionMode]);
 
   const filteredCards = useMemo(() => {
     if (!statsFilter) return ownershipFilteredCards;
@@ -2252,7 +2256,15 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
 
     // Apply stats filter (rarity/set/variant)
     if (statsFilter) {
-      result = result.filter(matchesStatsFilter);
+      if (statsFilter.type === 'set') {
+        // Extra cards are shown under 'Custom' in the stats breakdown,
+        // so match them against that label instead of their actual set name.
+        if (statsFilter.value !== 'Custom') {
+          result = [];
+        }
+      } else {
+        result = result.filter(matchesStatsFilter);
+      }
     }
     
     return result;

@@ -2904,7 +2904,9 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
       }));
     }
     const mainCards = cards.map(c => ({ rarity: c.rarity || '', set: c.set || '', variant: c.variant || 'base', isOwned: c.isOwned }));
-    const extras = extraCards.map(c => ({ rarity: c.rarity || '', set: 'Custom', variant: c.variant || 'base', isOwned: c.isOwned }));
+    const mainCardIds = new Set(cards.map(c => c.id));
+    const dedupedExtras = extraCards.filter(c => !mainCardIds.has(c.id));
+    const extras = dedupedExtras.map(c => ({ rarity: c.rarity || '', set: 'Custom', variant: c.variant || 'base', isOwned: c.isOwned }));
     return [...mainCards, ...extras];
   }, [cards, extraCards, positionCards, isCustomMode, binder]);
 

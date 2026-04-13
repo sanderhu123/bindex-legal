@@ -18,7 +18,7 @@ import {
   getCardVariantsForBinder,
   getBinderCardData,
 } from '../../services/supabase/cards';
-import { getCardsBySet, getCardsByRegion, getCardById, getPokemonImageUrl, type Region } from '../../services/api/pokemonApi';
+import { getCardsBySet, getCardsByRegion, getCardById, getCardsByIds, getPokemonImageUrl, type Region } from '../../services/api/pokemonApi';
 import { getSetSymbolByName, getSetLogoByName } from '../../data/pokemonEras';
 import StatsBottomSheet, { type StatsFilter, RARITY_ORDER, RARITY_LABELS, VARIANT_ORDER, VARIANT_LABELS } from '../../components/Progress/StatsBottomSheet';
 import { getAllSelectedCardsForBinder } from '../../services/supabase/regionCards';
@@ -934,59 +934,45 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
           const selectedCards = await getAllSelectedCardsForBinder(binder.id);
           console.log('[BinderDetail] Found', selectedCards.size, 'custom card selections');
           
-          // If user has custom card selections, load the TCG card images
           if (selectedCards.size > 0) {
-            // Load TCG card details for all selected cards in parallel
-            const cardsWithSelections = await Promise.all(
-              pokemonList.map(async (pokemon) => {
-                // Get Pokedex number from the pokemon (it's stored in pokedexNumber field)
-                const pokedexNumber = pokemon.pokedexNumber;
-                
-                if (!pokedexNumber) {
-                  return pokemon;
-                }
-                
-                // Check if user selected a custom card for this Pokemon
-                const selectedCardId = selectedCards.get(pokedexNumber);
-                
-                if (selectedCardId) {
-                  try {
-                    const tcgCard = await getCardById(selectedCardId);
-                    
-                    if (tcgCard) {
-                      console.log('[BinderDetail] Using custom card for', pokemon.name, ':', selectedCardId);
-                      return {
-                        ...pokemon,
-                        imageUrl: tcgCard.imageUrl || undefined,
-                        imageUrlHiRes: tcgCard.imageUrlHiRes || undefined,
-                        selectedCardId: selectedCardId,
-                        selectedCardName: tcgCard.name,
-                        selectedCardNumber: tcgCard.number,
-                        selectedCardRarity: tcgCard.rarity,
-                        selectedCardIllustrator: tcgCard.illustrator,
-                        selectedCardSet: tcgCard.set,
-                        setTotal: tcgCard.setTotal,
-                      };
-                    }
-                  } catch (err) {
-                    console.warn('[BinderDetail] Failed to load selected card for', pokemon.name, ':', err);
-                  }
-                  // API failed or card not found — still mark the selection
-                  return {
-                    ...pokemon,
-                    imageUrl: undefined,
-                    imageUrlHiRes: undefined,
-                    selectedCardId: selectedCardId,
-                  };
-                }
-                
-                return pokemon;
-              })
-            );
+            // Batch-fetch all selected TCG cards in one query
+            const selectedCardIds = Array.from(selectedCards.values());
+            const tcgCardsMap = await getCardsByIds(selectedCardIds);
+            console.log('[BinderDetail] Batch-loaded', tcgCardsMap.size, 'of', selectedCardIds.length, 'custom cards');
+
+            const cardsWithSelections = pokemonList.map((pokemon) => {
+              const pokedexNumber = pokemon.pokedexNumber;
+              if (!pokedexNumber) return pokemon;
+
+              const selectedCardId = selectedCards.get(pokedexNumber);
+              if (!selectedCardId) return pokemon;
+
+              const tcgCard = tcgCardsMap.get(selectedCardId);
+              if (tcgCard) {
+                return {
+                  ...pokemon,
+                  imageUrl: tcgCard.imageUrl || undefined,
+                  imageUrlHiRes: tcgCard.imageUrlHiRes || undefined,
+                  selectedCardId: selectedCardId,
+                  selectedCardName: tcgCard.name,
+                  selectedCardNumber: tcgCard.number,
+                  selectedCardRarity: tcgCard.rarity,
+                  selectedCardIllustrator: tcgCard.illustrator,
+                  selectedCardSet: tcgCard.set,
+                  setTotal: tcgCard.setTotal,
+                };
+              }
+
+              return {
+                ...pokemon,
+                imageUrl: undefined,
+                imageUrlHiRes: undefined,
+                selectedCardId: selectedCardId,
+              };
+            });
             
             allCards = cardsWithSelections;
           } else {
-            // No custom selections, use default sprites
             allCards = pokemonList;
           }
         } else if (binder.collectionMode === 'custom') {
@@ -1011,28 +997,23 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
               : Array.from(ownershipMap.entries()).map(([position, data]) => ({ position, cardId: data.cardId }));
             
             if (positionsToLoad.length > 0) {
-              const results = await Promise.all(
-                positionsToLoad.map(async ({ position, cardId }) => {
-                  try {
-                    const card = await getCardById(cardId);
-                    if (card) return { position, card };
-                    return null;
-                  } catch { return null; }
-                })
-              );
-              
-              results.forEach((result) => {
-                if (result) {
-                  const ownershipData = ownershipMap.get(result.position);
+              // Batch-fetch all cards in one Supabase query
+              const cardIds = positionsToLoad.map(p => p.cardId);
+              const cardsMap = await getCardsByIds(cardIds);
+
+              for (const { position, cardId } of positionsToLoad) {
+                const card = cardsMap.get(cardId);
+                if (card) {
+                  const ownershipData = ownershipMap.get(position);
                   const isOwned = ownershipData?.isOwned
-                    ?? binder.cardIds?.includes(result.card.id)
+                    ?? binder.cardIds?.includes(card.id)
                     ?? false;
                   const variant = ownershipData?.variant
                     ? ownershipData.variant as any
-                    : result.card.variant;
-                  newPositionCards.set(result.position, { ...result.card, isOwned, variant });
+                    : card.variant;
+                  newPositionCards.set(position, { ...card, isOwned, variant });
                 }
-              });
+              }
             }
             
             setPositionCards(newPositionCards);
@@ -2741,10 +2722,13 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
               isDisplayPreview ? styles.enlargedCardContainerRow : styles.enlargedCardContainerColumn,
             ]}
           >
-            <Image
-              source={{ uri: enlargedCard.imageUrlHiRes || enlargedCard.imageUrl }}
+            <CardImage
+              source={enlargedCard.imageUrlHiRes || enlargedCard.imageUrl}
+              lowResSource={enlargedCard.imageUrl}
+              isMissing={!enlargedCard.isOwned}
               style={[styles.enlargedCard, { width: previewCardWidth, height: previewCardHeight }]}
-              contentFit="contain"
+              priority="high"
+              cardInfo={{ id: enlargedCard.id, name: enlargedCard.name, number: enlargedCard.number, set: enlargedCard.set }}
             />
             <View
               style={[

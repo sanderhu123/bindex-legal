@@ -12,7 +12,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { Image } from 'expo-image';
-import { getCardsByRegion, getCardById, type Region } from '../../services/api/pokemonApi';
+import { getCardsByRegion, getCardById, getCardsByIds, type Region } from '../../services/api/pokemonApi';
 import { getSearchName } from '../../data/pokemonRegions';
 import {
   getAllSelectedCardsForBinder,
@@ -148,48 +148,49 @@ export default function RegionBinderEditView({ binder }: RegionBinderEditViewPro
       // 2. Get any custom card selections the user has made
       const selectedCards = await getAllSelectedCardsForBinder(binder.id);
 
-      // 3. Build the PokemonSlot array, applying custom selections
-      const slots: PokemonSlot[] = await Promise.all(
-        regionCards.map(async (pokemon) => {
-          const pokedexNum = pokemon.pokedexNumber ?? 0;
-          const selectedCardId = selectedCards.get(pokedexNum);
-          let imageUrl = pokemon.imageUrl;
+      // 3. Batch-fetch all selected TCG cards in one query
+      const selectedCardIds = Array.from(selectedCards.values());
+      const tcgCardsMap = selectedCardIds.length > 0
+        ? await getCardsByIds(selectedCardIds)
+        : new Map<string, any>();
 
-          let selectedCardName: string | undefined;
-          let selectedCardNumber: string | undefined;
-          let selectedCardSetTotal: string | undefined;
-          let selectedCardSet: string | undefined;
+      // 4. Build the PokemonSlot array using pre-fetched card data
+      const slots: PokemonSlot[] = regionCards.map((pokemon) => {
+        const pokedexNum = pokemon.pokedexNumber ?? 0;
+        const selectedCardId = selectedCards.get(pokedexNum);
+        let imageUrl = pokemon.imageUrl;
 
-          // If user selected a custom TCG card, use its image and store details
-          if (selectedCardId) {
-            try {
-              const tcgCard = await getCardById(selectedCardId);
-              if (tcgCard) {
-                imageUrl = tcgCard.imageUrl || undefined;
-                selectedCardName = tcgCard.name;
-                selectedCardNumber = tcgCard.number;
-                selectedCardSetTotal = tcgCard.setTotal;
-                selectedCardSet = tcgCard.set;
-              }
-            } catch {
-              imageUrl = undefined;
-            }
+        let selectedCardName: string | undefined;
+        let selectedCardNumber: string | undefined;
+        let selectedCardSetTotal: string | undefined;
+        let selectedCardSet: string | undefined;
+
+        if (selectedCardId) {
+          const tcgCard = tcgCardsMap.get(selectedCardId);
+          if (tcgCard) {
+            imageUrl = tcgCard.imageUrl || undefined;
+            selectedCardName = tcgCard.name;
+            selectedCardNumber = tcgCard.number;
+            selectedCardSetTotal = tcgCard.setTotal;
+            selectedCardSet = tcgCard.set;
+          } else {
+            imageUrl = undefined;
           }
+        }
 
-          return {
-            cardId: pokemon.id,
-            name: pokemon.name,
-            imageUrl,
-            pokedexNumber: pokedexNum,
-            selectedTcgCardId: selectedCardId || undefined,
-            displayNumber: pokemon.number,
-            selectedCardName,
-            selectedCardNumber,
-            selectedCardSetTotal,
-            selectedCardSet,
-          };
-        }),
-      );
+        return {
+          cardId: pokemon.id,
+          name: pokemon.name,
+          imageUrl,
+          pokedexNumber: pokedexNum,
+          selectedTcgCardId: selectedCardId || undefined,
+          displayNumber: pokemon.number,
+          selectedCardName,
+          selectedCardNumber,
+          selectedCardSetTotal,
+          selectedCardSet,
+        };
+      });
 
       setPokemonSlots(slots);
       setLoading(false);

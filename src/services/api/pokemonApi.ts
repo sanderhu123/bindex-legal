@@ -2,7 +2,7 @@ import type { Card } from '../../types';
 import type { PokemonArtStyle } from '../../types';
 import { mockCards, mockSets, type MockSet } from '../../data/mockupCards';
 import { getPokemonByRegion } from '../../data/pokemonRegions';
-import { getEras, getSetsByEra, getAllSets, convertSetToPokemonSet, sortCardsBySetDate, getPtcgioSetId, getAppSetId, registerSetImageUrls } from '../../data/pokemonEras';
+import { getEras, getSetsByEra, getAllSets, convertSetToPokemonSet, sortCardsBySetDate, getPtcgioSetId, getAppSetId, registerSetImageUrls, getEraNameBySetId } from '../../data/pokemonEras';
 import { getSpecialVariantsForCard, hasSpecialVariants, hasStampEnergyVariants, setHasReverseHolos } from '../../data/cardVariants';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { isStorageFullError, emergencyStorageCleanup } from '../cacheManager';
@@ -920,6 +920,99 @@ export async function getCardById(id: string): Promise<Card | null> {
 }
 
 /**
+ * Batch-fetch multiple cards by ID in a single Supabase query.
+ * Cards already in memory/disk cache are returned from cache.
+ * Remaining cards are fetched with one WHERE id IN (...) query.
+ */
+export async function getCardsByIds(ids: string[]): Promise<Map<string, Card>> {
+  const result = new Map<string, Card>();
+  if (ids.length === 0) return result;
+
+  // Separate custom cards and resolve cached cards
+  const uncachedEntries: Array<{ originalId: string; ptcgioId: string; variant?: string; variantLabel?: string }> = [];
+
+  for (const id of ids) {
+    if (id.startsWith('custom-')) {
+      try {
+        const { getCustomCard } = require('../supabase/customCards');
+        const card = await getCustomCard(id);
+        if (card) result.set(id, card);
+      } catch {}
+      continue;
+    }
+
+    const cacheKey = `card-${id}`;
+    const cached = getCachedData<Card | null>(cacheKey);
+    if (cached !== null) {
+      result.set(id, cached);
+      continue;
+    }
+
+    const variantMatch = id.match(/-(base|holo|reverse|poke-ball|master-ball|stamp|energy)$/);
+    const variant = variantMatch ? variantMatch[1] : undefined;
+    const baseId = id.replace(/-(base|holo|reverse|poke-ball|master-ball|stamp|energy)$/, '');
+    const variantMap: Record<string, string> = {
+      'base': 'base', 'holo': 'base', 'reverse': 'reverse-holo',
+      'poke-ball': 'poke-ball', 'master-ball': 'master-ball',
+      'stamp': 'stamp', 'energy': 'energy',
+    };
+
+    uncachedEntries.push({
+      originalId: id,
+      ptcgioId: convertCardIdToPtcgio(baseId),
+      variant,
+      variantLabel: variant ? variantMap[variant] : undefined,
+    });
+  }
+
+  if (uncachedEntries.length === 0) return result;
+
+  // Batch query Supabase
+  const ptcgioIds = [...new Set(uncachedEntries.map(e => e.ptcgioId))];
+
+  try {
+    const { data: dbCards, error } = await supabase
+      .from('pokemon_cards')
+      .select('*')
+      .in('id', ptcgioIds);
+
+    if (!error && dbCards) {
+      const dbMap = new Map<string, any>();
+      for (const row of dbCards) {
+        dbMap.set(row.id, row);
+      }
+
+      for (const entry of uncachedEntries) {
+        const dbRow = dbMap.get(entry.ptcgioId);
+        if (dbRow) {
+          const card = transformDbRowToCard(dbRow);
+          if (entry.variant) {
+            card.id = entry.originalId;
+            card.variant = entry.variantLabel as any;
+          }
+          setCachedData(`card-${entry.originalId}`, card);
+          result.set(entry.originalId, card);
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('[API] Batch getCardsByIds Supabase error:', err);
+  }
+
+  // Fallback: any still-missing cards get fetched individually
+  for (const entry of uncachedEntries) {
+    if (!result.has(entry.originalId)) {
+      try {
+        const card = await getCardById(entry.originalId);
+        if (card) result.set(entry.originalId, card);
+      } catch {}
+    }
+  }
+
+  return result;
+}
+
+/**
  * Get all eras using hard-coded data (ordered newest first).
  */
 export function getErasList(): Array<{ id: string; name: string }> {
@@ -1214,7 +1307,7 @@ export async function searchCardsByName(
       
       const allSortedCards = sortCardsBySetDate(transformedCards);
       
-      // Build filter metadata
+      // Build filter metadata using pre-computed O(1) lookups
       const metaSetIds = new Set<string>();
       const metaEras = new Set<string>();
       const metaRarities = new Set<string>();
@@ -1222,14 +1315,8 @@ export async function searchCardsByName(
         const cardSetId = extractSetIdFromCardId(card.id).toLowerCase();
         if (cardSetId) {
           metaSetIds.add(cardSetId);
-          const eraForSet = getEras().find(era => {
-            const eraSets = getSetsByEra(era.name);
-            return eraSets.some(s => 
-              s.id.toLowerCase() === cardSetId || 
-              getPtcgioSetId(s.id).toLowerCase() === cardSetId
-            );
-          });
-          if (eraForSet) metaEras.add(eraForSet.name);
+          const eraName = getEraNameBySetId(cardSetId);
+          if (eraName) metaEras.add(eraName);
         }
         if (card.rarity?.trim()) metaRarities.add(card.rarity);
       }

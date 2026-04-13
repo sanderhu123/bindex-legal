@@ -580,6 +580,28 @@ for (const era of POKEMON_ERAS) {
   }
 }
 
+// ==================== SET ID → ERA NAME LOOKUP ====================
+
+const setIdToEraMap: Map<string, string> = new Map();
+
+for (const era of POKEMON_ERAS) {
+  for (const set of era.sets) {
+    setIdToEraMap.set(set.id.toLowerCase(), era.name);
+    const ptcgioId = getPtcgioSetId(set.id);
+    if (ptcgioId !== set.id) {
+      setIdToEraMap.set(ptcgioId.toLowerCase(), era.name);
+    }
+  }
+}
+
+/**
+ * O(1) lookup: get the era name for a set ID.
+ */
+export function getEraNameBySetId(setId: string): string | null {
+  if (!setId) return null;
+  return setIdToEraMap.get(setId.toLowerCase()) || null;
+}
+
 /**
  * Get the release date for a set by name or ID
  * Returns null if set not found (will sort to end)

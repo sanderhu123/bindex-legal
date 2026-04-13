@@ -16,7 +16,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { Image } from 'expo-image';
 import { getBinderById } from '../../services/supabase/binders';
 import { getBinderCardsWithPositions } from '../../services/supabase/cards';
-import { getCardsBySet, getCardsByRegion, getCardById, getPokemonImageUrl, type Region } from '../../services/api/pokemonApi';
+import { getCardsBySet, getCardsByRegion, getCardById, getCardsByIds, getPokemonImageUrl, type Region } from '../../services/api/pokemonApi';
 import { getAllSelectedCardsForBinder, setSelectedCardForPokemon, clearSelectedCardForPokemon } from '../../services/supabase/regionCards';
 import { getSearchName } from '../../data/pokemonRegions';
 import { getCardPositionsForBinder, saveCardPositionsForBinder, getPlaceholderCardsForBinder, savePlaceholderCardsForBinder, syncBinderCardsFromPositions } from '../../services/supabase/binderPositions';
@@ -440,23 +440,22 @@ export default function BinderEditScreen() {
         const selectedCards = await getAllSelectedCardsForBinder(binderData.id);
         regionSelectedCards = selectedCards;
         if (selectedCards.size > 0) {
-          cardsToPlace = await Promise.all(
-            pokemonList.map(async (pokemon) => {
-              const pokedexNumber = pokemon.pokedexNumber;
-              if (pokedexNumber) {
-                const selectedCardId = selectedCards.get(pokedexNumber);
-                if (selectedCardId) {
-                  try {
-                    const tcgCard = await getCardById(selectedCardId);
-                    if (tcgCard?.imageUrl) {
-                      return { ...pokemon, imageUrl: tcgCard.imageUrl, imageUrlHiRes: tcgCard.imageUrlHiRes };
-                    }
-                  } catch { /* fall back to default sprite */ }
+          const selectedCardIds = Array.from(selectedCards.values());
+          const tcgCardsMap = await getCardsByIds(selectedCardIds);
+
+          cardsToPlace = pokemonList.map((pokemon) => {
+            const pokedexNumber = pokemon.pokedexNumber;
+            if (pokedexNumber) {
+              const selectedCardId = selectedCards.get(pokedexNumber);
+              if (selectedCardId) {
+                const tcgCard = tcgCardsMap.get(selectedCardId);
+                if (tcgCard?.imageUrl) {
+                  return { ...pokemon, imageUrl: tcgCard.imageUrl, imageUrlHiRes: tcgCard.imageUrlHiRes };
                 }
               }
-              return pokemon;
-            })
-          );
+            }
+            return pokemon;
+          });
         } else {
           cardsToPlace = pokemonList;
         }
@@ -573,6 +572,15 @@ export default function BinderEditScreen() {
         }
 
         // Place cards at their saved positions
+        // Collect card IDs not in local lookup so we can batch-fetch them
+        const missingIds: string[] = [];
+        for (const saved of dbPositions) {
+          if (saved.slotIndex < totalSlotCount && saved.cardId && !cardLookup.has(saved.cardId)) {
+            missingIds.push(saved.cardId);
+          }
+        }
+        const batchCards = missingIds.length > 0 ? await getCardsByIds(missingIds) : new Map<string, any>();
+
         for (const saved of dbPositions) {
           if (saved.slotIndex < totalSlotCount && saved.cardId) {
             const cardInfo = cardLookup.get(saved.cardId);
@@ -589,50 +597,41 @@ export default function BinderEditScreen() {
               };
             } else {
               const regionMeta = tcgToRegionMeta.get(saved.cardId);
-              try {
-                const card = await getCardById(saved.cardId);
-                if (card) {
-                  positions[saved.slotIndex] = {
-                    slotIndex: saved.slotIndex,
-                    cardId: card.id,
-                    cardName: card.name,
-                    imageUrl: card.imageUrl,
-                    cardSet: card.set,
-                    pokemonName: regionMeta?.pokemonName,
-                    pokedexNumber: regionMeta?.pokedexNumber,
-                    spriteUrl: regionMeta?.spriteUrl,
-                  };
-                }
-              } catch { /* skip this card */ }
+              const card = batchCards.get(saved.cardId);
+              if (card) {
+                positions[saved.slotIndex] = {
+                  slotIndex: saved.slotIndex,
+                  cardId: card.id,
+                  cardName: card.name,
+                  imageUrl: card.imageUrl,
+                  cardSet: card.set,
+                  pokemonName: regionMeta?.pokemonName,
+                  pokedexNumber: regionMeta?.pokedexNumber,
+                  spriteUrl: regionMeta?.spriteUrl,
+                };
+              }
             }
           }
         }
 
-        // Cards not in any saved position were removed by the user — don't re-add them
       } else if (binderData.collectionMode === 'custom' && customFallbackPositions && customFallbackPositions.size > 0) {
-        // Fallback for custom binders that have no binder_card_positions yet
-        const results = await Promise.all(
-          Array.from(customFallbackPositions.entries()).map(async ([position, data]) => {
-            try {
-              const card = await getCardById(data.cardId);
-              return card ? { position, card } : null;
-            } catch { return null; }
-          })
-        );
+        const fallbackIds = Array.from(customFallbackPositions.values()).map(d => d.cardId);
+        const fallbackCards = await getCardsByIds(fallbackIds);
 
-        results.forEach((result) => {
-          if (result && result.position < totalSlotCount) {
-            positions[result.position] = {
-              ...positions[result.position],
-              cardId: result.card.id,
-              cardName: result.card.name,
-              imageUrl: result.card.imageUrl,
-              cardSet: result.card.set,
+        for (const [position, data] of customFallbackPositions.entries()) {
+          const card = fallbackCards.get(data.cardId);
+          if (card && position < totalSlotCount) {
+            positions[position] = {
+              ...positions[position],
+              cardId: card.id,
+              cardName: card.name,
+              imageUrl: card.imageUrl,
+              cardSet: card.set,
             };
           }
-        });
+        }
 
-        console.log('[BinderEdit] Custom fallback: placed', results.filter(Boolean).length, 'cards from binder_cards');
+        console.log('[BinderEdit] Custom fallback: placed', fallbackCards.size, 'cards from binder_cards');
       }
 
       setCardPositions(positions);
@@ -652,18 +651,23 @@ export default function BinderEditScreen() {
             }
           });
 
+          const uncachedPlaceholderIds = savedPlaceholder
+            .filter(s => !cardLookupForPlaceholder.has(s.cardId))
+            .map(s => s.cardId);
+          const batchPlaceholders = uncachedPlaceholderIds.length > 0
+            ? await getCardsByIds(uncachedPlaceholderIds)
+            : new Map<string, any>();
+
           const loadedPlaceholder: PlaceholderCard[] = [];
           for (const saved of savedPlaceholder) {
             const cached = cardLookupForPlaceholder.get(saved.cardId);
             if (cached) {
               loadedPlaceholder.push({ cardId: saved.cardId, cardName: cached.name, imageUrl: cached.imageUrl });
             } else {
-              try {
-                const card = await getCardById(saved.cardId);
-                if (card) {
-                  loadedPlaceholder.push({ cardId: card.id, cardName: card.name, imageUrl: card.imageUrl });
-                }
-              } catch { /* skip cards that can't be fetched */ }
+              const card = batchPlaceholders.get(saved.cardId);
+              if (card) {
+                loadedPlaceholder.push({ cardId: card.id, cardName: card.name, imageUrl: card.imageUrl });
+              }
             }
           }
           setPlaceholderCards(loadedPlaceholder);

@@ -370,13 +370,6 @@ export function useCardPicker(options?: UseCardPickerOptions): UseCardPickerRetu
     executeSearch(query, 0);
   }, [query, executeSearch]);
 
-  // Initial search if initialQuery provided
-  useEffect(() => {
-    if (initialQuery) {
-      executeSearch(initialQuery, 0);
-    }
-  }, [initialQuery, executeSearch]);
-
   // Cleanup on unmount
   useEffect(() => {
     return () => {

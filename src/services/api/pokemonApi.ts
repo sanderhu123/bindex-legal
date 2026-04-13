@@ -985,7 +985,7 @@ function buildPtcgioQuery(params: {
 }): string {
   const parts: string[] = [];
   
-  if (params.name) parts.push(`name:"${params.name}*"`);
+  if (params.name) parts.push(`name:"*${params.name}*"`);
   if (params.number) parts.push(`number:${params.number}`);
   if (params.setId) parts.push(`set.id:${params.setId}`);
   if (params.rarity) parts.push(`rarity:"${params.rarity}"`);
@@ -1083,7 +1083,7 @@ export async function searchCardsByName(
           supaQuery = supaQuery.eq('set_printed_total', Number(parts[1]));
         }
       } else if (sanitizedQuery) {
-        supaQuery = supaQuery.ilike('name', `${sanitizedQuery}%`);
+        supaQuery = supaQuery.ilike('name', `%${sanitizedQuery}%`);
       }
       
       if (pokemonOnly) {
@@ -1142,7 +1142,7 @@ export async function searchCardsByName(
             queryParts.push(`set.printedTotal:${numParts[1]}`);
           }
         } else if (sanitizedQuery) {
-          queryParts.push(`name:"${sanitizedQuery}*"`);
+          queryParts.push(`name:"*${sanitizedQuery}*"`);
         }
         if (pokemonOnly) queryParts.push('supertype:Pokémon');
         

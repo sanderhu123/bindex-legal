@@ -130,10 +130,13 @@ export default function OnboardingScreen() {
       let prevStep = currentStep - 1;
       if (state.collectionMode === 'master-set') {
         // Step 6 (layout) — go back to display order (5) or skip variant steps
-        if (currentStep === 6 && !needsVariantPlacement()) {
-          prevStep = !needsVariantStep() ? 2 : 3;
+        if (currentStep === 6 && !needsVariantStep()) {
+          prevStep = 2; // old sets: back to set selection
         }
-        // Step 5 (display order) — go back to variant placement (4)
+        // Step 5 (display order) — skip placement (4) if only 1 variant
+        if (currentStep === 5 && !needsVariantPlacement()) {
+          prevStep = 3; // back to variant selection
+        }
         // Step 4 (variant placement) — go back to variants (3)
         // Step 3 (variants) — go back to set (2)
       }
@@ -147,9 +150,10 @@ export default function OnboardingScreen() {
   const getTotalSteps = (): number => {
     if (state.collectionMode === 'custom') return 3;
     if (state.collectionMode === 'region') return 5;
-    // master-set: base is 7, minus 1 if no variant step, minus 2 if no placement+order
+    // master-set: base is 7, minus 1 if no variant step, minus 3 if no variant step at all
     if (!needsVariantStep()) return 4; // old sets: mode → set → layout → name
-    return needsVariantPlacement() ? 7 : 5;
+    // With variants: 7 if placement needed, 6 if only placement skipped (display order always shows)
+    return needsVariantPlacement() ? 7 : 6;
   };
 
   // Get the actual step number for display
@@ -161,11 +165,8 @@ export default function OnboardingScreen() {
     // Step 3 (variants) skipped when set has no reverse holos
     if (!needsVariantStep() && currentStep > 3) skipped++;
     
-    // Steps 4+5 (variant placement + display order) skipped together
-    if (!needsVariantPlacement()) {
-      if (currentStep > 4) skipped++;
-      if (currentStep > 5) skipped++;
-    }
+    // Step 4 (variant placement) skipped when only 1 variant selected
+    if (!needsVariantPlacement() && currentStep > 4) skipped++;
     
     return currentStep - skipped;
   };
@@ -236,9 +237,10 @@ export default function OnboardingScreen() {
           setState(prev => ({ ...prev, selectedVariants: ['base'] }));
           nextStep = 6; // jump to layout
         }
-        // Skip placement + display order if only 1 variant selected
+        // Skip only placement if only 1 variant selected (display order still shows)
         else if (nextStep === 4 && !needsVariantPlacement()) {
-          nextStep = 6; // jump to layout
+          setState(prev => ({ ...prev, variantPlacement: 'grouped' }));
+          nextStep = 5; // jump to display order, skip placement
         }
 
         // Build the variant order list when entering display order step

@@ -529,28 +529,28 @@ export default function BinderSettingsScreen() {
                       );
                     })}
                   </View>
-
-                  <Text style={[styles.label, styles.subSectionTop]}>Display Order</Text>
-                  {variantPlacement === 'grouped' ? (
-                    <VariantOrderSelector
-                      order={
-                        variantOrder.length > 0 && variantOrder[0] === 'secret-rare'
-                          ? ['secret-rare', 'main-set']
-                          : ['main-set', 'secret-rare']
-                      }
-                      onChange={(newOrder) => {
-                        const rest = variantOrder.filter(k => k !== 'secret-rare');
-                        if (newOrder[0] === 'secret-rare') {
-                          setVariantOrder(['secret-rare', ...rest]);
-                        } else {
-                          setVariantOrder([...rest, 'secret-rare']);
-                        }
-                      }}
-                    />
-                  ) : (
-                    <VariantOrderSelector order={variantOrder} onChange={setVariantOrder} />
-                  )}
                 </>
+              )}
+
+              <Text style={[styles.label, styles.subSectionTop]}>Display Order</Text>
+              {(variantsToTrack.length <= 1 || variantPlacement === 'grouped') ? (
+                <VariantOrderSelector
+                  order={
+                    variantOrder.length > 0 && variantOrder[0] === 'secret-rare'
+                      ? ['secret-rare', 'main-set']
+                      : ['main-set', 'secret-rare']
+                  }
+                  onChange={(newOrder) => {
+                    const rest = variantOrder.filter(k => k !== 'secret-rare');
+                    if (newOrder[0] === 'secret-rare') {
+                      setVariantOrder(['secret-rare', ...rest]);
+                    } else {
+                      setVariantOrder([...rest, 'secret-rare']);
+                    }
+                  }}
+                />
+              ) : (
+                <VariantOrderSelector order={variantOrder} onChange={setVariantOrder} />
               )}
             </>
           )}

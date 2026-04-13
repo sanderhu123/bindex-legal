@@ -35,7 +35,7 @@
  * @date 2025-12-21
  */
 
-import { getEraIdForSetId } from './pokemonEras';
+import { getEraIdForSetId, getAppSetId } from './pokemonEras';
 
 /**
  * Eras that do NOT have reverse holo cards at all.
@@ -226,8 +226,9 @@ export function getAvailableVariantsForCard(
   rarity: string,
   supertype: string
 ): ('base' | 'reverse-holo' | 'poke-ball' | 'master-ball' | 'stamp' | 'energy')[] {
-  const setId = extractSetId(cardId);
-  if (!setId) return ['base'];
+  const rawSetId = extractSetId(cardId);
+  if (!rawSetId) return ['base'];
+  const setId = getAppSetId(rawSetId);
 
   const allowsReverseHolo = (
     rarity === 'Common' ||

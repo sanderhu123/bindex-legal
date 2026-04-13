@@ -101,8 +101,8 @@ export function logFailedImageSummary(): void {
   // Group by set ID for easier analysis
   const bySet: Record<string, string[]> = {};
   for (const url of summary.urls) {
-    // Extract set ID from URL like: https://assets.tcgdex.net/en/sm/smp/198/low.png
-    const match = url.match(/assets\.tcgdex\.net\/en\/([^/]+(?:\/[^/]+)?)\//);
+    // Extract set ID from image URL for grouping
+    const match = url.match(/pokemontcg\.io\/([^/]+)\//);
     const setPath = match ? match[1] : 'unknown';
     if (!bySet[setPath]) bySet[setPath] = [];
     bySet[setPath].push(url);

@@ -87,7 +87,7 @@ export async function getSelectedCardForPokemon(
  * 
  * @param binderId - The binder ID
  * @param pokedexNumber - National Pokédex number (e.g., 1 for Bulbasaur)
- * @param cardId - The TCGDEX card ID to select (e.g., "base1-4" for Base Set Charizard)
+ * @param cardId - The card ID to select (e.g., "base1-4" for Base Set Charizard)
  */
 export async function setSelectedCardForPokemon(
   binderId: string,

@@ -840,7 +840,7 @@ export function getPokemonByRegion(region: Region): PokemonEntry[] {
 
 /**
  * Pokémon whose display names contain special characters that
- * don't work well with the TCGDEX search API or with exact-match regex.
+ * don't work well with the search API or with exact-match regex.
  * Maps display name → API-friendly search term.
  */
 const SEARCH_NAME_OVERRIDES: Record<string, string> = {

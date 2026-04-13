@@ -1,7 +1,7 @@
 /**
  * Card Picker Components
  * 
- * Provides a reusable modal for searching and selecting cards from the TCGDEX API.
+ * Provides a reusable modal for searching and selecting cards.
  * 
  * Used by:
  * - Custom binder mode (add any card)

@@ -2,7 +2,7 @@ import type { Card } from '../../types';
 import type { PokemonArtStyle } from '../../types';
 import { mockCards, mockSets, type MockSet } from '../../data/mockupCards';
 import { getPokemonByRegion } from '../../data/pokemonRegions';
-import { getEras, getSetsByEra, getAllSets, convertSetToPokemonSet, sortCardsBySetDate, getPtcgioSetId, getAppSetId } from '../../data/pokemonEras';
+import { getEras, getSetsByEra, getAllSets, convertSetToPokemonSet, sortCardsBySetDate, getPtcgioSetId, getAppSetId, registerSetImageUrls } from '../../data/pokemonEras';
 import { getSpecialVariantsForCard, hasSpecialVariants, setHasReverseHolos } from '../../data/cardVariants';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { isStorageFullError, emergencyStorageCleanup } from '../cacheManager';
@@ -104,7 +104,7 @@ function isExcludedSet(setId: string): boolean {
 
 /**
  * Whitelisted set IDs from hard-coded app data.
- * Includes both TCGdex and pokemontcg.io formats.
+ * Includes both app and pokemontcg.io formats.
  */
 const ALLOWED_SET_IDS = new Set<string>();
 for (const set of getAllSets()) {
@@ -463,7 +463,7 @@ export async function getSetsMinimal(): Promise<PokemonSet[]> {
       // Try Supabase first
       const { data: dbSets, error } = await supabase
         .from('pokemon_sets')
-        .select('id, name, series, release_date')
+        .select('id, name, series, release_date, logo_url, symbol_url')
         .is('parent_set_id', null)
         .order('release_date', { ascending: false });
       
@@ -475,8 +475,11 @@ export async function getSetsMinimal(): Promise<PokemonSet[]> {
             name: s.name,
             series: s.series || 'Unknown',
             releaseDate: s.release_date ? s.release_date.replace(/\//g, '-') : '',
+            logo: s.logo_url || undefined,
+            symbol: s.symbol_url || undefined,
           }));
         
+        registerSetImageUrls(sets);
         setCachedData(cacheKey, sets);
         console.log('[API] getSetsMinimal() from Supabase:', { count: sets.length });
         return sets;
@@ -501,8 +504,11 @@ export async function getSetsMinimal(): Promise<PokemonSet[]> {
           name: s.name,
           series: s.series || 'Unknown',
           releaseDate: s.releaseDate ? s.releaseDate.replace(/\//g, '-') : '',
+          logo: s.images?.logo || undefined,
+          symbol: s.images?.symbol || undefined,
         }));
       
+      registerSetImageUrls(sets);
       setCachedData(cacheKey, sets);
       return sets;
     } catch (error) {
@@ -545,7 +551,7 @@ for (const set of getAllSets()) {
 }
 
 /**
- * Convert a TCGdex-format card ID to pokemontcg.io format.
+ * Convert an app-format card ID to pokemontcg.io format.
  * Handles set ID conversion, gallery sub-set suffixes, and card number zero-stripping.
  * 
  * pokemontcg.io puts Trainer Gallery and Galarian Gallery cards in separate sub-sets:
@@ -588,7 +594,7 @@ function convertCardIdToPtcgio(cardId: string): string {
 
 /**
  * Resolve a set identifier (could be a name or an ID) to a pokemontcg.io set ID.
- * Tries: direct pokemontcg.io ID → app/TCGdex ID → set name lookup → API search.
+ * Tries: direct pokemontcg.io ID → app ID → set name lookup → API search.
  */
 async function resolveSetId(setIdentifier: string): Promise<string> {
   // 1. Check if it's a known app set ID (e.g., "sv01", "me02")

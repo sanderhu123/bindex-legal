@@ -10,7 +10,7 @@ export type CardVariant = 'base' | 'reverse-holo' | 'poke-ball' | 'master-ball';
 export interface CardSearchFilters {
   /** Era names (e.g., ["Scarlet & Violet", "Sword & Shield"]). Client-side filtering. */
   eras?: string[];
-  /** TCGDEX set IDs (e.g., ["sv08", "sv09"]). Sent to API as set.id filter. */
+  /** App set IDs (e.g., ["sv08", "sv09"]). Sent to API as set.id filter. */
   setIds?: string[];
   /** Rarity strings (e.g., ["Rare", "Ultra Rare"]). Sent to API or client-side filtered. */
   rarities?: string[];

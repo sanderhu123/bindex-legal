@@ -44,7 +44,7 @@ export default function Step2MasterSet({
       const fetchedSeries = getErasList();
       setSeries(fetchedSeries);
 
-      // Pre-fetch total card counts from TCGDex (single API call, cached)
+      // Pre-fetch total card counts (single API call, cached)
       const counts = await getSetTotalCounts();
       setTotalCountsMap(counts);
       

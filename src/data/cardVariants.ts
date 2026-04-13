@@ -2,7 +2,7 @@
  * Manual database of which sets have special reverse holo variants
  * (pokeball and masterball patterns).
  * 
- * This data is maintained manually since TCGDEX API doesn't track
+ * This data is maintained manually since the API doesn't track
  * specific reverse holo patterns - it only indicates if a card has
  * a reverse holo version, not what pattern it uses.
  * 
@@ -118,7 +118,7 @@ export function getSpecialVariantsForCard(
   }
 
   // Only Common, Uncommon, Rare, and Holo Rare cards can have reverse/pokeball/masterball holos
-  // Note: TCGDEX API uses "Holo Rare" for SWSH era, "Rare Holo" for older DP/HGSS era
+  // Note: API uses "Holo Rare" for SWSH era, "Rare Holo" for older DP/HGSS era
   const allowsReverseHolo = (
     rarity === 'Common' || 
     rarity === 'Uncommon' || 
@@ -138,7 +138,7 @@ export function getSpecialVariantsForCard(
 
   // Masterball Holo: Only available for Pokemon cards with reverse holo that are Common/Uncommon/Rare/Holo Rare
   // (same logic as reverse holo, but restricted to Pokemon supertype only)
-  // TCGDEX API returns "Pokémon" (with accent) for the category field
+  // API returns "Pokémon" (with accent) for the category field
   if (supertype === 'Pokémon' || supertype === 'Pokemon') {
     variants.push('master-ball');
   }
@@ -172,7 +172,7 @@ export function getAvailableVariantsForSet(setId: string): ('base' | 'reverse-ho
 }
 
 /**
- * Extract the TCGDEX set ID from a card ID.
+ * Extract the set ID from a card ID.
  * Card IDs from the API look like "sv08.5-001". When the binder tracks
  * variants, generateVariantCards appends a suffix: "sv08.5-001-base",
  * "sv08.5-001-poke-ball", etc. This helper strips that suffix first.

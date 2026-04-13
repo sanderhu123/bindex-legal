@@ -3,44 +3,15 @@
  * 
  * This file provides reliable, offline-friendly mappings of sets to their eras.
  * Eras are ordered newest first, and sets within each era are also ordered newest first.
- * 
- * Structure matches TCGDEX API organization where sets have a "series" field
- * that corresponds to these era names.
  */
 
 import type { PokemonSet } from '../services/api/pokemonApi';
 
 /**
- * Generate logo URL for a set from TCGDEX
- * Uses the series slug from getSeriesSlugFromId to construct the correct path
- */
-function getSetLogoUrl(setId: string, seriesSlug: string): string {
-  // Get the actual series slug from our mapping (more reliable)
-  const actualSeriesSlug = getSeriesSlugFromId(setId);
-  
-  // If set has no images, return empty string
-  if (actualSeriesSlug === 'NO_IMAGES') {
-    return '';
-  }
-  
-  // Use the actual series slug if available, otherwise fall back to provided one
-  const series = actualSeriesSlug || seriesSlug;
-  
-  // NOTE: Logos keep the dot in set IDs (e.g., 'sm3.5'), unlike card images which remove it
-  // Sets without a series slug - try direct path
-  if (!series) {
-    return `https://assets.tcgdex.net/en/${setId}/logo.png`;
-  }
-  
-  // Standard logo URL pattern
-  return `https://assets.tcgdex.net/en/${series}/${setId}/logo.png`;
-}
-
-/**
- * Mapping of TCGDEX set IDs to pokemontcg.io set IDs (only for IDs that differ).
+ * Mapping of app set IDs to pokemontcg.io set IDs (only for IDs that differ).
  * Sets not listed here use the same ID on both platforms.
  */
-const TCGDEX_TO_POKEMONTCGIO: Record<string, string> = {
+const APP_TO_POKEMONTCGIO: Record<string, string> = {
   // Mega Evolution era
   'me02': 'me2',
   'me01': 'me1',
@@ -76,225 +47,66 @@ const TCGDEX_TO_POKEMONTCGIO: Record<string, string> = {
 };
 
 /**
- * Reverse mapping: pokemontcg.io set ID → TCGdex/app set ID.
+ * Reverse mapping: pokemontcg.io set ID → app set ID.
  * Built automatically from the forward mapping.
  */
-const POKEMONTCGIO_TO_TCGDEX: Record<string, string> = {};
-for (const [tcgdex, ptcgio] of Object.entries(TCGDEX_TO_POKEMONTCGIO)) {
-  POKEMONTCGIO_TO_TCGDEX[ptcgio] = tcgdex;
+const POKEMONTCGIO_TO_APP: Record<string, string> = {};
+for (const [appId, ptcgio] of Object.entries(APP_TO_POKEMONTCGIO)) {
+  POKEMONTCGIO_TO_APP[ptcgio] = appId;
 }
 
 /**
- * Convert an app/TCGdex set ID to the pokemontcg.io set ID.
+ * Convert an app set ID to the pokemontcg.io set ID.
  */
 export function getPtcgioSetId(appSetId: string): string {
-  return TCGDEX_TO_POKEMONTCGIO[appSetId] || appSetId;
+  return APP_TO_POKEMONTCGIO[appSetId] || appSetId;
 }
 
 /**
- * Convert a pokemontcg.io set ID back to the app/TCGdex set ID.
+ * Convert a pokemontcg.io set ID back to the app set ID.
  */
 export function getAppSetId(ptcgioSetId: string): string {
-  return POKEMONTCGIO_TO_TCGDEX[ptcgioSetId] || ptcgioSetId;
+  return POKEMONTCGIO_TO_APP[ptcgioSetId] || ptcgioSetId;
 }
 
-/**
- * Generate symbol URL for a set using pokemontcg.io
- */
-function getSetSymbolUrl(setId: string): string {
-  const pokemontcgioId = getPtcgioSetId(setId);
-  return `https://images.pokemontcg.io/${pokemontcgioId}/symbol.png`;
-}
+// ==================== SET IMAGE URL CACHE ====================
 
 /**
- * Get series slug from set ID for TCGDEX asset URLs.
- * 
- * TCGDEX asset URL format: https://assets.tcgdex.net/{lang}/{series}/{set}/{card}/{quality}.{ext}
- * Some older sets don't need a series prefix (returns empty string for those).
- * 
- * @param setId - The set ID (e.g., 'swsh3', 'cel25', 'base1')
- * @returns The series slug for the asset URL, or empty string if no series needed
+ * Runtime cache for set logo/symbol URLs loaded from Supabase.
+ * Populated by registerSetImageUrls() when sets are fetched.
  */
-/**
- * Convert app set ID to TCGDEX set ID.
- * 
- * @param appSetId - The set ID used in the app
- * @returns The TCGDEX set ID
- */
-export function getTcgdexSetId(appSetId: string): string {
-  return appSetId;
-}
+const setImageCache = new Map<string, { logo?: string; symbol?: string }>();
 
 /**
- * Clean card number for TCGDEX asset URLs.
- * 
- * Promo cards often have card numbers like "SM198", "SWSH123", "SVP196"
- * but TCGDEX expects just the numeric part: "198", "123", "196"
- * 
- * @param cardNumber - The card number (e.g., 'SM198', 'SWSH123', '25')
- * @param setId - The set ID (e.g., 'smp', 'swshp', 'base1')
- * @returns The cleaned card number for TCGDEX URLs
+ * Register logo/symbol URLs for sets (called when sets are loaded from Supabase or API).
+ * This populates the cache so getSetLogoByName/getSetSymbolByName can look them up.
  */
-export function cleanCardNumberForTcgdex(cardNumber: string, setId: string): string {
-  // Only clean promo card numbers that have set prefixes
-  const promoSets = ['mep', 'svp', 'swshp', 'smp', 'xyp', 'bwp', 'hgssp', 'dpp', 'np', 'basep'];
-  
-  if (!promoSets.includes(setId.toLowerCase())) {
-    // Not a promo set, return as-is
-    return cardNumber;
-  }
-  
-  // Remove common promo prefixes (case-insensitive)
-  // Examples: SM198 → 198, SWSH123 → 123, SVP196 → 196
-  const prefixPatterns = [
-    /^MEP/i,     // Mega Evolution Promos
-    /^SVP?/i,    // SV/SVP Promos
-    /^SWSH/i,    // SWSH Promos
-    /^SM/i,      // SM Promos
-    /^XY/i,      // XY Promos
-    /^BW/i,      // BW Promos
-    /^HGSS/i,    // HGSS Promos
-    /^DP/i,      // DP Promos
-  ];
-  
-  let cleaned = cardNumber;
-  for (const pattern of prefixPatterns) {
-    if (pattern.test(cleaned)) {
-      cleaned = cleaned.replace(pattern, '');
-      break;
+export function registerSetImageUrls(sets: Array<{ name: string; logo?: string; symbol?: string }>): void {
+  for (const set of sets) {
+    if (set.logo || set.symbol) {
+      const existing = setImageCache.get(set.name) || {};
+      setImageCache.set(set.name, {
+        logo: set.logo || existing.logo,
+        symbol: set.symbol || existing.symbol,
+      });
     }
   }
-  
-  return cleaned || cardNumber; // Return original if cleaning results in empty string
-}
-
-export function getSeriesSlugFromId(setId: string): string {
-  // === SETS WITHOUT CARD IMAGES ON TCGDEX ===
-  // These sets either don't have images, or only have set symbol/logo but no card images
-  // Return 'NO_IMAGES' as a special marker so the caller knows not to try fallback URLs
-  const noImageSets = [
-    // Sets with no images at all
-    'wp',           // W Promotional
-    'jumbo',        // Jumbo cards
-    'ex5.5',        // Poké Card Creator Pack
-    'exu',          // Unseen Forces Unown Collection
-    'rc',           // Radiant Collection
-    'xya',          // Yellow A Alternate (XY)
-    'svp',          // SVP Black Star Promos (no logo/symbol in API)
-    'mep',          // MEP Black Star Promos
-    // Sets with symbol but no card images
-    'bog',          // Best of Game (has symbol, no card images)
-    
-    // Trainer Kits (tk-*)
-    'tk-ex-latio', 'tk-ex-latia', 'tk-ex-p', 'tk-ex-m',
-    'tk-dp-l', 'tk-dp-m', 'tk-hs-g', 'tk-hs-r',
-    'tk-bw-z', 'tk-bw-e', 'tk-xy-sy', 'tk-xy-n',
-    'tk-xy-b', 'tk-xy-w', 'tk-xy-latia', 'tk-xy-latio',
-    'tk-xy-p', 'tk-xy-su', 'tk-sm-l', 'tk-sm-r',
-  ];
-  if (noImageSets.includes(setId)) {
-    return 'NO_IMAGES';
-  }
-  
-  // === DECIMAL-POINT MINI-SETS ===
-  // These need their dot removed for the URL (sm3.5 → sm35)
-  // BUT they still use their parent series (sm, swsh, sv, etc.)
-  // The set ID conversion is handled by convertSetIdForUrl()
-  // Here we just return the correct series
-  if (setId.includes('.')) {
-    // Extract series from before the number
-    if (setId.startsWith('sm')) return 'sm';
-    if (setId.startsWith('swsh')) return 'swsh';
-    if (setId.startsWith('sv')) return 'sv';
-    if (setId.startsWith('xy')) return 'xy';
-    if (setId.startsWith('bw')) return 'bw';
-    if (setId.startsWith('ex')) return 'ex';
-  }
-  
-  // === SPECIAL SETS WITH CONFIRMED IMAGES ===
-  // Based on TCGDEX API logo/symbol URLs
-  
-  // Sword & Shield era special sets
-  if (setId === 'cel25') return 'swsh';     // Celebrations → swsh series
-  if (setId === 'fut2020') return 'swsh';   // Pokémon Futsal → swsh series
-  
-  // Sun & Moon era special sets
-  if (setId === 'det1') return 'sm';        // Detective Pikachu → sm series
-  if (setId === 'sm115') return 'sm';       // Hidden Fates → sm series
-  if (setId === 'sma') return 'sm';         // Yellow A Alternate → sm series
-  
-  // XY era special sets
-  if (setId === 'g1') return 'xy';          // Generations → xy series
-  if (setId === 'dc1') return 'xy';         // Double Crisis → xy series
-  
-  // Black & White era special sets
-  if (setId === 'dv1') return 'bw';         // Dragon Vault → bw series
-  
-  // Call of Legends has its own series
-  if (setId === 'col1') return 'col';       // Call of Legends → col series
-  
-  // Neo era special sets
-  if (setId === 'si1') return 'neo';        // Southern Islands → neo series
-  
-  // E-Card era special sets
-  if (setId === 'sp') return 'ecard';       // Sample → ecard series
-  
-  // Platinum era special sets
-  if (setId === 'ru1') return 'pl';         // Pokémon Rumble → pl series
-  
-  // Legendary Collection has its own series
-  if (setId === 'lc') return 'lc';          // Legendary Collection → lc series
-  
-  // === PROMO SETS WITH IMAGES ===
-  // Based on TCGDEX API logo/symbol URLs showing series path
-  if (setId === 'swshp') return 'swsh';     // SWSH Black Star Promos → swsh series
-  if (setId === 'smp') return 'sm';         // SM Black Star Promos → sm series
-  if (setId === 'xyp') return 'xy';         // XY Black Star Promos → xy series
-  if (setId === 'bwp') return 'bw';         // BW Black Star Promos → bw series
-  if (setId === 'hgssp') return 'hgss';     // HGSS Black Star Promos → hgss series
-  if (setId === 'dpp') return 'dp';         // DP Black Star Promos → dp series
-  if (setId === 'np') return 'pop';         // Nintendo Black Star Promos → pop series
-  if (setId === 'basep') return 'base';     // Wizards Black Star Promos → base series
-  
-  // === STANDARD SERIES (prefix matching) ===
-  if (setId.startsWith('me')) return 'me';       // Mega Evolution era
-  if (setId.startsWith('sv')) return 'sv';       // Scarlet & Violet era
-  if (setId.startsWith('swsh')) return 'swsh';   // Sword & Shield era
-  if (setId.startsWith('sm')) return 'sm';       // Sun & Moon era
-  if (setId.startsWith('xy')) return 'xy';       // XY era
-  if (setId.startsWith('bw')) return 'bw';       // Black & White era
-  if (setId.startsWith('hgss')) return 'hgss';   // HeartGold & SoulSilver era
-  if (setId.startsWith('pl')) return 'pl';       // Platinum era
-  if (setId.startsWith('dp')) return 'dp';       // Diamond & Pearl era
-  if (setId.startsWith('ex')) return 'ex';       // EX era
-  if (setId.startsWith('ecard')) return 'ecard'; // E-Card era
-  if (setId.startsWith('pop')) return 'pop';     // POP Series
-  
-  // === CLASSIC SETS (have their own series names) ===
-  if (setId.startsWith('neo')) return 'neo';     // Neo era
-  if (setId.startsWith('gym')) return 'gym';     // Gym era
-  if (setId.startsWith('base')) return 'base';   // Base era
-  
-  // Fallback: return empty string
-  return '';
 }
 
 /**
- * Convert set ID to the format used in TCGDEX URLs.
- * 
- * - Removes dots from mini-set IDs (sm3.5 → sm35)
- * - Maps app set IDs to TCGDEX set IDs where different
- * 
- * @param setId - The set ID (e.g., 'sm3.5', 'swsh1')
- * @returns The set ID formatted for TCGDEX URLs
+ * Build a pokemontcg.io logo URL for a set as a fallback.
  */
-export function convertSetIdForUrl(setId: string): string {
-  // Remove dots from mini-set IDs
-  if (setId.includes('.')) {
-    return setId.replace('.', '');
-  }
-  
-  return setId;
+function getPokemontcgioLogoUrl(setId: string): string {
+  const ptcgioId = getPtcgioSetId(setId);
+  return `https://images.pokemontcg.io/${ptcgioId}/logo.png`;
+}
+
+/**
+ * Build a pokemontcg.io symbol URL for a set as a fallback.
+ */
+function getPokemontcgioSymbolUrl(setId: string): string {
+  const ptcgioId = getPtcgioSetId(setId);
+  return `https://images.pokemontcg.io/${ptcgioId}/symbol.png`;
 }
 
 /**
@@ -327,7 +139,6 @@ export const POKEMON_ERAS: EraDefinition[] = [
   {
     id: 'mega-evolution',
     name: 'Mega Evolution',
-    // Note: TCGDEX doesn't have era logos, only set logos
     sets: [
       { id: 'me02', name: 'Phantasmal Flames', releaseDate: '2025-11-14' },
       { id: 'me01', name: 'Mega Evolution', releaseDate: '2025-09-26' },
@@ -664,27 +475,34 @@ export function getEraForSet(setName: string): string | null {
 }
 
 /**
- * Get the logo URL for a set by its name
+ * Get the logo URL for a set by its name.
+ * Checks: SetDefinition override → Supabase cache → pokemontcg.io fallback.
  */
 export function getSetLogoByName(setName: string): string | null {
   for (const era of POKEMON_ERAS) {
     const set = era.sets.find(s => s.name === setName);
     if (set) {
-      const seriesSlug = getSeriesSlugFromId(set.id);
-      return set.logo || getSetLogoUrl(set.id, seriesSlug);
+      if (set.logo) return set.logo;
+      const cached = setImageCache.get(setName);
+      if (cached?.logo) return cached.logo;
+      return getPokemontcgioLogoUrl(set.id);
     }
   }
   return null;
 }
 
 /**
- * Get the symbol/icon URL for a set by its name
+ * Get the symbol/icon URL for a set by its name.
+ * Checks: SetDefinition override → Supabase cache → pokemontcg.io fallback.
  */
 export function getSetSymbolByName(setName: string): string | null {
   for (const era of POKEMON_ERAS) {
     const set = era.sets.find(s => s.name === setName);
     if (set) {
-      return set.symbol || getSetSymbolUrl(set.id);
+      if (set.symbol) return set.symbol;
+      const cached = setImageCache.get(setName);
+      if (cached?.symbol) return cached.symbol;
+      return getPokemontcgioSymbolUrl(set.id);
     }
   }
   return null;
@@ -692,7 +510,7 @@ export function getSetSymbolByName(setName: string): string | null {
 
 /**
  * Find which era a set belongs to by set ID (returns era name).
- * Accepts both TCGdex and pokemontcg.io set IDs.
+ * Accepts both app and pokemontcg.io set IDs.
  */
 export function getEraForSetId(setId: string): string | null {
   const appId = getAppSetId(setId);
@@ -707,7 +525,7 @@ export function getEraForSetId(setId: string): string | null {
 
 /**
  * Find which era ID a set belongs to by set ID (returns era id, e.g. 'base', 'neo', 'ex').
- * Accepts both TCGdex and pokemontcg.io set IDs.
+ * Accepts both app and pokemontcg.io set IDs.
  */
 export function getEraIdForSetId(setId: string): string | null {
   const appId = getAppSetId(setId);
@@ -721,18 +539,19 @@ export function getEraIdForSetId(setId: string): string | null {
 }
 
 /**
- * Convert SetDefinition to PokemonSet format
+ * Convert SetDefinition to PokemonSet format.
+ * Uses Supabase-cached URLs when available, pokemontcg.io as fallback.
  */
 export function convertSetToPokemonSet(setDef: SetDefinition, eraName: string): PokemonSet {
-  const seriesSlug = getSeriesSlugFromId(setDef.id);
+  const cached = setImageCache.get(setDef.name);
   
   return {
     id: setDef.id,
     name: setDef.name,
     series: eraName,
     releaseDate: setDef.releaseDate,
-    logo: setDef.logo || getSetLogoUrl(setDef.id, seriesSlug),
-    symbol: setDef.symbol || getSetSymbolUrl(setDef.id),
+    logo: setDef.logo || cached?.logo || getPokemontcgioLogoUrl(setDef.id),
+    symbol: setDef.symbol || cached?.symbol || getPokemontcgioSymbolUrl(setDef.id),
   };
 }
 

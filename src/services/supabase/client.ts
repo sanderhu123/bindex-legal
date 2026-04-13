@@ -33,6 +33,7 @@ const supabaseUrl =
 
 const supabaseAnonKey =
   process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ||
+  process.env.EXPO_PUBLIC_SUPABASE_KEY ||
   Constants.expoConfig?.extra?.supabaseAnonKey ||
   Constants.expoConfig?.extra?.EXPO_PUBLIC_SUPABASE_ANON_KEY;
 

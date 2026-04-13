@@ -1,5 +1,6 @@
 import React, { useMemo, useRef, useState } from 'react';
-import { View, StyleSheet, Text, TouchableOpacity, Image, Animated } from 'react-native';
+import { View, StyleSheet, Text, TouchableOpacity, Animated } from 'react-native';
+import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import type { Binder } from '../../types';
 import ProgressBar from '../Progress/ProgressBar';
@@ -99,7 +100,7 @@ export default function BinderCard({ binder, completionPercentage, totalCards, o
             <Image
               source={{ uri: setLogoUrl }}
               style={styles.setLogo}
-              resizeMode="contain"
+              contentFit="contain"
               onError={() => setLogoError(true)}
             />
           )}
@@ -117,7 +118,7 @@ export default function BinderCard({ binder, completionPercentage, totalCards, o
                 <Image
                   source={{ uri: setSymbolUrl }}
                   style={styles.setSymbolInline}
-                  resizeMode="contain"
+                  contentFit="contain"
                   onError={() => setSymbolError(true)}
                 />
               )}

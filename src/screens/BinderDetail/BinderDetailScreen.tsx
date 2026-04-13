@@ -104,6 +104,25 @@ function pageToSpreadStart(page: number, totalPages: number): number {
   return Math.min(getMaxSpreadStart(totalPages), Math.max(0, normalizedPage));
 }
 
+/**
+ * Check if a card matches a search query by name or number.
+ * Handles slash notation (e.g. "125/94") by extracting just the number part.
+ */
+function cardMatchesSearch(card: { name: string; number: string }, query: string): boolean {
+  if (card.name.toLowerCase().includes(query)) return true;
+
+  const isNumQuery = /^#?\d/.test(query) || query.includes('/');
+  if (isNumQuery) {
+    let searchNum = query.replace(/^#/, '');
+    if (searchNum.includes('/')) searchNum = searchNum.split('/')[0];
+    searchNum = searchNum.replace(/^0+/, '') || '0';
+    const cardNum = card.number ? card.number.replace(/^0+/, '') || '0' : '';
+    return cardNum === searchNum;
+  }
+
+  return card.number?.toLowerCase().includes(query) ?? false;
+}
+
 interface BinderDetailScreenProps {
   navigation: any;
   route: any;
@@ -1986,9 +2005,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
       if (ownershipFilter === 'missing' && card.isOwned) return;
       
       if (query) {
-        const nameMatch = card.name.toLowerCase().includes(query);
-        const numMatch = card.number?.toLowerCase().includes(query);
-        if (!nameMatch && !numMatch) return;
+        if (!cardMatchesSearch(card, query)) return;
       }
       
       result[slotIndex] = card;
@@ -2030,9 +2047,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
 
             if (card) {
               if (hasSearch) {
-                const nameMatch = card.name.toLowerCase().includes(query);
-                const numMatch = card.number?.toLowerCase().includes(query);
-                if (!nameMatch && !numMatch) { rowSlots.push(undefined); continue; }
+                if (!cardMatchesSearch(card, query)) { rowSlots.push(undefined); continue; }
               }
               if (ownershipFilter === 'owned' && !card.isOwned) { rowSlots.push(undefined); continue; }
               if (ownershipFilter === 'missing' && card.isOwned) { rowSlots.push(undefined); continue; }
@@ -2351,9 +2366,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
       
       // Apply search filter
       if (hasSearch) {
-        const nameMatch = card.name.toLowerCase().includes(query);
-        const numberMatch = card.number.toLowerCase().includes(query);
-        if (!nameMatch && !numberMatch) return false;
+        if (!cardMatchesSearch(card, query)) return false;
       }
       
       // Apply ownership filter
@@ -2377,9 +2390,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
       if (ownershipFilter === 'owned' && !card.isOwned) continue;
       if (ownershipFilter === 'missing' && card.isOwned) continue;
       if (query) {
-        const nameMatch = card.name.toLowerCase().includes(query);
-        const numMatch = card.number?.toLowerCase().includes(query);
-        if (!nameMatch && !numMatch) continue;
+        if (!cardMatchesSearch(card, query)) continue;
       }
       if (statsFilter && !matchesStatsFilter(card)) continue;
       result.push(card);
@@ -2399,9 +2410,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
       if (ownershipFilter === 'owned' && !card.isOwned) return;
       if (ownershipFilter === 'missing' && card.isOwned) return;
       if (query) {
-        const nameMatch = card.name.toLowerCase().includes(query);
-        const numMatch = card.number?.toLowerCase().includes(query);
-        if (!nameMatch && !numMatch) return;
+        if (!cardMatchesSearch(card, query)) return;
       }
       if (statsFilter && !matchesStatsFilter(card)) return;
       result[pos] = card;
@@ -2506,9 +2515,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
       if (!card) return false;
 
       if (hasSearch) {
-        const nameMatch = card.name.toLowerCase().includes(query);
-        const numberMatch = card.number.toLowerCase().includes(query);
-        if (!nameMatch && !numberMatch) return false;
+        if (!cardMatchesSearch(card, query)) return false;
       }
 
       if (ownershipFilter === 'owned' && !card.isOwned) return false;

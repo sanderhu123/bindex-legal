@@ -20,8 +20,6 @@ export interface UseCardPickerOptions {
    * When true, searching "Pidgeot" will NOT match "Pidgeotto"
    */
   exactMatch?: boolean;
-  /** National Pokédex number for fast indexed search (region mode) */
-  pokedexNumber?: number;
 }
 
 /**
@@ -80,7 +78,6 @@ export function useCardPicker(options?: UseCardPickerOptions): UseCardPickerRetu
     pokemonOnly = false,
     pageSize = 30,
     exactMatch = false,
-    pokedexNumber,
   } = options || {};
 
   // State
@@ -127,8 +124,7 @@ export function useCardPicker(options?: UseCardPickerOptions): UseCardPickerRetu
       (activeFilters.illustrators && activeFilters.illustrators.length > 0)
     );
     
-    // Skip if no query AND no filters AND no dex number
-    if (!sanitizedQuery && !hasActiveFilters && !pokedexNumber) {
+    if (!sanitizedQuery && !hasActiveFilters) {
       setResults([]);
       setTotalFound(0);
       setHasMore(false);
@@ -137,8 +133,7 @@ export function useCardPicker(options?: UseCardPickerOptions): UseCardPickerRetu
       return;
     }
 
-    // Skip if query is too short (< 3 chars) and no filters/dex number active.
-    if (sanitizedQuery && sanitizedQuery.length < 3 && !hasActiveFilters && !pokedexNumber) {
+    if (sanitizedQuery && sanitizedQuery.length < 3 && !hasActiveFilters) {
       return;
     }
 
@@ -170,7 +165,6 @@ export function useCardPicker(options?: UseCardPickerOptions): UseCardPickerRetu
         offset: searchOffset,
         pokemonOnly,
         exactMatch,
-        pokedexNumber,
         filters: hasActiveFilters ? activeFilters : undefined,
       };
 
@@ -230,7 +224,7 @@ export function useCardPicker(options?: UseCardPickerOptions): UseCardPickerRetu
       setLoading(false);
       setIsLoadingMore(false);
     }
-  }, [pokemonOnly, pageSize, exactMatch, pokedexNumber]);
+  }, [pokemonOnly, pageSize, exactMatch]);
 
   /**
    * Debounced query setter

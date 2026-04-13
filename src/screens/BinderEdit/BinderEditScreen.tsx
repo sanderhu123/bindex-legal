@@ -206,7 +206,6 @@ export default function BinderEditScreen() {
   const [placeholderPickerIndex, setPlaceholderPickerIndex] = useState<number | null>(null); // index in placeholder to add card to
   const [cardPickerInitialQuery, setCardPickerInitialQuery] = useState(''); // Pre-fill search for region Pokémon
   const [cardPickerPokemonOnly, setCardPickerPokemonOnly] = useState(false); // Filter to Pokémon cards only
-  const [cardPickerPokedexNumber, setCardPickerPokedexNumber] = useState<number | undefined>(undefined);
 
   // Region mode: number of region Pokémon slots (slots 0 to regionCardCount-1 are Pokémon)
   const [regionCardCount, setRegionCardCount] = useState(0);
@@ -786,7 +785,6 @@ export default function BinderEditScreen() {
       setTargetSlotIndex(slotIndex);
       setCardPickerInitialQuery(getSearchName(slot.pokemonName));
       setCardPickerPokemonOnly(true);
-      setCardPickerPokedexNumber(slot.pokedexNumber);
       setReplaceMode(true);
       setShowCardPicker(true);
     } else if (cardId) {
@@ -810,11 +808,9 @@ export default function BinderEditScreen() {
       if (slot.pokemonName) {
         setCardPickerInitialQuery(getSearchName(slot.pokemonName));
         setCardPickerPokemonOnly(true);
-        setCardPickerPokedexNumber(slot.pokedexNumber);
       } else {
         setCardPickerInitialQuery('');
         setCardPickerPokemonOnly(false);
-        setCardPickerPokedexNumber(undefined);
       }
       setShowCardPicker(true);
     }
@@ -1157,7 +1153,6 @@ export default function BinderEditScreen() {
       if (slot?.pokemonName) {
         setCardPickerInitialQuery(getSearchName(slot.pokemonName));
         setCardPickerPokemonOnly(true);
-        setCardPickerPokedexNumber(slot.pokedexNumber);
       }
     }
 
@@ -1284,7 +1279,6 @@ export default function BinderEditScreen() {
     setSelectedCard(null);
     setCardPickerInitialQuery('');
     setCardPickerPokemonOnly(false);
-    setCardPickerPokedexNumber(undefined);
   };
 
   /**
@@ -2419,7 +2413,6 @@ export default function BinderEditScreen() {
         title={cardPickerInitialQuery ? `Choose ${cardPickerInitialQuery} Card` : (replaceMode ? 'Replace Card' : 'Add Card')}
         initialQuery={cardPickerInitialQuery}
         pokemonOnly={cardPickerPokemonOnly}
-        pokedexNumber={cardPickerPokedexNumber}
       />
 
       {/* Saving Overlay */}

@@ -53,8 +53,6 @@ export interface CardPickerModalProps {
    * When true, searching "Pidgeot" will NOT match "Pidgeotto"
    */
   exactMatch?: boolean;
-  /** National Pokédex number for fast indexed search (region mode) */
-  pokedexNumber?: number;
 }
 
 /**
@@ -91,7 +89,6 @@ export function CardPickerModal({
   initialQuery = '',
   pokemonOnly = false,
   exactMatch,
-  pokedexNumber,
 }: CardPickerModalProps) {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
@@ -127,7 +124,6 @@ export function CardPickerModal({
     pokemonOnly,
     pageSize: 30,
     exactMatch: useExactMatch,
-    pokedexNumber,
   });
 
   // Custom card creation state

@@ -18,6 +18,7 @@ import {
 import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { Card } from '../../types';
+import CardImage from '../Card/CardImage';
 import { getSetSymbolByName } from '../../data/pokemonEras';
 import { useCardPicker } from '../../hooks/useCardPicker';
 import { CardSearchResults } from './CardSearchResults';
@@ -461,10 +462,13 @@ export function CardPickerModal({
               onPress={handleCardLongPressRelease}
             >
               <View style={[styles.enlargedCardContainer, styles.enlargedCardContainerColumn]}>
-                <Image
-                  source={{ uri: enlargedCard.imageUrlHiRes || enlargedCard.imageUrl }}
+                <CardImage
+                  source={enlargedCard.imageUrlHiRes || enlargedCard.imageUrl}
+                  lowResSource={enlargedCard.imageUrl}
+                  isMissing={false}
                   style={[styles.enlargedCard, { width: previewCardWidth, height: previewCardHeight }]}
-                  contentFit="contain"
+                  priority="high"
+                  cardInfo={{ id: enlargedCard.id, name: enlargedCard.name, number: enlargedCard.number, set: enlargedCard.set }}
                 />
                 <View style={[styles.enlargedInfoPanel, styles.enlargedInfoPanelBelow, { maxWidth: Math.min(460, screenWidth - (screenPadding * 2)) }]}>
                   <Text style={[styles.enlargedCardNumber, styles.enlargedTextCenter]}>

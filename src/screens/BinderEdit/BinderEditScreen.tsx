@@ -624,15 +624,21 @@ export default function BinderEditScreen() {
               const regionMeta = tcgToRegionMeta.get(saved.cardId);
               const card = batchCards.get(saved.cardId);
               if (card) {
+                // If we recovered a default region card (e.g. legacy
+                // `region-Unknown-242` data), restore the slot's region
+                // metadata directly from the card so it behaves like a normal
+                // default-region slot (tap opens the card picker, can't be
+                // deleted) rather than like a placed TCG card.
+                const isRegionCard = card.id.startsWith('region-');
                 positions[saved.slotIndex] = {
                   slotIndex: saved.slotIndex,
                   cardId: card.id,
                   cardName: card.name,
                   imageUrl: card.imageUrl,
                   cardSet: card.set,
-                  pokemonName: regionMeta?.pokemonName,
-                  pokedexNumber: regionMeta?.pokedexNumber,
-                  spriteUrl: regionMeta?.spriteUrl,
+                  pokemonName: isRegionCard ? card.name : regionMeta?.pokemonName,
+                  pokedexNumber: isRegionCard ? card.pokedexNumber : regionMeta?.pokedexNumber,
+                  spriteUrl: isRegionCard ? card.imageUrl : regionMeta?.spriteUrl,
                 };
               }
             }

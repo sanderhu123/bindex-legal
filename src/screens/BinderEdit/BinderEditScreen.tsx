@@ -1489,8 +1489,13 @@ export default function BinderEditScreen() {
   const insertCardAt = (source: InsertSource, insertAtIndex: number): boolean => {
     console.log('[BinderEdit] insertCardAt:', source.cardId, 'from slot', source.sourceSlot, '→ insert at', insertAtIndex);
 
+    // Use refs for the latest state — this function may be called from drag
+    // callbacks (handleDragEnd) that captured stale closures via useCallback.
+    const currentPositions = cardPositionsRef.current;
+    const currentPlaceholder = placeholderCardsRef.current;
+
     const sourceIsInBinder = source.sourceSlot !== 'placeholder';
-    const newPositions = cardPositions.map(p => ({ ...p }));
+    const newPositions = currentPositions.map(p => ({ ...p }));
 
     // Classify the source card
     let sourceIsBareSprite = false;
@@ -1565,8 +1570,8 @@ export default function BinderEditScreen() {
       }
 
       const currentPlaceholderCount = !sourceIsInBinder
-        ? placeholderCards.length - 1
-        : placeholderCards.length;
+        ? currentPlaceholder.length - 1
+        : currentPlaceholder.length;
 
       if (currentPlaceholderCount >= PLACEHOLDER_MAX) {
         Alert.alert('Binder is full', 'Cannot insert — all binder slots and placeholder are full.');
@@ -1613,7 +1618,7 @@ export default function BinderEditScreen() {
     setCardPositions(newPositions);
 
     if (!sourceIsInBinder) {
-      const newPlaceholder = placeholderCards.filter((_, i) => i !== source.sourceIndex);
+      const newPlaceholder = currentPlaceholder.filter((_, i) => i !== source.sourceIndex);
       if (overflowCard) newPlaceholder.push(overflowCard);
       setPlaceholderCards(newPlaceholder);
     } else if (overflowCard) {

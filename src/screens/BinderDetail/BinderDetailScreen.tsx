@@ -533,6 +533,12 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
                 imageUrl: tcgCard.imageUrl || undefined,
                 imageUrlHiRes: tcgCard.imageUrlHiRes || undefined,
                 selectedCardId: selectedCardId,
+                selectedCardName: tcgCard.name,
+                selectedCardNumber: tcgCard.number,
+                selectedCardRarity: tcgCard.rarity,
+                selectedCardIllustrator: tcgCard.illustrator,
+                selectedCardSet: tcgCard.set,
+                setTotal: tcgCard.setTotal,
                 isOwned: latestBinder.cardIds.includes(card.id),
               };
             }
@@ -541,6 +547,12 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
               imageUrl: undefined,
               imageUrlHiRes: undefined,
               selectedCardId: selectedCardId,
+              selectedCardName: undefined,
+              selectedCardNumber: undefined,
+              selectedCardRarity: undefined,
+              selectedCardIllustrator: undefined,
+              selectedCardSet: undefined,
+              setTotal: undefined,
               isOwned: latestBinder.cardIds.includes(card.id),
             };
           }
@@ -554,6 +566,12 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
             imageUrl: defaultImageUrl,
             imageUrlHiRes: defaultImageUrl,
             selectedCardId: undefined,
+            selectedCardName: undefined,
+            selectedCardNumber: undefined,
+            selectedCardRarity: undefined,
+            selectedCardIllustrator: undefined,
+            selectedCardSet: undefined,
+            setTotal: undefined,
             isOwned: latestBinder.cardIds.includes(card.id),
           };
         });

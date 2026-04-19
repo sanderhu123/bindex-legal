@@ -146,10 +146,12 @@ interface LayoutRect {
  * Drop target detected during drag
  */
 interface DropTarget {
-  type: 'card' | 'empty' | 'placeholder' | 'trash';
+  type: 'card' | 'empty' | 'placeholder' | 'trash' | 'insert';
   slotIndex?: number;
   /** Index of a specific placeholder card that was dropped on (for swap) */
   placeholderCardIndex?: number;
+  /** Global slot index where the dragged card should be inserted (for "+" buttons) */
+  insertAtIndex?: number;
 }
 
 const MIN_PAGES = 40; // Minimum pages for binder edit (more are added if cards need it)
@@ -210,6 +212,11 @@ export default function BinderEditScreen() {
   const trashZoneViewRef = useRef<View | null>(null);
   const placeholderCardViewRefs = useRef<Map<number, View>>(new Map());
   const placeholderCardMeasurementsRef = useRef<Map<number, LayoutRect>>(new Map());
+
+  // Insert button (the "+" between cards) view refs and measurements
+  // Keyed by the insertAtIndex (the global slot index where insertion would happen)
+  const insertButtonViewRefs = useRef<Map<number, View>>(new Map());
+  const insertButtonMeasurementsRef = useRef<Map<number, LayoutRect>>(new Map());
 
   // Refs for accessing current state in callbacks
   const cardPositionsRef = useRef(cardPositions);
@@ -1453,30 +1460,54 @@ export default function BinderEditScreen() {
   // INSERT (tap-selected card into "+" position)
   // ─────────────────────────────────────────────────────────────────────────────
 
-  const performInsert = (insertAtIndex: number) => {
-    if (!selectedCard) return;
+  /**
+   * Source card descriptor for insertCardAt.
+   * Both SelectedCard (tap flow) and DraggedCard (drag flow) are compatible
+   * with this shape.
+   */
+  interface InsertSource {
+    cardId: string;
+    cardName: string;
+    imageUrl?: string;
+    cardSet?: string;
+    sourceSlot: number | 'placeholder';
+    sourceIndex: number;
+    pokemonName?: string;
+    pokedexNumber?: number;
+    spriteUrl?: string;
+  }
 
-    console.log('[BinderEdit] performInsert:', selectedCard.cardId, 'from slot', selectedCard.sourceSlot, '→ insert at', insertAtIndex);
+  /**
+   * Shared insert logic used by both the tap flow (performInsert) and the
+   * drag flow (performDragInsert). Inserts `source` at `insertAtIndex`,
+   * shifting later cards right and overflowing the last slot to the
+   * placeholder tray if needed.
+   *
+   * Returns true on success, false if the operation was aborted (e.g. the
+   * binder is full or the insert would push a Pokémon slot off the end).
+   */
+  const insertCardAt = (source: InsertSource, insertAtIndex: number): boolean => {
+    console.log('[BinderEdit] insertCardAt:', source.cardId, 'from slot', source.sourceSlot, '→ insert at', insertAtIndex);
 
-    const sourceIsInBinder = selectedCard.sourceSlot !== 'placeholder';
+    const sourceIsInBinder = source.sourceSlot !== 'placeholder';
     const newPositions = cardPositions.map(p => ({ ...p }));
 
     // Classify the source card
     let sourceIsBareSprite = false;
     let sourceIsTcgOnRegion = false;
     if (sourceIsInBinder) {
-      const sourceIdx = selectedCard.sourceSlot as number;
+      const sourceIdx = source.sourceSlot as number;
       const sourceSlot = newPositions[sourceIdx];
       sourceIsBareSprite = !!(
-        selectedCard.cardId?.startsWith('region-') &&
-        selectedCard.imageUrl === selectedCard.spriteUrl
+        source.cardId?.startsWith('region-') &&
+        source.imageUrl === source.spriteUrl
       );
       sourceIsTcgOnRegion = !sourceIsBareSprite && !!sourceSlot?.pokemonName;
     }
 
     // ── Step 1: Update the source slot ──
     if (sourceIsInBinder) {
-      const sourceIdx = selectedCard.sourceSlot as number;
+      const sourceIdx = source.sourceSlot as number;
 
       if (sourceIsTcgOnRegion) {
         // Region slot with a TCG overlay: revert source slot to its sprite.
@@ -1530,7 +1561,7 @@ export default function BinderEditScreen() {
           'Cannot insert here',
           'Inserting at this position would push a Pokémon slot off the end of the binder. Try a different position.',
         );
-        return;
+        return false;
       }
 
       const currentPlaceholderCount = !sourceIsInBinder
@@ -1539,7 +1570,7 @@ export default function BinderEditScreen() {
 
       if (currentPlaceholderCount >= PLACEHOLDER_MAX) {
         Alert.alert('Binder is full', 'Cannot insert — all binder slots and placeholder are full.');
-        return;
+        return false;
       }
 
       overflowCard = { cardId: lastCard.cardId, cardName: lastCard.cardName, imageUrl: lastCard.imageUrl };
@@ -1560,29 +1591,29 @@ export default function BinderEditScreen() {
       // Bare region sprite: the entire Pokémon identity moves with the slot
       newPositions[insertAtIndex] = {
         slotIndex: insertAtIndex,
-        cardId: selectedCard.cardId,
-        cardName: selectedCard.cardName,
-        imageUrl: selectedCard.imageUrl,
-        cardSet: selectedCard.cardSet,
-        pokemonName: selectedCard.pokemonName,
-        pokedexNumber: selectedCard.pokedexNumber,
-        spriteUrl: selectedCard.spriteUrl,
+        cardId: source.cardId,
+        cardName: source.cardName,
+        imageUrl: source.imageUrl,
+        cardSet: source.cardSet,
+        pokemonName: source.pokemonName,
+        pokedexNumber: source.pokedexNumber,
+        spriteUrl: source.spriteUrl,
       };
     } else {
       // TCG card from placeholder, plain binder slot, or extracted from a region overlay
       newPositions[insertAtIndex] = {
         slotIndex: insertAtIndex,
-        cardId: selectedCard.cardId,
-        cardName: selectedCard.cardName,
-        imageUrl: selectedCard.imageUrl,
-        cardSet: selectedCard.cardSet,
+        cardId: source.cardId,
+        cardName: source.cardName,
+        imageUrl: source.imageUrl,
+        cardSet: source.cardSet,
       };
     }
 
     setCardPositions(newPositions);
 
     if (!sourceIsInBinder) {
-      const newPlaceholder = placeholderCards.filter((_, i) => i !== selectedCard.sourceIndex);
+      const newPlaceholder = placeholderCards.filter((_, i) => i !== source.sourceIndex);
       if (overflowCard) newPlaceholder.push(overflowCard);
       setPlaceholderCards(newPlaceholder);
     } else if (overflowCard) {
@@ -1590,7 +1621,21 @@ export default function BinderEditScreen() {
     }
 
     setHasChanges(true);
+    return true;
+  };
+
+  const performInsert = (insertAtIndex: number) => {
+    if (!selectedCard) return;
+    insertCardAt(selectedCard, insertAtIndex);
     setSelectedCard(null);
+  };
+
+  /**
+   * Drag-flow equivalent of performInsert.
+   * Called when the user drops a dragged card onto a "+" insert button.
+   */
+  const performDragInsert = (dragged: DraggedCard, insertAtIndex: number) => {
+    insertCardAt(dragged, insertAtIndex);
   };
 
   // ─────────────────────────────────────────────────────────────────────────────
@@ -1674,6 +1719,25 @@ export default function BinderEditScreen() {
       );
     }
 
+    // Measure all insert ("+") buttons
+    const insertMeasurements = new Map<number, LayoutRect>();
+    for (const [insertAtIndex, view] of insertButtonViewRefs.current.entries()) {
+      promises.push(
+        new Promise<void>((resolve) => {
+          try {
+            view.measureInWindow((x: number, y: number, width: number, height: number) => {
+              if (width > 0 && height > 0) {
+                insertMeasurements.set(insertAtIndex, { x, y, width, height });
+              }
+              resolve();
+            });
+          } catch {
+            resolve();
+          }
+        }),
+      );
+    }
+
     // Also re-measure container offset
     if (containerRef.current) {
       promises.push(
@@ -1689,6 +1753,7 @@ export default function BinderEditScreen() {
     await Promise.all(promises);
     slotMeasurementsRef.current = measurements;
     placeholderCardMeasurementsRef.current = phCardMeasurements;
+    insertButtonMeasurementsRef.current = insertMeasurements;
   }, []);
 
   /**
@@ -1715,6 +1780,22 @@ export default function BinderEditScreen() {
     if (ph && absoluteX >= ph.x && absoluteX <= ph.x + ph.width &&
         absoluteY >= ph.y && absoluteY <= ph.y + ph.height) {
       return { type: 'placeholder' };
+    }
+
+    // Check insert ("+") buttons BEFORE card slots so they take priority
+    // when the finger is in the narrow gap between cards. We expand the hit
+    // zone by INSERT_HIT_PAD pixels on each side because the button itself
+    // is only 12px wide — too thin for comfortable drag-targeting.
+    const INSERT_HIT_PAD = 12;
+    for (const [insertAtIndex, layout] of insertButtonMeasurementsRef.current.entries()) {
+      if (
+        absoluteX >= layout.x - INSERT_HIT_PAD &&
+        absoluteX <= layout.x + layout.width + INSERT_HIT_PAD &&
+        absoluteY >= layout.y &&
+        absoluteY <= layout.y + layout.height
+      ) {
+        return { type: 'insert', insertAtIndex };
+      }
     }
 
     // Check card slots
@@ -1823,7 +1904,10 @@ export default function BinderEditScreen() {
     }
 
     const changed =
-      target?.type !== prev?.type || target?.slotIndex !== prev?.slotIndex;
+      target?.type !== prev?.type ||
+      target?.slotIndex !== prev?.slotIndex ||
+      target?.insertAtIndex !== prev?.insertAtIndex ||
+      target?.placeholderCardIndex !== prev?.placeholderCardIndex;
 
     if (changed) {
       hoverTargetRef.current = target;
@@ -1909,6 +1993,12 @@ export default function BinderEditScreen() {
 
       case 'trash':
         performDragToTrash(dragged);
+        break;
+
+      case 'insert':
+        if (target.insertAtIndex !== undefined) {
+          performDragInsert(dragged, target.insertAtIndex);
+        }
         break;
     }
   };
@@ -2296,6 +2386,18 @@ export default function BinderEditScreen() {
     }
   }, []);
 
+  /**
+   * Register an insert button ("+") view ref for layout measurement.
+   * insertAtIndex is the global slot index where insertion would happen.
+   */
+  const registerInsertButtonRef = useCallback((insertAtIndex: number, ref: View | null) => {
+    if (ref) {
+      insertButtonViewRefs.current.set(insertAtIndex, ref);
+    } else {
+      insertButtonViewRefs.current.delete(insertAtIndex);
+    }
+  }, []);
+
   // ─────────────────────────────────────────────────────────────────────────────
   // RENDER: Card Grid
   // ─────────────────────────────────────────────────────────────────────────────
@@ -2317,7 +2419,12 @@ export default function BinderEditScreen() {
             <View key={rowIndex} style={styles.row}>
               {/* Plus sign at start of row — always visible */}
               <InsertButton
+                viewRef={(ref) => registerInsertButtonRef(rowStartIndex, ref)}
                 onPress={() => handleInsertButtonPress(rowStartIndex)}
+                isDragHover={
+                  hoverTarget?.type === 'insert' &&
+                  hoverTarget?.insertAtIndex === rowStartIndex
+                }
               />
 
               {row.map((slot, colIndex) => {
@@ -2329,6 +2436,8 @@ export default function BinderEditScreen() {
                   draggedCard !== null &&
                   draggedCard.sourceSlot !== 'placeholder' &&
                   draggedCard.sourceSlot === slot.slotIndex;
+
+                const nextInsertIndex = rowStartIndex + colIndex + 1;
 
                 return (
                   <React.Fragment key={`${slot.slotIndex}-${slot.cardId || 'empty'}`}>
@@ -2362,7 +2471,12 @@ export default function BinderEditScreen() {
                     {/* Plus sign between cards (skip last — next row's start "+" covers it) */}
                     {colIndex < row.length - 1 && (
                       <InsertButton
-                        onPress={() => handleInsertButtonPress(rowStartIndex + colIndex + 1)}
+                        viewRef={(ref) => registerInsertButtonRef(nextInsertIndex, ref)}
+                        onPress={() => handleInsertButtonPress(nextInsertIndex)}
+                        isDragHover={
+                          hoverTarget?.type === 'insert' &&
+                          hoverTarget?.insertAtIndex === nextInsertIndex
+                        }
                       />
                     )}
                   </React.Fragment>

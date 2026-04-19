@@ -71,9 +71,9 @@ export function setHasReverseHolos(setId: string): boolean {
  * Sets that have special reverse holo patterns (pokeball/masterball)
  */
 export const SPECIAL_VARIANT_SETS = [
-  'sv08.5',   // Prismatic Evolutions
-  'sv10.5w',  // White Flare
-  'sv10.5b',  // Black Bolt
+  'sv8pt5',    // Prismatic Evolutions
+  'rsv10pt5',  // White Flare
+  'zsv10pt5',  // Black Bolt
 ] as const;
 
 export type SpecialVariantSetId = typeof SPECIAL_VARIANT_SETS[number];
@@ -84,7 +84,7 @@ export type SpecialVariantSetId = typeof SPECIAL_VARIANT_SETS[number];
  * Trainer/Energy cards get: Reverse Holo only
  */
 const STAMP_ENERGY_SETS = [
-  'me02.5',   // Ascended Heroes
+  'me2pt5',    // Ascended Heroes
 ] as const;
 
 /**

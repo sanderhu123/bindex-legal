@@ -1220,17 +1220,10 @@ export async function searchCardsByName(
         supaQuery = supaQuery.eq('supertype', 'Pokémon');
       }
       
-      // Apply single-value filters at DB level
-      if (filters?.setIds && filters.setIds.length === 1) {
-        const ptcgioId = getPtcgioSetId(filters.setIds[0]);
-        supaQuery = supaQuery.eq('set_id', ptcgioId);
-      }
-      if (filters?.rarities && filters.rarities.length === 1) {
-        supaQuery = supaQuery.eq('rarity', filters.rarities[0]);
-      }
-      if (filters?.illustrators && filters.illustrators.length === 1) {
-        supaQuery = supaQuery.ilike('artist', `%${filters.illustrators[0]}%`);
-      }
+      // NOTE: Do NOT push set/rarity/illustrator filters down to the DB.
+      // We need the full result set for the query so we can compute accurate
+      // facet metadata (e.g. which other eras/sets/rarities are available
+      // if the user removes the current filter). Filters are applied below.
       
       supaQuery = supaQuery.limit(1000);
       
@@ -1297,66 +1290,89 @@ export async function searchCardsByName(
         transformedCards = transformedCards.filter(card => wordBoundaryRegex.test(card.name));
       }
       
-      // Era filter
-      if (filters?.eras && filters.eras.length > 0) {
-        const eraSetIds = new Set<string>();
-        for (const eraName of filters.eras) {
-          const eraSetDefs = getSetsByEra(eraName);
-          for (const s of eraSetDefs) {
-            eraSetIds.add(s.id.toLowerCase());
-            eraSetIds.add(getPtcgioSetId(s.id).toLowerCase());
-          }
-        }
-        transformedCards = transformedCards.filter(card => {
-          const cardSetId = extractSetIdFromCardId(card.id).toLowerCase();
-          return eraSetIds.has(cardSetId);
-        });
-      }
-      
-      // Multi-set filter
-      if (filters?.setIds && filters.setIds.length > 1) {
-        const setIdSet = new Set(filters.setIds.flatMap(s => [
-          s.toLowerCase(), getPtcgioSetId(s).toLowerCase(),
-        ]));
-        transformedCards = transformedCards.filter(card => {
-          const cardSetId = extractSetIdFromCardId(card.id).toLowerCase();
-          return setIdSet.has(cardSetId);
-        });
-      }
-      
-      // Multi-rarity filter
-      if (filters?.rarities && filters.rarities.length > 1) {
-        const raritySet = new Set(filters.rarities.map(r => r.toLowerCase()));
-        transformedCards = transformedCards.filter(card =>
-          card.rarity && raritySet.has(card.rarity.toLowerCase())
-        );
-      }
-      
-      // Multi-illustrator filter
-      if (filters?.illustrators && filters.illustrators.length > 1) {
-        const illLower = filters.illustrators.map(i => i.toLowerCase());
-        transformedCards = transformedCards.filter(card => {
-          if (!card.illustrator) return false;
-          return illLower.some(ill => card.illustrator.toLowerCase().includes(ill));
-        });
-      }
-      
-      const allSortedCards = sortCardsBySetDate(transformedCards);
-      
-      // Build filter metadata using pre-computed O(1) lookups
+      // ----- Build filter predicates -----
+      // Each predicate is null when its filter is not active. We compose them so
+      // we can compute each facet's available options by applying all filters
+      // EXCEPT that facet's own (faceted-search pattern). This way the user
+      // always sees the full set of switchable options inside each picker.
+
+      const eraFilter = (filters?.eras && filters.eras.length > 0)
+        ? (() => {
+            const eraSetIds = new Set<string>();
+            for (const eraName of filters.eras) {
+              for (const s of getSetsByEra(eraName)) {
+                eraSetIds.add(s.id.toLowerCase());
+                eraSetIds.add(getPtcgioSetId(s.id).toLowerCase());
+              }
+            }
+            return (card: Card) => eraSetIds.has(extractSetIdFromCardId(card.id).toLowerCase());
+          })()
+        : null;
+
+      const setFilter = (filters?.setIds && filters.setIds.length > 0)
+        ? (() => {
+            const setIdSet = new Set(filters.setIds.flatMap(s => [
+              s.toLowerCase(), getPtcgioSetId(s).toLowerCase(),
+            ]));
+            return (card: Card) => setIdSet.has(extractSetIdFromCardId(card.id).toLowerCase());
+          })()
+        : null;
+
+      const rarityFilter = (filters?.rarities && filters.rarities.length > 0)
+        ? (() => {
+            const raritySet = new Set(filters.rarities.map(r => r.toLowerCase()));
+            return (card: Card) => !!card.rarity && raritySet.has(card.rarity.toLowerCase());
+          })()
+        : null;
+
+      const illustratorFilter = (filters?.illustrators && filters.illustrators.length > 0)
+        ? (() => {
+            const illLower = filters.illustrators.map(i => i.toLowerCase());
+            return (card: Card) => {
+              if (!card.illustrator) return false;
+              const ill = card.illustrator.toLowerCase();
+              return illLower.some(i => ill.includes(i));
+            };
+          })()
+        : null;
+
+      type FacetKey = 'era' | 'set' | 'rarity' | 'illustrator';
+      const applyFilters = (cards: Card[], skip: FacetKey | null): Card[] => {
+        let out = cards;
+        if (eraFilter && skip !== 'era') out = out.filter(eraFilter);
+        if (setFilter && skip !== 'set') out = out.filter(setFilter);
+        if (rarityFilter && skip !== 'rarity') out = out.filter(rarityFilter);
+        if (illustratorFilter && skip !== 'illustrator') out = out.filter(illustratorFilter);
+        return out;
+      };
+
+      // Cards for display (all filters applied)
+      const allSortedCards = sortCardsBySetDate(applyFilters(transformedCards, null));
+
+      // Cards for facet computation (each facet excludes its own filter)
+      const eraFacetCards = applyFilters(transformedCards, 'era');
+      const setFacetCards = applyFilters(transformedCards, 'set');
+      const rarityFacetCards = applyFilters(transformedCards, 'rarity');
+
       const metaSetIds = new Set<string>();
       const metaEras = new Set<string>();
       const metaRarities = new Set<string>();
-      for (const card of allSortedCards) {
+
+      for (const card of eraFacetCards) {
         const cardSetId = extractSetIdFromCardId(card.id).toLowerCase();
         if (cardSetId) {
-          metaSetIds.add(cardSetId);
           const eraName = getEraNameBySetId(cardSetId);
           if (eraName) metaEras.add(eraName);
         }
+      }
+      for (const card of setFacetCards) {
+        const cardSetId = extractSetIdFromCardId(card.id).toLowerCase();
+        if (cardSetId) metaSetIds.add(cardSetId);
+      }
+      for (const card of rarityFacetCards) {
         if (card.rarity?.trim()) metaRarities.add(card.rarity);
       }
-      
+
       const filterMeta: SearchFilterMeta = {
         setIds: Array.from(metaSetIds),
         eras: Array.from(metaEras),

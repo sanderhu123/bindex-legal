@@ -1200,31 +1200,79 @@ export async function searchCardsByName(
       const isNumberSearch = sanitizedQuery && /^#?\d/.test(sanitizedQuery);
       const isCardIdSearch = sanitizedQuery && /^(?=.*\d)[a-z0-9.]+[-][a-z0-9]+$/i.test(sanitizedQuery);
       
-      // Build Supabase query
-      let supaQuery = supabase.from('pokemon_cards').select('*');
-      
-      if (isCardIdSearch) {
-        const ptcgioId = convertCardIdToPtcgio(sanitizedQuery);
-        supaQuery = supaQuery.eq('id', ptcgioId);
-      } else if (isNumberSearch) {
-        const parts = sanitizedQuery.replace(/^#/, '').split('/');
-        supaQuery = supaQuery.eq('number', parts[0]);
-        if (parts.length > 1 && parts[1]) {
-          supaQuery = supaQuery.eq('set_printed_total', Number(parts[1]));
+      // ----- Resolve filter values for DB pushdown -----
+      // Era filter is resolved to a list of set IDs (both app + pokemontcg.io
+      // forms) using the static POKEMON_ERAS list.
+      const eraSetIds: string[] | null = (filters?.eras && filters.eras.length > 0)
+        ? (() => {
+            const ids = new Set<string>();
+            for (const eraName of filters.eras) {
+              for (const s of getSetsByEra(eraName)) {
+                ids.add(s.id);
+                ids.add(getPtcgioSetId(s.id));
+              }
+            }
+            return Array.from(ids);
+          })()
+        : null;
+
+      const explicitSetIds: string[] | null = (filters?.setIds && filters.setIds.length > 0)
+        ? Array.from(new Set(filters.setIds.flatMap(s => [s, getPtcgioSetId(s)])))
+        : null;
+
+      // Effective set IDs pushed to the main query. If both era and explicit
+      // sets are active, intersect them so we never broaden beyond the user's
+      // selection.
+      const effectiveSetIds: string[] | null = (() => {
+        if (eraSetIds && explicitSetIds) {
+          const eraLower = new Set(eraSetIds.map(s => s.toLowerCase()));
+          return explicitSetIds.filter(s => eraLower.has(s.toLowerCase()));
         }
-      } else if (sanitizedQuery) {
-        supaQuery = supaQuery.ilike('name', `%${sanitizedQuery}%`);
+        return explicitSetIds || eraSetIds;
+      })();
+
+      // ----- Helper: build a Supabase query with the search-defining
+      // filters applied (text/number/cardId + pokemonOnly). User picker
+      // filters (era/set/rarity/illustrator) are applied on top of this. -----
+      const applySearchPredicates = (q: any) => {
+        if (isCardIdSearch) {
+          const ptcgioId = convertCardIdToPtcgio(sanitizedQuery);
+          return q.eq('id', ptcgioId);
+        }
+        if (isNumberSearch) {
+          const parts = sanitizedQuery.replace(/^#/, '').split('/');
+          q = q.eq('number', parts[0]);
+          if (parts.length > 1 && parts[1]) {
+            q = q.eq('set_printed_total', Number(parts[1]));
+          }
+          return q;
+        }
+        if (sanitizedQuery) {
+          q = q.ilike('name', `%${sanitizedQuery}%`);
+        }
+        if (pokemonOnly) {
+          q = q.eq('supertype', 'Pokémon');
+        }
+        return q;
+      };
+
+      // ----- Main results query: ALL filters pushed down to the DB.
+      // This avoids the previous bug where era filters were applied client-side
+      // after a 1000-row LIMIT silently clipped most matching cards.
+      let supaQuery = applySearchPredicates(
+        supabase.from('pokemon_cards').select('*')
+      );
+
+      if (effectiveSetIds && effectiveSetIds.length > 0) {
+        supaQuery = supaQuery.in('set_id', effectiveSetIds);
       }
-      
-      if (pokemonOnly) {
-        supaQuery = supaQuery.eq('supertype', 'Pokémon');
+      if (filters?.rarities && filters.rarities.length > 0) {
+        supaQuery = supaQuery.in('rarity', filters.rarities);
       }
-      
-      // NOTE: Do NOT push set/rarity/illustrator filters down to the DB.
-      // We need the full result set for the query so we can compute accurate
-      // facet metadata (e.g. which other eras/sets/rarities are available
-      // if the user removes the current filter). Filters are applied below.
-      
+      // NOTE: illustrator filter uses substring matching, so we keep it
+      // client-side. With era/set/rarity already pushed down, the result set
+      // is small enough that client-side illustrator filtering is fine.
+
       supaQuery = supaQuery.limit(1000);
       
       const { data: dbCards, error } = await supaQuery;
@@ -1290,87 +1338,128 @@ export async function searchCardsByName(
         transformedCards = transformedCards.filter(card => wordBoundaryRegex.test(card.name));
       }
       
-      // ----- Build filter predicates -----
-      // Each predicate is null when its filter is not active. We compose them so
-      // we can compute each facet's available options by applying all filters
-      // EXCEPT that facet's own (faceted-search pattern). This way the user
-      // always sees the full set of switchable options inside each picker.
+      // ----- Build (client-side) filter predicates -----
+      // The main DB query already pushed era/set/rarity down; these predicates
+      // exist for two reasons:
+      //   1. The illustrator filter is still applied client-side.
+      //   2. They're reused on the lightweight facet rows (which only have
+      //      search-defining filters applied) to compute each facet using the
+      //      faceted-search "skip own facet" pattern.
+      type FacetRow = { setId: string; rarity: string | null; artist: string | null };
 
-      const eraFilter = (filters?.eras && filters.eras.length > 0)
-        ? (() => {
-            const eraSetIds = new Set<string>();
-            for (const eraName of filters.eras) {
-              for (const s of getSetsByEra(eraName)) {
-                eraSetIds.add(s.id.toLowerCase());
-                eraSetIds.add(getPtcgioSetId(s.id).toLowerCase());
-              }
-            }
-            return (card: Card) => eraSetIds.has(extractSetIdFromCardId(card.id).toLowerCase());
-          })()
+      const eraSetIdsLower = eraSetIds
+        ? new Set(eraSetIds.map(s => s.toLowerCase()))
+        : null;
+      const explicitSetIdsLower = explicitSetIds
+        ? new Set(explicitSetIds.map(s => s.toLowerCase()))
+        : null;
+      const rarityLower = (filters?.rarities && filters.rarities.length > 0)
+        ? new Set(filters.rarities.map(r => r.toLowerCase()))
+        : null;
+      const illLower = (filters?.illustrators && filters.illustrators.length > 0)
+        ? filters.illustrators.map(i => i.toLowerCase())
         : null;
 
-      const setFilter = (filters?.setIds && filters.setIds.length > 0)
-        ? (() => {
-            const setIdSet = new Set(filters.setIds.flatMap(s => [
-              s.toLowerCase(), getPtcgioSetId(s).toLowerCase(),
-            ]));
-            return (card: Card) => setIdSet.has(extractSetIdFromCardId(card.id).toLowerCase());
-          })()
-        : null;
-
-      const rarityFilter = (filters?.rarities && filters.rarities.length > 0)
-        ? (() => {
-            const raritySet = new Set(filters.rarities.map(r => r.toLowerCase()));
-            return (card: Card) => !!card.rarity && raritySet.has(card.rarity.toLowerCase());
-          })()
-        : null;
-
-      const illustratorFilter = (filters?.illustrators && filters.illustrators.length > 0)
-        ? (() => {
-            const illLower = filters.illustrators.map(i => i.toLowerCase());
-            return (card: Card) => {
-              if (!card.illustrator) return false;
-              const ill = card.illustrator.toLowerCase();
-              return illLower.some(i => ill.includes(i));
-            };
-          })()
-        : null;
-
-      type FacetKey = 'era' | 'set' | 'rarity' | 'illustrator';
-      const applyFilters = (cards: Card[], skip: FacetKey | null): Card[] => {
-        let out = cards;
-        if (eraFilter && skip !== 'era') out = out.filter(eraFilter);
-        if (setFilter && skip !== 'set') out = out.filter(setFilter);
-        if (rarityFilter && skip !== 'rarity') out = out.filter(rarityFilter);
-        if (illustratorFilter && skip !== 'illustrator') out = out.filter(illustratorFilter);
-        return out;
+      const rowEra = (r: FacetRow) => !eraSetIdsLower || eraSetIdsLower.has(r.setId.toLowerCase());
+      const rowSet = (r: FacetRow) => !explicitSetIdsLower || explicitSetIdsLower.has(r.setId.toLowerCase());
+      const rowRarity = (r: FacetRow) => !rarityLower || (!!r.rarity && rarityLower.has(r.rarity.toLowerCase()));
+      const rowIll = (r: FacetRow) => {
+        if (!illLower) return true;
+        if (!r.artist) return false;
+        const a = r.artist.toLowerCase();
+        return illLower.some(i => a.includes(i));
       };
 
-      // Cards for display (all filters applied)
-      const allSortedCards = sortCardsBySetDate(applyFilters(transformedCards, null));
+      // Apply illustrator filter to the main results (era/set/rarity already
+      // applied by the DB).
+      if (illLower) {
+        transformedCards = transformedCards.filter(card => {
+          if (!card.illustrator) return false;
+          const a = card.illustrator.toLowerCase();
+          return illLower.some(i => a.includes(i));
+        });
+      }
 
-      // Cards for facet computation (each facet excludes its own filter)
-      const eraFacetCards = applyFilters(transformedCards, 'era');
-      const setFacetCards = applyFilters(transformedCards, 'set');
-      const rarityFacetCards = applyFilters(transformedCards, 'rarity');
+      const allSortedCards = sortCardsBySetDate(transformedCards);
+
+      // ----- Facet metadata -----
+      // To show accurate "available options" inside each picker, we need to
+      // compute facets while ignoring that picker's own filter. The main query
+      // has all filters applied, so its rows can't tell us about other eras /
+      // sets / rarities. We run ONE lightweight query that only applies the
+      // search-defining filters (text + pokemonOnly) and select just the
+      // columns we need, then derive each facet client-side.
+      const hasPickerFilters = !!(eraSetIds || explicitSetIds || rarityLower || illLower);
+
+      let facetRows: FacetRow[];
+      if (hasPickerFilters) {
+        const facetSelect = applySearchPredicates(
+          supabase.from('pokemon_cards').select('set_id, rarity, artist, name')
+        ).limit(50000);
+        const { data: facetData, error: facetError } = await facetSelect;
+        if (!facetError && facetData) {
+          // Apply the same name-prefix and exact-match filters used on the
+          // main results so facets reflect the actually-displayable cards.
+          const lowerQuery = sanitizedQuery ? sanitizedQuery.toLowerCase() : '';
+          const wordBoundaryRegex = (exactMatch && sanitizedQuery)
+            ? new RegExp(`\\b${escapeRegExp(lowerQuery)}(?:\\b|\\s|$)`, 'i')
+            : null;
+
+          facetRows = facetData
+            .filter((row: any) => {
+              if (isExcludedSet(row.set_id)) return false;
+              const name: string = row.name || '';
+              if (lowerQuery && !isNumberSearch && !isCardIdSearch) {
+                const lower = name.toLowerCase();
+                const passesPrefix = lower.startsWith(lowerQuery)
+                  || lower.split(/\s+/).some((w: string) => w.startsWith(lowerQuery));
+                if (!passesPrefix) return false;
+              }
+              if (wordBoundaryRegex && !wordBoundaryRegex.test(name)) return false;
+              return true;
+            })
+            .map((row: any) => ({
+              setId: row.set_id || '',
+              rarity: row.rarity ?? null,
+              artist: row.artist ?? null,
+            }));
+        } else {
+          // Fallback: derive from the (already-filtered) main results so the
+          // pickers at least show the currently-selected options.
+          facetRows = transformedCards.map(c => ({
+            setId: extractSetIdFromCardId(c.id),
+            rarity: c.rarity ?? null,
+            artist: c.illustrator ?? null,
+          }));
+        }
+      } else {
+        // No picker filters → main results already represent the full
+        // facet superset; no extra round-trip needed.
+        facetRows = transformedCards.map(c => ({
+          setId: extractSetIdFromCardId(c.id),
+          rarity: c.rarity ?? null,
+          artist: c.illustrator ?? null,
+        }));
+      }
 
       const metaSetIds = new Set<string>();
       const metaEras = new Set<string>();
       const metaRarities = new Set<string>();
 
-      for (const card of eraFacetCards) {
-        const cardSetId = extractSetIdFromCardId(card.id).toLowerCase();
-        if (cardSetId) {
-          const eraName = getEraNameBySetId(cardSetId);
+      for (const row of facetRows) {
+        // Era facet: skip era filter, apply set + rarity + illustrator.
+        if (rowSet(row) && rowRarity(row) && rowIll(row)) {
+          const eraName = getEraNameBySetId(row.setId.toLowerCase());
           if (eraName) metaEras.add(eraName);
         }
-      }
-      for (const card of setFacetCards) {
-        const cardSetId = extractSetIdFromCardId(card.id).toLowerCase();
-        if (cardSetId) metaSetIds.add(cardSetId);
-      }
-      for (const card of rarityFacetCards) {
-        if (card.rarity?.trim()) metaRarities.add(card.rarity);
+        // Set facet: skip set filter, apply era + rarity + illustrator.
+        if (rowEra(row) && rowRarity(row) && rowIll(row)) {
+          if (row.setId) metaSetIds.add(row.setId.toLowerCase());
+        }
+        // Rarity facet: skip rarity filter, apply era + set + illustrator.
+        if (rowEra(row) && rowSet(row) && rowIll(row)) {
+          if (row.rarity?.trim()) metaRarities.add(row.rarity);
+        }
       }
 
       const filterMeta: SearchFilterMeta = {

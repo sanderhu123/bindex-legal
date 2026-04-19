@@ -370,28 +370,6 @@ export function useCardPicker(options?: UseCardPickerOptions): UseCardPickerRetu
     executeSearch(query, 0);
   }, [query, executeSearch]);
 
-  // Defensive: whenever there's no query and no active filter, the filter
-  // pickers should fall back to showing all options. This guarantees that
-  // `filterMeta` is empty in that state, even if some code path forgot to
-  // reset it.
-  useEffect(() => {
-    const hasAnyFilter = !!(
-      (filters.eras && filters.eras.length > 0) ||
-      (filters.setIds && filters.setIds.length > 0) ||
-      (filters.rarities && filters.rarities.length > 0) ||
-      (filters.illustrators && filters.illustrators.length > 0)
-    );
-    const hasQuery = !!sanitizeSearchQuery(query);
-    if (!hasAnyFilter && !hasQuery) {
-      setFilterMeta(prev => {
-        if (prev.setIds.length === 0 && prev.eras.length === 0 && prev.rarities.length === 0) {
-          return prev;
-        }
-        return { setIds: [], eras: [], rarities: [] };
-      });
-    }
-  }, [query, filters]);
-
   // Cleanup on unmount
   useEffect(() => {
     return () => {

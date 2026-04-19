@@ -18,7 +18,7 @@ import { getBinderById } from '../../services/supabase/binders';
 import { getBinderCardsWithPositions } from '../../services/supabase/cards';
 import { getCardsBySet, getCardsByRegion, getCardById, getCardsByIds, getPokemonImageUrl, type Region } from '../../services/api/pokemonApi';
 import { getAllSelectedCardsForBinder, setSelectedCardForPokemon, clearSelectedCardForPokemon } from '../../services/supabase/regionCards';
-import { getSearchName } from '../../data/pokemonRegions';
+import { getSearchName, findPokemonByDexNumber } from '../../data/pokemonRegions';
 import { getCardPositionsForBinder, saveCardPositionsForBinder, getPlaceholderCardsForBinder, savePlaceholderCardsForBinder, syncBinderCardsFromPositions } from '../../services/supabase/binderPositions';
 import { CardSlot, CardPlaceholder, SelectedCardBar, InsertButton, type PlaceholderCard } from '../../components/BinderEdit';
 import type { DragStartData } from '../../components/BinderEdit/CardSlot';
@@ -45,6 +45,31 @@ interface CardPosition {
   pokemonName?: string; // For region slots: the Pokémon name (used for card picker pre-fill)
   pokedexNumber?: number; // For region slots: the Pokédex number
   spriteUrl?: string; // For region slots: the default sprite URL (shown when no TCG card is selected)
+}
+
+/**
+ * Build a region card ID safely. When the binder's region is missing for any
+ * reason, fall back to looking the Pokémon up by its national Pokédex number
+ * across all regions, so we never persist a broken `region-Unknown-XXX` ID
+ * (which previously caused slots to render as "Pokémon #XXX" with no image
+ * after a reload).
+ */
+function buildRegionCardId(
+  binderRegion: string | undefined,
+  pokedexNumber: number | undefined,
+): string {
+  if (binderRegion && pokedexNumber !== undefined) {
+    return `region-${binderRegion}-${pokedexNumber}`;
+  }
+  if (pokedexNumber !== undefined) {
+    const found = findPokemonByDexNumber(pokedexNumber);
+    if (found) {
+      console.warn('[BinderEdit] binder.region missing; recovered region from dex number', { pokedexNumber, region: found.region });
+      return `region-${found.region}-${pokedexNumber}`;
+    }
+  }
+  console.warn('[BinderEdit] Unable to build region card ID, falling back to Unknown', { binderRegion, pokedexNumber });
+  return `region-${binderRegion || 'Unknown'}-${pokedexNumber}`;
 }
 
 /**
@@ -931,7 +956,7 @@ export default function BinderEditScreen() {
         // TCG card: source reverts to sprite (from latest state in prev)
         const slot = newPositions[srcIdx];
         if (slot?.pokemonName) {
-          const regionCardId = `region-${binder?.region || 'Unknown'}-${slot.pokedexNumber}`;
+          const regionCardId = buildRegionCardId(binder?.region, slot.pokedexNumber);
           newPositions[srcIdx] = {
             slotIndex: srcIdx,
             cardId: regionCardId,
@@ -1056,7 +1081,7 @@ export default function BinderEditScreen() {
       });
     }
 
-    const regionCardId = `region-${binder?.region || 'Unknown'}-${slot.pokedexNumber}`;
+    const regionCardId = buildRegionCardId(binder?.region, slot.pokedexNumber);
     return {
       slotIndex,
       cardId: regionCardId,
@@ -1098,7 +1123,7 @@ export default function BinderEditScreen() {
 
                 if (slot?.pokemonName) {
                   // Region slot: revert to sprite (compute from latest state)
-                  const regionCardId = `region-${binder?.region || 'Unknown'}-${slot.pokedexNumber}`;
+                  const regionCardId = buildRegionCardId(binder?.region, slot.pokedexNumber);
                   newPositions[slotIdx] = {
                     slotIndex: slotIdx,
                     cardId: regionCardId,
@@ -1923,7 +1948,7 @@ export default function BinderEditScreen() {
           const slot = newPositions[sourceIdx];
 
           if (slot?.pokemonName) {
-            const regionCardId = `region-${binder?.region || 'Unknown'}-${slot.pokedexNumber}`;
+            const regionCardId = buildRegionCardId(binder?.region, slot.pokedexNumber);
             newPositions[sourceIdx] = {
               slotIndex: sourceIdx,
               cardId: regionCardId,
@@ -2056,7 +2081,7 @@ export default function BinderEditScreen() {
       setCardPositions(prev => {
         const newPositions = [...prev];
         const slot = newPositions[sourceIdx];
-        const regionCardId = `region-${binder?.region || 'Unknown'}-${slot?.pokedexNumber}`;
+        const regionCardId = buildRegionCardId(binder?.region, slot?.pokedexNumber);
         newPositions[sourceIdx] = {
           slotIndex: sourceIdx,
           cardId: regionCardId,
@@ -2135,7 +2160,7 @@ export default function BinderEditScreen() {
 
                 if (slot?.pokemonName) {
                   // Region slot: revert to sprite (compute from latest state)
-                  const regionCardId = `region-${binder?.region || 'Unknown'}-${slot.pokedexNumber}`;
+                  const regionCardId = buildRegionCardId(binder?.region, slot.pokedexNumber);
                   newPositions[slotIdx] = {
                     slotIndex: slotIdx,
                     cardId: regionCardId,

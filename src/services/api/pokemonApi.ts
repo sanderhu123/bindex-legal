@@ -1,7 +1,7 @@
 import type { Card } from '../../types';
 import type { PokemonArtStyle } from '../../types';
 import { mockCards, mockSets, type MockSet } from '../../data/mockupCards';
-import { getPokemonByRegion } from '../../data/pokemonRegions';
+import { getPokemonByRegion, findPokemonByDexNumber } from '../../data/pokemonRegions';
 import { getEras, getSetsByEra, getAllSets, convertSetToPokemonSet, sortCardsBySetDate, getPtcgioSetId, getAppSetId, registerSetImageUrls, getEraNameBySetId } from '../../data/pokemonEras';
 import { getSpecialVariantsForCard, hasSpecialVariants, hasStampEnergyVariants, setHasReverseHolos } from '../../data/cardVariants';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -853,16 +853,34 @@ export async function getCardById(id: string): Promise<Card | null> {
     const parts = id.split('-');
     const regionName = parts[1] as Region;
     const dexNumber = parseInt(parts[2], 10);
-    const pokemonList = getPokemonByRegion(regionName);
-    const pokemon = pokemonList.find(p => p.number === dexNumber);
+
+    // Primary lookup: try the region encoded in the ID.
+    let pokemon = getPokemonByRegion(regionName).find(p => p.number === dexNumber);
+    let resolvedRegion: Region | string = regionName;
+
+    // Fallback: if the region in the ID is invalid/unknown (e.g. legacy
+    // `region-Unknown-242` data) or just doesn't list this Pokémon, search
+    // every region by dex number so we can still recover the correct name
+    // (e.g. "Blissey" instead of "Pokémon #242").
+    if (!pokemon && !isNaN(dexNumber)) {
+      const found = findPokemonByDexNumber(dexNumber);
+      if (found) {
+        pokemon = found.entry;
+        resolvedRegion = found.region;
+      }
+    }
+
     return {
       id,
       name: pokemon?.name ?? `Pokémon #${dexNumber}`,
       number: `#${dexNumber.toString().padStart(3, '0')}`,
-      set: `${regionName} Region`,
+      set: `${resolvedRegion} Region`,
       rarity: '',
       illustrator: '',
-      imageUrl: undefined,
+      // Always provide a sprite as a fallback image so region slots never
+      // render as a blank/coloured placeholder when the TCG art isn't
+      // available.
+      imageUrl: !isNaN(dexNumber) ? getPokemonImageUrl(dexNumber, 'sprite') : undefined,
       pokedexNumber: dexNumber,
       variant: 'base' as const,
     };

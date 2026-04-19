@@ -839,6 +839,32 @@ export function getPokemonByRegion(region: Region): PokemonEntry[] {
 }
 
 /**
+ * Find a Pokémon by its national Pokédex number across all known regions.
+ * Used as a fallback when a card's stored region value is missing or invalid
+ * (e.g. legacy data with `region-Unknown-242`) so we can still recover the
+ * correct Pokémon name (e.g. "Blissey") instead of falling through to a
+ * generic "Pokémon #242" placeholder.
+ *
+ * Returns the matching entry along with the region it was found in, or null
+ * if the dex number isn't part of any region we know about.
+ */
+const ALL_REGIONS_ORDERED: Region[] = [
+  'Kanto', 'Johto', 'Hoenn', 'Sinnoh', 'Unova',
+  'Kalos', 'Alola', 'Galar', 'Paldea',
+];
+
+export function findPokemonByDexNumber(
+  dexNumber: number
+): { region: Region; entry: PokemonEntry } | null {
+  for (const region of ALL_REGIONS_ORDERED) {
+    const list = getPokemonByRegion(region);
+    const entry = list.find(p => p.number === dexNumber);
+    if (entry) return { region, entry };
+  }
+  return null;
+}
+
+/**
  * Pokémon whose display names contain special characters that
  * don't work well with the search API or with exact-match regex.
  * Maps display name → API-friendly search term.

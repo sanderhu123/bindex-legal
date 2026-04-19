@@ -1437,7 +1437,13 @@ export default function BinderEditScreen() {
   };
 
   const handleInsertButtonPress = (insertAtIndex: number) => {
-    setSelectedCard(null);
+    if (selectedCard) {
+      // A card is already tap-selected — insert it at this position
+      // (works for both placeholder cards and binder cards)
+      performInsert(insertAtIndex);
+      return;
+    }
+    // No card selected — open the Card Picker to add a new one
     setTargetSlotIndex(insertAtIndex);
     setInsertMode(true);
     setShowCardPicker(true);
@@ -1455,26 +1461,78 @@ export default function BinderEditScreen() {
     const sourceIsInBinder = selectedCard.sourceSlot !== 'placeholder';
     const newPositions = cardPositions.map(p => ({ ...p }));
 
+    // Classify the source card
+    let sourceIsBareSprite = false;
+    let sourceIsTcgOnRegion = false;
     if (sourceIsInBinder) {
       const sourceIdx = selectedCard.sourceSlot as number;
-      for (let i = sourceIdx; i < newPositions.length - 1; i++) {
-        newPositions[i] = {
-          ...newPositions[i + 1],
-          slotIndex: i,
-        };
-      }
-      const lastIdx = newPositions.length - 1;
-      newPositions[lastIdx] = {
-        slotIndex: lastIdx,
-        cardId: null, cardName: undefined, imageUrl: undefined, cardSet: undefined,
-      };
-      if (insertAtIndex > sourceIdx) insertAtIndex--;
+      const sourceSlot = newPositions[sourceIdx];
+      sourceIsBareSprite = !!(
+        selectedCard.cardId?.startsWith('region-') &&
+        selectedCard.imageUrl === selectedCard.spriteUrl
+      );
+      sourceIsTcgOnRegion = !sourceIsBareSprite && !!sourceSlot?.pokemonName;
     }
 
+    // ── Step 1: Update the source slot ──
+    if (sourceIsInBinder) {
+      const sourceIdx = selectedCard.sourceSlot as number;
+
+      if (sourceIsTcgOnRegion) {
+        // Region slot with a TCG overlay: revert source slot to its sprite.
+        // Don't compact — the slot still holds the Pokémon's sprite.
+        const sourceSlot = newPositions[sourceIdx];
+        const regionCardId = buildRegionCardId(binder?.region, sourceSlot.pokedexNumber);
+        newPositions[sourceIdx] = {
+          slotIndex: sourceIdx,
+          cardId: regionCardId,
+          cardName: sourceSlot.pokemonName,
+          imageUrl: sourceSlot.spriteUrl,
+          pokemonName: sourceSlot.pokemonName,
+          pokedexNumber: sourceSlot.pokedexNumber,
+          spriteUrl: sourceSlot.spriteUrl,
+        };
+        if (sourceSlot.pokedexNumber && binder?.id) {
+          clearSelectedCardForPokemon(binder.id, sourceSlot.pokedexNumber).catch(err => {
+            console.error('[BinderEdit] Failed to clear region card selection:', err);
+          });
+        }
+      } else {
+        // Bare sprite or plain card: compact (shift all later slots one to the left)
+        for (let i = sourceIdx; i < newPositions.length - 1; i++) {
+          newPositions[i] = {
+            ...newPositions[i + 1],
+            slotIndex: i,
+          };
+        }
+        const lastIdx = newPositions.length - 1;
+        newPositions[lastIdx] = {
+          slotIndex: lastIdx,
+          cardId: null, cardName: undefined, imageUrl: undefined, cardSet: undefined,
+          pokemonName: undefined, pokedexNumber: undefined, spriteUrl: undefined,
+        };
+        if (insertAtIndex > sourceIdx) insertAtIndex--;
+      }
+    }
+
+    // ── Step 2: Check whether the shift-right would push something off the end ──
     const lastCard = newPositions[newPositions.length - 1];
     let overflowCard: PlaceholderCard | null = null;
 
     if (lastCard.cardId) {
+      // Don't allow pushing a region Pokémon slot off the end of the binder
+      const lastIsBareSprite = lastCard.cardId.startsWith('region-') &&
+        lastCard.imageUrl === lastCard.spriteUrl;
+      const lastIsTcgOnRegion = !lastIsBareSprite && !!lastCard.pokemonName;
+
+      if (lastIsBareSprite || lastIsTcgOnRegion) {
+        Alert.alert(
+          'Cannot insert here',
+          'Inserting at this position would push a Pokémon slot off the end of the binder. Try a different position.',
+        );
+        return;
+      }
+
       const currentPlaceholderCount = !sourceIsInBinder
         ? placeholderCards.length - 1
         : placeholderCards.length;
@@ -1489,6 +1547,7 @@ export default function BinderEditScreen() {
 
     saveUndoState();
 
+    // ── Step 3: Shift right from end down to insertAtIndex to make room ──
     for (let i = newPositions.length - 1; i > insertAtIndex; i--) {
       newPositions[i] = {
         ...newPositions[i - 1],
@@ -1496,12 +1555,29 @@ export default function BinderEditScreen() {
       };
     }
 
-    newPositions[insertAtIndex] = {
-      slotIndex: insertAtIndex,
-      cardId: selectedCard.cardId,
-      cardName: selectedCard.cardName,
-      imageUrl: selectedCard.imageUrl,
-    };
+    // ── Step 4: Place the moved card at insertAtIndex ──
+    if (sourceIsBareSprite) {
+      // Bare region sprite: the entire Pokémon identity moves with the slot
+      newPositions[insertAtIndex] = {
+        slotIndex: insertAtIndex,
+        cardId: selectedCard.cardId,
+        cardName: selectedCard.cardName,
+        imageUrl: selectedCard.imageUrl,
+        cardSet: selectedCard.cardSet,
+        pokemonName: selectedCard.pokemonName,
+        pokedexNumber: selectedCard.pokedexNumber,
+        spriteUrl: selectedCard.spriteUrl,
+      };
+    } else {
+      // TCG card from placeholder, plain binder slot, or extracted from a region overlay
+      newPositions[insertAtIndex] = {
+        slotIndex: insertAtIndex,
+        cardId: selectedCard.cardId,
+        cardName: selectedCard.cardName,
+        imageUrl: selectedCard.imageUrl,
+        cardSet: selectedCard.cardSet,
+      };
+    }
 
     setCardPositions(newPositions);
 

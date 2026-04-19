@@ -130,9 +130,6 @@ export function useCardPicker(options?: UseCardPickerOptions): UseCardPickerRetu
       setHasMore(false);
       setError(null);
       setOriginalError(null);
-      // Also reset filterMeta so the filter pickers go back to showing
-      // ALL options (not just the ones from the last search).
-      setFilterMeta({ setIds: [], eras: [], rarities: [] });
       return;
     }
 

@@ -130,6 +130,10 @@ export function useCardPicker(options?: UseCardPickerOptions): UseCardPickerRetu
       setHasMore(false);
       setError(null);
       setOriginalError(null);
+      // Reset filter metadata so the filter pickers fall back to the full
+      // global lists (all eras/sets/rarities) instead of being stuck with
+      // the metadata from the previous filtered search.
+      setFilterMeta({ setIds: [], eras: [], rarities: [] });
       return;
     }
 

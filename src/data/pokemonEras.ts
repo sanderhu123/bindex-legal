@@ -580,9 +580,22 @@ export function getSetReleaseDate(setNameOrId: string): string | null {
 }
 
 /**
- * Sort cards by set release date (newest first)
- * Cards from unknown sets are placed at the end
- * 
+ * Extract the numeric part from a card ID like "sv1-25" -> 25.
+ * Falls back to a large number so non-numeric / unknown IDs sort to the end.
+ */
+function getCardIdNumericPart(id?: string): number {
+  if (!id) return Number.MAX_SAFE_INTEGER;
+  const parts = id.split('-');
+  const numberPart = parts[parts.length - 1] || '';
+  const match = numberPart.match(/^(\d+)/);
+  if (!match) return Number.MAX_SAFE_INTEGER;
+  return parseInt(match[1], 10);
+}
+
+/**
+ * Sort cards by set release date (newest first), then by card number (ascending).
+ * Cards from unknown sets are placed at the end.
+ *
  * @param cards - Array of cards to sort
  * @returns New sorted array (doesn't mutate original)
  */
@@ -590,16 +603,21 @@ export function sortCardsBySetDate<T extends { set?: string; id?: string }>(
   cards: T[]
 ): T[] {
   return [...cards].sort((a, b) => {
-    // Try to get release date from set name first, then from card ID prefix
-    const dateA = getSetReleaseDate(a.set || '') || 
+    const dateA = getSetReleaseDate(a.set || '') ||
                   getSetReleaseDate(a.id?.split('-')[0] || '') ||
-                  '1900-01-01'; // Unknown sets go to end
-    const dateB = getSetReleaseDate(b.set || '') || 
+                  '1900-01-01';
+    const dateB = getSetReleaseDate(b.set || '') ||
                   getSetReleaseDate(b.id?.split('-')[0] || '') ||
                   '1900-01-01';
-    
-    // Sort descending (newest first)
-    return dateB.localeCompare(dateA);
+
+    const dateCompare = dateB.localeCompare(dateA);
+    if (dateCompare !== 0) return dateCompare;
+
+    const numA = getCardIdNumericPart(a.id);
+    const numB = getCardIdNumericPart(b.id);
+    if (numA !== numB) return numA - numB;
+
+    return (a.id || '').localeCompare(b.id || '');
   });
 }
 

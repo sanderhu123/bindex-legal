@@ -1109,6 +1109,85 @@ function extractSetIdFromCardId(cardId: string): string {
   return cardId.slice(0, lastDashIndex);
 }
 
+/**
+ * Map of "promo number prefixes" → app/pokemontcg.io set ID.
+ * These are letter prefixes that appear in the printed card number on
+ * Black Star Promo cards (e.g. card "SM211" lives in set "smp", with the
+ * literal "SM" being part of the number, not the set ID).
+ */
+const PROMO_PREFIX_TO_SET_ID: Record<string, string> = {
+  SM: 'smp',
+  SWSH: 'swshp',
+  XY: 'xyp',
+  BW: 'bwp',
+  HGSS: 'hsp',
+  HS: 'hsp',
+  DP: 'dpp',
+};
+
+/**
+ * Cached longest-first list of known set IDs, used for splitting queries
+ * like "svp051" → "svp-051". Built lazily because getAllSets() is cheap
+ * but does a flatMap on every call.
+ */
+let cachedSortedSetIds: string[] | null = null;
+function getSortedSetIdsLongestFirst(): string[] {
+  if (cachedSortedSetIds) return cachedSortedSetIds;
+  cachedSortedSetIds = getAllSets()
+    .map(s => s.id.toLowerCase())
+    .filter(id => id.length > 0)
+    .sort((a, b) => b.length - a.length);
+  return cachedSortedSetIds;
+}
+
+/**
+ * Rewrite "shorthand" card-ID queries that omit the dash into their proper
+ * dashed form so the existing card-ID search path can pick them up.
+ *
+ * Examples:
+ *   "SM211"   → "smp-SM211"   (SM Black Star Promos)
+ *   "SWSH123" → "swshp-SWSH123"
+ *   "XY50"    → "xyp-XY50"
+ *   "svp051"  → "svp-051"     (later normalised to "svp-51")
+ *   "sv1025"  → "sv1-025"
+ *
+ * Returns the query unchanged when:
+ *   - It already contains a dash (assumed to be a real card ID).
+ *   - It doesn't look like any known promo / set-ID + number pattern.
+ */
+function rewriteShortCardIdQuery(query: string): string {
+  if (!query || query.includes('-')) return query;
+
+  // 1) Try promo-prefix match first. Order longest-first so "SWSH" beats "SW"
+  //    and "HGSS" beats "HS".
+  const promoPrefixes = ['SWSH', 'HGSS', 'SM', 'XY', 'BW', 'DP', 'HS'];
+  for (const prefix of promoPrefixes) {
+    const re = new RegExp(`^${prefix}(\\d+)$`, 'i');
+    const m = query.match(re);
+    if (m) {
+      const setId = PROMO_PREFIX_TO_SET_ID[prefix];
+      // Reconstruct with the canonical uppercase prefix so the DB id
+      // (e.g. "smp-SM211") matches regardless of input case.
+      return `${setId}-${prefix}${m[1]}`;
+    }
+  }
+
+  // 2) Try "<known set id> + <number>" without a dash, e.g. "svp051".
+  const lower = query.toLowerCase();
+  for (const setId of getSortedSetIdsLongestFirst()) {
+    if (lower.length > setId.length && lower.startsWith(setId)) {
+      const rest = query.slice(setId.length);
+      // Suffix must be alphanumeric and contain at least one digit
+      // (so plain "svp" or "sve" alone don't get turned into card IDs).
+      if (/^[a-z0-9]+$/i.test(rest) && /\d/.test(rest)) {
+        return `${setId}-${rest}`;
+      }
+    }
+  }
+
+  return query;
+}
+
 const SEARCH_CACHE_DURATION = 2 * 60 * 1000;
 const sortedSearchCache = new Map<string, { cards: Card[]; filterMeta: SearchFilterMeta; timestamp: number }>();
 
@@ -1193,7 +1272,11 @@ export async function searchCardsByName(
     return emptyResult;
   }
   
-  const sanitizedQuery = query ? query.trim() : '';
+  // Rewrite shorthand IDs like "SM211" / "svp051" / "SWSH123" / "XY50"
+  // into "smp-SM211" / "svp-051" / "swshp-SWSH123" / "xyp-XY50" so they go
+  // down the existing card-ID search path. Done before the cache key so
+  // different shorthand variants share the same cached results.
+  const sanitizedQuery = rewriteShortCardIdQuery(query ? query.trim() : '');
   
   const filterKey = filters 
     ? `-era:${(filters.eras || []).sort().join(',')}-set:${(filters.setIds || []).sort().join(',')}-rar:${(filters.rarities || []).sort().join(',')}-ill:${(filters.illustrators || []).sort().join(',')}`

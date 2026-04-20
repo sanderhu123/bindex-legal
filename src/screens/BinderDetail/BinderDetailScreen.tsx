@@ -44,6 +44,7 @@ import BinderPageView from '../../components/Binder/BinderPageView';
 import { JumpToPageModal } from '../../components/Binder/JumpToPageModal';
 import PageHeader from '../../components/Binder/PageHeader';
 import { useCardSearch } from '../../hooks/useCardSearch';
+import { normalizeForNameSearch } from '../../utils/searchNormalize';
 import { useCardFilter, type OwnershipFilter } from '../../hooks/useCardFilter';
 import SearchBar from '../../components/Search/SearchBar';
 import LoadingScreen from '../../components/Loading/LoadingScreen';
@@ -113,7 +114,10 @@ function pageToSpreadStart(page: number, totalPages: number): number {
  * Handles slash notation (e.g. "125/94") by matching number AND set total.
  */
 function cardMatchesSearch(card: { name: string; number: string; setTotal?: string }, query: string): boolean {
-  if (card.name.toLowerCase().includes(query)) return true;
+  // Normalize both sides so punctuation in card names (e.g. "Charizard-GX",
+  // "Zacian LV.X") doesn't block matches.
+  const normalizedQuery = normalizeForNameSearch(query);
+  if (normalizedQuery && normalizeForNameSearch(card.name).includes(normalizedQuery)) return true;
 
   const isNumQuery = /^#?\d/.test(query) || query.includes('/');
   if (isNumQuery) {

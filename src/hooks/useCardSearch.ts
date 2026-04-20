@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import type { Card } from '../types';
+import { normalizeForNameSearch } from '../utils/searchNormalize';
 
 interface CardWithOwnership extends Card {
   isOwned: boolean;
@@ -59,8 +60,14 @@ export function useCardSearch(cards: CardWithOwnership[], searchQuery: string): 
       }
     }
     
+    // Normalize the query once for name matching so punctuation in card names
+    // (e.g. "Charizard-GX", "Zacian LV.X") doesn't block matches.
+    const normalizedQuery = normalizeForNameSearch(query);
+
     return cards.filter((card) => {
-      const nameMatch = card.name.toLowerCase().includes(query);
+      const nameMatch = normalizedQuery
+        ? normalizeForNameSearch(card.name).includes(normalizedQuery)
+        : false;
       
       let numberMatch = false;
       if (isNumberSearch && normalizedNumberQuery) {

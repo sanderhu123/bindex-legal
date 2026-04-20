@@ -1453,12 +1453,26 @@ export async function searchCardsByName(
         && !rarityLower
         && !illLower;
 
+      // Decide whether the set facet can use the DISTINCT-set_ids RPC
+      // instead of a row-by-row query. The RPC bypasses Supabase's row cap
+      // (which silently truncates large eras like Scarlet & Violet to ~1000
+      // rows of cards, missing most of the era's set IDs). Safe to use when
+      // nothing else narrows the facet by name/artist/rarity.
+      const setFacetCanUseRpc = !sanitizedQuery
+        && !rarityLower
+        && !illLower;
+
       // Run the (up to 3) facet queries in parallel instead of sequentially.
       // Previously each `await` added a full Supabase round-trip to the
       // initial picker load (e.g. selecting a set). Promise.all lets them
       // overlap, cutting the facet phase from ~3× round-trip to ~1×.
       const [setFacetRes, rarityFacetRes, eraFacetRes] = await Promise.all([
-        buildFacetQuery(buildFacetCols('set_id'), 'set').limit(5000),
+        setFacetCanUseRpc
+          ? supabase.rpc('distinct_set_ids', {
+              p_set_ids: eraSetIds,
+              p_pokemon_only: pokemonOnly,
+            })
+          : buildFacetQuery(buildFacetCols('set_id'), 'set').limit(5000),
         buildFacetQuery(buildFacetCols('rarity'), 'rarity').limit(5000),
         eraFacetUnbounded
           ? Promise.resolve({ data: null as any, error: null as any })
@@ -1469,6 +1483,9 @@ export async function searchCardsByName(
       if (!setFacetRes.error && setFacetRes.data) {
         for (const row of setFacetRes.data as any[]) {
           if (isExcludedSet(row.set_id)) continue;
+          // passesClientFilters is a no-op when no text/illustrator filter is
+          // active, which is exactly when the RPC path is taken — so it's
+          // safe to call regardless of which path produced the rows.
           if (!passesClientFilters(row)) continue;
           if (row.set_id) metaSetIds.add(String(row.set_id).toLowerCase());
         }

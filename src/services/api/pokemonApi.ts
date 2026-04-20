@@ -304,6 +304,19 @@ function transformPtcgioCardToCard(card: any): Card {
 }
 
 /**
+ * Columns we read from the `pokemon_cards` table.
+ *
+ * Used everywhere we transform a row via `transformDbRowToCard` (and
+ * `dbRowToPtcgioShape`, which also needs `has_reverse_holo` for variant
+ * generation). Selecting only these columns instead of `*` dramatically
+ * reduces payload size on large queries (sets, batch fetches, search), since
+ * `*` otherwise pulls big columns we don't display (descriptions, attacks,
+ * abilities, prices, etc.).
+ */
+const POKEMON_CARD_QUERY_COLUMNS =
+  'id, name, number, set_id, set_name, set_printed_total, rarity, artist, supertype, image_small, image_large, has_reverse_holo';
+
+/**
  * Transform a Supabase pokemon_cards row to our internal Card type.
  */
 function transformDbRowToCard(row: any): Card {
@@ -739,7 +752,7 @@ export async function getCardsBySet(setIdentifier: string): Promise<Card[]> {
       // Try Supabase first
       const { data: dbCards, error } = await supabase
         .from('pokemon_cards')
-        .select('*')
+        .select(POKEMON_CARD_QUERY_COLUMNS)
         .in('set_id', setIds)
         .order('number');
       
@@ -913,7 +926,7 @@ export async function getCardById(id: string): Promise<Card | null> {
       // Try Supabase first
       const { data: dbCard, error } = await supabase
         .from('pokemon_cards')
-        .select('*')
+        .select(POKEMON_CARD_QUERY_COLUMNS)
         .eq('id', ptcgioCardId)
         .maybeSingle();
       
@@ -1010,7 +1023,7 @@ export async function getCardsByIds(ids: string[]): Promise<Map<string, Card>> {
   try {
     const { data: dbCards, error } = await supabase
       .from('pokemon_cards')
-      .select('*')
+      .select(POKEMON_CARD_QUERY_COLUMNS)
       .in('id', ptcgioIds);
 
     if (!error && dbCards) {
@@ -1256,124 +1269,18 @@ export async function searchCardsByName(
         return q;
       };
 
-      // ----- Main results query: ALL filters pushed down to the DB.
-      // This avoids the previous bug where era filters were applied client-side
-      // after a 1000-row LIMIT silently clipped most matching cards.
-      // Only select the columns transformDbRowToCard / set-exclusion need —
-      // not select('*'), which used to pull every column (descriptions,
-      // attacks, prices, etc.) and was a major part of the slow first load.
-      const MAIN_QUERY_COLUMNS = 'id, name, number, set_id, set_name, set_printed_total, rarity, artist, supertype, image_small, image_large';
-      let supaQuery = applySearchPredicates(
-        supabase.from('pokemon_cards').select(MAIN_QUERY_COLUMNS)
-      );
-
-      if (effectiveSetIds && effectiveSetIds.length > 0) {
-        supaQuery = supaQuery.in('set_id', effectiveSetIds);
-      }
-      if (filters?.rarities && filters.rarities.length > 0) {
-        supaQuery = supaQuery.in('rarity', filters.rarities);
-      }
-      // NOTE: illustrator filter uses substring matching, so we keep it
-      // client-side. With era/set/rarity already pushed down, the result set
-      // is small enough that client-side illustrator filtering is fine.
-
-      supaQuery = supaQuery.limit(1000);
-      
-      const { data: dbCards, error } = await supaQuery;
-      
-      let transformedCards: Card[];
-      
-      if (!error && dbCards && dbCards.length > 0) {
-        console.log('[API] Search results from Supabase:', { count: dbCards.length });
-        transformedCards = dbCards
-          .filter((row: any) => !isExcludedSet(row.set_id))
-          .map(transformDbRowToCard);
-      } else {
-        // Fallback to API search
-        console.warn('[API] Supabase search empty, falling back to API');
-        const queryParts: string[] = [];
-        
-        if (isCardIdSearch) {
-          try {
-            const response = await ptcgioFetch(`/cards/${encodeURIComponent(sanitizedQuery)}`);
-            if (response.data) {
-              const card = transformPtcgioCardToCard(response.data);
-              const filterMeta: SearchFilterMeta = {
-                setIds: [response.data.set?.id || ''],
-                eras: [],
-                rarities: card.rarity ? [card.rarity] : [],
-              };
-              sortedSearchCache.set(sortedCacheKey, { cards: [card], filterMeta, timestamp: Date.now() });
-              return { cards: [card], filterMeta };
-            }
-          } catch {}
-          return emptyResult;
-        }
-        
-        if (isNumberSearch) {
-          const numParts = sanitizedQuery.replace(/^#/, '').split('/');
-          queryParts.push(`number:${numParts[0]}`);
-          if (numParts.length > 1 && numParts[1]) {
-            queryParts.push(`set.printedTotal:${numParts[1]}`);
-          }
-        } else if (sanitizedQuery) {
-          queryParts.push(`name:"*${sanitizedQuery}*"`);
-        }
-        if (pokemonOnly) queryParts.push('supertype:Pokémon');
-        
-        const cardResults = await fetchAllSearchResults(queryParts.join(' '));
-        transformedCards = cardResults
-          .filter((card: any) => !isExcludedSet(card.set?.id || ''))
-          .map(transformPtcgioCardToCard);
-      }
-      
-      if (sanitizedQuery && !isNumberSearch && !isCardIdSearch) {
-        const lowerQuery = sanitizedQuery.toLowerCase();
-        transformedCards = transformedCards.filter(card => {
-          const name = card.name.toLowerCase();
-          return name.startsWith(lowerQuery) ||
-            name.split(/\s+/).some(word => word.startsWith(lowerQuery));
-        });
-      }
-
-      if (exactMatch && sanitizedQuery) {
-        const escapedQuery = escapeRegExp(sanitizedQuery.toLowerCase());
-        const wordBoundaryRegex = new RegExp(`\\b${escapedQuery}(?:\\b|\\s|$)`, 'i');
-        transformedCards = transformedCards.filter(card => wordBoundaryRegex.test(card.name));
-      }
-      
-      // ----- Apply illustrator filter (client-side) to main results -----
-      // Era/set/rarity were already pushed down to the DB; illustrator uses
-      // substring matching so it's applied here.
+      // ----- Filter helpers (computed BEFORE any DB call) -----
+      // These are derived purely from inputs (filters / query / exactMatch),
+      // not from query results, so we can build them up front and use them
+      // for both the main query and the facet queries. That lets us fire
+      // everything together via Promise.all below — saving another network
+      // round-trip on cold loads (no main→facet wait chain).
       const illLower = (filters?.illustrators && filters.illustrators.length > 0)
         ? filters.illustrators.map(i => i.toLowerCase())
         : null;
       const rarityLower = (filters?.rarities && filters.rarities.length > 0)
         ? new Set(filters.rarities.map(r => r.toLowerCase()))
         : null;
-
-      if (illLower) {
-        transformedCards = transformedCards.filter(card => {
-          if (!card.illustrator) return false;
-          const a = card.illustrator.toLowerCase();
-          return illLower.some(i => a.includes(i));
-        });
-      }
-
-      const allSortedCards = sortCardsBySetDate(transformedCards);
-
-      // ----- Facet metadata -----
-      // For each picker (era / set / rarity) we run a lightweight DB query
-      // that applies all OTHER active filters but skips its own. This is the
-      // standard faceted-search pattern: opening a picker should always show
-      // what would be available if you swapped this picker's value.
-      //
-      // Each query is heavily narrowed by the OTHER filters (typically by era
-      // or set), so the 1000-row Supabase cap is not a problem in practice.
-      // Only the era facet can be unbounded (when era is the only filter); in
-      // that case we fall back to the static POKEMON_ERAS list, which is fine
-      // because every era in that list has cards in the DB.
-
       const lowerQuery = sanitizedQuery ? sanitizedQuery.toLowerCase() : '';
       const wordBoundaryRegex = (exactMatch && sanitizedQuery)
         ? new RegExp(`\\b${escapeRegExp(lowerQuery)}(?:\\b|\\s|$)`, 'i')
@@ -1399,24 +1306,21 @@ export async function searchCardsByName(
         return true;
       };
 
-      // Builds a query with the search-defining filters + selected picker
-      // filters applied. The `skip` parameter omits one of {era, set, rarity}.
+      // Builds a facet query: applies the search-defining filters + the
+      // selected picker filters EXCEPT the one being skipped (so opening a
+      // picker shows what would be available if you swapped its value).
       const buildFacetQuery = (
         selectCols: string,
         skip: 'era' | 'set' | 'rarity'
       ) => {
         let q = applySearchPredicates(supabase.from('pokemon_cards').select(selectCols));
 
-        // Determine which set_ids to push down based on what's being skipped.
         let setFilterIds: string[] | null = null;
         if (skip === 'era') {
-          // Skip era → only the explicit set filter (if any) constrains sets.
           setFilterIds = explicitSetIds;
         } else if (skip === 'set') {
-          // Skip set → only the era filter (if any) constrains sets.
           setFilterIds = eraSetIds;
         } else {
-          // skip === 'rarity' → keep both era and set narrowing.
           setFilterIds = effectiveSetIds;
         }
         if (setFilterIds && setFilterIds.length > 0) {
@@ -1428,15 +1332,11 @@ export async function searchCardsByName(
         return q;
       };
 
-      const metaSetIds = new Set<string>();
-      const metaEras = new Set<string>();
-      const metaRarities = new Set<string>();
-
       // Only ask Supabase for the columns each facet actually needs.
-      // `name` is only needed when there is a text/exact-match query;
-      // `artist` is only needed when an illustrator filter is active.
-      // Skipping these columns when unused dramatically reduces the payload
-      // (each facet can otherwise return up to 5000 rows × 3 columns).
+      // `name` only matters when there is a text/exact-match query; `artist`
+      // only matters when an illustrator filter is active. Skipping them
+      // when unused dramatically reduces payload (each facet can otherwise
+      // return up to 5000 rows × 3 columns).
       const facetNeedsName = !!(lowerQuery && !isNumberSearch && !isCardIdSearch) || !!wordBoundaryRegex;
       const facetNeedsArtist = !!illLower;
       const buildFacetCols = (primary: string) => {
@@ -1446,27 +1346,48 @@ export async function searchCardsByName(
         return cols.join(', ');
       };
 
-      // Decide whether the era facet can use the static POKEMON_ERAS list
-      // instead of a DB query (true when nothing else narrows it).
+      // Era facet can use the static POKEMON_ERAS list (no DB call) when
+      // nothing else narrows it.
       const eraFacetUnbounded = !sanitizedQuery
         && !explicitSetIds
         && !rarityLower
         && !illLower;
 
-      // Decide whether the set facet can use the DISTINCT-set_ids RPC
-      // instead of a row-by-row query. The RPC bypasses Supabase's row cap
-      // (which silently truncates large eras like Scarlet & Violet to ~1000
-      // rows of cards, missing most of the era's set IDs). Safe to use when
-      // nothing else narrows the facet by name/artist/rarity.
+      // Set facet can use the DISTINCT-set_ids RPC (bypasses the 1000-row
+      // Supabase cap) when nothing narrows by name / artist / rarity.
       const setFacetCanUseRpc = !sanitizedQuery
         && !rarityLower
         && !illLower;
 
-      // Run the (up to 3) facet queries in parallel instead of sequentially.
-      // Previously each `await` added a full Supabase round-trip to the
-      // initial picker load (e.g. selecting a set). Promise.all lets them
-      // overlap, cutting the facet phase from ~3× round-trip to ~1×.
-      const [setFacetRes, rarityFacetRes, eraFacetRes] = await Promise.all([
+      // ----- Main results query: ALL filters pushed down to the DB.
+      // This avoids the previous bug where era filters were applied client-side
+      // after a 1000-row LIMIT silently clipped most matching cards.
+      // Only select the columns transformDbRowToCard / set-exclusion need —
+      // not select('*'), which used to pull every column (descriptions,
+      // attacks, prices, etc.) and was a major part of the slow first load.
+      let supaQuery = applySearchPredicates(
+        supabase.from('pokemon_cards').select(POKEMON_CARD_QUERY_COLUMNS)
+      );
+
+      if (effectiveSetIds && effectiveSetIds.length > 0) {
+        supaQuery = supaQuery.in('set_id', effectiveSetIds);
+      }
+      if (filters?.rarities && filters.rarities.length > 0) {
+        supaQuery = supaQuery.in('rarity', filters.rarities);
+      }
+      // NOTE: illustrator filter uses substring matching, so we keep it
+      // client-side. With era/set/rarity already pushed down, the result set
+      // is small enough that client-side illustrator filtering is fine.
+
+      supaQuery = supaQuery.limit(1000);
+
+      // ----- Fire main + facet queries in PARALLEL -----
+      // The facet queries don't depend on the main query result (they only
+      // depend on the filter inputs, which are already known). Running them
+      // alongside the main query removes another full network round-trip
+      // from the cold load.
+      const [mainRes, setFacetRes, rarityFacetRes, eraFacetRes] = await Promise.all([
+        supaQuery,
         setFacetCanUseRpc
           ? supabase.rpc('distinct_set_ids', {
               p_set_ids: eraSetIds,
@@ -1478,6 +1399,82 @@ export async function searchCardsByName(
           ? Promise.resolve({ data: null as any, error: null as any })
           : buildFacetQuery(buildFacetCols('set_id'), 'era').limit(5000),
       ]);
+
+      // ----- Process main query result -----
+      const { data: dbCards, error } = mainRes;
+      let transformedCards: Card[];
+
+      if (!error && dbCards && dbCards.length > 0) {
+        console.log('[API] Search results from Supabase:', { count: dbCards.length });
+        transformedCards = dbCards
+          .filter((row: any) => !isExcludedSet(row.set_id))
+          .map(transformDbRowToCard);
+      } else {
+        // Fallback to API search (Supabase had no matching cards).
+        console.warn('[API] Supabase search empty, falling back to API');
+        const queryParts: string[] = [];
+
+        if (isCardIdSearch) {
+          try {
+            const response = await ptcgioFetch(`/cards/${encodeURIComponent(sanitizedQuery)}`);
+            if (response.data) {
+              const card = transformPtcgioCardToCard(response.data);
+              const filterMeta: SearchFilterMeta = {
+                setIds: [response.data.set?.id || ''],
+                eras: [],
+                rarities: card.rarity ? [card.rarity] : [],
+              };
+              sortedSearchCache.set(sortedCacheKey, { cards: [card], filterMeta, timestamp: Date.now() });
+              return { cards: [card], filterMeta };
+            }
+          } catch {}
+          return emptyResult;
+        }
+
+        if (isNumberSearch) {
+          const numParts = sanitizedQuery.replace(/^#/, '').split('/');
+          queryParts.push(`number:${numParts[0]}`);
+          if (numParts.length > 1 && numParts[1]) {
+            queryParts.push(`set.printedTotal:${numParts[1]}`);
+          }
+        } else if (sanitizedQuery) {
+          queryParts.push(`name:"*${sanitizedQuery}*"`);
+        }
+        if (pokemonOnly) queryParts.push('supertype:Pokémon');
+
+        const cardResults = await fetchAllSearchResults(queryParts.join(' '));
+        transformedCards = cardResults
+          .filter((card: any) => !isExcludedSet(card.set?.id || ''))
+          .map(transformPtcgioCardToCard);
+      }
+
+      // ----- Apply client-side filters to main results -----
+      if (sanitizedQuery && !isNumberSearch && !isCardIdSearch) {
+        transformedCards = transformedCards.filter(card => {
+          const name = card.name.toLowerCase();
+          return name.startsWith(lowerQuery) ||
+            name.split(/\s+/).some(word => word.startsWith(lowerQuery));
+        });
+      }
+
+      if (wordBoundaryRegex) {
+        transformedCards = transformedCards.filter(card => wordBoundaryRegex.test(card.name));
+      }
+
+      if (illLower) {
+        transformedCards = transformedCards.filter(card => {
+          if (!card.illustrator) return false;
+          const a = card.illustrator.toLowerCase();
+          return illLower.some(i => a.includes(i));
+        });
+      }
+
+      const allSortedCards = sortCardsBySetDate(transformedCards);
+
+      // ----- Process facet results -----
+      const metaSetIds = new Set<string>();
+      const metaEras = new Set<string>();
+      const metaRarities = new Set<string>();
 
       // ---- Set facet ----
       if (!setFacetRes.error && setFacetRes.data) {

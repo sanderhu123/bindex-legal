@@ -1382,14 +1382,23 @@ export async function searchCardsByName(
       // Re-applies the same name-prefix / exactMatch / illustrator filters
       // that are applied client-side to the main results, so facets reflect
       // actually-displayable cards.
+      // Pre-split the normalized query into words once. Each query word
+      // must match the START of some word in the card's normalized name.
+      // This is what gives "lv x" -> "Empoleon LV.X" while still rejecting
+      // "char" -> "Macho" (no word in "macho" starts with "char").
+      const normalizedQueryWords = normalizedQuery
+        ? normalizedQuery.split(/\s+/).filter(Boolean)
+        : [];
+
       const passesClientFilters = (row: { name?: string | null; artist?: string | null }) => {
         const name = row.name || '';
-        if (normalizedQuery && !isNumberSearch && !isCardIdSearch) {
+        if (normalizedQueryWords.length > 0 && !isNumberSearch && !isCardIdSearch) {
           // Compare against the normalized name so punctuation in the
           // card name (e.g. "Charizard-GX") doesn't block matches.
-          const normName = normalizeForNameSearch(name);
-          const ok = normName.startsWith(normalizedQuery)
-            || normName.split(/\s+/).some((w: string) => w.startsWith(normalizedQuery));
+          const nameWords = normalizeForNameSearch(name).split(/\s+/);
+          const ok = normalizedQueryWords.every(qw =>
+            nameWords.some(nw => nw.startsWith(qw))
+          );
           if (!ok) return false;
         }
         if (wordBoundaryRegex && !wordBoundaryRegex.test(name)) return false;
@@ -1544,13 +1553,16 @@ export async function searchCardsByName(
       }
 
       // ----- Apply client-side filters to main results -----
-      if (sanitizedQuery && !isNumberSearch && !isCardIdSearch) {
+      if (sanitizedQuery && !isNumberSearch && !isCardIdSearch && normalizedQueryWords.length > 0) {
         transformedCards = transformedCards.filter(card => {
-          // Use the normalized name so punctuation in the card name
-          // (e.g. "Charizard-GX", "Zacian LV.X") doesn't block matches.
-          const normName = normalizeForNameSearch(card.name);
-          return normName.startsWith(normalizedQuery) ||
-            normName.split(/\s+/).some(word => word.startsWith(normalizedQuery));
+          // Each word of the (normalized) query must match the start of
+          // some word in the (normalized) card name. So "lv x" matches
+          // "Empoleon LV.X" (lv->lv, x->x), and "char" still rejects
+          // "Macho" (no word in "macho" starts with "char").
+          const nameWords = normalizeForNameSearch(card.name).split(/\s+/);
+          return normalizedQueryWords.every(qw =>
+            nameWords.some(word => word.startsWith(qw))
+          );
         });
       }
 

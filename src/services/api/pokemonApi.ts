@@ -7,6 +7,7 @@ import { getSpecialVariantsForCard, hasSpecialVariants, hasStampEnergyVariants, 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { isStorageFullError, emergencyStorageCleanup } from '../cacheManager';
 import { supabase } from '../supabase/client';
+import { normalizeForNameSearch } from '../../utils/searchNormalize';
 
 export type PokemonSet = MockSet;
 
@@ -1261,7 +1262,13 @@ export async function searchCardsByName(
           return q;
         }
         if (sanitizedQuery) {
-          q = q.ilike('name', `%${sanitizedQuery}%`);
+          // Search the punctuation-stripped column so users can type
+          // "Charizard GX" to find "Charizard-GX", etc. The
+          // name_normalized column is created in
+          // database/migrations/add_normalized_name_search.sql and uses
+          // the SAME rules as normalizeForNameSearch().
+          const normalizedDbQuery = normalizeForNameSearch(sanitizedQuery);
+          q = q.ilike('name_normalized', `%${normalizedDbQuery}%`);
         }
         if (pokemonOnly) {
           q = q.eq('supertype', 'Pokémon');
@@ -1282,6 +1289,9 @@ export async function searchCardsByName(
         ? new Set(filters.rarities.map(r => r.toLowerCase()))
         : null;
       const lowerQuery = sanitizedQuery ? sanitizedQuery.toLowerCase() : '';
+      // Same query, but with punctuation stripped so it matches the
+      // normalized card name (see normalizeForNameSearch).
+      const normalizedQuery = sanitizedQuery ? normalizeForNameSearch(sanitizedQuery) : '';
       const wordBoundaryRegex = (exactMatch && sanitizedQuery)
         ? new RegExp(`\\b${escapeRegExp(lowerQuery)}(?:\\b|\\s|$)`, 'i')
         : null;
@@ -1291,10 +1301,12 @@ export async function searchCardsByName(
       // actually-displayable cards.
       const passesClientFilters = (row: { name?: string | null; artist?: string | null }) => {
         const name = row.name || '';
-        if (lowerQuery && !isNumberSearch && !isCardIdSearch) {
-          const lower = name.toLowerCase();
-          const ok = lower.startsWith(lowerQuery)
-            || lower.split(/\s+/).some((w: string) => w.startsWith(lowerQuery));
+        if (normalizedQuery && !isNumberSearch && !isCardIdSearch) {
+          // Compare against the normalized name so punctuation in the
+          // card name (e.g. "Charizard-GX") doesn't block matches.
+          const normName = normalizeForNameSearch(name);
+          const ok = normName.startsWith(normalizedQuery)
+            || normName.split(/\s+/).some((w: string) => w.startsWith(normalizedQuery));
           if (!ok) return false;
         }
         if (wordBoundaryRegex && !wordBoundaryRegex.test(name)) return false;
@@ -1451,9 +1463,11 @@ export async function searchCardsByName(
       // ----- Apply client-side filters to main results -----
       if (sanitizedQuery && !isNumberSearch && !isCardIdSearch) {
         transformedCards = transformedCards.filter(card => {
-          const name = card.name.toLowerCase();
-          return name.startsWith(lowerQuery) ||
-            name.split(/\s+/).some(word => word.startsWith(lowerQuery));
+          // Use the normalized name so punctuation in the card name
+          // (e.g. "Charizard-GX", "Zacian LV.X") doesn't block matches.
+          const normName = normalizeForNameSearch(card.name);
+          return normName.startsWith(normalizedQuery) ||
+            normName.split(/\s+/).some(word => word.startsWith(normalizedQuery));
         });
       }
 

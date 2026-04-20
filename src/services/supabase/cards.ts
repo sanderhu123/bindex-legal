@@ -1211,6 +1211,12 @@ export async function getBinderCardData(
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('User not authenticated');
 
+  // Note: We intentionally do NOT filter by is_extra here. The unique
+  // constraint on (binder_id, card_id, variant) guarantees at most one
+  // row per card per binder, and saveCardNote also doesn't filter by
+  // is_extra — keeping these symmetric ensures saved notes always load
+  // back, including for extra cards opened from the binder grid (which
+  // doesn't pass isExtraCard through navigation).
   let query = supabase
     .from('binder_cards')
     .select('variant, note')
@@ -1220,12 +1226,6 @@ export async function getBinderCardData(
 
   if (position !== undefined && position !== null) {
     query = query.eq('position', position);
-  }
-
-  if (isExtra) {
-    query = query.eq('is_extra', true);
-  } else {
-    query = query.or('is_extra.is.null,is_extra.eq.false');
   }
 
   const { data, error } = await query;

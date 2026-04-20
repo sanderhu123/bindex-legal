@@ -1259,8 +1259,12 @@ export async function searchCardsByName(
       // ----- Main results query: ALL filters pushed down to the DB.
       // This avoids the previous bug where era filters were applied client-side
       // after a 1000-row LIMIT silently clipped most matching cards.
+      // Only select the columns transformDbRowToCard / set-exclusion need —
+      // not select('*'), which used to pull every column (descriptions,
+      // attacks, prices, etc.) and was a major part of the slow first load.
+      const MAIN_QUERY_COLUMNS = 'id, name, number, set_id, set_name, set_printed_total, rarity, artist, supertype, image_small, image_large';
       let supaQuery = applySearchPredicates(
-        supabase.from('pokemon_cards').select('*')
+        supabase.from('pokemon_cards').select(MAIN_QUERY_COLUMNS)
       );
 
       if (effectiveSetIds && effectiveSetIds.length > 0) {
@@ -1428,49 +1432,65 @@ export async function searchCardsByName(
       const metaEras = new Set<string>();
       const metaRarities = new Set<string>();
 
-      // ---- Set facet ----
-      {
-        const { data, error } = await buildFacetQuery('set_id, name, artist', 'set').limit(5000);
-        if (!error && data) {
-          for (const row of data as any[]) {
-            if (isExcludedSet(row.set_id)) continue;
-            if (!passesClientFilters(row)) continue;
-            if (row.set_id) metaSetIds.add(String(row.set_id).toLowerCase());
-          }
-        }
-      }
+      // Only ask Supabase for the columns each facet actually needs.
+      // `name` is only needed when there is a text/exact-match query;
+      // `artist` is only needed when an illustrator filter is active.
+      // Skipping these columns when unused dramatically reduces the payload
+      // (each facet can otherwise return up to 5000 rows × 3 columns).
+      const facetNeedsName = !!(lowerQuery && !isNumberSearch && !isCardIdSearch) || !!wordBoundaryRegex;
+      const facetNeedsArtist = !!illLower;
+      const buildFacetCols = (primary: string) => {
+        const cols = [primary];
+        if (facetNeedsName) cols.push('name');
+        if (facetNeedsArtist) cols.push('artist');
+        return cols.join(', ');
+      };
 
-      // ---- Rarity facet ----
-      {
-        const { data, error } = await buildFacetQuery('rarity, name, artist', 'rarity').limit(5000);
-        if (!error && data) {
-          for (const row of data as any[]) {
-            if (!passesClientFilters(row)) continue;
-            if (row.rarity?.trim()) metaRarities.add(row.rarity);
-          }
-        }
-      }
-
-      // ---- Era facet ----
-      // If the only active filter is era and there's no text/illustrator
-      // narrowing, fall back to the static list (every era has cards by
-      // construction). Otherwise run a query with set/rarity/illustrator
-      // applied to find which set_ids exist, then map to era names.
+      // Decide whether the era facet can use the static POKEMON_ERAS list
+      // instead of a DB query (true when nothing else narrows it).
       const eraFacetUnbounded = !sanitizedQuery
         && !explicitSetIds
         && !rarityLower
         && !illLower;
+
+      // Run the (up to 3) facet queries in parallel instead of sequentially.
+      // Previously each `await` added a full Supabase round-trip to the
+      // initial picker load (e.g. selecting a set). Promise.all lets them
+      // overlap, cutting the facet phase from ~3× round-trip to ~1×.
+      const [setFacetRes, rarityFacetRes, eraFacetRes] = await Promise.all([
+        buildFacetQuery(buildFacetCols('set_id'), 'set').limit(5000),
+        buildFacetQuery(buildFacetCols('rarity'), 'rarity').limit(5000),
+        eraFacetUnbounded
+          ? Promise.resolve({ data: null as any, error: null as any })
+          : buildFacetQuery(buildFacetCols('set_id'), 'era').limit(5000),
+      ]);
+
+      // ---- Set facet ----
+      if (!setFacetRes.error && setFacetRes.data) {
+        for (const row of setFacetRes.data as any[]) {
+          if (isExcludedSet(row.set_id)) continue;
+          if (!passesClientFilters(row)) continue;
+          if (row.set_id) metaSetIds.add(String(row.set_id).toLowerCase());
+        }
+      }
+
+      // ---- Rarity facet ----
+      if (!rarityFacetRes.error && rarityFacetRes.data) {
+        for (const row of rarityFacetRes.data as any[]) {
+          if (!passesClientFilters(row)) continue;
+          if (row.rarity?.trim()) metaRarities.add(row.rarity);
+        }
+      }
+
+      // ---- Era facet ----
       if (eraFacetUnbounded) {
         for (const e of getEras()) metaEras.add(e.name);
-      } else {
-        const { data, error } = await buildFacetQuery('set_id, name, artist', 'era').limit(5000);
-        if (!error && data) {
-          for (const row of data as any[]) {
-            if (isExcludedSet(row.set_id)) continue;
-            if (!passesClientFilters(row)) continue;
-            const eraName = getEraNameBySetId(String(row.set_id || '').toLowerCase());
-            if (eraName) metaEras.add(eraName);
-          }
+      } else if (!eraFacetRes.error && eraFacetRes.data) {
+        for (const row of eraFacetRes.data as any[]) {
+          if (isExcludedSet(row.set_id)) continue;
+          if (!passesClientFilters(row)) continue;
+          const eraName = getEraNameBySetId(String(row.set_id || '').toLowerCase());
+          if (eraName) metaEras.add(eraName);
         }
       }
 

@@ -1511,15 +1511,13 @@ export async function getRarities(): Promise<string[]> {
   if (cachedRarities) return cachedRarities;
 
   try {
-    const { data, error } = await supabase
-      .from('pokemon_cards')
-      .select('rarity')
-      .not('rarity', 'is', null)
-      .limit(20000);
-    
+    // Use a Postgres function (created in Supabase) that returns DISTINCT
+    // rarities directly, so we get every value regardless of table size.
+    const { data, error } = await supabase.rpc('distinct_rarities');
+
     if (!error && data) {
       const rarities = new Set<string>();
-      for (const row of data) {
+      for (const row of data as Array<{ rarity: string | null }>) {
         if (row.rarity) rarities.add(row.rarity);
       }
       cachedRarities = Array.from(rarities).sort((a, b) => a.localeCompare(b));

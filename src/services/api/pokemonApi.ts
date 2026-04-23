@@ -1294,7 +1294,15 @@ export async function searchCardsByName(
   
   return deduplicateRequest(fullFetchCacheKey, async () => {
     try {
-      const isNumberSearch = sanitizedQuery && /^#?\d/.test(sanitizedQuery);
+      // Number search detection. Matches:
+      //   - Pure-digit / "#123" queries:                "25", "#7", "001/159"
+      //   - Alphanumeric-prefix card numbers:           "tg12", "gg01", "h1", "sve15"
+      //     (1-4 letters immediately followed by a digit covers all known
+      //     Pokémon TCG number prefixes: TG, GG, SV, SVE, SVP, RC, H, FA, ...)
+      const isNumberSearch = !!sanitizedQuery && (
+        /^#?\d/.test(sanitizedQuery) ||
+        /^[a-z]{1,4}\d/i.test(sanitizedQuery)
+      );
       const isCardIdSearch = sanitizedQuery && /^(?=.*\d)[a-z0-9.]+[-][a-z0-9]+$/i.test(sanitizedQuery);
       
       // ----- Resolve filter values for DB pushdown -----
@@ -1338,8 +1346,15 @@ export async function searchCardsByName(
         }
         if (isNumberSearch) {
           const parts = sanitizedQuery.replace(/^#/, '').split('/');
-          q = q.eq('number', parts[0]);
-          if (parts.length > 1 && parts[1]) {
+          // ilike (no wildcards) = case-insensitive equality, so "tg12"
+          // matches a stored "TG12". For purely numeric values it behaves
+          // identically to eq, so existing "25" / "#7" searches are unaffected.
+          q = q.ilike('number', parts[0]);
+          // Only enforce the set's printed-total filter when the user gave
+          // a real number (e.g. "25/172"). Subset totals like "TG30" aren't
+          // stored in the DB, so we just ignore that part instead of
+          // breaking the query with NaN.
+          if (parts.length > 1 && parts[1] && /^\d+$/.test(parts[1])) {
             q = q.eq('set_printed_total', Number(parts[1]));
           }
           return q;
@@ -1538,7 +1553,10 @@ export async function searchCardsByName(
         if (isNumberSearch) {
           const numParts = sanitizedQuery.replace(/^#/, '').split('/');
           queryParts.push(`number:${numParts[0]}`);
-          if (numParts.length > 1 && numParts[1]) {
+          // Same guard as the Supabase path: only enforce printed-total if
+          // the user gave a real number, so "tg12/tg30" still finds TG12s
+          // instead of dying on a non-numeric printedTotal.
+          if (numParts.length > 1 && numParts[1] && /^\d+$/.test(numParts[1])) {
             queryParts.push(`set.printedTotal:${numParts[1]}`);
           }
         } else if (sanitizedQuery) {

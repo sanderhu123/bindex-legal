@@ -740,11 +740,14 @@ async function fetchCardsForOneSet(ptcgioSetId: string): Promise<any[]> {
   let totalCount = Infinity;
   
   while (allCards.length < totalCount) {
+    // NOTE: We intentionally do NOT use orderBy: 'number'.
+    // pokemontcg.io sorts numbers as strings, which breaks pagination
+    // (high-numbered secret rares get silently dropped across pages).
+    // Sorting is done client-side via sortCardsByNumber.
     const response = await ptcgioFetch('/cards', {
       q: `set.id:${ptcgioSetId}`,
       pageSize: '250',
       page: String(page),
-      orderBy: 'number',
     });
     
     totalCount = response.totalCount;

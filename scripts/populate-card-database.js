@@ -17,10 +17,18 @@ const API_BASE = 'https://api.pokemontcg.io/v2';
 const API_KEY = process.env.EXPO_PUBLIC_POKEMON_TCG_API_KEY;
 
 const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL;
-const SUPABASE_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || process.env.EXPO_PUBLIC_SUPABASE_KEY;
+// Prefer service role key (bypasses RLS for write operations).
+// Falls back to anon key for read-only operations or if RLS allows writes.
+const SUPABASE_KEY =
+  process.env.SUPABASE_SERVICE_ROLE_KEY ||
+  process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ||
+  process.env.EXPO_PUBLIC_SUPABASE_KEY;
 
 if (!API_KEY) { console.error('Missing EXPO_PUBLIC_POKEMON_TCG_API_KEY in .env'); process.exit(1); }
 if (!SUPABASE_URL || !SUPABASE_KEY) { console.error('Missing Supabase URL or key in .env'); process.exit(1); }
+if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+  console.warn('WARNING: SUPABASE_SERVICE_ROLE_KEY not set. Writes may fail due to RLS.');
+}
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
@@ -67,11 +75,13 @@ async function fetchCardsForSet(setId) {
   let totalCount = Infinity;
 
   while (allCards.length < totalCount) {
+    // NOTE: We intentionally do NOT use orderBy: 'number'.
+    // pokemontcg.io sorts numbers as strings, which breaks pagination
+    // (high-numbered secret rares get silently dropped across pages).
     const result = await apiFetch('/cards', {
       q: `set.id:${setId}`,
       pageSize: '250',
       page: String(page),
-      orderBy: 'number',
     });
 
     totalCount = result.totalCount;
@@ -121,21 +131,30 @@ async function insertSets(sets) {
 }
 
 async function insertCards(cards) {
-  const rows = cards.map(c => ({
-    id: c.id,
-    name: c.name,
-    number: c.number,
-    set_id: c.set.id,
-    set_name: c.set.name,
-    rarity: c.rarity || null,
-    artist: c.artist || null,
-    supertype: c.supertype || 'Unknown',
-    image_small: c.images?.small || null,
-    image_large: c.images?.large || null,
-    set_printed_total: c.set?.printedTotal || null,
-    has_reverse_holo: cardHasReverseHolo(c),
-    pokedex_number: c.nationalPokedexNumbers?.[0] || null,
-  }));
+  const rowsById = new Map();
+  for (const c of cards) {
+    if (!c.id) continue;
+    rowsById.set(c.id, {
+      id: c.id,
+      name: c.name,
+      number: c.number,
+      set_id: c.set.id,
+      set_name: c.set.name,
+      rarity: c.rarity || null,
+      artist: c.artist || null,
+      supertype: c.supertype || 'Unknown',
+      image_small: c.images?.small || null,
+      image_large: c.images?.large || null,
+      set_printed_total: c.set?.printedTotal || null,
+      has_reverse_holo: cardHasReverseHolo(c),
+      pokedex_number: c.nationalPokedexNumbers?.[0] || null,
+    });
+  }
+  const rows = Array.from(rowsById.values());
+
+  if (rows.length < cards.length) {
+    console.log(`    (deduped ${cards.length - rows.length} duplicate id(s))`);
+  }
 
   // Insert in batches of 100
   for (let i = 0; i < rows.length; i += 100) {

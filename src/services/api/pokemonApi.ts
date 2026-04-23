@@ -643,15 +643,19 @@ function convertCardIdToPtcgio(cardId: string): string {
   // Convert set ID
   let ptcgioSetId = getPtcgioSetId(setIdPart);
   
-  // pokemontcg.io uses separate sub-set IDs for gallery/vault cards
+  // pokemontcg.io uses separate sub-set IDs for gallery/vault cards.
+  // The endsWith() guards make these conversions idempotent so an ID that's
+  // already in pokemontcg.io format (e.g. "swsh10tg-TG12") doesn't get a
+  // second suffix appended ("swsh10tgtg-TG12" → 404).
   if (/^GG\d/i.test(numberPart)) {
-    ptcgioSetId = ptcgioSetId + 'gg';
+    if (!ptcgioSetId.endsWith('gg')) ptcgioSetId += 'gg';
   } else if (/^TG\d/i.test(numberPart)) {
-    ptcgioSetId = ptcgioSetId + 'tg';
+    if (!ptcgioSetId.endsWith('tg')) ptcgioSetId += 'tg';
   } else if (/^SV\d/i.test(numberPart)) {
-    // Shiny Vault cards: swsh45 → swsh45sv, sm115 → sma
+    // Shiny Vault cards: swsh45 → swsh45sv, sm115 → sma.
+    // Only remap if the current ID is a known parent (not already a subset).
     const svSubSet = GALLERY_SUB_SETS[ptcgioSetId];
-    if (svSubSet) {
+    if (svSubSet && !ptcgioSetId.endsWith('sv') && ptcgioSetId !== 'sma') {
       ptcgioSetId = svSubSet;
     }
   }
@@ -779,7 +783,7 @@ export async function getCardsBySet(setIdentifier: string): Promise<Card[]> {
   console.log('[API] getCardsBySet() called:', { setIdentifier });
   const overallStartTime = performance.now();
   
-  const CARD_CACHE_VERSION = 4;
+  const CARD_CACHE_VERSION = 5;
   const cacheKey = `cards-v${CARD_CACHE_VERSION}-${setIdentifier}`;
   
   const cachedData = getCachedData<Card[]>(cacheKey);

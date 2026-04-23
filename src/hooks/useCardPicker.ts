@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { searchCardsByName, type CardSearchOptions, type SearchFilterMeta } from '../services/api/pokemonApi';
+import { searchCardsByName, KNOWN_NUMBER_PREFIXES, type CardSearchOptions, type SearchFilterMeta } from '../services/api/pokemonApi';
 import type { Card, CardSearchFilters } from '../types';
 import { getUserFriendlyErrorMessage, sanitizeSearchQuery } from '../utils/errorUtils';
 
@@ -137,7 +137,11 @@ export function useCardPicker(options?: UseCardPickerOptions): UseCardPickerRetu
       return;
     }
 
-    if (sanitizedQuery && sanitizedQuery.length < 3 && !hasActiveFilters) {
+    // Allow short queries (1-2 chars) when they exactly match a known
+    // card-number prefix like "tg", "gg", "h", so users can type just "tg"
+    // and immediately see all Trainer Gallery cards.
+    const isKnownPrefix = sanitizedQuery && KNOWN_NUMBER_PREFIXES.has(sanitizedQuery.toLowerCase());
+    if (sanitizedQuery && sanitizedQuery.length < 3 && !isKnownPrefix && !hasActiveFilters) {
       return;
     }
 

@@ -1191,6 +1191,33 @@ function rewriteShortCardIdQuery(query: string): string {
 const SEARCH_CACHE_DURATION = 2 * 60 * 1000;
 const sortedSearchCache = new Map<string, { cards: Card[]; filterMeta: SearchFilterMeta; timestamp: number }>();
 
+/**
+ * Card-number prefixes that, when typed alone (no digits), are treated as
+ * a "find all cards whose number starts with this prefix" search.
+ *
+ * Only listed prefixes trigger this path so we never collide with short
+ * Pokémon names (Mew, Abra, Onix, Aron, Axew, etc.). All values must be
+ * lowercase. Used by both pokemonApi.ts (for the Supabase + PTCG.io paths)
+ * and useCardPicker.ts (to bypass the 3-char minimum query length).
+ */
+export const KNOWN_NUMBER_PREFIXES: ReadonlySet<string> = new Set([
+  // Subset prefixes (small, distinctive subsets within larger sets)
+  'tg',   // Trainer Gallery
+  'gg',   // Galarian Gallery
+  'sv',   // Shiny Vault
+  'rc',   // Radiant Collection
+  'h',    // Holo subsets (e-card era)
+  'fa',   // Full Art (rare)
+  // Promo set prefixes (also act as set IDs when combined with digits)
+  'swsh', // Sword & Shield Promo
+  'sm',   // Sun & Moon Promo
+  'xy',   // XY Promo
+  'bw',   // Black & White Promo
+  'dp',   // Diamond & Pearl Promo
+  'hgss', // HeartGold SoulSilver Promo
+  'hs',   // HGSS (older naming)
+]);
+
 function isSearchCacheValid(timestamp: number): boolean {
   return Date.now() - timestamp < SEARCH_CACHE_DURATION;
 }
@@ -1304,6 +1331,15 @@ export async function searchCardsByName(
         /^[a-z]{1,4}\d/i.test(sanitizedQuery)
       );
       const isCardIdSearch = sanitizedQuery && /^(?=.*\d)[a-z0-9.]+[-][a-z0-9]+$/i.test(sanitizedQuery);
+
+      // "Number prefix" search: the user types a known card-number prefix
+      // alone (no digits), e.g. "tg" -> all TG?? cards, "gg" -> all GG??
+      // cards. Only triggered for an exact match against the whitelist below
+      // so we never collide with name searches like "abra", "char", "mew".
+      const isNumberPrefixSearch = !!sanitizedQuery
+        && !isNumberSearch
+        && !isCardIdSearch
+        && KNOWN_NUMBER_PREFIXES.has(sanitizedQuery.toLowerCase());
       
       // ----- Resolve filter values for DB pushdown -----
       // Era filter is resolved to a list of set IDs (both app + pokemontcg.io
@@ -1359,6 +1395,11 @@ export async function searchCardsByName(
           }
           return q;
         }
+        if (isNumberPrefixSearch) {
+          // ilike with a trailing % = case-insensitive prefix match.
+          // "tg" -> matches numbers TG01, TG02, ..., TG30 across all sets.
+          return q.ilike('number', `${sanitizedQuery}%`);
+        }
         if (sanitizedQuery) {
           // Search the punctuation-stripped column so users can type
           // "Charizard GX" to find "Charizard-GX", etc. The
@@ -1407,7 +1448,7 @@ export async function searchCardsByName(
 
       const passesClientFilters = (row: { name?: string | null; artist?: string | null }) => {
         const name = row.name || '';
-        if (normalizedQueryWords.length > 0 && !isNumberSearch && !isCardIdSearch) {
+        if (normalizedQueryWords.length > 0 && !isNumberSearch && !isCardIdSearch && !isNumberPrefixSearch) {
           // Compare against the normalized name so punctuation in the
           // card name (e.g. "Charizard-GX") doesn't block matches.
           const nameWords = normalizeForNameSearch(name).split(/\s+/);
@@ -1456,7 +1497,7 @@ export async function searchCardsByName(
       // only matters when an illustrator filter is active. Skipping them
       // when unused dramatically reduces payload (each facet can otherwise
       // return up to 5000 rows × 3 columns).
-      const facetNeedsName = !!(lowerQuery && !isNumberSearch && !isCardIdSearch) || !!wordBoundaryRegex;
+      const facetNeedsName = !!(lowerQuery && !isNumberSearch && !isCardIdSearch && !isNumberPrefixSearch) || !!wordBoundaryRegex;
       const facetNeedsArtist = !!illLower;
       const buildFacetCols = (primary: string) => {
         const cols = [primary];
@@ -1559,6 +1600,9 @@ export async function searchCardsByName(
           if (numParts.length > 1 && numParts[1] && /^\d+$/.test(numParts[1])) {
             queryParts.push(`set.printedTotal:${numParts[1]}`);
           }
+        } else if (isNumberPrefixSearch) {
+          // Lucene-style wildcard prefix match on the number field.
+          queryParts.push(`number:${sanitizedQuery}*`);
         } else if (sanitizedQuery) {
           queryParts.push(`name:"*${sanitizedQuery}*"`);
         }
@@ -1571,7 +1615,7 @@ export async function searchCardsByName(
       }
 
       // ----- Apply client-side filters to main results -----
-      if (sanitizedQuery && !isNumberSearch && !isCardIdSearch && normalizedQueryWords.length > 0) {
+      if (sanitizedQuery && !isNumberSearch && !isCardIdSearch && !isNumberPrefixSearch && normalizedQueryWords.length > 0) {
         transformedCards = transformedCards.filter(card => {
           // Each word of the (normalized) query must match the start of
           // some word in the (normalized) card name. So "lv x" matches

@@ -45,6 +45,7 @@ import { JumpToPageModal } from '../../components/Binder/JumpToPageModal';
 import PageHeader from '../../components/Binder/PageHeader';
 import { useCardSearch } from '../../hooks/useCardSearch';
 import { normalizeForNameSearch } from '../../utils/searchNormalize';
+import { formatCardNumber } from '../../utils/formatCardNumber';
 import { useCardFilter, type OwnershipFilter } from '../../hooks/useCardFilter';
 import SearchBar from '../../components/Search/SearchBar';
 import LoadingScreen from '../../components/Loading/LoadingScreen';
@@ -2720,20 +2721,12 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
     let cardNumberText: string;
     if (isRegion && hasSelectedCard) {
       const num = enlargedCard.selectedCardNumber || enlargedCard.number;
-      cardNumberText = num.includes('/')
-        ? num
-        : enlargedCard.setTotal
-          ? `${num}/${enlargedCard.setTotal}`
-          : num;
+      cardNumberText = formatCardNumber(num, enlargedCard.setTotal);
     } else if (isRegion && !hasSelectedCard) {
       const dexNum = enlargedCard.pokedexNumber;
       cardNumberText = dexNum ? `#${String(dexNum).padStart(3, '0')}` : enlargedCard.number;
     } else {
-      cardNumberText = enlargedCard.number.includes('/')
-        ? enlargedCard.number
-        : enlargedCard.setTotal
-          ? `${enlargedCard.number}/${enlargedCard.setTotal}`
-          : enlargedCard.number;
+      cardNumberText = formatCardNumber(enlargedCard.number, enlargedCard.setTotal);
     }
 
     const displaySetName = enlargedCard.selectedCardSet || enlargedCard.set || '';

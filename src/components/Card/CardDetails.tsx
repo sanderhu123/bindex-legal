@@ -5,6 +5,7 @@ import { fonts, spacing, typography, borderRadius, type ThemeColors } from '../.
 import { useTheme } from '../../context/ThemeContext';
 import { getSetSymbolByName } from '../../data/pokemonEras';
 import type { Card } from '../../types';
+import { formatCardNumber } from '../../utils/formatCardNumber';
 
 interface CardDetailsProps {
   card: Card;
@@ -68,7 +69,7 @@ export default function CardDetails({
             </View>
           )}
         </View>
-        <Text style={styles.compactNumber}>{card.setTotal && !card.pokedexNumber ? `${card.number}/${card.setTotal}` : card.number}</Text>
+        <Text style={styles.compactNumber}>{card.setTotal && !card.pokedexNumber ? formatCardNumber(card.number, card.setTotal) : card.number}</Text>
         {showSet && <Text style={styles.compactSet}>{card.set}</Text>}
       </View>
     );
@@ -95,7 +96,7 @@ export default function CardDetails({
       <View style={styles.fullNumberRow}>
         <View style={styles.fullNumberPill}>
           <Text style={styles.fullNumber}>
-            {card.setTotal ? `${card.number}/${card.setTotal}` : card.number}
+            {formatCardNumber(card.number, card.setTotal)}
           </Text>
         </View>
         {binderPosition && (

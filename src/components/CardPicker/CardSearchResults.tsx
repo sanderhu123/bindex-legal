@@ -16,6 +16,7 @@ import CardImage from '../Card/CardImage';
 import { useTheme } from '../../context/ThemeContext';
 import { spacing, typography, borderRadius, fonts, type ThemeColors } from '../../constants/theme';
 import { canRetryError, classifyError, type AppErrorType } from '../../utils/errorUtils';
+import { formatCardNumber } from '../../utils/formatCardNumber';
 import { getSetSymbolByName } from '../../data/pokemonEras';
 
 /**
@@ -73,7 +74,7 @@ const CardResultItem = memo(function CardResultItem({ card, onSelect, isVisible 
         </Text>
         <View style={styles.setRow}>
           <Text style={styles.setLineNumber} numberOfLines={1}>
-            {card.number}{card.setTotal ? `/${card.setTotal}` : ''}
+            {formatCardNumber(card.number, card.setTotal)}
             {' - '}
           </Text>
           {setSymbolUri ? (

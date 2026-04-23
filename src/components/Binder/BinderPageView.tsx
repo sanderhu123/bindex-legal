@@ -7,6 +7,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { spacing, typography, fonts, borderRadius, type ThemeColors } from '../../constants/theme';
 import type { Card } from '../../types';
 import type { MainStackParamList } from '../../navigation/AppNavigator';
+import { formatCardNumber } from '../../utils/formatCardNumber';
 
 const LOGO_OWNED = require('../../../assets/logo-icon-teal.png');
 const LOGO_UNOWNED = require('../../../assets/logo-icon-white.png');
@@ -259,7 +260,7 @@ function BinderPageViewComponent({
             </Text>
             <Text style={styles.cardNumber} numberOfLines={1}>
               {card.setTotal && !card.pokedexNumber
-                ? `${card.number}/${card.setTotal}`
+                ? formatCardNumber(card.number, card.setTotal)
                 : card.number}
             </Text>
           </>

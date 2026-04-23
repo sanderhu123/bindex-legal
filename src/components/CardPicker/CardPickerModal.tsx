@@ -26,6 +26,7 @@ import { CardPickerFilters } from './CardPickerFilters';
 import { useTheme } from '../../context/ThemeContext';
 import { spacing, typography, borderRadius, shadows, fonts, screenPadding, type ThemeColors } from '../../constants/theme';
 import { createCustomCard, CUSTOM_CARD_COLORS } from '../../services/supabase/customCards';
+import { formatCardNumber } from '../../utils/formatCardNumber';
 
 /** Modal height as percentage of screen (85%) */
 const MODAL_HEIGHT_RATIO = 0.85;
@@ -439,11 +440,7 @@ export function CardPickerModal({
 
       {/* Enlarged card preview overlay (long-press) — matches binder view layout */}
       {enlargedCard && (() => {
-        const cardNumberText = enlargedCard.number.includes('/')
-          ? enlargedCard.number
-          : enlargedCard.setTotal
-            ? `${enlargedCard.number}/${enlargedCard.setTotal}`
-            : enlargedCard.number;
+        const cardNumberText = formatCardNumber(enlargedCard.number, enlargedCard.setTotal);
         const displaySetName = enlargedCard.set || '';
         const previewMaxWidth = Math.min(screenWidth - (screenPadding * 2), 640);
         const previewMaxHeight = Math.min(screenHeight * 0.78, screenHeight - 220);

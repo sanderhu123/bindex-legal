@@ -286,14 +286,49 @@ export function getCacheStats() {
 // ==================== CARD TRANSFORM ====================
 
 /**
+ * Lazy lookup of "set ID → display name" built from the hard-coded eras data.
+ * We populate it on first access so module-load order doesn't matter.
+ */
+let _setIdToNameMap: Map<string, string> | null = null;
+function getSetIdToNameMap(): Map<string, string> {
+  if (_setIdToNameMap) return _setIdToNameMap;
+  _setIdToNameMap = new Map<string, string>();
+  for (const set of getAllSets()) {
+    _setIdToNameMap.set(set.id, set.name);
+  }
+  return _setIdToNameMap;
+}
+
+/**
+ * Resolve the display set name for a card.
+ *
+ * Subset cards (Trainer Gallery, Galarian Gallery, Shiny Vault, Classic
+ * Collection) live in their own pokemontcg.io set IDs (e.g. "swsh10tg") with
+ * names like "Astral Radiance Trainer Gallery". For display purposes we want
+ * to roll those up under the parent set ("Astral Radiance") so the user sees
+ * a single set name + the parent's set icon.
+ *
+ * Falls back to the original `rawSetName` when the set isn't a known subset
+ * or the parent name can't be resolved.
+ */
+function resolveDisplaySetName(setId: string | undefined | null, rawSetName: string): string {
+  if (!setId) return rawSetName;
+  const parentId = SUBSET_TO_PARENT_SET_ID[setId];
+  if (!parentId) return rawSetName;
+  const parentName = getSetIdToNameMap().get(parentId);
+  return parentName || rawSetName;
+}
+
+/**
  * Transform a pokemontcg.io card to our internal Card type.
  */
 function transformPtcgioCardToCard(card: any): Card {
+  const rawSetName = card.set?.name || '';
   return {
     id: card.id || '',
     name: card.name || '',
     number: card.number || '',
-    set: card.set?.name || '',
+    set: resolveDisplaySetName(card.set?.id, rawSetName),
     rarity: card.rarity || '',
     illustrator: card.artist || '',
     imageUrl: card.images?.small || '',
@@ -325,7 +360,7 @@ function transformDbRowToCard(row: any): Card {
     id: row.id || '',
     name: row.name || '',
     number: row.number || '',
-    set: row.set_name || '',
+    set: resolveDisplaySetName(row.set_id, row.set_name || ''),
     rarity: row.rarity || '',
     illustrator: row.artist || '',
     imageUrl: row.image_small || '',
@@ -681,6 +716,19 @@ const GALLERY_SUB_SETS: Record<string, string> = {
   'sm115': 'sma',           // Hidden Fates → Shiny Vault
   'cel25': 'cel25c',        // Celebrations → Classic Collection
 };
+
+/**
+ * Reverse of GALLERY_SUB_SETS: subset set ID → parent set ID.
+ * Used so we can show subset cards (Trainer Gallery, Galarian Gallery, Shiny
+ * Vault, Classic Collection) under their parent set name and icon, instead of
+ * as a separate "Astral Radiance Trainer Gallery" set.
+ *
+ * NOTE: Keep in sync with GALLERY_SUB_SETS above and PARENT_SET_MAP in
+ * scripts/populate-card-database.js.
+ */
+const SUBSET_TO_PARENT_SET_ID: Record<string, string> = Object.fromEntries(
+  Object.entries(GALLERY_SUB_SETS).map(([parent, child]) => [child, parent])
+);
 
 async function fetchCardsForOneSet(ptcgioSetId: string): Promise<any[]> {
   const allCards: any[] = [];

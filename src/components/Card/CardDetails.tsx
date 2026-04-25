@@ -69,7 +69,7 @@ export default function CardDetails({
             </View>
           )}
         </View>
-        <Text style={styles.compactNumber}>{card.setTotal && !card.pokedexNumber ? formatCardNumber(card.number, card.setTotal) : card.number}</Text>
+        <Text style={styles.compactNumber}>{card.setTotal && !card.pokedexNumber ? formatCardNumber(card.number, card.setTotal, card.id) : card.number}</Text>
         {showSet && <Text style={styles.compactSet}>{card.set}</Text>}
       </View>
     );
@@ -96,7 +96,7 @@ export default function CardDetails({
       <View style={styles.fullNumberRow}>
         <View style={styles.fullNumberPill}>
           <Text style={styles.fullNumber}>
-            {formatCardNumber(card.number, card.setTotal)}
+            {formatCardNumber(card.number, card.setTotal, card.id)}
           </Text>
         </View>
         {binderPosition && (

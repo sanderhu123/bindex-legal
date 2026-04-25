@@ -440,7 +440,7 @@ export function CardPickerModal({
 
       {/* Enlarged card preview overlay (long-press) — matches binder view layout */}
       {enlargedCard && (() => {
-        const cardNumberText = formatCardNumber(enlargedCard.number, enlargedCard.setTotal);
+        const cardNumberText = formatCardNumber(enlargedCard.number, enlargedCard.setTotal, enlargedCard.id);
         const displaySetName = enlargedCard.set || '';
         const previewMaxWidth = Math.min(screenWidth - (screenPadding * 2), 640);
         const previewMaxHeight = Math.min(screenHeight * 0.78, screenHeight - 220);

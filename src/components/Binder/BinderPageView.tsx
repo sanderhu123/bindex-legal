@@ -260,7 +260,7 @@ function BinderPageViewComponent({
             </Text>
             <Text style={styles.cardNumber} numberOfLines={1}>
               {card.setTotal && !card.pokedexNumber
-                ? formatCardNumber(card.number, card.setTotal)
+                ? formatCardNumber(card.number, card.setTotal, card.id)
                 : card.number}
             </Text>
           </>

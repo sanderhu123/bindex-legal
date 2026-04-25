@@ -2721,12 +2721,12 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
     let cardNumberText: string;
     if (isRegion && hasSelectedCard) {
       const num = enlargedCard.selectedCardNumber || enlargedCard.number;
-      cardNumberText = formatCardNumber(num, enlargedCard.setTotal);
+      cardNumberText = formatCardNumber(num, enlargedCard.setTotal, enlargedCard.selectedCardId);
     } else if (isRegion && !hasSelectedCard) {
       const dexNum = enlargedCard.pokedexNumber;
       cardNumberText = dexNum ? `#${String(dexNum).padStart(3, '0')}` : enlargedCard.number;
     } else {
-      cardNumberText = formatCardNumber(enlargedCard.number, enlargedCard.setTotal);
+      cardNumberText = formatCardNumber(enlargedCard.number, enlargedCard.setTotal, enlargedCard.id);
     }
 
     const displaySetName = enlargedCard.selectedCardSet || enlargedCard.set || '';

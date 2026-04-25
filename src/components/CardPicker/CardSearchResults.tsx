@@ -74,7 +74,7 @@ const CardResultItem = memo(function CardResultItem({ card, onSelect, isVisible 
         </Text>
         <View style={styles.setRow}>
           <Text style={styles.setLineNumber} numberOfLines={1}>
-            {formatCardNumber(card.number, card.setTotal)}
+            {formatCardNumber(card.number, card.setTotal, card.id)}
             {' - '}
           </Text>
           {setSymbolUri ? (

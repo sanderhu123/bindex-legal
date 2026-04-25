@@ -13,6 +13,10 @@ interface PageNavigatorProps {
   forceDarkMode?: boolean;
   /** Optional subtitle text (e.g. "Cards 1 - 9 of 234") */
   subtitle?: string;
+  /** When true, show a "swap pages" button on the right side */
+  showSwapButton?: boolean;
+  /** Called when the swap button is pressed */
+  onSwapPages?: () => void;
 }
 
 export default function PageNavigator({
@@ -23,6 +27,8 @@ export default function PageNavigator({
   onJumpToPage,
   forceDarkMode = false,
   subtitle,
+  showSwapButton = false,
+  onSwapPages,
 }: PageNavigatorProps) {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors, forceDarkMode), [colors, forceDarkMode]);
@@ -33,53 +39,71 @@ export default function PageNavigator({
   return (
     <View style={styles.container}>
       <View style={styles.row}>
-        <TouchableOpacity
-          style={[styles.arrowButton, isPreviousDisabled && styles.arrowButtonDisabled]}
-          onPress={onPreviousPage}
-          disabled={isPreviousDisabled}
-          activeOpacity={0.6}
-          accessibilityLabel="Previous page"
-          accessibilityRole="button"
-          accessibilityState={{ disabled: isPreviousDisabled }}
-        >
-          <Ionicons
-            name="chevron-back"
-            size={22}
-            color={isPreviousDisabled
-              ? (forceDarkMode ? '#575757' : colors.textTertiary)
-              : (forceDarkMode ? '#FFFFFF' : colors.primary)}
-          />
-        </TouchableOpacity>
+        <View style={styles.pagination}>
+          <TouchableOpacity
+            style={[styles.arrowButton, isPreviousDisabled && styles.arrowButtonDisabled]}
+            onPress={onPreviousPage}
+            disabled={isPreviousDisabled}
+            activeOpacity={0.6}
+            accessibilityLabel="Previous page"
+            accessibilityRole="button"
+            accessibilityState={{ disabled: isPreviousDisabled }}
+          >
+            <Ionicons
+              name="chevron-back"
+              size={22}
+              color={isPreviousDisabled
+                ? (forceDarkMode ? '#575757' : colors.textTertiary)
+                : (forceDarkMode ? '#FFFFFF' : colors.primary)}
+            />
+          </TouchableOpacity>
 
-        <TouchableOpacity
-          style={styles.pageInfo}
-          onPress={onJumpToPage}
-          activeOpacity={0.6}
-          accessibilityLabel={`Page ${currentPage} of ${totalPages}. Tap to jump to a page.`}
-          accessibilityRole="button"
-        >
-          <Text style={styles.pageText}>
-            {currentPage} / {totalPages}
-          </Text>
-        </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.pageInfo}
+            onPress={onJumpToPage}
+            activeOpacity={0.6}
+            accessibilityLabel={`Page ${currentPage} of ${totalPages}. Tap to jump to a page.`}
+            accessibilityRole="button"
+          >
+            <Text style={styles.pageText}>
+              {currentPage} / {totalPages}
+            </Text>
+          </TouchableOpacity>
 
-        <TouchableOpacity
-          style={[styles.arrowButton, isNextDisabled && styles.arrowButtonDisabled]}
-          onPress={onNextPage}
-          disabled={isNextDisabled}
-          activeOpacity={0.6}
-          accessibilityLabel="Next page"
-          accessibilityRole="button"
-          accessibilityState={{ disabled: isNextDisabled }}
-        >
-          <Ionicons
-            name="chevron-forward"
-            size={22}
-            color={isNextDisabled
-              ? (forceDarkMode ? '#575757' : colors.textTertiary)
-              : (forceDarkMode ? '#FFFFFF' : colors.primary)}
-          />
-        </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.arrowButton, isNextDisabled && styles.arrowButtonDisabled]}
+            onPress={onNextPage}
+            disabled={isNextDisabled}
+            activeOpacity={0.6}
+            accessibilityLabel="Next page"
+            accessibilityRole="button"
+            accessibilityState={{ disabled: isNextDisabled }}
+          >
+            <Ionicons
+              name="chevron-forward"
+              size={22}
+              color={isNextDisabled
+                ? (forceDarkMode ? '#575757' : colors.textTertiary)
+                : (forceDarkMode ? '#FFFFFF' : colors.primary)}
+            />
+          </TouchableOpacity>
+        </View>
+
+        {showSwapButton && (
+          <TouchableOpacity
+            style={[styles.arrowButton, styles.swapButton]}
+            onPress={onSwapPages}
+            activeOpacity={0.6}
+            accessibilityLabel="Swap pages"
+            accessibilityRole="button"
+          >
+            <Ionicons
+              name="swap-horizontal"
+              size={22}
+              color={forceDarkMode ? '#FFFFFF' : colors.primary}
+            />
+          </TouchableOpacity>
+        )}
       </View>
       {subtitle ? (
         <Text style={styles.subtitleText}>{subtitle}</Text>
@@ -115,8 +139,14 @@ const createStyles = (colors: ThemeColors, forceDarkMode: boolean) => {
     row: {
       flexDirection: 'row',
       alignItems: 'center',
-      justifyContent: 'space-between',
+      justifyContent: 'center',
       width: '100%',
+      position: 'relative',
+    },
+    pagination: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
     },
     arrowButton: {
       width: 40,
@@ -130,6 +160,11 @@ const createStyles = (colors: ThemeColors, forceDarkMode: boolean) => {
     },
     arrowButtonDisabled: {
       opacity: 0.35,
+    },
+    swapButton: {
+      position: 'absolute',
+      right: 0,
+      top: 0,
     },
     pageInfo: {
       paddingHorizontal: spacing.lg,

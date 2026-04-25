@@ -25,6 +25,7 @@ import type { DragStartData } from '../../components/BinderEdit/CardSlot';
 import EnlargedCardOverlay, { type EnlargedCardData } from '../../components/Card/EnlargedCardOverlay';
 import PageNavigator from '../../components/Binder/PageNavigator';
 import { JumpToPageModal } from '../../components/Binder/JumpToPageModal';
+import { SwapPagesModal } from '../../components/Binder/SwapPagesModal';
 import { CardPickerModal } from '../../components/CardPicker';
 import LoadingScreen from '../../components/Loading/LoadingScreen';
 import ErrorScreen from '../../components/Error/ErrorScreen';
@@ -186,6 +187,7 @@ export default function BinderEditScreen() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(MIN_PAGES);
   const [showJumpModal, setShowJumpModal] = useState(false);
+  const [showSwapModal, setShowSwapModal] = useState(false);
 
   // Selection state (tap-to-select)
   const [selectedCard, setSelectedCard] = useState<SelectedCard | null>(null);
@@ -739,6 +741,45 @@ export default function BinderEditScreen() {
   const saveUndoState = useCallback(() => {
     setUndoStack(prev => [...prev, [...cardPositions]]);
   }, [cardPositions]);
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // SWAP PAGES (custom + master-set binders only)
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  /**
+   * Swap all cards on `pageA` with all cards on `pageB`.
+   * Pages are 1-based. Each page contains `cardsPerPage` slots.
+   */
+  const handleSwapPages = useCallback((pageA: number, pageB: number) => {
+    if (pageA === pageB) return;
+    if (pageA < 1 || pageB < 1 || pageA > totalPages || pageB > totalPages) return;
+
+    // Cancel any selection so we don't end up pointing at a moved card
+    setSelectedCard(null);
+
+    saveUndoState();
+
+    setCardPositions(prev => {
+      const next = prev.map(p => ({ ...p }));
+      const aStart = (pageA - 1) * cardsPerPage;
+      const bStart = (pageB - 1) * cardsPerPage;
+
+      for (let i = 0; i < cardsPerPage; i++) {
+        const aIdx = aStart + i;
+        const bIdx = bStart + i;
+        if (aIdx >= next.length || bIdx >= next.length) continue;
+
+        const fromA = next[aIdx];
+        const fromB = next[bIdx];
+        next[aIdx] = { ...fromB, slotIndex: aIdx };
+        next[bIdx] = { ...fromA, slotIndex: bIdx };
+      }
+
+      return next;
+    });
+
+    setHasChanges(true);
+  }, [cardsPerPage, totalPages, saveUndoState]);
 
   // ─────────────────────────────────────────────────────────────────────────────
   // SAVE / EXIT
@@ -2631,6 +2672,10 @@ export default function BinderEditScreen() {
           onPreviousPage={() => setCurrentPage(p => Math.max(1, p - 1))}
           onNextPage={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
           onJumpToPage={() => setShowJumpModal(true)}
+          showSwapButton={
+            binder?.collectionMode === 'custom' || binder?.collectionMode === 'master-set'
+          }
+          onSwapPages={() => setShowSwapModal(true)}
         />
 
         {/* Card Placeholder Tray */}
@@ -2694,6 +2739,15 @@ export default function BinderEditScreen() {
         totalPages={totalPages}
         onClose={() => setShowJumpModal(false)}
         onJump={(page) => setCurrentPage(page)}
+      />
+
+      {/* Swap Pages Modal */}
+      <SwapPagesModal
+        visible={showSwapModal}
+        currentPage={currentPage}
+        totalPages={totalPages}
+        onClose={() => setShowSwapModal(false)}
+        onSwap={handleSwapPages}
       />
 
       {/* Card Picker Modal */}

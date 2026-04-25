@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   TextInput,
   Keyboard,
+  FlatList,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { CardSearchFilters } from '../../types';
@@ -14,7 +15,7 @@ import { POKEMON_ERAS } from '../../data/pokemonEras';
 import { SearchableListPicker, type ListPickerItem } from './SearchableListPicker';
 import { useTheme } from '../../context/ThemeContext';
 import { spacing, typography, borderRadius, fonts, type ThemeColors } from '../../constants/theme';
-import { getRarities, type SearchFilterMeta } from '../../services/api/pokemonApi';
+import { getRarities, getIllustrators, type SearchFilterMeta } from '../../services/api/pokemonApi';
 
 /**
  * Props for CardPickerFilters
@@ -36,7 +37,9 @@ export interface CardPickerFiltersProps {
  *
  * Supports multi-select for all four filters:
  * - Era, Set, Rarity: opens a searchable multi-select list picker
- * - Illustrator: inline text input, each "Apply" adds a name to the list
+ * - Illustrator: inline text input with an autocomplete dropdown of known
+ *   artists. Tap a suggestion to add, or press "Add" to use the typed text
+ *   as a substring filter.
  * - Active chips show the count or single value, with an X to clear
  * - Era and Set are linked: selecting eras narrows the set list
  */
@@ -56,6 +59,8 @@ export function CardPickerFilters({
   const [illustratorText, setIllustratorText] = useState('');
   // Rarities fetched from API (global fallback when no search is active)
   const [apiRarities, setApiRarities] = useState<string[]>([]);
+  // Full list of known illustrators from the DB (used by the autocomplete dropdown).
+  const [allIllustrators, setAllIllustrators] = useState<string[]>([]);
 
   // Whether the search produced metadata we can use to narrow filter options
   const hasSearchMeta = !!(filterMeta && (filterMeta.setIds.length > 0 || filterMeta.eras.length > 0));
@@ -64,6 +69,40 @@ export function CardPickerFilters({
   useEffect(() => {
     getRarities().then(setApiRarities);
   }, []);
+
+  // Fetch full illustrator list once for the autocomplete dropdown.
+  useEffect(() => {
+    getIllustrators().then(setAllIllustrators);
+  }, []);
+
+  // Maximum number of suggestions to show in the autocomplete dropdown.
+  const MAX_ILLUSTRATOR_SUGGESTIONS = 8;
+
+  // Compute autocomplete suggestions based on the typed text.
+  // Skip artists already selected. Show prefix matches first, then
+  // substring matches.
+  const illustratorSuggestions = useMemo(() => {
+    const trimmed = illustratorText.trim();
+    if (trimmed.length === 0) return [];
+
+    const q = trimmed.toLowerCase();
+    const selectedLower = new Set((filters.illustrators || []).map(i => i.toLowerCase()));
+    const prefixMatches: string[] = [];
+    const substringMatches: string[] = [];
+
+    for (const name of allIllustrators) {
+      const lower = name.toLowerCase();
+      if (selectedLower.has(lower)) continue;
+      if (lower.startsWith(q)) {
+        prefixMatches.push(name);
+      } else if (lower.includes(q)) {
+        substringMatches.push(name);
+      }
+      if (prefixMatches.length >= MAX_ILLUSTRATOR_SUGGESTIONS) break;
+    }
+
+    return [...prefixMatches, ...substringMatches].slice(0, MAX_ILLUSTRATOR_SUGGESTIONS);
+  }, [illustratorText, allIllustrators, filters.illustrators]);
 
   // ----- Build era items -----
   // When a search is active, only show eras that have matching cards (from filterMeta).
@@ -218,9 +257,11 @@ export function CardPickerFilters({
   );
 
   // ----- Handler: illustrator add -----
-  const handleIllustratorAdd = useCallback(() => {
+  // Accepts an optional explicit name (used by the autocomplete dropdown).
+  // When called without a name, falls back to the current input text.
+  const handleIllustratorAdd = useCallback((explicitName?: string) => {
     Keyboard.dismiss();
-    const trimmed = illustratorText.trim();
+    const trimmed = (explicitName ?? illustratorText).trim();
     if (!trimmed) return;
 
     // Add to the list (avoid duplicates)
@@ -234,6 +275,11 @@ export function CardPickerFilters({
     setIllustratorText('');
     setShowIllustratorInput(false);
   }, [illustratorText, filters, onFiltersChange]);
+
+  // ----- Handler: pick a suggestion from the autocomplete dropdown -----
+  const handlePickIllustratorSuggestion = useCallback((name: string) => {
+    handleIllustratorAdd(name);
+  }, [handleIllustratorAdd]);
 
   // ----- Handler: remove one illustrator -----
   const handleRemoveIllustrator = useCallback((name: string) => {
@@ -364,39 +410,64 @@ export function CardPickerFilters({
 
       {/* Illustrator inline input */}
       {showIllustratorInput && (
-        <View style={styles.illustratorInputRow}>
-          <View style={styles.illustratorInputContainer}>
-            <TextInput
-              style={styles.illustratorInput}
-              placeholder="Type illustrator name..."
-              placeholderTextColor={colors.textTertiary}
-              value={illustratorText}
-              onChangeText={setIllustratorText}
-              autoCapitalize="words"
-              autoCorrect={false}
-              autoFocus
-              returnKeyType="search"
-              onSubmitEditing={handleIllustratorAdd}
-            />
-            {illustratorText.length > 0 && (
-              <TouchableOpacity
-                onPress={() => setIllustratorText('')}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              >
-                <Ionicons name="close" size={12} color={colors.textTertiary} style={styles.inputClearIcon} />
-              </TouchableOpacity>
-            )}
+        <>
+          <View style={styles.illustratorInputRow}>
+            <View style={styles.illustratorInputContainer}>
+              <TextInput
+                style={styles.illustratorInput}
+                placeholder="Type illustrator name..."
+                placeholderTextColor={colors.textTertiary}
+                value={illustratorText}
+                onChangeText={setIllustratorText}
+                autoCapitalize="words"
+                autoCorrect={false}
+                autoFocus
+                returnKeyType="search"
+                onSubmitEditing={() => handleIllustratorAdd()}
+              />
+              {illustratorText.length > 0 && (
+                <TouchableOpacity
+                  onPress={() => setIllustratorText('')}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                >
+                  <Ionicons name="close" size={12} color={colors.textTertiary} style={styles.inputClearIcon} />
+                </TouchableOpacity>
+              )}
+            </View>
+            <TouchableOpacity style={styles.illustratorApplyButton} onPress={() => handleIllustratorAdd()}>
+              <Text style={styles.illustratorApplyText}>Add</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.illustratorCancelButton}
+              onPress={() => setShowIllustratorInput(false)}
+            >
+              <Text style={styles.illustratorCancelText}>Cancel</Text>
+            </TouchableOpacity>
           </View>
-          <TouchableOpacity style={styles.illustratorApplyButton} onPress={handleIllustratorAdd}>
-            <Text style={styles.illustratorApplyText}>Add</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.illustratorCancelButton}
-            onPress={() => setShowIllustratorInput(false)}
-          >
-            <Text style={styles.illustratorCancelText}>Cancel</Text>
-          </TouchableOpacity>
-        </View>
+
+          {/* Autocomplete suggestions dropdown */}
+          {illustratorSuggestions.length > 0 && (
+            <View style={styles.suggestionsContainer}>
+              <FlatList
+                data={illustratorSuggestions}
+                keyExtractor={(item) => item}
+                keyboardShouldPersistTaps="handled"
+                renderItem={({ item }) => (
+                  <TouchableOpacity
+                    style={styles.suggestionRow}
+                    onPress={() => handlePickIllustratorSuggestion(item)}
+                    activeOpacity={0.6}
+                  >
+                    <Text style={styles.suggestionText} numberOfLines={1}>
+                      {item}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+                ItemSeparatorComponent={() => <View style={styles.suggestionDivider} />}
+              />
+            </View>
+          )}
+        </>
       )}
 
       {/* Searchable list pickers (modals) */}
@@ -645,6 +716,32 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     fontSize: typography.sm,
     color: colors.textTertiary,
     fontFamily: fonts.medium,
+  },
+
+  // -- Illustrator autocomplete dropdown --
+  suggestionsContainer: {
+    marginHorizontal: spacing.md,
+    marginBottom: spacing.sm,
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: borderRadius.md,
+    maxHeight: 240,
+    overflow: 'hidden',
+  },
+  suggestionRow: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  suggestionText: {
+    fontSize: typography.sm,
+    color: colors.text,
+    fontFamily: fonts.regular,
+  },
+  suggestionDivider: {
+    height: 1,
+    backgroundColor: colors.border,
+    marginHorizontal: spacing.md,
   },
 });
 

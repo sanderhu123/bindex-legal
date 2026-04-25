@@ -1536,6 +1536,24 @@ export async function searchCardsByName(
         return true;
       };
 
+      // PostgREST `.or()` uses commas to separate conditions and parens to
+      // group them, so any of those characters appearing inside an artist
+      // name would break the filter string. Strip them from the value used
+      // for the substring match (matching is fuzzy anyway, so a missing
+      // paren in "Foo (Bar)" doesn't hurt).
+      const sanitizeForOr = (s: string) => s.replace(/[,()]/g, ' ').trim();
+
+      // Build a PostgREST OR clause for the illustrator filter, so the
+      // substring match runs in Postgres (using the trigram index) instead
+      // of being applied client-side after a 1000-row cap.
+      const illustratorOrClause: string | null = (illLower && filters?.illustrators)
+        ? filters.illustrators
+            .map(name => sanitizeForOr(name))
+            .filter(name => name.length > 0)
+            .map(name => `artist.ilike.%${name}%`)
+            .join(',') || null
+        : null;
+
       // Builds a facet query: applies the search-defining filters + the
       // selected picker filters EXCEPT the one being skipped (so opening a
       // picker shows what would be available if you swapped its value).
@@ -1559,25 +1577,28 @@ export async function searchCardsByName(
         if (skip !== 'rarity' && filters?.rarities && filters.rarities.length > 0) {
           q = q.in('rarity', filters.rarities);
         }
+        if (illustratorOrClause) {
+          q = q.or(illustratorOrClause);
+        }
         return q;
       };
 
       // Only ask Supabase for the columns each facet actually needs.
-      // `name` only matters when there is a text/exact-match query; `artist`
-      // only matters when an illustrator filter is active. Skipping them
-      // when unused dramatically reduces payload (each facet can otherwise
-      // return up to 5000 rows × 3 columns).
+      // `name` only matters when there is a text/exact-match query.
+      // `artist` is no longer needed because the illustrator filter is now
+      // pushed down to the DB via `.or(artist.ilike...)` instead of being
+      // applied client-side via passesClientFilters.
       const facetNeedsName = !!(lowerQuery && !isNumberSearch && !isCardIdSearch && !isNumberPrefixSearch) || !!wordBoundaryRegex;
-      const facetNeedsArtist = !!illLower;
       const buildFacetCols = (primary: string) => {
         const cols = [primary];
         if (facetNeedsName) cols.push('name');
-        if (facetNeedsArtist) cols.push('artist');
         return cols.join(', ');
       };
 
       // Era facet can use the static POKEMON_ERAS list (no DB call) when
-      // nothing else narrows it.
+      // nothing else narrows it. With an illustrator filter active we still
+      // need a real query so we only show eras that have cards by that
+      // artist.
       const eraFacetUnbounded = !sanitizedQuery
         && !explicitSetIds
         && !rarityLower
@@ -1605,9 +1626,10 @@ export async function searchCardsByName(
       if (filters?.rarities && filters.rarities.length > 0) {
         supaQuery = supaQuery.in('rarity', filters.rarities);
       }
-      // NOTE: illustrator filter uses substring matching, so we keep it
-      // client-side. With era/set/rarity already pushed down, the result set
-      // is small enough that client-side illustrator filtering is fine.
+      if (illustratorOrClause) {
+        // Pushed down to Postgres (uses idx_pokemon_cards_artist_trgm).
+        supaQuery = supaQuery.or(illustratorOrClause);
+      }
 
       supaQuery = supaQuery.limit(1000);
 
@@ -1856,6 +1878,69 @@ export async function getRaritiesForSets(setIds: string[]): Promise<string[]> {
     }
   }
   return [...merged].sort((a, b) => a.localeCompare(b));
+}
+
+// ==================== ILLUSTRATOR FUNCTIONS ====================
+
+let cachedIllustrators: string[] | null = null;
+
+/**
+ * Get every distinct illustrator (artist) name from Supabase.
+ *
+ * Used by the Card Picker's illustrator autocomplete dropdown so users can
+ * pick a real artist name instead of guessing the spelling. Fetched once and
+ * cached for the rest of the session.
+ *
+ * Uses the `distinct_artists` Postgres RPC (created in
+ * database/migrations/add_artist_search_index.sql) so the full list is
+ * returned in one round-trip without hitting the 1000-row Supabase fetch cap.
+ */
+export async function getIllustrators(): Promise<string[]> {
+  if (cachedIllustrators) return cachedIllustrators;
+
+  try {
+    const { data, error } = await supabase.rpc('distinct_artists');
+
+    if (!error && data) {
+      const artists = new Set<string>();
+      for (const row of data as Array<{ artist: string | null }>) {
+        if (row.artist && row.artist.trim().length > 0) {
+          artists.add(row.artist.trim());
+        }
+      }
+      cachedIllustrators = Array.from(artists).sort((a, b) => a.localeCompare(b));
+      return cachedIllustrators;
+    }
+    if (error) {
+      console.warn('[API] distinct_artists RPC failed:', error);
+    }
+  } catch (err) {
+    console.warn('[API] Failed to fetch illustrators from Supabase:', err);
+  }
+
+  // Fallback: scan the artist column directly (capped at 1000 rows by Supabase,
+  // so this is a best-effort list if the RPC isn't available yet).
+  try {
+    const { data, error } = await supabase
+      .from('pokemon_cards')
+      .select('artist')
+      .not('artist', 'is', null);
+
+    if (!error && data) {
+      const artists = new Set<string>();
+      for (const row of data as Array<{ artist: string | null }>) {
+        if (row.artist && row.artist.trim().length > 0) {
+          artists.add(row.artist.trim());
+        }
+      }
+      cachedIllustrators = Array.from(artists).sort((a, b) => a.localeCompare(b));
+      return cachedIllustrators;
+    }
+  } catch {
+    // ignore
+  }
+
+  return [];
 }
 
 // ==================== SET TOTAL COUNTS ====================

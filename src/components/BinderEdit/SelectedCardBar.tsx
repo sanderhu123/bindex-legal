@@ -154,41 +154,48 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     gap: spacing.xs,
   },
   button: {
-    paddingHorizontal: spacing.sm,
+    flex: 1, // Each action button shares the row equally so they fill the bar
+    paddingHorizontal: spacing.xs,
     paddingVertical: spacing.xs,
     borderRadius: borderRadius.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   replaceButton: {
     backgroundColor: colors.warning,
   },
   replaceButtonText: {
-    fontSize: typography.xs,
+    fontSize: typography.sm,
     fontFamily: fonts.medium,
     color: colors.onPrimary,
+    textAlign: 'center',
   },
   removeButton: {
     backgroundColor: colors.error,
   },
   removeButtonText: {
-    fontSize: typography.xs,
+    fontSize: typography.sm,
     fontFamily: fonts.medium,
     color: colors.onPrimary,
+    textAlign: 'center',
   },
   viewButton: {
     backgroundColor: '#2563EB', // Tailwind blue-600 — clearly distinct from the green/teal bar
   },
   viewButtonText: {
-    fontSize: typography.xs,
+    fontSize: typography.sm,
     fontFamily: fonts.medium,
     color: colors.onPrimary,
+    textAlign: 'center',
   },
   cancelButton: {
     backgroundColor: colors.onPrimary + '33',
   },
   cancelButtonText: {
-    fontSize: typography.xs,
+    fontSize: typography.sm,
     fontFamily: fonts.medium,
     color: colors.onPrimary,
+    textAlign: 'center',
   },
 });
 

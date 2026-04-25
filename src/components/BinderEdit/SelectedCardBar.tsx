@@ -17,6 +17,9 @@ export interface SelectedCardBarProps {
   onReplace: () => void;
   /** Called when Remove button is pressed (sends to trash) */
   onRemove: () => void;
+  /** Called when View button is pressed (opens enlarged card preview).
+   *  When omitted, the View button is hidden (e.g. for bare region sprites). */
+  onViewDetails?: () => void;
 }
 
 /**
@@ -39,6 +42,7 @@ export function SelectedCardBar({
   onCancel,
   onReplace,
   onRemove,
+  onViewDetails,
 }: SelectedCardBarProps) {
   const { colors } = useTheme();
   const [replaceStartX, setReplaceStartX] = useState(0);
@@ -83,7 +87,18 @@ export function SelectedCardBar({
         >
           <Text style={styles.removeButtonText}>Remove</Text>
         </TouchableOpacity>
-        
+
+        {onViewDetails && (
+          <TouchableOpacity
+            style={[styles.button, styles.viewButton]}
+            onPress={onViewDetails}
+            activeOpacity={0.7}
+            accessibilityLabel="View card details"
+          >
+            <Text style={styles.viewButtonText}>View</Text>
+          </TouchableOpacity>
+        )}
+
         <TouchableOpacity
           style={[styles.button, styles.cancelButton]}
           onPress={onCancel}
@@ -155,6 +170,14 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     backgroundColor: colors.error,
   },
   removeButtonText: {
+    fontSize: typography.sm,
+    fontFamily: fonts.medium,
+    color: colors.onPrimary,
+  },
+  viewButton: {
+    backgroundColor: colors.info,
+  },
+  viewButtonText: {
     fontSize: typography.sm,
     fontFamily: fonts.medium,
     color: colors.onPrimary,

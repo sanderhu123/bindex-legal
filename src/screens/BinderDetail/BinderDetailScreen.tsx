@@ -36,6 +36,7 @@ import { popVariantUpdates } from '../../services/variantMailbox';
 import type { Binder, Card } from '../../types';
 import CardItem from '../../components/Card/CardItem';
 import CardImage, { logFailedImageSummary } from '../../components/Card/CardImage';
+import SharedEnlargedCardOverlay from '../../components/Card/EnlargedCardOverlay';
 import CardDetails from '../../components/Card/CardDetails';
 import CardList from '../../components/Card/CardList';
 import EmptyCardSlot from '../../components/Card/EmptyCardSlot';
@@ -2709,121 +2710,26 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
   );
 
   // Step 34A: Enlarged card overlay component (for long-press preview)
+  // Thin wrapper around the shared SharedEnlargedCardOverlay component so the
+  // long-press preview here and the "View" button in BinderEdit stay in sync.
   const EnlargedCardOverlay = () => {
-    if (!enlargedCard) return null;
-    const isDisplayPreview = displayMode;
     const cardsPerPageForPosition = binder?.layoutPreference === '4x3' ? 12 : 9;
-    const binderPage = enlargedCardSlotIndex !== null
-      ? Math.floor(enlargedCardSlotIndex / cardsPerPageForPosition) + 1
-      : null;
-    const binderSlot = enlargedCardSlotIndex !== null
-      ? (enlargedCardSlotIndex % cardsPerPageForPosition) + 1
-      : null;
     const isRegion = binder?.collectionMode === 'region';
-    const hasSelectedCard = !!enlargedCard.selectedCardId;
-
-    // For Region cards: show TCG card name when selected, otherwise Pokémon name
-    const displayName = (isRegion && hasSelectedCard && enlargedCard.selectedCardName)
-      ? enlargedCard.selectedCardName
-      : enlargedCard.name;
-
-    // For Region cards: show TCG card number/setTotal when selected, otherwise Pokédex ID
-    let cardNumberText: string;
-    if (isRegion && hasSelectedCard) {
-      const num = enlargedCard.selectedCardNumber || enlargedCard.number;
-      cardNumberText = formatCardNumber(num, enlargedCard.setTotal, enlargedCard.selectedCardId);
-    } else if (isRegion && !hasSelectedCard) {
-      const dexNum = enlargedCard.pokedexNumber;
-      cardNumberText = dexNum ? `#${String(dexNum).padStart(3, '0')}` : enlargedCard.number;
-    } else {
-      cardNumberText = formatCardNumber(enlargedCard.number, enlargedCard.setTotal, enlargedCard.id);
-    }
-
-    const displaySetName = enlargedCard.selectedCardSet || enlargedCard.set || '';
-    const infoPanelWidth = Math.min(220, screenWidth * 0.28);
-    const previewMaxWidth = isDisplayPreview
-      ? Math.min(screenWidth - (screenPadding * 2) - infoPanelWidth - spacing.lg, 640)
-      : Math.min(screenWidth - (screenPadding * 2), 640);
-    const previewMaxHeight = isDisplayPreview
-      ? Math.min(screenHeight * 0.86, screenHeight - 120)
-      : Math.min(screenHeight * 0.78, screenHeight - 220);
-    const previewCardWidth = Math.min(previewMaxWidth, previewMaxHeight * 0.716);
-    const previewCardHeight = previewCardWidth / 0.716;
-    
     return (
-      <Modal
+      <SharedEnlargedCardOverlay
         visible={!!enlargedCard}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={handleLongPressRelease}
-      >
-        <Pressable 
-          style={styles.enlargeOverlay}
-          onPress={handleLongPressRelease}
-        >
-          <View
-            style={[
-              styles.enlargedCardContainer,
-              isDisplayPreview ? styles.enlargedCardContainerRow : styles.enlargedCardContainerColumn,
-            ]}
-          >
-            <CardImage
-              source={enlargedCard.imageUrlHiRes || enlargedCard.imageUrl}
-              lowResSource={enlargedCard.imageUrl}
-              isMissing={false}
-              style={[styles.enlargedCard, { width: previewCardWidth, height: previewCardHeight }]}
-              priority="high"
-              cardInfo={{ id: enlargedCard.id, name: enlargedCard.name, number: enlargedCard.number, set: enlargedCard.set }}
-            />
-            <View
-              style={[
-                styles.enlargedInfoPanel,
-                isDisplayPreview ? styles.enlargedInfoPanelSide : styles.enlargedInfoPanelBelow,
-                isDisplayPreview ? { width: infoPanelWidth } : { maxWidth: Math.min(460, screenWidth - (screenPadding * 2)) },
-              ]}
-            >
-              <Text style={[styles.enlargedCardNumber, isDisplayPreview ? styles.enlargedTextLeft : styles.enlargedTextCenter]}>
-                {cardNumberText}
-              </Text>
-              <Text style={[styles.enlargedCardName, isDisplayPreview ? styles.enlargedTextLeft : styles.enlargedTextCenter]}>
-                {displayName}
-              </Text>
-              {displaySetName ? (
-                <View style={[styles.enlargedSetRow, isDisplayPreview ? styles.enlargedSetRowLeft : styles.enlargedSetRowCenter]}>
-                  {getSetSymbolByName(displaySetName) && (
-                    <Image
-                      source={{ uri: getSetSymbolByName(displaySetName)! }}
-                      style={styles.enlargedSetIcon}
-                      contentFit="contain"
-                    />
-                  )}
-                  <Text style={[styles.enlargedSetName, isDisplayPreview ? styles.enlargedTextLeft : styles.enlargedTextCenter]}>
-                    {displaySetName}
-                  </Text>
-                </View>
-              ) : null}
-              {binderPage !== null && binderSlot !== null && (
-                <Text style={[styles.enlargedCardPosition, isDisplayPreview ? styles.enlargedTextLeft : styles.enlargedTextCenter]}>
-                  Page {binderPage}, Slot {binderSlot}
-                </Text>
-              )}
-              {enlargedCardNote && (
-                <View style={[styles.enlargedNoteBlock, isDisplayPreview ? styles.enlargedNoteBlockLeft : styles.enlargedNoteBlockCenter]}>
-                  <Text style={[styles.enlargedNoteLabel, isDisplayPreview ? styles.enlargedTextLeft : styles.enlargedTextCenter]}>
-                    Note
-                  </Text>
-                  <Text style={[styles.enlargedNoteText, isDisplayPreview ? styles.enlargedTextLeft : styles.enlargedTextCenter]}>
-                    {enlargedCardNote}
-                  </Text>
-                </View>
-              )}
-              <Text style={[styles.enlargedHint, isDisplayPreview ? styles.enlargedTextLeft : styles.enlargedTextCenter]}>
-                Tap anywhere to close
-              </Text>
-            </View>
-          </View>
-        </Pressable>
-      </Modal>
+        card={enlargedCard}
+        onClose={handleLongPressRelease}
+        screenWidth={screenWidth}
+        screenHeight={screenHeight}
+        displayMode={displayMode}
+        isRegion={isRegion}
+        slotIndex={enlargedCardSlotIndex}
+        cardsPerPage={cardsPerPageForPosition}
+        note={enlargedCardNote}
+        showPosition={true}
+        showNote={true}
+      />
     );
   };
 

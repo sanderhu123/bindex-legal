@@ -22,6 +22,7 @@ import { getSearchName, findPokemonByDexNumber } from '../../data/pokemonRegions
 import { getCardPositionsForBinder, saveCardPositionsForBinder, getPlaceholderCardsForBinder, savePlaceholderCardsForBinder, syncBinderCardsFromPositions } from '../../services/supabase/binderPositions';
 import { CardSlot, CardPlaceholder, SelectedCardBar, InsertButton, type PlaceholderCard } from '../../components/BinderEdit';
 import type { DragStartData } from '../../components/BinderEdit/CardSlot';
+import EnlargedCardOverlay, { type EnlargedCardData } from '../../components/Card/EnlargedCardOverlay';
 import PageNavigator from '../../components/Binder/PageNavigator';
 import { JumpToPageModal } from '../../components/Binder/JumpToPageModal';
 import { CardPickerModal } from '../../components/CardPicker';
@@ -1078,6 +1079,33 @@ export default function BinderEditScreen() {
   };
 
   const handleCancelSelection = () => { setSelectedCard(null); };
+
+  // ── Enlarged "View" preview (mirrors long-press preview from BinderDetail) ──
+  const [viewCard, setViewCard] = useState<EnlargedCardData | null>(null);
+
+  /**
+   * Returns true when the selected card is a bare region sprite (a Pokémon
+   * slot in a region binder that has no real TCG card chosen yet). For these
+   * slots the View button is hidden because there is no card to preview.
+   */
+  const isBareRegionSprite = (card: SelectedCard | null): boolean => {
+    if (!card) return false;
+    return !!card.cardId?.startsWith('region-') && card.imageUrl === card.spriteUrl;
+  };
+
+  const handleViewDetails = () => {
+    if (!selectedCard) return;
+    if (isBareRegionSprite(selectedCard)) return;
+    setViewCard({
+      id: selectedCard.cardId,
+      name: selectedCard.cardName,
+      imageUrl: selectedCard.imageUrl,
+      set: selectedCard.cardSet,
+      pokedexNumber: selectedCard.pokedexNumber,
+    });
+  };
+
+  const handleCloseViewDetails = () => { setViewCard(null); };
 
   /**
    * Reset a region Pokémon slot back to its default sprite.
@@ -2546,6 +2574,7 @@ export default function BinderEditScreen() {
               onCancel={handleCancelSelection}
               onReplace={handleReplaceCard}
               onRemove={handleRemoveCard}
+              onViewDetails={isBareRegionSprite(selectedCard) ? undefined : handleViewDetails}
             />
           )}
         </View>
@@ -2650,6 +2679,18 @@ export default function BinderEditScreen() {
           </View>
         </View>
       )}
+
+      {/* Enlarged "View" preview for the currently selected card */}
+      <EnlargedCardOverlay
+        visible={viewCard !== null}
+        card={viewCard}
+        onClose={handleCloseViewDetails}
+        screenWidth={Dimensions.get('window').width}
+        screenHeight={Dimensions.get('window').height}
+        isRegion={binder?.collectionMode === 'region'}
+        showPosition={false}
+        showNote={false}
+      />
 
     </SafeAreaView>
   );

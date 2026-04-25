@@ -7,7 +7,7 @@ import { getSpecialVariantsForCard, hasSpecialVariants, hasStampEnergyVariants, 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { isStorageFullError, emergencyStorageCleanup } from '../cacheManager';
 import { supabase } from '../supabase/client';
-import { normalizeForNameSearch } from '../../utils/searchNormalize';
+import { normalizeForNameSearch, normalizeForArtistSearch } from '../../utils/searchNormalize';
 
 export type PokemonSet = MockSet;
 
@@ -1491,8 +1491,11 @@ export async function searchCardsByName(
       // for both the main query and the facet queries. That lets us fire
       // everything together via Promise.all below — saving another network
       // round-trip on cold loads (no main→facet wait chain).
+      // Normalized (lowercase + accent-stripped) typed illustrator names,
+      // used for client-side substring matching against the (also normalized)
+      // artist field. Matches the SQL `artist_normalized` column logic.
       const illLower = (filters?.illustrators && filters.illustrators.length > 0)
-        ? filters.illustrators.map(i => i.toLowerCase())
+        ? filters.illustrators.map(i => normalizeForArtistSearch(i)).filter(s => s.length > 0)
         : null;
       const rarityLower = (filters?.rarities && filters.rarities.length > 0)
         ? new Set(filters.rarities.map(r => r.toLowerCase()))
@@ -1530,7 +1533,7 @@ export async function searchCardsByName(
         if (wordBoundaryRegex && !wordBoundaryRegex.test(name)) return false;
         if (illLower) {
           if (!row.artist) return false;
-          const a = row.artist.toLowerCase();
+          const a = normalizeForArtistSearch(row.artist);
           if (!illLower.some(i => a.includes(i))) return false;
         }
         return true;
@@ -1546,11 +1549,15 @@ export async function searchCardsByName(
       // Build a PostgREST OR clause for the illustrator filter, so the
       // substring match runs in Postgres (using the trigram index) instead
       // of being applied client-side after a 1000-row cap.
+      //
+      // We query `artist_normalized` (lowercased + accent-stripped) so users
+      // can type "Mekayu" to find "Mékayu". The same normalization is
+      // applied to the user-typed name via normalizeForArtistSearch().
       const illustratorOrClause: string | null = (illLower && filters?.illustrators)
         ? filters.illustrators
-            .map(name => sanitizeForOr(name))
+            .map(name => sanitizeForOr(normalizeForArtistSearch(name)))
             .filter(name => name.length > 0)
-            .map(name => `artist.ilike.%${name}%`)
+            .map(name => `artist_normalized.ilike.%${name}%`)
             .join(',') || null
         : null;
 
@@ -1727,7 +1734,7 @@ export async function searchCardsByName(
       if (illLower) {
         transformedCards = transformedCards.filter(card => {
           if (!card.illustrator) return false;
-          const a = card.illustrator.toLowerCase();
+          const a = normalizeForArtistSearch(card.illustrator);
           return illLower.some(i => a.includes(i));
         });
       }

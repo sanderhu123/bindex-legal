@@ -20,3 +20,28 @@ export function normalizeForNameSearch(text: string): string {
     .replace(/\s+/g, ' ')
     .trim();
 }
+
+/**
+ * Normalize a string for illustrator (artist) search.
+ *
+ * Lowercases AND strips diacritics so users can type "Mekayu" to find
+ * "Mékayu", "Jose" to find "José", etc.
+ *
+ * The matching column in Postgres (`artist_normalized`) is generated using
+ * `lower(unaccent(artist))`. The `NFD` + combining-mark strip below produces
+ * the same output for all Latin-script accents, so JS and DB stay in sync.
+ *
+ * Apply this to BOTH the artist value and the user's query before comparing.
+ *
+ * Examples:
+ *   "Mékayu"        -> "mekayu"
+ *   "José Vega"     -> "jose vega"
+ *   "Mitsuhiro Arita" -> "mitsuhiro arita"
+ */
+export function normalizeForArtistSearch(text: string): string {
+  return text
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim();
+}

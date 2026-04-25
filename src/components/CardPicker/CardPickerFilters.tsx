@@ -16,6 +16,7 @@ import { SearchableListPicker, type ListPickerItem } from './SearchableListPicke
 import { useTheme } from '../../context/ThemeContext';
 import { spacing, typography, borderRadius, fonts, type ThemeColors } from '../../constants/theme';
 import { getRarities, getIllustrators, type SearchFilterMeta } from '../../services/api/pokemonApi';
+import { normalizeForArtistSearch } from '../../utils/searchNormalize';
 
 /**
  * Props for CardPickerFilters
@@ -81,21 +82,26 @@ export function CardPickerFilters({
   // Compute autocomplete suggestions based on the typed text.
   // Skip artists already selected. Show prefix matches first, then
   // substring matches.
+  //
+  // Uses normalizeForArtistSearch (lowercase + accent-stripped) on both
+  // sides of the comparison so typing "Mekayu" surfaces "Mékayu",
+  // "jose" surfaces "José Vega", etc.
   const illustratorSuggestions = useMemo(() => {
-    const trimmed = illustratorText.trim();
-    if (trimmed.length === 0) return [];
+    const q = normalizeForArtistSearch(illustratorText);
+    if (q.length === 0) return [];
 
-    const q = trimmed.toLowerCase();
-    const selectedLower = new Set((filters.illustrators || []).map(i => i.toLowerCase()));
+    const selectedNorm = new Set(
+      (filters.illustrators || []).map(i => normalizeForArtistSearch(i))
+    );
     const prefixMatches: string[] = [];
     const substringMatches: string[] = [];
 
     for (const name of allIllustrators) {
-      const lower = name.toLowerCase();
-      if (selectedLower.has(lower)) continue;
-      if (lower.startsWith(q)) {
+      const normalized = normalizeForArtistSearch(name);
+      if (selectedNorm.has(normalized)) continue;
+      if (normalized.startsWith(q)) {
         prefixMatches.push(name);
-      } else if (lower.includes(q)) {
+      } else if (normalized.includes(q)) {
         substringMatches.push(name);
       }
       if (prefixMatches.length >= MAX_ILLUSTRATOR_SUGGESTIONS) break;
@@ -264,9 +270,11 @@ export function CardPickerFilters({
     const trimmed = (explicitName ?? illustratorText).trim();
     if (!trimmed) return;
 
-    // Add to the list (avoid duplicates)
+    // Add to the list (avoid duplicates — compares normalized so typing
+    // "Mekayu" doesn't add a second entry next to "Mékayu").
     const current = filters.illustrators || [];
-    if (!current.some(i => i.toLowerCase() === trimmed.toLowerCase())) {
+    const normalizedNew = normalizeForArtistSearch(trimmed);
+    if (!current.some(i => normalizeForArtistSearch(i) === normalizedNew)) {
       onFiltersChange({
         ...filters,
         illustrators: [...current, trimmed],

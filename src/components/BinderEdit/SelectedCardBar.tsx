@@ -151,10 +151,10 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     width: '100%',
-    gap: spacing.sm,
+    gap: spacing.xs,
   },
   button: {
-    paddingHorizontal: spacing.md,
+    paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
     borderRadius: borderRadius.sm,
   },
@@ -162,7 +162,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     backgroundColor: colors.warning,
   },
   replaceButtonText: {
-    fontSize: typography.sm,
+    fontSize: typography.xs,
     fontFamily: fonts.medium,
     color: colors.onPrimary,
   },
@@ -170,15 +170,15 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     backgroundColor: colors.error,
   },
   removeButtonText: {
-    fontSize: typography.sm,
+    fontSize: typography.xs,
     fontFamily: fonts.medium,
     color: colors.onPrimary,
   },
   viewButton: {
-    backgroundColor: colors.info,
+    backgroundColor: '#2563EB', // Tailwind blue-600 — clearly distinct from the green/teal bar
   },
   viewButtonText: {
-    fontSize: typography.sm,
+    fontSize: typography.xs,
     fontFamily: fonts.medium,
     color: colors.onPrimary,
   },
@@ -186,7 +186,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     backgroundColor: colors.onPrimary + '33',
   },
   cancelButtonText: {
-    fontSize: typography.sm,
+    fontSize: typography.xs,
     fontFamily: fonts.medium,
     color: colors.onPrimary,
   },

@@ -1082,6 +1082,9 @@ export default function BinderEditScreen() {
 
   // ── Enlarged "View" preview (mirrors long-press preview from BinderDetail) ──
   const [viewCard, setViewCard] = useState<EnlargedCardData | null>(null);
+  // Tracks the latest View request so a slow network response for a previously
+  // viewed card can't overwrite a newer selection.
+  const viewCardRequestRef = useRef(0);
 
   /**
    * Returns true when the selected card is a bare region sprite (a Pokémon
@@ -1096,16 +1099,49 @@ export default function BinderEditScreen() {
   const handleViewDetails = () => {
     if (!selectedCard) return;
     if (isBareRegionSprite(selectedCard)) return;
+
+    const cardId = selectedCard.cardId;
+    const requestId = ++viewCardRequestRef.current;
+
+    // Open immediately with low-res so there's no perceived delay. The
+    // CardImage inside the overlay will progressively swap to hi-res once
+    // we patch in the larger URL below.
     setViewCard({
-      id: selectedCard.cardId,
+      id: cardId,
       name: selectedCard.cardName,
       imageUrl: selectedCard.imageUrl,
       set: selectedCard.cardSet,
       pokedexNumber: selectedCard.pokedexNumber,
     });
+
+    // Fetch hi-res + extra metadata in the background. CardPosition only
+    // stores the low-res URL, so we need this lookup to make the preview crisp.
+    getCardById(cardId)
+      .then((full) => {
+        if (!full) return;
+        if (viewCardRequestRef.current !== requestId) return; // stale response
+        setViewCard((prev) => {
+          if (!prev || prev.id !== cardId) return prev;
+          return {
+            ...prev,
+            number: full.number || prev.number,
+            set: full.set || prev.set,
+            setTotal: full.setTotal || prev.setTotal,
+            imageUrl: full.imageUrl || prev.imageUrl,
+            imageUrlHiRes: full.imageUrlHiRes || prev.imageUrlHiRes,
+            pokedexNumber: full.pokedexNumber ?? prev.pokedexNumber,
+          };
+        });
+      })
+      .catch((err) => {
+        console.warn('[BinderEdit] Failed to fetch hi-res card data for View:', err);
+      });
   };
 
-  const handleCloseViewDetails = () => { setViewCard(null); };
+  const handleCloseViewDetails = () => {
+    viewCardRequestRef.current += 1;
+    setViewCard(null);
+  };
 
   /**
    * Reset a region Pokémon slot back to its default sprite.

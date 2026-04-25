@@ -32,12 +32,22 @@ export default function ErrorScreen({
       <Text style={styles.message}>{message}</Text>
       <View style={styles.buttonContainer}>
         {onRetry && (
-          <TouchableOpacity style={styles.primaryButton} onPress={onRetry}>
+          <TouchableOpacity
+            style={styles.primaryButton}
+            onPress={onRetry}
+            accessibilityRole="button"
+            accessibilityLabel={retryLabel}
+          >
             <Text style={styles.primaryButtonText}>{retryLabel}</Text>
           </TouchableOpacity>
         )}
         {onGoBack && (
-          <TouchableOpacity style={styles.secondaryButton} onPress={onGoBack}>
+          <TouchableOpacity
+            style={styles.secondaryButton}
+            onPress={onGoBack}
+            accessibilityRole="button"
+            accessibilityLabel={goBackLabel}
+          >
             <Text style={styles.secondaryButtonText}>{goBackLabel}</Text>
           </TouchableOpacity>
         )}

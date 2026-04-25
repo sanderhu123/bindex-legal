@@ -118,6 +118,7 @@ export const spacing = {
 } as const;
 
 export const typography = {
+  '2xs': 10,
   xs: 12,
   sm: 14,
   base: 16,

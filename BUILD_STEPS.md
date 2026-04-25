@@ -1,8 +1,8 @@
 # Build Steps - Pokémon TCG Binder Tracker App
 
-> **📅 Last Updated:** March 15, 2026  
-> **🎯 Status:** ~95% Complete - Core features done, Phase 10 (Advanced Features) done, Binder Position System done, Binder Edit Mode complete. Phase 9 (Monetization) mostly implemented: Pro service, upgrade screen, binder limits, and RevenueCat integration code all done. Remaining: RevenueCat account setup, restore in Settings, testing, and production build.  
-> **✅ Major Milestones:** All phases 1-8 complete, Phase 10 (Advanced Features) complete, Step 33 (Binder Position System) complete, Step 34 (Binder Edit Mode) complete. Phase 9 Steps 27A-27F implemented. Old Phase 11 (Activation Codes) removed and cleaned up.
+> **📅 Last Updated:** April 25, 2026  
+> **🎯 Status:** ~97% Complete - All app code is done. UI/UX polish (Phase 7) is complete: spacing/typography normalized to theme tokens and accessibility v1 sweep finished. Pro System code (Phase 9) is fully written and integrated, including Restore Purchases in Settings. Remaining work is mostly external/manual: RevenueCat + Apple/Google account setup, end-to-end Pro testing, production builds, and app store submission.  
+> **✅ Major Milestones:** All phases 1-8 complete, Phase 9 code complete (Steps 27A-27G), Phase 10 (Advanced Features) complete, Step 33 (Binder Position System) complete, Step 34 (Binder Edit Mode) complete. Old Phase 11 (Activation Codes) removed and cleaned up.
 
 ## Overview
 
@@ -72,28 +72,36 @@ This guide walks you through building the app step-by-step. We'll build it incre
 - **Step 19**: Offline Support - React Query caching exists, but dedicated offline storage files not created
 - **Step 24F**: Variant Handling - Comprehensive logic implemented, needs integration testing
 
-### ✅ **Phase 9: Monetization — Mostly Implemented**
+### ✅ **Phase 9: Monetization — Code Complete**
 - **Step 27**: Pro System (One-Time In-App Purchase via RevenueCat)
-  - Step 27A: Database Schema for Pro System ✅ (SQL written, needs to be run in Supabase if not already)
-  - Step 27B: RevenueCat Account & SDK Setup ⚠️ (SDK installed & init code done; RevenueCat/Apple/Google account setup needed)
-  - Step 27C: Pro Check Service (`isUserPro()`) ✅ (proService.ts complete — 352 lines)
+  - Step 27A: Database Schema for Pro System ✅ (SQL written, must be run in Supabase if not already)
+  - Step 27B: RevenueCat Account & SDK Setup ⚠️ (SDK installed & init code done; RevenueCat/Apple/Google account setup still required — see `proService.ts` line 10: `REVENUECAT_ENABLED = false`)
+  - Step 27C: Pro Check Service (`isUserPro()`) ✅ (`proService.ts` complete — 352 lines)
   - Step 27D: Binder Creation Limit (1 free binder) ✅ (integrated in BinderListScreen)
   - Step 27E: Binder Deletion Limit (1 free do-over) ✅ (integrated in BinderListScreen)
-  - Step 27F: Upgrade Screen UI ✅ (UpgradeScreen.tsx complete with RevenueCat Paywall + success state)
-  - Step 27G: Restore Purchases ⚠️ (restorePurchases() exists in proService; restore works on UpgradeScreen via paywall; not yet added to a Settings screen)
-  - Step 27H: Integration & Testing - Not started (needs RevenueCat account to test)
+  - Step 27F: Upgrade Screen UI ✅ (`UpgradeScreen.tsx` complete with RevenueCat Paywall + success state)
+  - Step 27G: Restore Purchases ✅ (`restorePurchases()` in proService; "Restore Purchases" button wired in `SettingsScreen.tsx` line 252)
+  - Step 27H: Integration & Testing - Not started (needs RevenueCat account configured to test end-to-end)
 
-### ❌ **Not Yet Implemented**
+### ❌ **Not Yet Implemented (Launch Blockers)**
 - **Step 23**: Comprehensive Testing - Needs user testing
 - **Step 25**: Build for Production - Not started
 - **Step 26**: Deploy to App Stores - Not started
+
+### 📦 **External / Manual Setup Required (Outside Code)**
+- RevenueCat account creation + entitlement "Bindex Pro" configuration
+- Apple Developer Account ($99/year) + In-App Purchase product in App Store Connect
+- Google Play Developer Account ($25 one-time) + In-App Purchase product in Play Console
+- Connect Apple/Google credentials to RevenueCat
+- Privacy policy URL (required by both stores)
+- Screenshots for store listings (multiple device sizes)
 
 ### 🗑️ **Removed / Replaced**
 - **Old Phase 11**: Binder Activation System (Step 35) — **Removed.** Was based on physical binders with activation codes. Replaced by Phase 9 (In-App Purchase Pro model). Old code files (`registeredTags.ts`, `ActivationCodeScreen.tsx`, `add_registered_tags.sql`, `test_activation_codes.sql`) already cleaned up — none remain in the codebase.
 - **Old Step 27**: Premium System (NFC-based Freemium) — **Replaced** with new Step 27 (In-App Purchase Pro via RevenueCat).
 - **Step 36**: NFC Tag Integration — **Removed.** No longer needed for app-only monetization.
 
-### 📊 **Overall Progress**: ~95% Complete (Core features done, Phase 10 advanced features done, Binder Position System done, Binder Edit Mode complete, Pro system code mostly done. Remaining: RevenueCat account setup, restore purchases in Settings, comprehensive testing, production build & app store deployment)
+### 📊 **Overall Progress**: ~97% Complete (All app code done, including UI/UX polish and Pro system code. Remaining: RevenueCat + store account setup, end-to-end Pro testing, comprehensive testing, production build & app store deployment.)
 
 ---
 
@@ -2176,7 +2184,7 @@ export async function recordDeletionUsed(): Promise<void>
 ---
 
 #### Step 27G: Restore Purchases
-- [ ] **Status**: Partially done (restorePurchases() in proService.ts; restore works via UpgradeScreen paywall; "Restore Purchases" button not yet added to Settings screen)
+- [x] **Status**: Done — `restorePurchases()` exists in `proService.ts`; restore works via UpgradeScreen paywall; "Restore Purchases" row is wired in `SettingsScreen.tsx` (line 252).
 
 **What we're doing:** Allow users to restore their Pro purchase on a new device or after reinstalling. Apple requires this button to exist.
 
@@ -2345,19 +2353,24 @@ I'll begin with Phase 1, Step 1, and we'll build it step by step! 🚀
 
 ### 🔧 **To Complete Before Production:**
 
-1. **Pro System — Remaining Items** (Step 27):
-   - ⚠️ Set up RevenueCat account + connect Apple/Google stores (Step 27B — manual setup, not code)
-   - ⚠️ Add "Restore Purchases" button to Settings screen (Step 27G)
-   - ⚠️ Run database SQL in Supabase if not already done (Step 27A)
+1. **Pro System — External Setup & Testing** (Step 27):
+   - ⚠️ Run `add_pro_system.sql` in Supabase if not already done (Step 27A)
+   - ⚠️ Create RevenueCat account + "Bindex Pro" entitlement (Step 27B)
+   - ⚠️ Set up Apple Developer Account ($99/yr) + In-App Purchase product in App Store Connect
+   - ⚠️ Set up Google Play Developer Account ($25 one-time) + In-App Purchase product in Play Console
+   - ⚠️ Connect Apple/Google credentials to RevenueCat
+   - ⚠️ In `src/services/pro/proService.ts`: set `REVENUECAT_ENABLED = true` and replace `REVENUECAT_API_KEY` with your real `goog_…` / `appl_…` key
    - ⚠️ End-to-end testing with RevenueCat sandbox (Step 27H)
 
-2. **Optional Enhancements:**
+2. **Optional Enhancements (not launch blockers):**
    - Implement full offline sync (currently has basic caching)
    - Add illustrator filter to BinderDetailScreen (currently only rarity filter)
+   - Minor UI polish: replace remaining hardcoded `fontSize`/`padding`/`margin` with theme constants (see `UI_UX_REMAINING_TODOS.md`)
+   - Optional visual progress bar on Onboarding (text counter already exists)
 
 3. **Testing** (Step 23):
    - Test all features thoroughly
-   - Test on both iOS and Android
+   - Test on both iOS and Android (real devices recommended)
    - Test offline mode
    - Test Pro system (free tier limits, upgrade flow, restore purchases)
    - Verify variant system works correctly
@@ -2366,13 +2379,17 @@ I'll begin with Phase 1, Step 1, and we'll build it step by step! 🚀
    - Test Binder Edit Mode (select, swap, placeholder, insert, drag & drop, undo/save)
 
 4. **Production Build** (Step 25):
-   - Configure EAS build
-   - Create production builds for iOS and Android
+   - `eas.json` is already configured
+   - Run `eas build --profile production --platform android` (produces an AAB for Google Play)
+   - Run `eas build --profile production --platform ios` (requires Apple Developer Account)
 
 5. **App Store Deployment** (Step 26):
-   - Create app store listings
-   - Prepare screenshots
+   - Write app description, choose category & keywords
+   - Prepare screenshots (multiple device sizes)
+   - Privacy policy URL (required by both stores)
+   - App icon: already at `assets/app-icon.png`
    - Submit to App Store and Google Play
+   - Apple review: usually 1-3 days; Google Play: usually a few hours
 
 ### ✅ **What's Already Working:**
 - Complete authentication system (email/password + social login)
@@ -2408,12 +2425,21 @@ I'll begin with Phase 1, Step 1, and we'll build it step by step! 🚀
   - Undo stack and save system (Step 34G)
   - Region binder edit with version picker (Step 34H)
   - Database storage for card positions (Step 34I)
-- **Pro System (mostly complete - Step 27):**
+- **Pro System (code complete - Step 27):**
   - Pro check service with RevenueCat + Supabase fallback (Step 27C)
   - Binder creation limit with upgrade prompt (Step 27D)
   - Binder deletion limit with do-over tracking (Step 27E)
   - Upgrade screen with RevenueCat Paywall (Step 27F)
-  - Restore purchases function (Step 27G — needs Settings button)
+  - Restore purchases function + Settings button (Step 27G)
+- **UI/UX (Phase 7) complete (only optional polish remains):**
+  - Reusable Button components (`PrimaryButton`, `SecondaryButton`, `TextButton`)
+  - Safe area handling on all 16 user-facing screens
+  - Toast feedback (`src/utils/toast.ts`) used in 8 screens
+  - Pull-to-refresh on `BinderDetailScreen`
+  - Onboarding step counter ("Step X of Y")
+  - Spacing & typography sweep: hardcoded `padding`/`margin`/`fontSize` matching theme tokens replaced with `spacing.*` / `typography.*` across all 21 flagged screens & components; added `typography['2xs'] = 10`
+  - Accessibility v1 sweep: `accessibilityRole` / `accessibilityLabel` (+ `accessibilityState` where relevant) added to ViewModeToggle, EmptyState, ErrorScreen, BinderCard, JumpToPageModal, SwapPagesModal, FilterPanel, all SettingsScreen rows, BinderDetail toolbar (back/edit/settings/display), CardDetail ownership + variant chips, BinderListScreen Pro badge — on top of the 15 files already covered (Buttons, Auth, Onboarding, BinderEdit, PageNavigator, ScreenHeader)
+  - Optional remaining: visual progress bar in onboarding, full screen-reader audit (post-launch)
 - **Additional features:**
   - Migration system for database schema updates
   - Admin screen for fixing existing binders
@@ -2425,10 +2451,10 @@ I'll begin with Phase 1, Step 1, and we'll build it step by step! 🚀
   - Persistent search cache (memory + AsyncStorage)
 
 ### 🎯 **Current State:** 
-The app is **~95% complete** and fully functional for core and advanced features. You can create binders (Master Set, Region, Custom), add cards, track progress, search globally, add extra cards, select region card versions, view binder pages, and edit card positions (insert, drag & drop). The Pro system code is written and integrated (binder limits, upgrade prompts, RevenueCat paywall). What remains is:
-- **Phase 9** (Step 27): RevenueCat account setup, restore in Settings, end-to-end testing
-- **Testing** (Step 23): Comprehensive testing
-- **Production** (Steps 25-26): Build and deploy to app stores
+The app is **~97% complete** and fully functional for core and advanced features. You can create binders (Master Set, Region, Custom), add cards, track progress, search globally, add extra cards, select region card versions, view binder pages, and edit card positions (insert, drag & drop). The Pro system code is fully written and integrated (binder limits, upgrade prompts, RevenueCat paywall, restore in Settings). UI/UX polish is complete (spacing/typography normalized, accessibility v1 sweep done). What remains is:
+- **Phase 9 external setup** (Step 27): RevenueCat + Apple/Google developer accounts, flip `REVENUECAT_ENABLED = true`, end-to-end sandbox testing
+- **Testing** (Step 23): Comprehensive testing on real devices
+- **Production** (Steps 25-26): Build with EAS and deploy to app stores
 
 ---
 

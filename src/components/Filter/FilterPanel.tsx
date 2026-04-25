@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { useTheme } from '../../context/ThemeContext';
-import { fonts, type ThemeColors } from '../../constants/theme';
+import { fonts, spacing, typography, type ThemeColors } from '../../constants/theme';
 import type { OwnershipFilter } from '../../hooks/useCardFilter';
 
 interface FilterPanelProps {
@@ -30,6 +30,9 @@ export default function FilterPanel({
               ownershipFilter === 'all' && styles.filterButtonActive,
             ]}
             onPress={() => onOwnershipFilterChange('all')}
+            accessibilityRole="button"
+            accessibilityLabel="Show all cards"
+            accessibilityState={{ selected: ownershipFilter === 'all' }}
           >
             <Text
               style={[
@@ -46,6 +49,9 @@ export default function FilterPanel({
               ownershipFilter === 'owned' && styles.filterButtonActive,
             ]}
             onPress={() => onOwnershipFilterChange('owned')}
+            accessibilityRole="button"
+            accessibilityLabel="Show owned cards only"
+            accessibilityState={{ selected: ownershipFilter === 'owned' }}
           >
             <Text
               style={[
@@ -62,6 +68,9 @@ export default function FilterPanel({
               ownershipFilter === 'missing' && styles.filterButtonActive,
             ]}
             onPress={() => onOwnershipFilterChange('missing')}
+            accessibilityRole="button"
+            accessibilityLabel="Show missing cards only"
+            accessibilityState={{ selected: ownershipFilter === 'missing' }}
           >
             <Text
               style={[
@@ -79,6 +88,9 @@ export default function FilterPanel({
         <TouchableOpacity
           style={styles.toggleRow}
           onPress={() => onShowPageBreaksChange(!showPageBreaks)}
+          accessibilityRole="checkbox"
+          accessibilityLabel="Show page breaks"
+          accessibilityState={{ checked: !!showPageBreaks }}
         >
           <Text style={styles.toggleLabel}>Show page breaks</Text>
           <Text style={styles.toggleIcon}>
@@ -99,10 +111,10 @@ const createStyles = (colors: ThemeColors) =>
       marginBottom: 12,
     },
     filterLabel: {
-      fontSize: 14,
+      fontSize: typography.sm,
       fontFamily: fonts.semibold,
       color: colors.text,
-      marginBottom: 8,
+      marginBottom: spacing.sm,
     },
     filterButtons: {
       flexDirection: 'row',
@@ -115,15 +127,15 @@ const createStyles = (colors: ThemeColors) =>
       backgroundColor: colors.surface,
       borderWidth: 1,
       borderColor: colors.border,
-      marginRight: 8,
-      marginBottom: 8,
+      marginRight: spacing.sm,
+      marginBottom: spacing.sm,
     },
     filterButtonActive: {
       backgroundColor: colors.primary,
       borderColor: colors.primary,
     },
     filterButtonText: {
-      fontSize: 14,
+      fontSize: typography.sm,
       color: colors.textSecondary,
       fontFamily: fonts.medium,
     },
@@ -135,16 +147,16 @@ const createStyles = (colors: ThemeColors) =>
       alignItems: 'center',
       justifyContent: 'space-between',
       paddingVertical: 10,
-      paddingHorizontal: 4,
-      marginTop: 4,
+      paddingHorizontal: spacing.xs,
+      marginTop: spacing.xs,
     },
     toggleLabel: {
-      fontSize: 14,
+      fontSize: typography.sm,
       fontFamily: fonts.medium,
       color: colors.text,
     },
     toggleIcon: {
-      fontSize: 20,
+      fontSize: typography.xl,
       color: colors.primary,
     },
   });

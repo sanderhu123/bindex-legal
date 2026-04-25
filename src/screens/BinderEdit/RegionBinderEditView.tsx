@@ -596,7 +596,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     backgroundColor: colors.backgroundDark,
   },
   cardPlaceholderIcon: {
-    fontSize: 28,
+    fontSize: typography['3xl'],
     color: colors.textLight,
     fontFamily: fonts.bold,
   },
@@ -613,12 +613,12 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     gap: 4,
   },
   cardNumber: {
-    fontSize: 10,
+    fontSize: typography['2xs'],
     color: 'rgba(255, 255, 255, 0.8)',
     fontFamily: fonts.medium,
   },
   cardName: {
-    fontSize: 10,
+    fontSize: typography['2xs'],
     color: '#FFFFFF',
     fontFamily: fonts.semibold,
     flex: 1,

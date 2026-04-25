@@ -77,7 +77,7 @@ const CARD_MARGIN = 2;
 const createStyles = (colors: ThemeColors) => StyleSheet.create({
   cardSlot: {
     margin: CARD_MARGIN,
-    marginBottom: 8,
+    marginBottom: spacing.sm,
     alignItems: 'center',
   },
   imageContainer: {

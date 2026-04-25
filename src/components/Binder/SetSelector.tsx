@@ -149,7 +149,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     left: 0,
   },
   logoPlaceholderText: {
-    fontSize: 24,
+    fontSize: typography['2xl'],
   },
   itemText: {
     flex: 1,

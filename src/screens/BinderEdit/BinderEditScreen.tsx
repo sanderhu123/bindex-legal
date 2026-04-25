@@ -2880,7 +2880,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     padding: spacing.xs,
   },
   floatingCardIcon: {
-    fontSize: 20,
+    fontSize: typography.xl,
     marginBottom: 2,
   },
   floatingCardText: {

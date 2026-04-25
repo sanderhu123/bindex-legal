@@ -136,7 +136,7 @@ const createStyles = (colors: ThemeColors) =>
       gap: 2,
     },
     ringLabel: {
-      fontSize: 10,
+      fontSize: typography['2xs'],
       fontFamily: fonts.regular,
       color: colors.textTertiary,
     },

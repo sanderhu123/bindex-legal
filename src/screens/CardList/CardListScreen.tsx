@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { View, StyleSheet, Text } from 'react-native';
-import { fonts, typography, type ThemeColors } from '../../constants/theme';
+import { fonts, spacing, typography, type ThemeColors } from '../../constants/theme';
 import { useTheme } from '../../context/ThemeContext';
 
 interface CardListScreenProps {
@@ -23,17 +23,17 @@ export default function CardListScreen({ navigation, route }: CardListScreenProp
 const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
-    padding: 20,
+    padding: spacing.lg,
     backgroundColor: colors.backgroundLight,
   },
   title: {
-    fontSize: 28,
+    fontSize: typography['3xl'],
     fontFamily: fonts.bold,
-    marginBottom: 20,
-    marginTop: 20,
+    marginBottom: spacing.lg,
+    marginTop: spacing.lg,
   },
   text: {
-    fontSize: 16,
+    fontSize: typography.base,
     color: colors.textSecondary,
   },
 });

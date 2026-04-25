@@ -357,7 +357,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     height: 40,
   },
   searchIcon: {
-    fontSize: 14,
+    fontSize: typography.sm,
     marginRight: spacing.sm,
   },
   searchInput: {
@@ -367,7 +367,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     paddingVertical: 0,
   },
   clearIcon: {
-    fontSize: 14,
+    fontSize: typography.sm,
     color: colors.textTertiary,
     padding: spacing.xs,
   },
@@ -416,7 +416,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     borderColor: colors.primary,
   },
   checkboxIcon: {
-    fontSize: 14,
+    fontSize: typography.sm,
     color: colors.onPrimary,
   },
   listItemContent: {

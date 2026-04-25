@@ -699,6 +699,9 @@ export default function CardDetailScreen({ navigation, route }: CardDetailScreen
                   onPressOut={handleBtnPressOut}
                   disabled={isUpdating}
                   activeOpacity={1}
+                  accessibilityRole="button"
+                  accessibilityLabel={isOwned ? 'Mark as not owned' : 'Mark as owned'}
+                  accessibilityState={{ checked: isOwned, disabled: isUpdating }}
                 >
                   <Image
                     source={isOwned ? require('../../../assets/logo-icon-teal.png') : require('../../../assets/logo-icon-white.png')}
@@ -730,6 +733,9 @@ export default function CardDetailScreen({ navigation, route }: CardDetailScreen
                         onPress={() => handleVariantChange((isSelected ? 'base' : v) as CardVariant)}
                         disabled={isUpdatingVariant}
                         activeOpacity={0.7}
+                        accessibilityRole="button"
+                        accessibilityLabel={`${VARIANT_LABELS[v] || v} variant`}
+                        accessibilityState={{ selected: isSelected, disabled: isUpdatingVariant }}
                       >
                         <Text style={styles.panelVariantIconText}>
                           {VARIANT_LABELS[v] || v}
@@ -879,7 +885,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     justifyContent: 'center',
   },
   panelVariantIconText: {
-    fontSize: 12,
+    fontSize: typography.xs,
     fontFamily: fonts.bold,
     color: colors.onPrimary,
     textShadowColor: 'rgba(0, 0, 0, 0.3)',

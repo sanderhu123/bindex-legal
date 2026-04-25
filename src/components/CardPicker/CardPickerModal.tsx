@@ -577,7 +577,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     height: 44,
   },
   searchIcon: {
-    fontSize: 16,
+    fontSize: typography.base,
     marginRight: spacing.sm,
   },
   searchInput: {
@@ -591,7 +591,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     marginLeft: spacing.xs,
   },
   clearIcon: {
-    fontSize: 14,
+    fontSize: typography.sm,
     color: colors.textTertiary,
   },
   resultsContainer: {
@@ -649,7 +649,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     borderColor: colors.primary,
   },
   colorCheckmark: {
-    fontSize: 18,
+    fontSize: typography.lg,
     fontFamily: fonts.bold,
   },
   customCardPreviewWrapper: {

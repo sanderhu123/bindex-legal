@@ -326,7 +326,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     alignItems: 'center',
   },
   headerIcon: {
-    fontSize: 16,
+    fontSize: typography.base,
     marginRight: spacing.xs,
   },
   headerTitle: {
@@ -400,7 +400,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     alignItems: 'center',
   },
   selectedCheck: {
-    fontSize: 20,
+    fontSize: typography.xl,
     color: colors.onPrimary,
   },
   trashZone: {
@@ -434,7 +434,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     elevation: 8,
   },
   trashIcon: {
-    fontSize: 24,
+    fontSize: typography['2xl'],
   },
   trashText: {
     fontSize: typography.xs,

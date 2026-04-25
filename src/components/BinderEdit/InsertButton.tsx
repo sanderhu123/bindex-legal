@@ -1,6 +1,6 @@
 import React from 'react';
 import { StyleSheet, TouchableOpacity, Text, View } from 'react-native';
-import { fonts, spacing } from '../../constants/theme';
+import { fonts, spacing, typography } from '../../constants/theme';
 
 /**
  * Props for InsertButton component
@@ -108,7 +108,7 @@ const styles = StyleSheet.create({
   },
   iconActive: {
     color: '#FFFFFF',
-    fontSize: 18,
+    fontSize: typography.lg,
     lineHeight: 18,
   },
 });

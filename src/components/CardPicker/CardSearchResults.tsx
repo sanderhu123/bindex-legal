@@ -449,7 +449,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     justifyContent: 'center',
   },
   selectIcon: {
-    fontSize: 20,
+    fontSize: typography.xl,
     color: colors.textSecondary,
   },
   centerContainer: {

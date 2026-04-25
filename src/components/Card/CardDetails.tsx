@@ -148,7 +148,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     marginTop: 2,
   },
   compactName: {
-    fontSize: 12,
+    fontSize: typography.xs,
     color: colors.text,
     fontFamily: fonts.medium,
     textAlign: 'center',
@@ -212,7 +212,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     justifyContent: 'center',
   },
   fullBadgeText: {
-    fontSize: 12,
+    fontSize: typography.xs,
     fontFamily: fonts.bold,
     color: '#fff',
     textShadowColor: 'rgba(0, 0, 0, 0.3)',

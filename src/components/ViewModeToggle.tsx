@@ -22,6 +22,9 @@ function ViewModeToggle({ viewMode, onViewModeChange }: ViewModeToggleProps) {
       <TouchableOpacity
         style={[styles.toggleButton, viewMode === 'binder' && styles.toggleButtonActive]}
         onPress={() => onViewModeChange('binder')}
+        accessibilityRole="button"
+        accessibilityLabel="Binder view"
+        accessibilityState={{ selected: viewMode === 'binder' }}
       >
         <Text style={[styles.toggleButtonText, viewMode === 'binder' && styles.toggleButtonTextActive]}>
           Binder
@@ -30,6 +33,9 @@ function ViewModeToggle({ viewMode, onViewModeChange }: ViewModeToggleProps) {
       <TouchableOpacity
         style={[styles.toggleButton, viewMode === 'grid' && styles.toggleButtonActive]}
         onPress={() => onViewModeChange('grid')}
+        accessibilityRole="button"
+        accessibilityLabel="Grid view"
+        accessibilityState={{ selected: viewMode === 'grid' }}
       >
         <Text style={[styles.toggleButtonText, viewMode === 'grid' && styles.toggleButtonTextActive]}>
           Grid
@@ -38,6 +44,9 @@ function ViewModeToggle({ viewMode, onViewModeChange }: ViewModeToggleProps) {
       <TouchableOpacity
         style={[styles.toggleButton, viewMode === 'list' && styles.toggleButtonActive]}
         onPress={() => onViewModeChange('list')}
+        accessibilityRole="button"
+        accessibilityLabel="List view"
+        accessibilityState={{ selected: viewMode === 'list' }}
       >
         <Text style={[styles.toggleButtonText, viewMode === 'list' && styles.toggleButtonTextActive]}>
           List

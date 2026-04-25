@@ -202,6 +202,8 @@ export function JumpToPageModal({
               <TouchableOpacity
                 style={[styles.button, styles.cancelButton]}
                 onPress={handleCancel}
+                accessibilityRole="button"
+                accessibilityLabel="Cancel"
               >
                 <Text style={styles.cancelButtonText}>Cancel</Text>
               </TouchableOpacity>
@@ -209,6 +211,8 @@ export function JumpToPageModal({
               <TouchableOpacity
                 style={[styles.button, styles.goButton]}
                 onPress={handleSubmit}
+                accessibilityRole="button"
+                accessibilityLabel="Go to page"
               >
                 <Text style={styles.goButtonText}>Go</Text>
               </TouchableOpacity>

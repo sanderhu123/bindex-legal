@@ -2947,6 +2947,8 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
           onPress={() => navigation.goBack()}
           activeOpacity={0.7}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          accessibilityRole="button"
+          accessibilityLabel="Go back"
         >
           <Ionicons name="chevron-back" size={24} color={colors.text} />
         </TouchableOpacity>
@@ -2994,6 +2996,8 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
           style={styles.toolbarIconButton}
           onPress={() => navigation.navigate('BinderEdit', { binderId: binder.id })}
           activeOpacity={0.7}
+          accessibilityRole="button"
+          accessibilityLabel="Edit binder"
         >
           <Ionicons name="pencil" size={18} color={colors.primary} />
         </TouchableOpacity>
@@ -3002,6 +3006,8 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
           style={styles.toolbarIconButton}
           onPress={() => navigation.navigate('BinderSettings', { binderId: binder.id })}
           activeOpacity={0.7}
+          accessibilityRole="button"
+          accessibilityLabel="Binder settings"
         >
           <Ionicons name="settings-outline" size={18} color={colors.primary} />
         </TouchableOpacity>
@@ -3016,6 +3022,8 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
             setDisplayMode(true);
           }}
           activeOpacity={0.7}
+          accessibilityRole="button"
+          accessibilityLabel="Enter display mode"
         >
           <Ionicons name="eye-outline" size={20} color={colors.primary} />
         </TouchableOpacity>
@@ -3992,7 +4000,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   titleSetLogo: {
     width: 48,
     height: 24,
-    marginLeft: 8,
+    marginLeft: spacing.sm,
   },
   subtitleRow: {
     flexDirection: 'row',
@@ -4219,7 +4227,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     borderColor: colors.border + '85',
   },
   milestoneBadgeText: {
-    fontSize: 10,
+    fontSize: typography['2xs'],
     fontFamily: fonts.medium,
     color: colors.textTertiary + 'CC',
   },
@@ -4277,7 +4285,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   // Region mode card styles
   regionCardItem: {
     margin: CARD_MARGIN,
-    marginBottom: 8,
+    marginBottom: spacing.sm,
     alignItems: 'center',
   },
   regionCardImageContainer: {
@@ -4298,7 +4306,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     alignItems: 'center',
   },
   regionVariantBadgeText: {
-    fontSize: 10,
+    fontSize: typography['2xs'],
     fontFamily: fonts.bold,
     color: '#fff',
     textShadowColor: 'rgba(0, 0, 0, 0.3)',
@@ -4566,7 +4574,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   displayPageNumberText: {
     color: '#E5E5E5',
-    fontSize: 10,
+    fontSize: typography['2xs'],
     fontFamily: fonts.medium,
   },
   displayPageHintSpacer: {

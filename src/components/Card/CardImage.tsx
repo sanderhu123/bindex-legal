@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { View, StyleSheet, ActivityIndicator, Text } from 'react-native';
-import { fonts, type ThemeColors } from '../../constants/theme';
+import { fonts, spacing, typography, borderRadius, type ThemeColors } from '../../constants/theme';
 import { useTheme } from '../../context/ThemeContext';
 import { Image, ImageSource } from 'expo-image';
 import { isCustomCard, getCustomCardColor, getCustomCardTextColor } from '../../services/supabase/customCards';
@@ -360,8 +360,8 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     backgroundColor: colors.overlayLight,
   },
   retryText: {
-    marginTop: 4,
-    fontSize: 10,
+    marginTop: spacing.xs,
+    fontSize: typography['2xs'],
     color: colors.textTertiary,
   },
   // Card back placeholder styles (Pokéball design)
@@ -429,16 +429,16 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   cardInfoCenter: {
     alignItems: 'center',
-    paddingHorizontal: 8,
+    paddingHorizontal: spacing.sm,
   },
   cardInfoNumber: {
-    fontSize: 14,
+    fontSize: typography.sm,
     fontFamily: fonts.bold,
     color: '#ffd700',
-    marginBottom: 4,
+    marginBottom: spacing.xs,
   },
   cardInfoName: {
-    fontSize: 12,
+    fontSize: typography.xs,
     fontFamily: fonts.semibold,
     color: '#ffffff',
     textAlign: 'center',
@@ -446,8 +446,8 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   cardBackText: {
     position: 'absolute',
-    bottom: 8,
-    fontSize: 10,
+    bottom: spacing.sm,
+    fontSize: typography['2xs'],
     color: 'rgba(255, 255, 255, 0.7)',
     fontFamily: fonts.semibold,
   },
@@ -458,10 +458,10 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 12,
-    borderRadius: 4,
+    borderRadius: borderRadius.sm,
   },
   customCardName: {
-    fontSize: 14,
+    fontSize: typography.sm,
     fontFamily: fonts.bold,
     textAlign: 'center',
     lineHeight: 18,

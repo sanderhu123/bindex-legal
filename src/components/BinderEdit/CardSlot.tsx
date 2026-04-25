@@ -4,7 +4,7 @@ import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../context/ThemeContext';
-import { spacing, borderRadius, shadows, fonts, type ThemeColors } from '../../constants/theme';
+import { spacing, typography, borderRadius, shadows, fonts, type ThemeColors } from '../../constants/theme';
 import { isCustomCard, CUSTOM_CARD_COLORS } from '../../services/supabase/customCards';
 import { mediumTap } from '../../utils/haptics';
 
@@ -293,7 +293,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     alignItems: 'center',
   },
   plusIcon: {
-    fontSize: 32,
+    fontSize: typography['4xl'],
     color: colors.textTertiary,
     fontWeight: '300',
   },
@@ -317,11 +317,11 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     padding: spacing.xs,
   },
   placeholderIcon: {
-    fontSize: 24,
-    marginBottom: 4,
+    fontSize: typography['2xl'],
+    marginBottom: spacing.xs,
   },
   placeholderText: {
-    fontSize: 10,
+    fontSize: typography['2xs'],
     color: colors.onPrimary,
     textAlign: 'center',
     fontFamily: fonts.medium,
@@ -345,7 +345,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   checkmarkText: {
     color: colors.onPrimary,
-    fontSize: 14,
+    fontSize: typography.sm,
   },
   // Drop target highlight overlay (green glow when hovering)
   dropTargetOverlay: {

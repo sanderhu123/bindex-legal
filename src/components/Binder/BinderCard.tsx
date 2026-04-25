@@ -94,6 +94,9 @@ export default function BinderCard({ binder, completionPercentage, totalCards, o
         onPressOut={handlePressOut}
         activeOpacity={1}
         delayLongPress={600}
+        accessibilityRole="button"
+        accessibilityLabel={`${binder.name}, ${getCollectionModeLabel(binder.collectionMode)}${subtitle ? `, ${subtitle}` : ''}, ${completionPercentage}% complete`}
+        accessibilityHint={onDelete ? 'Tap to open. Long press to delete.' : 'Tap to open binder.'}
       >
         <View style={styles.content}>
           {showSetLogo && (

@@ -171,6 +171,9 @@ export default function SettingsScreen() {
       onPress={onPress}
       disabled={options?.disabled || options?.loading}
       activeOpacity={0.6}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ disabled: !!(options?.disabled || options?.loading) }}
     >
       <View style={styles.rowLeft}>
         <Ionicons

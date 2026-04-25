@@ -183,6 +183,8 @@ export function SwapPagesModal({
               <TouchableOpacity
                 style={[styles.button, styles.cancelButton]}
                 onPress={handleCancel}
+                accessibilityRole="button"
+                accessibilityLabel="Cancel"
               >
                 <Text style={styles.cancelButtonText}>Cancel</Text>
               </TouchableOpacity>
@@ -190,6 +192,8 @@ export function SwapPagesModal({
               <TouchableOpacity
                 style={[styles.button, styles.swapButton]}
                 onPress={handleSubmit}
+                accessibilityRole="button"
+                accessibilityLabel="Swap pages"
               >
                 <Text style={styles.swapButtonText}>Swap</Text>
               </TouchableOpacity>

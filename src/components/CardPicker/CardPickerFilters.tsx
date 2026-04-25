@@ -609,16 +609,16 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     fontFamily: fonts.semibold,
   },
   chipArrow: {
-    fontSize: 10,
+    fontSize: typography['2xs'],
     color: colors.textTertiary,
-    marginLeft: 4,
+    marginLeft: spacing.xs,
   },
   chipClearButton: {
-    marginLeft: 4,
+    marginLeft: spacing.xs,
     padding: 2,
   },
   chipClearIcon: {
-    fontSize: 10,
+    fontSize: typography['2xs'],
     color: colors.primary,
   },
 
@@ -660,10 +660,10 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     maxWidth: 120,
   },
   tagRemove: {
-    fontSize: 10,
+    fontSize: typography['2xs'],
     color: colors.primary,
     fontFamily: fonts.bold,
-    marginLeft: 4,
+    marginLeft: spacing.xs,
   },
   addMoreButton: {
     paddingHorizontal: spacing.sm,
@@ -701,7 +701,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     paddingVertical: 0,
   },
   inputClearIcon: {
-    fontSize: 12,
+    fontSize: typography.xs,
     color: colors.textTertiary,
     padding: spacing.xs,
   },

@@ -1,6 +1,6 @@
 import React, { memo, useCallback, useMemo, useRef, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Animated, Image as RNImage } from 'react-native';
-import { fonts, type ThemeColors } from '../../constants/theme';
+import { fonts, spacing, typography, borderRadius, type ThemeColors } from '../../constants/theme';
 import { useTheme } from '../../context/ThemeContext';
 import { useNavigation } from '@react-navigation/native';
 import type { StackNavigationProp } from '@react-navigation/stack';
@@ -287,7 +287,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   // Grid view styles
   cardItem: {
     margin: CARD_MARGIN,
-    marginBottom: 8,
+    marginBottom: spacing.sm,
     alignItems: 'center',
   },
   cardImageContainer: {
@@ -335,7 +335,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     justifyContent: 'center',
   },
   variantBadgeText: {
-    fontSize: 10,
+    fontSize: typography['2xs'],
     fontFamily: fonts.bold,
     color: '#fff',
     textShadowColor: 'rgba(0, 0, 0, 0.3)',
@@ -348,7 +348,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.surface,
-    borderRadius: 8,
+    borderRadius: borderRadius.md,
     paddingVertical: 10,
     paddingHorizontal: 12,
     marginBottom: 6,
@@ -363,7 +363,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   listCardImage: {
     width: 45,
-    borderRadius: 4,
+    borderRadius: borderRadius.sm,
   },
   listInfo: {
     flex: 1,
@@ -374,13 +374,13 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     marginBottom: 2,
   },
   listCardName: {
-    fontSize: 14,
+    fontSize: typography.sm,
     fontFamily: fonts.medium,
     color: colors.text,
     flexShrink: 1,
   },
   listCardNumber: {
-    fontSize: 12,
+    fontSize: typography.xs,
     color: colors.textSecondary,
     marginBottom: 1,
   },
@@ -390,16 +390,16 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     marginTop: 1,
   },
   listVariantBadgeInline: {
-    marginLeft: 8,
+    marginLeft: spacing.sm,
     paddingHorizontal: 6,
     paddingVertical: 2,
-    borderRadius: 4,
+    borderRadius: borderRadius.sm,
     minWidth: 24,
     alignItems: 'center',
     justifyContent: 'center',
   },
   listCheckbox: {
-    marginLeft: 8,
+    marginLeft: spacing.sm,
     width: 24,
     height: 24,
     borderRadius: 2,

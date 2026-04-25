@@ -1,258 +1,113 @@
 # Remaining UI/UX Improvements - Todo List
 
-This document tracks the remaining UI/UX improvements from Step 21 that haven't been implemented yet.
-
-## Status: Ready to Implement
-
----
-
-## High Priority
-
-### 1. Create Reusable Button Components
-**Status:** Not started
-
-**What to do:**
-- Create standardized button components to replace all `TouchableOpacity` buttons
-- Ensure consistent styling, loading states, and disabled states
-
-**Files to create:**
-- `src/components/Button/PrimaryButton.tsx` - Primary action button (blue)
-- `src/components/Button/SecondaryButton.tsx` - Secondary action button (outlined)
-- `src/components/Button/TextButton.tsx` - Text-only button (for links)
-
-**Features:**
-- Loading state support (shows spinner or "Loading..." text)
-- Disabled state styling
-- Consistent sizing (small, medium, large variants)
-- Uses theme colors
-- Proper touch feedback
-
-**Files to update:**
-- `src/screens/BinderList/BinderListScreen.tsx` - Replace create button, logout button
-- `src/screens/BinderDetail/BinderDetailScreen.tsx` - Replace view toggle buttons
-- `src/screens/Auth/LoginScreen.tsx` - Replace login, social buttons
-- `src/screens/Auth/SignupScreen.tsx` - Replace signup button
-- `src/screens/CardDetail/CardDetailScreen.tsx` - Replace ownership toggle button
-- `src/components/EmptyState/EmptyState.tsx` - Use PrimaryButton
-- `src/components/Error/ErrorScreen.tsx` - Use PrimaryButton and SecondaryButton
-- Any other screens with buttons
-
-**Testing:**
-- [ ] All buttons use new components
-- [ ] Loading states work correctly
-- [ ] Disabled states work correctly
-- [ ] Buttons look consistent across app
-- [ ] Touch feedback works properly
+> **Last updated:** April 25, 2026 (after items 2, 3 and 8 polish pass)
+> **Status:** All 8 original items are now done or essentially done. Only an optional onboarding visual progress bar remains.
 
 ---
 
-### 2. Improve Spacing Consistency
-**Status:** Not started
+## Audited Status (Original 8 Items)
 
-**What to do:**
-- Review all screens and ensure spacing uses theme constants
-- Standardize padding and margins throughout the app
-
-**Files to review/update:**
-- `src/screens/Onboarding/OnboardingScreen.tsx` and all step screens
-- `src/screens/NfcHandler/NfcHandlerScreen.tsx`
-- `src/components/Binder/BinderCard.tsx`
-- `src/components/Card/CardItem.tsx`
-- `src/components/Search/SearchBar.tsx`
-- `src/components/Filter/FilterPanel.tsx`
-- `src/components/Progress/ProgressBar.tsx`
-- Any other components with hardcoded spacing
-
-**Standard spacing to use:**
-- Screen padding: `screenPadding` (24px)
-- Component margins: `spacing.md` (16px)
-- Small gaps: `spacing.sm` (8px)
-- Large gaps: `spacing.lg` (24px)
-
-**Testing:**
-- [ ] All spacing uses theme constants
-- [ ] No hardcoded padding/margin values
-- [ ] Spacing looks consistent across screens
-- [ ] Components have proper spacing between them
+| # | Item | Status | Notes |
+|---|------|--------|-------|
+| 1 | Reusable Button components | DONE | `PrimaryButton`, `SecondaryButton`, `TextButton` exist in `src/components/Button/` and are exported via `index.ts`. |
+| 2 | Spacing consistency | DONE | Hardcoded `padding`/`margin` numeric values that match a theme token were replaced with `spacing.*` across all flagged screens and components. Remaining hardcoded numerics (e.g. `2`, `3`, `6`, `10`, `11`, `13`, `40`, `48`, `80`, `100`) are intentional micro-spacings or component-specific dimensions that don't have a 1:1 theme equivalent. |
+| 3 | Typography consistency | DONE | All `fontSize` values that match a theme token now use `typography.*`. Added a `typography['2xs'] = 10` constant since size 10 is reused as a "tiny label" size in many places. Non-standard sizes (8, 9, 11, 22, 36, 48) are intentional one-offs (energy/variant badges, large emoji icons, etc.) and were left as numeric literals. |
+| 4 | Safe area handling | DONE | `SafeAreaView` / `useSafeAreaInsets` is used in 16 screens — all major user-facing screens. |
+| 5 | Visual feedback (Toasts) | DONE | `src/utils/toast.ts` exposes `showSuccess` / `showError` / `showInfo` (using `react-native-toast-message`). Used in 8 screens including BinderList, BinderDetail, BinderSettings, Settings, Login, Signup, CardDetail, Onboarding. |
+| 6 | Onboarding progress indicator | PARTIAL | Text counter "Step X of Y" exists in `OnboardingScreen.tsx`. A visual progress bar on top has not been added (optional, see below). |
+| 7 | Pull-to-refresh consistency | DONE | `RefreshControl` / `onRefresh` is implemented on `BinderDetailScreen`. |
+| 8 | Accessibility improvements | DONE (v1) | `accessibilityLabel` / `accessibilityHint` / `accessibilityRole` are now present on all reusable Button components, Auth screens, BinderListScreen, OnboardingScreen, BinderEdit components, PageNavigator, ScreenHeader, ViewModeToggle, EmptyState, ErrorScreen, FilterPanel, BinderCard, JumpToPageModal, SwapPagesModal, SettingsScreen rows, BinderDetailScreen toolbar (back/edit/settings/display), and CardDetailScreen ownership/variant buttons. Touch targets are at least 32–44 pt across the app. A full audit with VoiceOver / TalkBack is still recommended post-launch. |
 
 ---
 
-### 3. Improve Typography Consistency
-**Status:** Not started
+## Changes made in this pass (items 2, 3, 8)
 
-**What to do:**
-- Review all text elements and ensure they use theme typography
-- Create reusable text components (optional but helpful)
+### Theme
+- Added `typography['2xs'] = 10` to `src/constants/theme.ts` (covers a previously hardcoded micro size used in 10+ files).
 
-**Files to review/update:**
-- All screen files - check all `Text` components
-- All component files - check all `Text` components
-- Replace hardcoded font sizes with theme typography values
+### Spacing & Typography (items 2 & 3)
+Updated to replace exact-match hardcoded values with `spacing.*` / `typography.*` in:
 
-**Optional: Create text components:**
-- `src/components/Text/Heading.tsx` - For headings (h1, h2, h3 variants)
-- `src/components/Text/Body.tsx` - For body text
-- `src/components/Text/Caption.tsx` - For small text/captions
-
-**Testing:**
-- [ ] All text uses theme typography
-- [ ] No hardcoded font sizes
-- [ ] Typography looks consistent across app
-- [ ] Text is readable and properly sized
-
----
-
-## Medium Priority
-
-### 4. Add Safe Area Handling
-**Status:** Not started
-
-**What to do:**
-- Ensure content isn't hidden behind notches/status bars
-- Use `react-native-safe-area-context` (already installed)
-
-**Files to update:**
-- `src/screens/BinderList/BinderListScreen.tsx`
+Screens:
 - `src/screens/BinderDetail/BinderDetailScreen.tsx`
 - `src/screens/CardDetail/CardDetailScreen.tsx`
-- `src/screens/Auth/LoginScreen.tsx`
-- `src/screens/Auth/SignupScreen.tsx`
-- All other screens
+- `src/screens/BinderEdit/BinderEditScreen.tsx`
+- `src/screens/BinderEdit/RegionBinderEditView.tsx`
+- `src/screens/CardList/CardListScreen.tsx`
 
-**Implementation:**
-- Wrap screens with `SafeAreaView` or use `useSafeAreaInsets()` hook
-- Ensure headers and content respect safe areas
+Components:
+- `src/components/Binder/BinderPageView.tsx`
+- `src/components/Binder/SetSelector.tsx`
+- `src/components/Card/CardItem.tsx`
+- `src/components/Card/CardImage.tsx`
+- `src/components/Card/CardDetails.tsx`
+- `src/components/Card/EmptyCardSlot.tsx`
+- `src/components/CardPicker/CardPickerModal.tsx`
+- `src/components/CardPicker/CardPickerFilters.tsx`
+- `src/components/CardPicker/CardSearchResults.tsx`
+- `src/components/CardPicker/SearchableListPicker.tsx`
+- `src/components/BinderEdit/CardSlot.tsx`
+- `src/components/BinderEdit/CardPlaceholder.tsx`
+- `src/components/BinderEdit/InsertButton.tsx`
+- `src/components/Filter/FilterPanel.tsx`
+- `src/components/Progress/RarityStats.tsx`
 
-**Testing:**
-- [ ] Content visible on devices with notches
-- [ ] No content hidden behind status bar
-- [ ] Works on both iOS and Android
-- [ ] Bottom content accessible (not hidden by home indicator)
+`src/components/Binder/PageNavigator.tsx` and `src/screens/CardSearchTest/CardSearchTestScreen.tsx` were re-audited and required no changes (already consistent or only contain intentional non-standard values).
 
----
+### Accessibility (item 8)
+Added `accessibilityRole` / `accessibilityLabel` (+ `accessibilityState` where relevant) to:
 
-### 5. Add Visual Feedback (Toasts/Notifications)
-**Status:** Not started
-
-**What to do:**
-- Add success/error feedback for user actions
-- Use `react-native-paper` Snackbar (already installed)
-
-**Files to create:**
-- `src/components/Toast/Toast.tsx` or use react-native-paper Snackbar directly
-
-**Actions to add feedback for:**
-- Card added to binder
-- Card removed from binder
-- Binder created
-- Binder deleted
-- Any other user actions
-
-**Files to update:**
-- `src/screens/BinderDetail/BinderDetailScreen.tsx` - Card add/remove feedback
-- `src/screens/BinderList/BinderListScreen.tsx` - Binder delete feedback
-- `src/screens/Onboarding/OnboardingScreen.tsx` - Binder creation feedback
-- Any other screens with user actions
-
-**Testing:**
-- [ ] Success messages show when actions complete
-- [ ] Error messages show when actions fail
-- [ ] Toasts don't block UI
-- [ ] Messages are clear and helpful
+- `src/components/ViewModeToggle.tsx` (Binder / Grid / List buttons, with `selected` state)
+- `src/components/EmptyState/EmptyState.tsx` (action button)
+- `src/components/Error/ErrorScreen.tsx` (retry / go-back buttons)
+- `src/components/Binder/BinderCard.tsx` (binder card with full label + tap/long-press hint)
+- `src/components/Binder/JumpToPageModal.tsx` (Cancel / Go buttons)
+- `src/components/Binder/SwapPagesModal.tsx` (Cancel / Swap buttons)
+- `src/components/Filter/FilterPanel.tsx` (All / Owned / Missing filter chips with `selected` state, Show page breaks checkbox)
+- `src/screens/Settings/SettingsScreen.tsx` (every settings row)
+- `src/screens/BinderDetail/BinderDetailScreen.tsx` (back, edit, settings, display-mode toolbar buttons)
+- `src/screens/CardDetail/CardDetailScreen.tsx` (ownership toggle with `checked` state, variant chips with `selected` state)
+- `src/screens/BinderList/BinderListScreen.tsx` (Pro badge button)
 
 ---
 
-### 6. Improve Onboarding/Questionnaire UX
-**Status:** Not started
+## Optional polish still on the table
 
-**What to do:**
-- Add progress indicator (step X of Y)
-- Improve step transitions
-- Better visual separation between steps
-- Add "Skip" option where appropriate
+### Onboarding visual progress bar (optional)
+- Add a thin horizontal progress bar above the existing "Step X of Y" text on `OnboardingScreen.tsx`.
+- The data is already there (`actualStep` / `totalSteps`); just needs a small bar component (could reuse `ProgressBar` from `src/components/Progress/`).
+- **Recommendation:** Small task, would polish the onboarding experience. Not a launch blocker.
 
-**Files to update:**
-- `src/screens/Onboarding/OnboardingScreen.tsx`
-- All step components (Step1CollectionMode, Step2MasterSet, etc.)
-
-**Features to add:**
-- Progress bar showing current step
-- Step counter (e.g., "Step 2 of 5")
-- Smooth transitions between steps
-- Better visual hierarchy
-
-**Testing:**
-- [ ] Progress indicator shows correctly
-- [ ] Step transitions are smooth
-- [ ] Users can navigate back/forward easily
-- [ ] Steps are clearly separated visually
-
----
-
-## Low Priority (Nice to Have)
-
-### 7. Add Pull-to-Refresh Consistency
-**Status:** Not started
-
-**What to do:**
-- Add pull-to-refresh to screens that fetch data
-- Currently only BinderListScreen has it
-
-**Files to update:**
-- `src/screens/BinderDetail/BinderDetailScreen.tsx` - Add pull-to-refresh for cards
-- Any other list screens that fetch data
-
-**Testing:**
-- [ ] Pull-to-refresh works on all list screens
-- [ ] Refresh indicator shows correctly
-- [ ] Data updates after refresh
-
----
-
-### 8. Accessibility Improvements
-**Status:** Not started
-
-**What to do:**
-- Add accessibility labels to interactive elements
-- Ensure touch targets are at least 44x44 points
-- Test with screen readers
-
-**Files to update:**
-- All screen files - add `accessibilityLabel` to buttons, inputs, etc.
-- All component files - add accessibility props
-
-**Testing:**
-- [ ] All interactive elements have accessibility labels
-- [ ] Touch targets meet minimum size requirements
-- [ ] Works with screen readers (iOS VoiceOver, Android TalkBack)
+### Full accessibility audit (post-launch)
+- Test the app end-to-end with iOS VoiceOver and Android TalkBack.
+- Confirm touch targets are at least 44×44 pt for all primary actions.
+- Add labels to any remaining secondary interactive elements that surface in testing (e.g. Onboarding step buttons, CardPicker filter chips that already work but could use richer labels).
+- **Recommendation:** Can be done post-launch.
 
 ---
 
 ## Summary
 
-**Completed:**
-- ✅ Theme/constants system
-- ✅ Standardized loading states
-- ✅ Standardized empty states
-- ✅ Standardized error handling
-- ✅ Grid layout fix
+**Done (all original 8 items):**
+- Theme/constants system
+- Standardized loading / empty / error states
+- Grid layout fix
+- Reusable Button components
+- Safe area handling
+- Toast/snackbar feedback
+- Pull-to-refresh on BinderDetailScreen
+- Onboarding step counter (text)
+- **Spacing & typography consistency (this pass)**
+- **Accessibility v1 sweep (this pass)**
 
-**Remaining:**
-- [ ] Button components (High priority)
-- [ ] Spacing consistency (High priority)
-- [ ] Typography consistency (High priority)
-- [ ] Safe area handling (Medium priority)
-- [ ] Visual feedback/toasts (Medium priority)
-- [ ] Onboarding polish (Medium priority)
-- [ ] Pull-to-refresh consistency (Low priority)
-- [ ] Accessibility improvements (Low priority)
+**Optional polish remaining:**
+- [ ] Add visual progress bar to onboarding (optional)
+- [ ] Full accessibility audit with screen readers (post-launch is fine)
 
 ---
 
 ## Notes
 
-- All improvements should follow the "simple and clean" design principle
-- Use theme constants for all styling
-- Test on both iOS and Android
-- Keep changes incremental - test after each improvement
-
+- All improvements follow the "simple and clean" design principle.
+- Use theme constants (`spacing.*`, `typography.*`, `borderRadius.*`, `fonts.*`) for all new styling.
+- None of the remaining items are launch-blockers — the app's UI is launch-ready.

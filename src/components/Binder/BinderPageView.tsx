@@ -345,7 +345,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     justifyContent: 'center',
   },
   slotBadgeOnCard: {
-    fontSize: 14,
+    fontSize: typography.sm,
     fontFamily: fonts.bold,
     color: colors.onPrimary,
   },
@@ -394,7 +394,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     justifyContent: 'center',
   },
   variantBadgeText: {
-    fontSize: 10,
+    fontSize: typography['2xs'],
     fontFamily: fonts.bold,
     color: colors.onPrimary,
     textShadowColor: 'rgba(0, 0, 0, 0.3)',

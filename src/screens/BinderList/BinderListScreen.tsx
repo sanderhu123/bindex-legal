@@ -289,6 +289,8 @@ export default function BinderListScreen() {
                   navigation.navigate('Upgrade');
                 }
               }}
+              accessibilityRole="button"
+              accessibilityLabel={isPro ? 'Bindex Pro active' : 'Upgrade to Bindex Pro'}
             >
               <Ionicons
                 name={isPro ? 'star' : 'star-outline'}

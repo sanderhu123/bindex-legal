@@ -1437,10 +1437,25 @@ export async function searchCardsByName(
         }
         if (isNumberSearch) {
           const parts = sanitizedQuery.replace(/^#/, '').split('/');
-          // ilike (no wildcards) = case-insensitive equality, so "tg12"
-          // matches a stored "TG12". For purely numeric values it behaves
-          // identically to eq, so existing "25" / "#7" searches are unaffected.
-          q = q.ilike('number', parts[0]);
+          const rawNumber = parts[0];
+          // For purely numeric queries, generate zero-padded variations so
+          // typing "1", "01", or "001" all match cards stored as any of
+          // those formats (older sets store "1", newer sets store "001").
+          if (/^\d+$/.test(rawNumber)) {
+            const stripped = rawNumber.replace(/^0+/, '') || '0';
+            const variations = Array.from(new Set<string>([
+              stripped,
+              stripped.padStart(2, '0'),
+              stripped.padStart(3, '0'),
+              stripped.padStart(4, '0'),
+            ]));
+            q = q.in('number', variations);
+          } else {
+            // ilike (no wildcards) = case-insensitive equality, so "tg12"
+            // matches a stored "TG12". Used for alphanumeric numbers like
+            // "tg12", "gg01", "h1", "sve15".
+            q = q.ilike('number', rawNumber);
+          }
           // Only enforce the set's printed-total filter when the user gave
           // a real number (e.g. "25/172"). Subset totals like "TG30" aren't
           // stored in the DB, so we just ignore that part instead of

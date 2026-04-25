@@ -141,7 +141,11 @@ export function useCardPicker(options?: UseCardPickerOptions): UseCardPickerRetu
     // card-number prefix like "tg", "gg", "h", so users can type just "tg"
     // and immediately see all Trainer Gallery cards.
     const isKnownPrefix = sanitizedQuery && KNOWN_NUMBER_PREFIXES.has(sanitizedQuery.toLowerCase());
-    if (sanitizedQuery && sanitizedQuery.length < 3 && !isKnownPrefix && !hasActiveFilters) {
+    // Also allow short purely-numeric queries like "7", "25", "001/102",
+    // so users can search by card number directly. The number search in
+    // the API normalizes leading zeros so "1", "01", "001" all match.
+    const isPureNumber = !!sanitizedQuery && /^#?\d+(\/\d+)?$/.test(sanitizedQuery);
+    if (sanitizedQuery && sanitizedQuery.length < 3 && !isKnownPrefix && !isPureNumber && !hasActiveFilters) {
       return;
     }
 

@@ -82,6 +82,32 @@ export async function removeCardFromBinderFast(
 }
 
 /**
+ * Fast version of toggling ownership at a specific slot in a Custom binder.
+ * Single atomic UPDATE — no read-modify-write, no race condition.
+ * Pass the *new* is_owned value (the UI already knows it from its optimistic update).
+ * Skips updating binders.owned_cards — call scheduleCountSync()/syncBinderCardCount()
+ * after a burst of toggles to recompute the count from the source of truth.
+ */
+export async function setCardOwnedAtPositionFast(
+  binderId: string,
+  position: number,
+  isOwned: boolean,
+): Promise<void> {
+  const userId = await getCachedUserId();
+
+  const { error } = await supabase
+    .from('binder_cards')
+    .update({ is_owned: isOwned })
+    .eq('user_id', userId)
+    .eq('binder_id', binderId)
+    .eq('position', position);
+
+  if (error) {
+    throw error;
+  }
+}
+
+/**
  * Sync the owned_cards count on the binder.
  * Call this after a batch of toggles (not after every single toggle).
  */

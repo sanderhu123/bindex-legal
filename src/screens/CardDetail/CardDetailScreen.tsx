@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { getCardById } from '../../services/api/pokemonApi';
 import { getBinderById } from '../../services/supabase/binders';
-import { addCardToBinder, removeCardFromBinder, toggleCardOwnershipAtPosition, toggleExtraCardOwnership, getBinderCardData, saveCardNote, updateCardVariant, findRegionCardIdInBinder } from '../../services/supabase/cards';
+import { addCardToBinder, removeCardFromBinder, setCardOwnedAtPositionFast, toggleExtraCardOwnership, getBinderCardData, saveCardNote, updateCardVariant, findRegionCardIdInBinder, syncBinderCardCount } from '../../services/supabase/cards';
 import { setSelectedCardForPokemon, clearSelectedCardForPokemon } from '../../services/supabase/regionCards';
 import CardImage from '../../components/Card/CardImage';
 import CardDetails from '../../components/Card/CardDetails';
@@ -598,8 +598,12 @@ export default function CardDetailScreen({ navigation, route }: CardDetailScreen
     // Sync with database
     try {
       if (isCustomBinder) {
-        // Custom binders: toggle ownership status at the position
-        await toggleCardOwnershipAtPosition(binder.id, position);
+        // Custom binders: set ownership at the position with a single atomic write,
+        // then recompute the binder counter from the source of truth.
+        await setCardOwnedAtPositionFast(binder.id, position, newIsOwned);
+        syncBinderCardCount(binder.id).catch((syncErr) => {
+          console.warn('[CardDetail] Count sync failed:', syncErr);
+        });
       } else if (isExtraCard) {
         // Extra cards (added by user): toggle ownership using extra card function
         await toggleExtraCardOwnership(binder.id, card.id, card.variant);

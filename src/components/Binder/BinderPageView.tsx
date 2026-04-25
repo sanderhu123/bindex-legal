@@ -177,6 +177,9 @@ function BinderPageViewComponent({
         binderId: binderId,
         isOwned: card.isOwned,
         collectionMode: collectionMode,
+        // For Custom binders, position is required so the detail screen
+        // toggles ownership at the correct slot (matches the grid view path).
+        position: collectionMode === 'custom' ? globalSlotIndex : undefined,
         cardIndex: globalSlotIndex,
         cardsPerPage: cardsPerPage,
         cardData: {

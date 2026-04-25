@@ -12,7 +12,7 @@ import {
   removeCardFromBinderFast,
   syncBinderCardCount,
   getBinderCardsWithPositions, 
-  toggleCardOwnershipAtPosition,
+  setCardOwnedAtPositionFast,
   getExtraCardsWithVariants,
   toggleExtraCardOwnership,
   getCardVariantsForBinder,
@@ -1602,27 +1602,36 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
   
 
   // Handle toggling owned/missing status for a card at a position (Custom mode)
+  // Mirrors the Master Set / Region pattern: single atomic per-position write
+  // followed by a debounced binder count sync, so rapid taps on different
+  // slots don't race on the binders.owned_cards counter.
   const handleToggleCustomCardOwnership = useCallback(async (position: number) => {
-    if (!binder) return;
-    
+    const currentBinderId = binder?.id;
+    if (!currentBinderId) return;
+
     const lockKey = `custom_pos_${position}`;
     if (togglingCardsRef.current.has(lockKey)) return;
     togglingCardsRef.current.add(lockKey);
-    
-    const card = positionCards.get(position);
-    if (!card) {
-      togglingCardsRef.current.delete(lockKey);
-      return;
-    }
-    
-    const newIsOwned = !card.isOwned;
-    
+
+    // Read the latest card state for this position (avoid stale closures)
+    let cardSnapshot: CardWithOwnership | null = null;
+    let newIsOwned = false;
     setPositionCards((prev) => {
+      const card = prev.get(position);
+      if (!card) return prev;
+      cardSnapshot = card;
+      newIsOwned = !card.isOwned;
       const updated = new Map(prev);
       updated.set(position, { ...card, isOwned: newIsOwned });
       return updated;
     });
-    
+
+    if (!cardSnapshot) {
+      togglingCardsRef.current.delete(lockKey);
+      return;
+    }
+    const card = cardSnapshot as CardWithOwnership;
+
     setBinder((prevBinder) => {
       if (!prevBinder) return prevBinder;
       return {
@@ -1632,15 +1641,16 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
           : Math.max(0, (prevBinder.ownedCards || 0) - 1),
       };
     });
-    
+
     try {
-      await toggleCardOwnershipAtPosition(binder.id, position);
+      await setCardOwnedAtPositionFast(currentBinderId, position, newIsOwned);
+      scheduleCountSync(currentBinderId);
     } catch (err) {
       console.error('[BinderDetail] Failed to toggle card ownership:', err);
 
       enqueueToggle({
         type: 'set_position_owned',
-        binderId: binder.id,
+        binderId: currentBinderId,
         cardId: card.id,
         position,
         isOwned: newIsOwned,
@@ -1648,14 +1658,14 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
 
       setPositionCards((prev) => {
         const updated = new Map(prev);
-        updated.set(position, card);
+        updated.set(position, { ...card, isOwned: !newIsOwned });
         return updated;
       });
       setBinder((prevBinder) => {
         if (!prevBinder) return prevBinder;
         return {
           ...prevBinder,
-          ownedCards: card.isOwned 
+          ownedCards: !newIsOwned 
             ? (prevBinder.ownedCards || 0) + 1 
             : Math.max(0, (prevBinder.ownedCards || 0) - 1),
         };
@@ -1664,7 +1674,7 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
     } finally {
       togglingCardsRef.current.delete(lockKey);
     }
-  }, [binder, positionCards]);
+  }, [binder?.id, scheduleCountSync]);
 
   // Toggle ownership for custom mode via card object (used by list/binder views)
   const handleCustomCardToggleByCard = useCallback((card: CardWithOwnership) => {

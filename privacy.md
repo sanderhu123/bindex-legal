@@ -1,4 +1,4 @@
-#Privacy Policy
+# Privacy Policy
 Effective date: April 25, 2026 Last updated: April 25, 2026
 
 This Privacy Policy explains how Bindex ("we", "us", "our", or "the app") collects, uses, and protects your information when you use the Bindex mobile application ("Service") on iOS or Android.

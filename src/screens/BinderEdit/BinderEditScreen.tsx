@@ -241,6 +241,7 @@ export default function BinderEditScreen() {
   const [placeholderPickerIndex, setPlaceholderPickerIndex] = useState<number | null>(null); // index in placeholder to add card to
   const [cardPickerInitialQuery, setCardPickerInitialQuery] = useState(''); // Pre-fill search for region Pokémon
   const [cardPickerPokemonOnly, setCardPickerPokemonOnly] = useState(false); // Filter to Pokémon cards only
+  const [cardPickerLockedQuery, setCardPickerLockedQuery] = useState<string | undefined>(undefined); // When set, search bar is read-only (region mode)
 
   // Region mode: number of region Pokémon slots (slots 0 to regionCardCount-1 are Pokémon)
   const [regionCardCount, setRegionCardCount] = useState(0);
@@ -862,8 +863,10 @@ export default function BinderEditScreen() {
       }
     } else if (slot.pokemonName && cardId?.startsWith('region-')) {
       // Region sprite slot (no TCG card selected) — open card picker directly
+      const searchName = getSearchName(slot.pokemonName);
       setTargetSlotIndex(slotIndex);
-      setCardPickerInitialQuery(getSearchName(slot.pokemonName));
+      setCardPickerInitialQuery(searchName);
+      setCardPickerLockedQuery(searchName);
       setCardPickerPokemonOnly(true);
       setReplaceMode(true);
       setShowCardPicker(true);
@@ -886,10 +889,13 @@ export default function BinderEditScreen() {
       // Empty slot tapped — open card picker
       setTargetSlotIndex(slotIndex);
       if (slot.pokemonName) {
-        setCardPickerInitialQuery(getSearchName(slot.pokemonName));
+        const searchName = getSearchName(slot.pokemonName);
+        setCardPickerInitialQuery(searchName);
+        setCardPickerLockedQuery(searchName);
         setCardPickerPokemonOnly(true);
       } else {
         setCardPickerInitialQuery('');
+        setCardPickerLockedQuery(undefined);
         setCardPickerPokemonOnly(false);
       }
       setShowCardPicker(true);
@@ -1294,7 +1300,9 @@ export default function BinderEditScreen() {
       // Pre-fill card picker with Pokémon name for region slots
       const slot = cardPositions[slotIdx];
       if (slot?.pokemonName) {
-        setCardPickerInitialQuery(getSearchName(slot.pokemonName));
+        const searchName = getSearchName(slot.pokemonName);
+        setCardPickerInitialQuery(searchName);
+        setCardPickerLockedQuery(searchName);
         setCardPickerPokemonOnly(true);
       }
     }
@@ -1421,6 +1429,7 @@ export default function BinderEditScreen() {
     setPlaceholderPickerIndex(null);
     setSelectedCard(null);
     setCardPickerInitialQuery('');
+    setCardPickerLockedQuery(undefined);
     setCardPickerPokemonOnly(false);
   };
 
@@ -2757,6 +2766,7 @@ export default function BinderEditScreen() {
         onSelectCard={handleCardPickerSelect}
         title={cardPickerInitialQuery ? `Choose ${cardPickerInitialQuery} Card` : (replaceMode ? 'Replace Card' : 'Add Card')}
         initialQuery={cardPickerInitialQuery}
+        lockedQuery={cardPickerLockedQuery}
         pokemonOnly={cardPickerPokemonOnly}
       />
 

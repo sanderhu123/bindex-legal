@@ -503,13 +503,14 @@ export default function RegionBinderEditView({ binder }: RegionBinderEditViewPro
         onJump={(page) => setCurrentPage(page)}
       />
 
-      {/* Card Picker Modal — pre-filled with Pokémon name */}
+      {/* Card Picker Modal — pre-filled with Pokémon name (locked / read-only) */}
       <CardPickerModal
         visible={showCardPicker}
         onClose={closeCardPicker}
         onSelectCard={handleCardSelected}
         title={pickerPokemon ? `Pick card for ${pickerPokemon.name}` : 'Pick Card'}
         initialQuery={pickerPokemon ? getSearchName(pickerPokemon.name) : ''}
+        lockedQuery={pickerPokemon ? getSearchName(pickerPokemon.name) : undefined}
         pokemonOnly={true}
         exactMatch={true}
       />

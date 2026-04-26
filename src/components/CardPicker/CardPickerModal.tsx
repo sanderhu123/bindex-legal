@@ -54,6 +54,13 @@ export interface CardPickerModalProps {
    * When true, searching "Pidgeot" will NOT match "Pidgeotto"
    */
   exactMatch?: boolean;
+  /**
+   * When set, the search bar is locked to this exact value:
+   * - The input is read-only (cannot type, paste or delete)
+   * - The clear (✕) button is hidden
+   * - The query is forced to this value whenever the modal opens
+   */
+  lockedQuery?: string;
 }
 
 /**
@@ -90,6 +97,7 @@ export function CardPickerModal({
   initialQuery = '',
   pokemonOnly = false,
   exactMatch,
+  lockedQuery,
 }: CardPickerModalProps) {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
@@ -206,12 +214,15 @@ export function CardPickerModal({
     }
   }, [customCardName, customCardColor, creatingCustomCard, onSelectCard, onClose]);
 
-  // When modal opens with a pre-filled query, clear old results and search immediately
+  // When modal opens with a pre-filled query, clear old results and search immediately.
+  // A lockedQuery takes precedence over initialQuery, since the user can't change it.
   useEffect(() => {
-    if (visible && initialQuery) {
+    if (visible && lockedQuery) {
+      setQueryImmediate(lockedQuery);
+    } else if (visible && initialQuery) {
       setQueryImmediate(initialQuery);
     }
-  }, [visible, initialQuery, setQueryImmediate]);
+  }, [visible, initialQuery, lockedQuery, setQueryImmediate]);
 
   // Keep search/filter state when modal closes so user can
   // quickly continue adding more cards with the same filters.
@@ -289,23 +300,33 @@ export function CardPickerModal({
 
           {/* Search Input */}
           <View style={styles.searchContainer}>
-            <View style={styles.searchInputContainer}>
-              <Text style={styles.searchIcon}>🔍</Text>
+            <View
+              style={[
+                styles.searchInputContainer,
+                lockedQuery ? styles.searchInputContainerLocked : null,
+              ]}
+            >
+              <Text style={styles.searchIcon}>{lockedQuery ? '🔒' : '🔍'}</Text>
               <TextInput
                 ref={searchInputRef}
-                style={styles.searchInput}
+                style={[
+                  styles.searchInput,
+                  lockedQuery ? styles.searchInputLocked : null,
+                ]}
                 placeholder="Search by name, number or ID"
                 placeholderTextColor={colors.textTertiary}
                 value={query}
                 onChangeText={setQuery}
+                editable={!lockedQuery}
+                selectTextOnFocus={!lockedQuery}
                 returnKeyType="search"
                 autoCapitalize="none"
                 autoCorrect={false}
-                autoFocus={!initialQuery}
+                autoFocus={!initialQuery && !lockedQuery}
                 blurOnSubmit={true}
                 onSubmitEditing={() => Keyboard.dismiss()}
               />
-              {query.length > 0 && (
+              {query.length > 0 && !lockedQuery && (
                 <TouchableOpacity
                   style={styles.clearButton}
                   onPress={() => {
@@ -576,6 +597,12 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     paddingHorizontal: spacing.md,
     height: 44,
   },
+  searchInputContainerLocked: {
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.border,
+    opacity: 0.85,
+  },
   searchIcon: {
     fontSize: typography.base,
     marginRight: spacing.sm,
@@ -585,6 +612,10 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     fontSize: typography.base,
     color: colors.text,
     paddingVertical: 0,
+  },
+  searchInputLocked: {
+    color: colors.textSecondary,
+    fontFamily: fonts.semibold,
   },
   clearButton: {
     padding: spacing.xs,

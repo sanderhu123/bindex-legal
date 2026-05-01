@@ -43,7 +43,13 @@
       }
     },
     "plugins": [
-      "expo-font"
+      "expo-font",
+      [
+        "expo-adi-registration",
+        {
+          "token": "CLOPT4GDZADGSAAAAAAAAAAAAA"
+        }
+      ]
     ]
   }
 }

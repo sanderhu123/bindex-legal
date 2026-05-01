@@ -38,6 +38,7 @@ import LoadingScreen from '../../components/Loading/LoadingScreen';
 import ErrorScreen from '../../components/Error/ErrorScreen';
 import { getAllSets } from '../../data/pokemonEras';
 import { getAvailableVariantsForSet } from '../../data/cardVariants';
+import { getSetTotalsInfo } from '../../services/api/pokemonApi';
 import { useTheme } from '../../context/ThemeContext';
 import {
   fonts,
@@ -91,10 +92,21 @@ export default function BinderSettingsScreen() {
   const [variantPlacement, setVariantPlacement] = useState<VariantPlacement>('grouped');
   const [variantOrder, setVariantOrder] = useState<string[]>(['base', 'secret-rare']);
   const [pokemonArtStyle, setPokemonArtStyle] = useState<PokemonArtStyle>('sprite');
+  const [setTotalsLoaded, setSetTotalsLoaded] = useState(false);
 
   useEffect(() => {
     loadBinder();
   }, [binderId]);
+
+  // Pre-warm the per-set totals cache so getAvailableVariantsForSet() can
+  // correctly include 'secret-rare' for sets that have them.
+  useEffect(() => {
+    let cancelled = false;
+    getSetTotalsInfo()
+      .then(() => { if (!cancelled) setSetTotalsLoaded(true); })
+      .catch(() => { if (!cancelled) setSetTotalsLoaded(true); });
+    return () => { cancelled = true; };
+  }, []);
 
   async function loadBinder() {
     setLoading(true);
@@ -155,7 +167,9 @@ export default function BinderSettingsScreen() {
     }
 
     return getAvailableVariantsForSet(matchingSet.id);
-  }, [binder]);
+    // setTotalsLoaded re-triggers this memo once the secret-rare info is cached
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [binder, setTotalsLoaded]);
 
   useEffect(() => {
     if (!binder || binder.collectionMode !== 'master-set') return;
@@ -169,13 +183,15 @@ export default function BinderSettingsScreen() {
 
   useEffect(() => {
     if (!binder || binder.collectionMode !== 'master-set') return;
-    const items = [...variantsToTrack, 'secret-rare'];
+    const setHasSecretRares = availableVariantKeys.includes('secret-rare');
+    const items = [...variantsToTrack];
+    if (setHasSecretRares) items.push('secret-rare');
     setVariantOrder(prev => {
       const kept = prev.filter(k => items.includes(k));
       const missing = items.filter(k => !kept.includes(k));
       return [...kept, ...missing];
     });
-  }, [binder, variantsToTrack]);
+  }, [binder, variantsToTrack, availableVariantKeys]);
 
   const beginNameEdit = () => {
     setNameDraft(name);
@@ -532,26 +548,41 @@ export default function BinderSettingsScreen() {
                 </>
               )}
 
-              <Text style={[styles.label, styles.subSectionTop]}>Display Order</Text>
-              {(variantsToTrack.length <= 1 || variantPlacement === 'grouped') ? (
-                <VariantOrderSelector
-                  order={
-                    variantOrder.length > 0 && variantOrder[0] === 'secret-rare'
-                      ? ['secret-rare', 'main-set']
-                      : ['main-set', 'secret-rare']
-                  }
-                  onChange={(newOrder) => {
-                    const rest = variantOrder.filter(k => k !== 'secret-rare');
-                    if (newOrder[0] === 'secret-rare') {
-                      setVariantOrder(['secret-rare', ...rest]);
-                    } else {
-                      setVariantOrder([...rest, 'secret-rare']);
-                    }
-                  }}
-                />
-              ) : (
-                <VariantOrderSelector order={variantOrder} onChange={setVariantOrder} />
-              )}
+              {(() => {
+                const setHasSecretRares = availableVariantKeys.includes('secret-rare');
+                const showGroupedOrder =
+                  setHasSecretRares &&
+                  (variantsToTrack.length <= 1 || variantPlacement === 'grouped');
+                const showFullOrder =
+                  variantsToTrack.length > 1 && variantPlacement === 'end';
+
+                if (!showGroupedOrder && !showFullOrder) return null;
+
+                return (
+                  <>
+                    <Text style={[styles.label, styles.subSectionTop]}>Display Order</Text>
+                    {showGroupedOrder ? (
+                      <VariantOrderSelector
+                        order={
+                          variantOrder.length > 0 && variantOrder[0] === 'secret-rare'
+                            ? ['secret-rare', 'main-set']
+                            : ['main-set', 'secret-rare']
+                        }
+                        onChange={(newOrder) => {
+                          const rest = variantOrder.filter(k => k !== 'secret-rare');
+                          if (newOrder[0] === 'secret-rare') {
+                            setVariantOrder(['secret-rare', ...rest]);
+                          } else {
+                            setVariantOrder([...rest, 'secret-rare']);
+                          }
+                        }}
+                      />
+                    ) : (
+                      <VariantOrderSelector order={variantOrder} onChange={setVariantOrder} />
+                    )}
+                  </>
+                );
+              })()}
             </>
           )}
 

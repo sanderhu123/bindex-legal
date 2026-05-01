@@ -17,6 +17,7 @@ const AVAILABLE_VARIANTS: { key: string; label: string }[] = [
   { key: 'master-ball', label: 'Master Ball Holo' },
   { key: 'stamp', label: 'Stamp Holo' },
   { key: 'energy', label: 'Energy Holo' },
+  { key: 'secret-rare', label: 'Secret Rares' },
 ];
 
 export default function VariantSelector({

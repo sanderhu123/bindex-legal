@@ -1955,6 +1955,19 @@ export async function getIllustrators(): Promise<string[]> {
 let setTotalCountCache: Map<string, number> | null = null;
 
 /**
+ * Per-set printed_total + total. Used to determine if a set has secret rares
+ * (a card is a secret rare when its number > printed_total, which can only
+ * happen when total > printed_total at the set level).
+ */
+export interface SetTotalsInfo {
+  printedTotal: number;
+  total: number;
+}
+
+let setTotalsInfoCache: Map<string, SetTotalsInfo> | null = null;
+let setTotalsInfoPromise: Promise<Map<string, SetTotalsInfo>> | null = null;
+
+/**
  * Get total card counts for every set from Supabase.
  */
 export async function getSetTotalCounts(): Promise<Map<string, number>> {
@@ -1994,4 +2007,86 @@ export async function getSetTotalCounts(): Promise<Map<string, number>> {
     console.warn('[API] Error fetching set counts:', error);
     return new Map();
   }
+}
+
+/**
+ * Get printed_total + total per set from Supabase. Cached after first call.
+ * Falls back to the pokemontcg.io API if Supabase is unavailable.
+ *
+ * Multiple concurrent callers (e.g. set-selection step + variants step) share
+ * the same in-flight promise so we don't hit the database twice during
+ * questionnaire startup.
+ */
+export async function getSetTotalsInfo(): Promise<Map<string, SetTotalsInfo>> {
+  if (setTotalsInfoCache) return setTotalsInfoCache;
+  if (setTotalsInfoPromise) return setTotalsInfoPromise;
+
+  setTotalsInfoPromise = (async () => {
+    try {
+      const { data, error } = await supabase
+        .from('pokemon_sets')
+        .select('id, printed_total, total');
+
+      if (!error && data) {
+        const map = new Map<string, SetTotalsInfo>();
+        for (const s of data) {
+          if (s.id && s.total != null && s.printed_total != null) {
+            map.set(s.id, {
+              printedTotal: Number(s.printed_total),
+              total: Number(s.total),
+            });
+          }
+        }
+        setTotalsInfoCache = map;
+        return map;
+      }
+    } catch (err) {
+      console.warn('[API] Supabase set totals info failed:', err);
+    }
+
+    try {
+      const response = await ptcgioFetch('/sets', { pageSize: '250' });
+      const map = new Map<string, SetTotalsInfo>();
+      for (const s of response.data) {
+        if (s.id && s.total != null && s.printedTotal != null) {
+          map.set(s.id, {
+            printedTotal: Number(s.printedTotal),
+            total: Number(s.total),
+          });
+        }
+      }
+      setTotalsInfoCache = map;
+      return map;
+    } catch (error) {
+      console.warn('[API] Error fetching set totals info:', error);
+      return new Map();
+    }
+  })();
+
+  try {
+    return await setTotalsInfoPromise;
+  } finally {
+    setTotalsInfoPromise = null;
+  }
+}
+
+/**
+ * Synchronous lookup of "does this set have secret rares?" Reads from the
+ * cached totals map populated by getSetTotalsInfo().
+ *
+ * Returns false if the cache hasn't been populated yet — callers must
+ * pre-warm the cache before relying on this for UI flow decisions.
+ */
+export function setHasSecretRares(setId: string): boolean {
+  if (!setTotalsInfoCache) return false;
+  const info = setTotalsInfoCache.get(setId);
+  if (!info) return false;
+  return info.total > info.printedTotal;
+}
+
+/**
+ * Returns true once getSetTotalsInfo() has populated the cache.
+ */
+export function isSetTotalsInfoCached(): boolean {
+  return setTotalsInfoCache !== null;
 }

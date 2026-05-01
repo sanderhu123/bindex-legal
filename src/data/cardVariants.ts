@@ -36,6 +36,7 @@
  */
 
 import { getEraIdForSetId, getAppSetId } from './pokemonEras';
+import { setHasSecretRares } from '../services/api/pokemonApi';
 
 /**
  * Eras that do NOT have reverse holo cards at all.
@@ -168,25 +169,30 @@ export function getSpecialVariantsForCard(
  * @param setId - The set ID
  * @returns Array of all variant types that exist in this set
  */
-export function getAvailableVariantsForSet(setId: string): ('base' | 'reverse-holo' | 'poke-ball' | 'master-ball' | 'stamp' | 'energy')[] {
-  const variants: ('base' | 'reverse-holo' | 'poke-ball' | 'master-ball' | 'stamp' | 'energy')[] = [
+export function getAvailableVariantsForSet(setId: string): ('base' | 'reverse-holo' | 'poke-ball' | 'master-ball' | 'stamp' | 'energy' | 'secret-rare')[] {
+  const variants: ('base' | 'reverse-holo' | 'poke-ball' | 'master-ball' | 'stamp' | 'energy' | 'secret-rare')[] = [
     'base',
   ];
 
   if (hasStampEnergyVariants(setId)) {
     variants.push('reverse-holo', 'stamp', 'energy');
-    return variants;
-  }
-
-  // Only add reverse-holo if the set actually has reverse holos
-  // (old sets before Legendary Collection and promo/POP sets don't have them)
-  if (setHasReverseHolos(setId)) {
+  } else if (setHasReverseHolos(setId)) {
+    // Only add reverse-holo if the set actually has reverse holos
+    // (old sets before Legendary Collection and promo/POP sets don't have them)
     variants.push('reverse-holo');
 
     // Special sets also have pokeball and masterball variants
     if (hasSpecialVariants(setId)) {
       variants.push('poke-ball', 'master-ball');
     }
+  }
+
+  // Secret rares are sets where total > printedTotal (cards numbered above
+  // the printed total, e.g. card 199/198). The cache must be pre-warmed via
+  // getSetTotalsInfo() before this returns true; otherwise it falls back to
+  // false (treated as "no secret rares" — safe default).
+  if (setHasSecretRares(setId)) {
+    variants.push('secret-rare');
   }
 
   return variants;

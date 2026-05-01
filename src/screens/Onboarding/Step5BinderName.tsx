@@ -16,11 +16,17 @@ export default function Step5BinderName({ value, onChange, defaultName }: Step5B
   const [name, setName] = useState(value || defaultName);
   const [focused, setFocused] = useState(false);
 
+  // Re-sync the local input whenever the parent clears the staged name
+  // (e.g. user went back and picked a different set/region) or supplies a
+  // new default. This avoids carrying over a stale set-derived name.
   useEffect(() => {
     if (value === null) {
+      setName(defaultName);
       onChange(defaultName);
+    } else if (value !== name) {
+      setName(value);
     }
-  }, []);
+  }, [value, defaultName]);
 
   return (
     <View style={styles.container}>

@@ -1,4 +1,4 @@
-import React, { useState, useRef, useMemo } from 'react';
+import React, { useState, useRef, useMemo, useEffect } from 'react';
 import { View, StyleSheet, TouchableOpacity, Text, Alert, Image, Animated } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -12,6 +12,7 @@ import { recordBinderCreated } from '../../services/pro/proService';
 import { showSuccess, showError } from '../../utils/toast';
 import { successVibration, lightTap } from '../../utils/haptics';
 import { getAvailableVariantsForSet } from '../../data/cardVariants';
+import { getSetTotalsInfo, setHasSecretRares } from '../../services/api/pokemonApi';
 import LoadingScreen from '../../components/Loading/LoadingScreen';
 import { useTheme } from '../../context/ThemeContext';
 import { fonts, spacing, typography, borderRadius, screenPadding, shadows, type ThemeColors } from '../../constants/theme';
@@ -58,6 +59,15 @@ export default function OnboardingScreen() {
   const [currentStep, setCurrentStep] = useState(1);
   const [saving, setSaving] = useState(false);
   const slideAnim = useRef(new Animated.Value(0)).current;
+
+  // Pre-warm the per-set printed_total + total cache so setHasSecretRares()
+  // returns the correct value by the time the variant / display-order steps
+  // make routing decisions.
+  useEffect(() => {
+    getSetTotalsInfo().catch(err => {
+      console.warn('[Questionnaire] Failed to pre-warm set totals cache:', err);
+    });
+  }, []);
 
   const animateToStep = (nextStep: number) => {
     const direction = nextStep > currentStep ? 1 : -1;
@@ -125,13 +135,32 @@ export default function OnboardingScreen() {
     return state.selectedVariants.length > 1;
   };
 
+  // Display order step is only meaningful when there is something to order:
+  //  - Set has secret rares AND user is tracking them (position vs main set), OR
+  //  - User selected multiple variants AND placement is "end" (group order)
+  // Sets without secret rares + grouped placement have nothing to position.
+  const needsDisplayOrderStep = (): boolean => {
+    if (state.collectionMode !== 'master-set') return false;
+    if (!needsVariantStep()) return false;
+    const setHasSecrets = state.selectedSetId ? setHasSecretRares(state.selectedSetId) : false;
+    const trackingSecrets = setHasSecrets && state.selectedVariants.includes('secret-rare');
+    if (trackingSecrets) return true;
+    if (state.variantPlacement === 'end' && state.selectedVariants.length > 1) return true;
+    return false;
+  };
+
   const handleBack = () => {
     if (currentStep > 1) {
       let prevStep = currentStep - 1;
       if (state.collectionMode === 'master-set') {
-        // Step 6 (layout) — go back to display order (5) or skip variant steps
-        if (currentStep === 6 && !needsVariantStep()) {
-          prevStep = 2; // old sets: back to set selection
+        // Step 6 (layout) — back to display order (5), or skip it if not needed,
+        // or skip variant steps entirely for old sets without secret rares.
+        if (currentStep === 6) {
+          if (!needsVariantStep()) {
+            prevStep = 2; // old sets with nothing to choose: back to set selection
+          } else if (!needsDisplayOrderStep()) {
+            prevStep = needsVariantPlacement() ? 4 : 3;
+          }
         }
         // Step 5 (display order) — skip placement (4) if only 1 variant
         if (currentStep === 5 && !needsVariantPlacement()) {
@@ -150,10 +179,12 @@ export default function OnboardingScreen() {
   const getTotalSteps = (): number => {
     if (state.collectionMode === 'custom') return 3;
     if (state.collectionMode === 'region') return 5;
-    // master-set: base is 7, minus 1 if no variant step, minus 3 if no variant step at all
+    // master-set internal step ids run 1..7. Subtract any that get skipped.
     if (!needsVariantStep()) return 4; // old sets: mode → set → layout → name
-    // With variants: 7 if placement needed, 6 if only placement skipped (display order always shows)
-    return needsVariantPlacement() ? 7 : 6;
+    let total = 7;
+    if (!needsVariantPlacement()) total--;
+    if (!needsDisplayOrderStep()) total--;
+    return total;
   };
 
   // Get the actual step number for display
@@ -167,6 +198,9 @@ export default function OnboardingScreen() {
     
     // Step 4 (variant placement) skipped when only 1 variant selected
     if (!needsVariantPlacement() && currentStep > 4) skipped++;
+
+    // Step 5 (display order) skipped when nothing meaningful to order
+    if (!needsDisplayOrderStep() && currentStep > 5) skipped++;
     
     return currentStep - skipped;
   };
@@ -232,21 +266,27 @@ export default function OnboardingScreen() {
       let nextStep = currentStep + 1;
       
       if (state.collectionMode === 'master-set') {
-        // Skip variant step for old sets without reverse holos
+        // Skip variant step for old sets with no variants and no secret rares
         if (nextStep === 3 && !needsVariantStep()) {
           setState(prev => ({ ...prev, selectedVariants: ['base'] }));
           nextStep = 6; // jump to layout
         }
-        // Skip only placement if only 1 variant selected (display order still shows)
+        // Skip placement if only 1 variant selected
         else if (nextStep === 4 && !needsVariantPlacement()) {
           setState(prev => ({ ...prev, variantPlacement: 'grouped' }));
-          nextStep = 5; // jump to display order, skip placement
+          nextStep = 5;
         }
 
-        // Build the variant order list when entering display order step
-        if (nextStep === 5) {
+        // Skip display order if nothing meaningful to order
+        if (nextStep === 5 && !needsDisplayOrderStep()) {
+          nextStep = 6;
+        } else if (nextStep === 5) {
+          // Build the variant order list when entering display order step
           setState(prev => {
-            const items = [...prev.selectedVariants, 'secret-rare'];
+            const items = [...prev.selectedVariants];
+            if (state.selectedSetId && setHasSecretRares(state.selectedSetId)) {
+              items.push('secret-rare');
+            }
             const kept = prev.variantOrder.filter(k => items.includes(k));
             const missing = items.filter(k => !kept.includes(k));
             return { ...prev, variantOrder: [...kept, ...missing] };
@@ -344,14 +384,36 @@ export default function OnboardingScreen() {
             <Step2MasterSet
               selectedSetId={state.selectedSetId}
               selectedSetName={state.selectedSetName}
-              onSetChange={(setId, setName) => setState({ ...state, selectedSetId: setId, selectedSetName: setName })}
+              onSetChange={(setId, setName) => setState(prev => {
+                // When the user picks a different set, clear the staged binder
+                // name so the name step picks up the new default. This avoids
+                // showing the previous set's name when the user goes back and
+                // re-selects.
+                const setChanged = setId !== prev.selectedSetId;
+                return {
+                  ...prev,
+                  selectedSetId: setId,
+                  selectedSetName: setName,
+                  binderName: setChanged ? null : prev.binderName,
+                  // Reset variant selection too so we don't keep stale picks
+                  // (e.g. 'reverse-holo' selected for a set that has no reverse holos)
+                  selectedVariants: setChanged ? ['base'] : prev.selectedVariants,
+                };
+              })}
             />
           );
         } else if (state.collectionMode === 'region') {
           return (
             <Step2Region
               selectedRegion={state.selectedRegion}
-              onChange={(region) => setState({ ...state, selectedRegion: region })}
+              onChange={(region) => setState(prev => {
+                const regionChanged = region !== prev.selectedRegion;
+                return {
+                  ...prev,
+                  selectedRegion: region,
+                  binderName: regionChanged ? null : prev.binderName,
+                };
+              })}
             />
           );
         } else if (state.collectionMode === 'custom') {

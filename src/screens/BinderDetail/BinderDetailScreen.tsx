@@ -1086,12 +1086,26 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
         if (binder.collectionMode === 'master-set' && binder.variantsToTrack && binder.variantsToTrack.length > 0) {
           const originalCount = allCards.length;
           console.log('[BinderDetail] BEFORE FILTER - Total cards:', originalCount);
-          
-          // For each base card, check if any of its variants is in the
-          // tracked list. Cards whose base ID has NO tracked variants
-          // (e.g. secret rares with only base) keep their base version.
+
+          const trackSecretRares = binder.variantsToTrack.includes('secret-rare');
+
+          // A card is a secret rare when its number > set printedTotal.
+          const isSecretRareCard = (card: { number: string; setTotal?: string }): boolean => {
+            if (!card.setTotal) return false;
+            const numMatch = card.number.match(/^(\d+)/);
+            if (!numMatch) return false;
+            const num = parseInt(numMatch[1], 10);
+            const total = parseInt(card.setTotal, 10);
+            if (!Number.isFinite(num) || !Number.isFinite(total) || total <= 0) return false;
+            return num > total;
+          };
+
+          // For each base card (NON-secret rare), check if any of its variants
+          // is in the tracked list. Cards whose base ID has NO tracked variants
+          // (e.g. illustration rares with only base) keep their base version.
           const baseCardHasTrackedVariant = new Map<string, boolean>();
           allCards.forEach(card => {
+            if (isSecretRareCard(card)) return;
             const baseId = card.id.replace(/-(base|holo|reverse|poke-ball|master-ball)$/, '');
             const cardVariant = card.variant || 'base';
             if (binder.variantsToTrack!.includes(cardVariant)) {
@@ -1104,13 +1118,27 @@ export default function BinderDetailScreen({ navigation, route }: BinderDetailSc
 
           // Track which cards are being removed and why
           const removedCards: { name: string; variant: string; rarity: string }[] = [];
-          
+
           allCards = allCards.filter((card) => {
             const cardVariant = card.variant || 'base';
+
+            // Secret rares: only kept when user opted into 'secret-rare' tracking.
+            if (isSecretRareCard(card)) {
+              const keepSecret = trackSecretRares && cardVariant === 'base';
+              if (!keepSecret) {
+                removedCards.push({
+                  name: card.name,
+                  variant: cardVariant,
+                  rarity: card.rarity,
+                });
+              }
+              return keepSecret;
+            }
+
             const baseId = card.id.replace(/-(base|holo|reverse|poke-ball|master-ball)$/, '');
 
             // If none of this card's variants are in the tracked list,
-            // always keep the base version (e.g. secret rares, illustration rares)
+            // always keep the base version (e.g. illustration rares).
             if (!baseCardHasTrackedVariant.get(baseId)) {
               return cardVariant === 'base';
             }

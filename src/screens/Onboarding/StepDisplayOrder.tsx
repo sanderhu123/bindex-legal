@@ -23,8 +23,10 @@ export default function StepDisplayOrder({
   const styles = useMemo(() => createStyles(colors), [colors]);
 
   // Only show variants that the selected set actually supports
+  const availableForSetArr = selectedSetId ? getAvailableVariantsForSet(selectedSetId) : [];
+  const setHasSecretRares = availableForSetArr.includes('secret-rare' as any);
   const availableForSet = selectedSetId
-    ? new Set([...getAvailableVariantsForSet(selectedSetId), 'secret-rare', 'main-set'])
+    ? new Set([...availableForSetArr, 'main-set'])
     : null;
 
   const filteredOrder = availableForSet
@@ -45,6 +47,10 @@ export default function StepDisplayOrder({
   };
 
   if (variantPlacement === 'grouped') {
+    // Grouped placement only has something to order if the set has secret rares
+    // (position relative to the main set). Without secret rares, variants are
+    // auto-grouped after each card and there's nothing for the user to choose.
+    if (!setHasSecretRares) return null;
     return (
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
         <Text style={styles.title}>Display Order</Text>

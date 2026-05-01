@@ -4,7 +4,7 @@ import { fonts, spacing, typography, borderRadius, screenPadding, type ThemeColo
 import { useTheme } from '../../context/ThemeContext';
 import VariantSelector from '../../components/Binder/VariantSelector';
 import { getAvailableVariantsForSet } from '../../data/cardVariants';
-import { getCardsBySet } from '../../services/api/pokemonApi';
+import { getCardsBySet, getSetTotalsInfo, isSetTotalsInfoCached } from '../../services/api/pokemonApi';
 import { countCardsWithVariants } from '../../utils/cardCount';
 import type { Card } from '../../types';
 
@@ -26,10 +26,24 @@ export default function Step3Variants({
 
   const [setCards, setSetCards] = useState<Card[]>([]);
   const [loadingCards, setLoadingCards] = useState(false);
+  const [setTotalsReady, setSetTotalsReady] = useState(isSetTotalsInfoCached());
 
-  const availableVariants = selectedSetId 
-    ? getAvailableVariantsForSet(selectedSetId)
-    : ['base', 'reverse-holo'];
+  // Make sure secret-rare info is loaded before computing available variants.
+  useEffect(() => {
+    if (setTotalsReady) return;
+    let cancelled = false;
+    getSetTotalsInfo()
+      .then(() => { if (!cancelled) setSetTotalsReady(true); })
+      .catch(() => { if (!cancelled) setSetTotalsReady(true); });
+    return () => { cancelled = true; };
+  }, [setTotalsReady]);
+
+  const availableVariants = useMemo(() => {
+    if (!selectedSetId) return ['base', 'reverse-holo'];
+    return getAvailableVariantsForSet(selectedSetId);
+    // setTotalsReady re-triggers once the secret-rare cache is populated.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedSetId, setTotalsReady]);
 
   // Fetch all cards for the selected set so we can compute dynamic counts
   useEffect(() => {

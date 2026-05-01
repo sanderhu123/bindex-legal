@@ -32,8 +32,7 @@ import {
   presentProPaywall,
   recordDeletionUsed,
 } from '../../services/pro/proService';
-import VariantSelector from '../../components/Binder/VariantSelector';
-import VariantOrderSelector from '../../components/Binder/VariantOrderSelector';
+import VariantsAndOrderSelector from '../../components/Binder/VariantsAndOrderSelector';
 import LoadingScreen from '../../components/Loading/LoadingScreen';
 import ErrorScreen from '../../components/Error/ErrorScreen';
 import { getAllSets } from '../../data/pokemonEras';
@@ -513,11 +512,16 @@ export default function BinderSettingsScreen() {
 
           {binder.collectionMode === 'master-set' && (
             <>
-              <Text style={[styles.label, styles.subSectionTop]}>Variants to Track</Text>
-              <VariantSelector
+              <Text style={[styles.label, styles.subSectionTop]}>Variants & Display Order</Text>
+              <Text style={styles.helperText}>
+                Tick the versions you want to track. Use the arrows to set the order they appear.
+              </Text>
+              <VariantsAndOrderSelector
+                available={availableVariantKeys}
                 selected={variantsToTrack}
-                onChange={setVariantsToTrack}
-                availableKeys={availableVariantKeys}
+                order={variantOrder}
+                onSelectedChange={setVariantsToTrack}
+                onOrderChange={setVariantOrder}
               />
 
               {(() => {
@@ -552,42 +556,6 @@ export default function BinderSettingsScreen() {
                         );
                       })}
                     </View>
-                  </>
-                );
-              })()}
-
-              {(() => {
-                const setHasSecretRares = availableVariantKeys.includes('secret-rare');
-                const showGroupedOrder =
-                  setHasSecretRares &&
-                  (variantsToTrack.length <= 1 || variantPlacement === 'grouped');
-                const showFullOrder =
-                  variantsToTrack.length > 1 && variantPlacement === 'end';
-
-                if (!showGroupedOrder && !showFullOrder) return null;
-
-                return (
-                  <>
-                    <Text style={[styles.label, styles.subSectionTop]}>Display Order</Text>
-                    {showGroupedOrder ? (
-                      <VariantOrderSelector
-                        order={
-                          variantOrder.length > 0 && variantOrder[0] === 'secret-rare'
-                            ? ['secret-rare', 'main-set']
-                            : ['main-set', 'secret-rare']
-                        }
-                        onChange={(newOrder) => {
-                          const rest = variantOrder.filter(k => k !== 'secret-rare');
-                          if (newOrder[0] === 'secret-rare') {
-                            setVariantOrder(['secret-rare', ...rest]);
-                          } else {
-                            setVariantOrder([...rest, 'secret-rare']);
-                          }
-                        }}
-                      />
-                    ) : (
-                      <VariantOrderSelector order={variantOrder} onChange={setVariantOrder} />
-                    )}
                   </>
                 );
               })()}
@@ -711,6 +679,12 @@ const createStyles = (colors: ThemeColors) =>
       fontFamily: fonts.medium,
       color: colors.textSecondary,
       marginBottom: spacing.xs,
+    },
+    helperText: {
+      fontSize: typography.xs,
+      fontFamily: fonts.regular,
+      color: colors.textTertiary,
+      marginBottom: spacing.sm,
     },
     subSectionTop: {
       marginTop: spacing.md,

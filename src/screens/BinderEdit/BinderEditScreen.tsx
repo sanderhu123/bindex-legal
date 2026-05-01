@@ -426,15 +426,15 @@ export default function BinderEditScreen() {
             cardGroups.get(baseId)!.push(card);
           });
 
-          const fixedOrder: Record<string, number> = {
-            'base': 0, 'reverse-holo': 1, 'poke-ball': 2, 'master-ball': 3,
-          };
+          // Within each card group, sort variants by the user's chosen order
+          // (variants not in the user list fall to the end).
           const grouped: Card[] = [];
           groupOrder.forEach((baseId) => {
             const cards = cardGroups.get(baseId)!;
             cards.sort((a, b) => {
-              return (fixedOrder[a.variant || 'base'] ?? 99)
-                   - (fixedOrder[b.variant || 'base'] ?? 99);
+              const aPos = groupPosition.get(a.variant || 'base') ?? 99;
+              const bPos = groupPosition.get(b.variant || 'base') ?? 99;
+              return aPos - bPos;
             });
             grouped.push(...cards);
           });

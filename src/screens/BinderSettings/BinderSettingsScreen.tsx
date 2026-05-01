@@ -520,33 +520,41 @@ export default function BinderSettingsScreen() {
                 availableKeys={availableVariantKeys}
               />
 
-              {variantsToTrack.length > 1 && (
-                <>
-                  <Text style={[styles.label, styles.subSectionTop]}>Variant Placement</Text>
-                  <View style={styles.segmentedRow}>
-                    {VARIANT_PLACEMENT_OPTIONS.map((option, idx) => {
-                      const selected = variantPlacement === option.value;
-                      const isLast = idx === VARIANT_PLACEMENT_OPTIONS.length - 1;
-                      return (
-                        <TouchableOpacity
-                          key={option.value}
-                          style={[
-                            styles.segmentedButton,
-                            selected && styles.segmentedButtonActive,
-                            isLast && styles.segmentedButtonLast,
-                          ]}
-                          onPress={() => setVariantPlacement(option.value)}
-                          activeOpacity={0.7}
-                        >
-                          <Text style={[styles.segmentedText, selected && styles.segmentedTextActive]}>
-                            {option.label}
-                          </Text>
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </View>
-                </>
-              )}
+              {(() => {
+                // Variant Placement only applies when at least one HOLO variant
+                // is being tracked. Base + secret-rare alone has no holo
+                // printings to position, so the section is hidden.
+                const HOLO_VARIANTS = ['reverse-holo', 'poke-ball', 'master-ball', 'stamp', 'energy'];
+                const hasHoloSelected = variantsToTrack.some(v => HOLO_VARIANTS.includes(v));
+                if (variantsToTrack.length <= 1 || !hasHoloSelected) return null;
+                return (
+                  <>
+                    <Text style={[styles.label, styles.subSectionTop]}>Variant Placement</Text>
+                    <View style={styles.segmentedRow}>
+                      {VARIANT_PLACEMENT_OPTIONS.map((option, idx) => {
+                        const selected = variantPlacement === option.value;
+                        const isLast = idx === VARIANT_PLACEMENT_OPTIONS.length - 1;
+                        return (
+                          <TouchableOpacity
+                            key={option.value}
+                            style={[
+                              styles.segmentedButton,
+                              selected && styles.segmentedButtonActive,
+                              isLast && styles.segmentedButtonLast,
+                            ]}
+                            onPress={() => setVariantPlacement(option.value)}
+                            activeOpacity={0.7}
+                          >
+                            <Text style={[styles.segmentedText, selected && styles.segmentedTextActive]}>
+                              {option.label}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  </>
+                );
+              })()}
 
               {(() => {
                 const setHasSecretRares = availableVariantKeys.includes('secret-rare');

@@ -126,13 +126,16 @@ export default function OnboardingScreen() {
   };
 
   // Check if variant placement step is needed for master-set mode.
-  // Needed when user selected more than one variant type (e.g. Regular + Reverse Holo,
-  // or Pokeball Holo + Masterball Holo, etc.)
-  // Also not needed if variant step itself was skipped (old sets).
+  // Placement is about where holo printings sit relative to their base card
+  // (grouped right after vs. all at the end). It only matters when at least
+  // one HOLO variant is being tracked. Base + secret-rare alone has no holo
+  // printings to position, so the step is skipped in that case.
   const needsVariantPlacement = (): boolean => {
     if (state.collectionMode !== 'master-set') return false;
     if (!needsVariantStep()) return false;
-    return state.selectedVariants.length > 1;
+    if (state.selectedVariants.length <= 1) return false;
+    const HOLO_VARIANTS = ['reverse-holo', 'poke-ball', 'master-ball', 'stamp', 'energy'];
+    return state.selectedVariants.some(v => HOLO_VARIANTS.includes(v));
   };
 
   // Display order step is only meaningful when there is something to order:

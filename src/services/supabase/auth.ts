@@ -98,6 +98,32 @@ export async function signOut() {
 }
 
 /**
+ * Permanently delete the currently authenticated user's account.
+ *
+ * Calls the `delete_user_account` Postgres function on Supabase, which
+ * removes the user from auth.users. All related rows (user_profiles,
+ * binders, binder_cards, custom cards, etc.) are removed automatically
+ * via ON DELETE CASCADE.
+ *
+ * After deletion this function also signs the user out locally so the
+ * app returns to the login screen.
+ */
+export async function deleteAccount() {
+  const { error } = await supabase.rpc('delete_user_account');
+
+  if (error) {
+    throw error;
+  }
+
+  // The auth row is gone; clear any local session so the app logs out.
+  try {
+    await supabase.auth.signOut();
+  } catch {
+    // Session may already be invalid at this point — ignore.
+  }
+}
+
+/**
  * Get the current authenticated user
  */
 export async function getCurrentUser(): Promise<User | null> {

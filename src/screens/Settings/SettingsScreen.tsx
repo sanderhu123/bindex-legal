@@ -14,7 +14,7 @@ import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
-import { signOut } from '../../services/supabase/auth';
+import { signOut, deleteAccount } from '../../services/supabase/auth';
 import {
   isUserPro,
   presentProPaywall,
@@ -38,6 +38,7 @@ export default function SettingsScreen() {
   const [fixingBinders, setFixingBinders] = useState(false);
   const [clearingCache, setClearingCache] = useState(false);
   const [restoringPurchases, setRestoringPurchases] = useState(false);
+  const [deletingAccount, setDeletingAccount] = useState(false);
 
   const styles = useMemo(() => createStyles(colors), [colors]);
   const appVersion = Constants.expoConfig?.version || '1.0.0';
@@ -155,6 +156,57 @@ export default function SettingsScreen() {
     );
   };
 
+  const performAccountDeletion = async () => {
+    setDeletingAccount(true);
+    try {
+      await deleteAccount();
+      // signOut inside deleteAccount() triggers onAuthStateChange which
+      // navigates back to the auth/login flow automatically.
+    } catch (error: any) {
+      setDeletingAccount(false);
+      Alert.alert(
+        'Could not delete account',
+        error?.message ||
+          'Something went wrong while deleting your account. Please try again, or contact admin@bindexofficial.com for help.'
+      );
+    }
+  };
+
+  const handleDeleteAccount = () => {
+    // First confirmation: explain what will happen.
+    Alert.alert(
+      'Delete account?',
+      'This will permanently delete your account and all your data:\n\n' +
+        '• All your binders\n' +
+        '• All tracked cards and progress\n' +
+        '• Your profile and settings\n\n' +
+        'This action cannot be undone.\n\n' +
+        'Note: If you have an active Bindex Pro subscription, you must cancel it separately in the App Store or Google Play — deleting your account here does NOT cancel the subscription.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Continue',
+          style: 'destructive',
+          onPress: () => {
+            // Second confirmation: final "are you sure" prompt.
+            Alert.alert(
+              'Are you absolutely sure?',
+              'There is no way to recover your account or data after this.',
+              [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                  text: 'Delete Forever',
+                  style: 'destructive',
+                  onPress: performAccountDeletion,
+                },
+              ]
+            );
+          },
+        },
+      ]
+    );
+  };
+
   const renderRow = (
     icon: keyof typeof Ionicons.glyphMap,
     label: string,
@@ -233,6 +285,10 @@ export default function SettingsScreen() {
           })}
           {renderRow('log-out-outline', 'Logout', handleLogout, {
             destructive: true,
+          })}
+          {renderRow('trash-bin-outline', 'Delete Account', handleDeleteAccount, {
+            destructive: true,
+            loading: deletingAccount,
           })}
         </View>
 

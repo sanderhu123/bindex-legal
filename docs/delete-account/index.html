@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Delete your Bindex account and all associated data." />
+  <title>Delete Account — Bindex</title>
+  <style>
+    :root {
+      --bg: #f7f8fa;
+      --surface: #ffffff;
+      --text: #1a1a1a;
+      --text-muted: #555;
+      --border: #e5e7eb;
+      --accent: #d9534f;
+      --accent-hover: #b23f3b;
+      --radius: 12px;
+      --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0f1115;
+        --surface: #1a1d23;
+        --text: #f0f0f0;
+        --text-muted: #b0b0b0;
+        --border: #2a2d33;
+      }
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+                   "Helvetica Neue", Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .container {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 48px 24px 96px;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 40px;
+    }
+
+    header h1 {
+      font-size: 32px;
+      margin: 0 0 8px;
+      letter-spacing: -0.02em;
+    }
+
+    header p {
+      color: var(--text-muted);
+      margin: 0;
+      font-size: 16px;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px 28px;
+      margin-bottom: 20px;
+      box-shadow: var(--shadow);
+    }
+
+    .card h2 {
+      margin: 0 0 12px;
+      font-size: 20px;
+      letter-spacing: -0.01em;
+    }
+
+    .card p, .card li {
+      color: var(--text-muted);
+      font-size: 15px;
+    }
+
+    ol, ul {
+      padding-left: 22px;
+      margin: 8px 0;
+    }
+
+    ol li { margin-bottom: 8px; }
+
+    .email-btn {
+      display: inline-block;
+      margin-top: 12px;
+      padding: 12px 22px;
+      background: var(--accent);
+      color: #fff;
+      text-decoration: none;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: 15px;
+      transition: background 0.15s ease;
+    }
+    .email-btn:hover, .email-btn:focus {
+      background: var(--accent-hover);
+    }
+
+    .warning {
+      border-left: 4px solid var(--accent);
+      padding-left: 14px;
+    }
+
+    footer {
+      text-align: center;
+      margin-top: 48px;
+      color: var(--text-muted);
+      font-size: 13px;
+    }
+
+    code {
+      background: var(--border);
+      padding: 1px 6px;
+      border-radius: 4px;
+      font-size: 13px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Delete Your Bindex Account</h1>
+      <p>Permanently remove your account and all associated data.</p>
+    </header>
+
+    <section class="card">
+      <h2>Option 1 — Delete from inside the app (fastest)</h2>
+      <ol>
+        <li>Open the <strong>Bindex</strong> app and log in.</li>
+        <li>Tap the <strong>Settings</strong> icon.</li>
+        <li>Scroll to the <strong>Account</strong> section.</li>
+        <li>Tap <strong>Delete Account</strong>.</li>
+        <li>Confirm the action. Your account and all data will be permanently deleted.</li>
+      </ol>
+    </section>
+
+    <section class="card">
+      <h2>Option 2 — Request deletion by email</h2>
+      <p>
+        If you can't access the app, email us from the address linked to your
+        Bindex account and we'll delete it for you within 7 days.
+      </p>
+      <p>Please include in your email:</p>
+      <ul>
+        <li>Your account email address</li>
+        <li>A short note confirming you want the account deleted</li>
+      </ul>
+      <a class="email-btn"
+         href="mailto:admin@bindexofficial.com?subject=Delete%20my%20Bindex%20account&amp;body=Hello%2C%0A%0AI%20would%20like%20to%20permanently%20delete%20my%20Bindex%20account.%0A%0AAccount%20email%3A%20%5Byour%20email%5D%0A%0AThank%20you.">
+        Email admin@bindexofficial.com
+      </a>
+    </section>
+
+    <section class="card">
+      <h2>What will be deleted</h2>
+      <ul>
+        <li>Your user profile (email, display name, preferences)</li>
+        <li>All of your binders</li>
+        <li>All tracked cards, progress, and custom cards</li>
+        <li>Your authentication credentials</li>
+      </ul>
+
+      <h2 style="margin-top: 20px;">What is kept</h2>
+      <ul>
+        <li>
+          Anonymized or aggregated usage data that is no longer linked to you
+          (e.g. crash reports), which we retain to keep the app working.
+        </li>
+        <li>
+          Records we are legally required to retain (e.g. billing records for
+          purchases), retained only as long as required by law.
+        </li>
+      </ul>
+    </section>
+
+    <section class="card warning">
+      <h2>Important: Pro subscriptions</h2>
+      <p>
+        Deleting your Bindex account <strong>does not cancel</strong> an active
+        Bindex Pro subscription. Subscriptions are managed by Apple or Google,
+        not Bindex.
+      </p>
+      <p>To cancel your subscription:</p>
+      <ul>
+        <li>
+          <strong>iPhone/iPad:</strong> Settings → Apple ID → Subscriptions →
+          Bindex → Cancel.
+        </li>
+        <li>
+          <strong>Android:</strong> Google Play Store → Profile →
+          Payments &amp; subscriptions → Subscriptions → Bindex → Cancel.
+        </li>
+      </ul>
+    </section>
+
+    <footer>
+      &copy; Bindex &middot;
+      <a href="mailto:admin@bindexofficial.com" style="color: inherit;">admin@bindexofficial.com</a>
+    </footer>
+  </div>
+</body>
+</html>
